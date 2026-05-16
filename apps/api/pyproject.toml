@@ -1,0 +1,6 @@
+[project]
+name = "aleph-api"
+version = "0.0.0"
+description = "Future Aleph API skeleton"
+requires-python = ">=3.11"
+dependencies = ["fastapi", "uvicorn"]
