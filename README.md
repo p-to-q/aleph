@@ -1,161 +1,72 @@
-# repo-template
+# Aleph
 
-A **Seed** for p-to-q repositories: small enough to start from, disciplined enough to keep.
+> **For any output, find a high-quality short prompt that regenerates it.**
 
-This repository is a GitHub template and a framework suggestion for p-to-q projects. It gives a project a public surface, a light engineering discipline, a human/agent handoff path, and optional routes for stricter decision and research work.
+给定一个目标 output 和一个固定的模型,Aleph 寻找能生成它的**一个高质量的短 prompt** —— 一个尽量逼近这个 output 在该模型下的**阿莱夫**的候选。
 
-It is **not** a clone of Wittgenstein's product architecture. It keeps the collaboration traits that made that repository useful: clear entrypoints, small reviewable changes, explicit validation, source-aware decisions, and enough history for future humans and agents to understand why things exist.
+> 真正的"最短"无法证明:Kolmogorov 复杂度不可计算,prompt 空间是巨大的离散组合空间。Aleph 给出的是 **Pareto frontier 上的一个好解**,不是数学意义上的最小值。
 
-```text
-clear thesis -> visible artifact -> receipts or limitations -> short docs map -> license
-```
+## 核心洞见 — Prompt 是一种参数
 
-That is the p-to-q lightweight mode. Most new projects should begin there.
-
-## Use this template
-
-1. Pick one profile: `micro`, `standard`, `strict`, or `research-strict`.
-2. Keep the routes called by that profile.
-3. Delete or park every route that is not called.
-4. Rewrite blank templates for the project.
-5. Run `npm run lint` before publishing the repository.
-
-The template is intentionally file-first. The visible files are the contract; scripts only check that the contract is coherent.
-
-## Four profiles
-
-| Profile | Use when | Default shape |
+| | 传统训练 | Aleph |
 | --- | --- | --- |
-| `micro` | One artifact, demo, note, small internal tool, short-lived experiment. | Public files, README, license, minimal checks, lightweight discipline. |
-| `standard` | Reusable package, public tool, small site, multi-file project. | `micro` + issue/PR templates, labels, Dependabot, CodeQL when supported, support/security docs. |
-| `strict` | Long-lived package, SDK, service, infra, release-bearing or multi-maintainer repo. | `standard` + CODEOWNERS, ADR route, release/archive discipline, optional doctrine guardrail. |
-| `research-strict` | Research-driven, agent-assisted, prior-art-heavy, or execution-plan-heavy repo. | `strict` + RFCs, briefs, exec plans, handoff, full WORKFLOW, issue/PR ledger. |
+| 固定 | 输入、目标 | **模型权重、目标 output** |
+| 优化 | 模型权重 θ | **输入 prompt p** |
+| 目标 | minimize loss | **逼近 minimize \|p\|, s.t. d(f_θ(p), y) ≤ ε** |
 
-See [`docs/project-scale.md`](docs/project-scale.md) and [`docs/router.md`](docs/router.md) for the exact route matrix.
+Backpropagation 在权重空间里找近似最优权重;Aleph 在 prompt 空间里找近似最短 prompt。形式对偶 —— 但 prompt 空间是离散 token 序列,两边都是启发式搜索,只有候选解、没有可证明的最优解。
 
-## Template forms
+## 数学对象
 
-This repository uses three kinds of template content:
+对目标 output `y` 和模型 `θ`,理论最优长度 `L*(ε) = min{|p| : d(f_θ(p), y) ≤ ε}`。当 `ε → 0`,`L*(0)` 就是 `y` 在 `θ` 下的 Kolmogorov 复杂度 `K(y|θ)` —— 不可计算的下界。Aleph 实际报告 **`L̂(ε)`**:搜索找到的当前最佳已知上界。术语见 [`docs/glossary.md`](docs/glossary.md)。
 
-| Form | Meaning | Examples |
-| --- | --- | --- |
-| Blank template | A placeholder that must be rewritten before publishing. | [`docs/project-brief.md`](docs/project-brief.md), [`docs/glossary.md`](docs/glossary.md), ADR/RFC templates under [`optional/decisions/`](optional/decisions/). |
-| Structural template | A reusable directory or file shape. | [`.github/ISSUE_TEMPLATE/`](.github/ISSUE_TEMPLATE/), [`docs/handoff/`](docs/handoff/), [`templates/router/`](templates/router/). |
-| Instructional template | Guidance that should be adapted but mostly kept. | [`docs/engineering-discipline.md`](docs/engineering-discipline.md), [`AGENTS.md`](AGENTS.md), [`WORKFLOW.md`](WORKFLOW.md). |
+## 呈现形式
 
-If a route is not called, remove it. Unused process is not rigor; it is noise.
-
-## Default files
-
-The default face of the repository is deliberately small:
+致敬 [getcoleman.com](https://getcoleman.com/) —— 整个站点是一个可拖动滑条,用户在曲线上走一遍:
 
 ```text
-README.md
-LICENSE
-NOTICE
-CODE_OF_CONDUCT.md
-CONTRIBUTING.md
-SECURITY.md
-SUPPORT.md
-AGENTS.md
-PROMPT.md
-WORKFLOW.md
-.github/
-docs/
-scripts/
-templates/profiles/
-templates/router/
-optional/
+极限压缩 ←━━━━━━━●━━━━━━━→ 显式展开
+   K(y|θ)              y itself
 ```
 
-`optional/` contains heavier routes. They are part of the seed, but they are not automatically active in a project.
+拖动时实时显示当前点的 prompt / 长度 / 相似度 / 稳定性 / 压缩率。Coleman 的滑条是审美维度,Aleph 的是**信息论维度上的真实曲线**。
 
-## Optional routes
-
-| Route | Location | Enable when |
-| --- | --- | --- |
-| Decisions | [`optional/decisions/`](optional/decisions/) | A change creates durable policy, public API, release, security, or governance consequences. |
-| Research | [`optional/research/`](optional/research/) | Prior art or research directly changes implementation or roadmap. |
-| Exec plans | [`optional/exec-plans/`](optional/exec-plans/) | Work spans multiple PRs, agents, packages, or maintainers. |
-| History | [`optional/history/`](optional/history/) | Existing issues/PRs encode decisions that future contributors need. |
-| Release/archive | [`optional/release/`](optional/release/) | The repo has tagged releases or historical docs that should not be silently rewritten. |
-| GitHub strict workflows | [`optional/github/`](optional/github/) | You need doctrine guardrails, Dependabot auto-merge, release automation, or strict status labels. |
-| Agent rules | [`optional/agent-rules/`](optional/agent-rules/) | Humans use coding agents or Cursor-style rule routing. |
-
-## Samples
-
-### Micro sample
+## 技术栈
 
 ```text
-Keep: README, LICENSE, NOTICE, CONTRIBUTING, SECURITY, SUPPORT, basic CI, PR template, docs/engineering-discipline.md.
-Rewrite: README, docs/project-brief.md, docs/glossary.md, support/security contacts.
-Delete or park: optional/decisions, optional/research, optional/exec-plans, optional/history, release workflow, doctrine guardrail.
+Qwen3-8B-4bit + MLX + FastAPI + React
 ```
 
-### Standard sample
+跑在 M4 Max 上的黑客松版本。
 
-```text
-Keep: public files, issue templates, labels, Dependabot, CodeQL, link check, docs/surfaces.md.
-Use: docs/router.md to delete inactive routes.
-ADR/RFC: keep optional/decisions README only unless a durable decision appears.
-```
+## 非目标
 
-### Strict sample
+显式**不做**,留给 v2:Qwen3-32B、Llama 70B、full fine-tuning、完整梯度搜索、跨模型迁移、复杂数据库。详见 [`docs/project-brief.md`](docs/project-brief.md)。
 
-```text
-Keep: CODEOWNERS, ADR route, release/archive route, docs/review-gates.md, optional/github strict workflows when needed.
-Use: ADRs for public API, compatibility, license, release, governance, or security decisions.
-Delete: research briefs unless research changes implementation.
-```
+## 文档
 
-### Research-strict sample
+| 文件 | 用途 |
+| --- | --- |
+| [`docs/project-brief.md`](docs/project-brief.md) | scope、status、公共表面、非目标、receipt standard |
+| [`docs/glossary.md`](docs/glossary.md) | Aleph 的术语(L\*(ε)、K(y\|θ)、阿莱夫、自指 prompt …) |
+| [`docs/engineering-discipline.md`](docs/engineering-discipline.md) | 协作纪律 |
+| [`docs/index.md`](docs/index.md) | 文档索引 |
+| [`LICENSE`](LICENSE) | Apache-2.0 |
 
-```text
-Keep: AGENTS, PROMPT, WORKFLOW, docs/handoff, optional/research, optional/decisions, optional/exec-plans, optional/history.
-Use: Brief -> RFC -> ADR -> exec plan -> PR when research changes engineering direction.
-Agent rule: GitHub issue + labels + handoff brief is the dispatch contract; a human owns merge.
-```
+## Repository scaffolding
 
-## Human and agent routes
-
-**Human contributor:** read [`docs/contributor-map.md`](docs/contributor-map.md), then [`CONTRIBUTING.md`](CONTRIBUTING.md), then [`docs/engineering-discipline.md`](docs/engineering-discipline.md).
-
-**Agent contributor, or human using an agent:** paste [`PROMPT.md`](PROMPT.md) into the agent and attach a specific issue or handoff brief. [`AGENTS.md`](AGENTS.md) is the longer primer. [`WORKFLOW.md`](WORKFLOW.md) defines the light contract; optional agent rules live under [`optional/agent-rules/`](optional/agent-rules/).
-
-**Maintainer:** choose a profile, route the repository, update CODEOWNERS and contacts, rewrite blank templates, run checks, and record anything unresolved in [`docs/verification.md`](docs/verification.md).
-
-## Checks
-
-Run:
+This repository was seeded from a p-to-q **repo-template** **Seed**. Aleph is routed at the **micro** profile —— 最小流程,适配单 artifact 的短周期黑客松实验。其余 profile(**standard**、**strict**、**research-strict**)与完整路由矩阵保留在 [`docs/router.md`](docs/router.md) 和 [`docs/project-scale.md`](docs/project-scale.md) 中,作为脚手架而非 active 流程。模板自检暂经 `npm run lint` 保留,待 Aleph 有自己的代码级检查(pytest / ruff / eslint)后替换。
 
 ```bash
 npm run lint
 ```
 
-This runs:
+### Sample
 
 ```text
-scripts/doctor.mjs
-scripts/check-links.mjs
-scripts/check-template.mjs
-scripts/check-router.mjs
+Profile: micro
+Status: experimental (hackathon, M4 Max)
+Stack: Qwen3-8B-4bit + MLX + FastAPI + React
+Public surface: 可拖动的 L̂(ε) 滑条 Web UI
+Receipt: 固定预算下测得的 L̂(ε) 曲线 + 现场 demo
 ```
-
-See [`docs/checks.md`](docs/checks.md), [`docs/review-gates.md`](docs/review-gates.md), and [`docs/verification.md`](docs/verification.md).
-
-## License
-
-The default license is **Apache-2.0**, represented by [`LICENSE`](LICENSE), [`NOTICE`](NOTICE), and `package.json#license`. See [`docs/license-policy.md`](docs/license-policy.md) for exception guidance.
-
-## Sourcing and adaptation
-
-This seed adapts public source material and p-to-q practice rather than mirroring another repository. The strongest source threads are:
-
-- p-to-q organization tone: flat, printable, human-readable interfaces;
-- lightweight p-to-q repositories: short public thesis, visible artifact, limitations or receipts;
-- Wittgenstein public surfaces: README route split, AGENTS, PROMPT, WORKFLOW, GitHub health files;
-- Wittgenstein governance: engineering discipline, labels, CODEOWNERS, ADR/RFC/research lanes;
-- Wittgenstein orchestration path: research brief -> handoff -> WORKFLOW -> ADR-0017-style contract;
-- `Jah-yee/cursor-rules`: repository-first behavior, smallest correct change, rule routing, no drive-by refactor, stack-specific agent rules.
-
-See [`docs/source-ledger.md`](docs/source-ledger.md) for detailed mapping.

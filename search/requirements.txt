@@ -1,0 +1,15 @@
+# Aleph backend (search + live FastAPI).
+#
+# IMPORTANT: mlx-lm requires Apple Silicon (Mac M-series). This backend does NOT
+# run on Vercel / generic Linux x86. Deploy = run on the Mac and expose via a
+# tunnel, or rewrite Theta/Proposer onto a non-MLX runtime (see DEMO.md).
+#
+#   python3 -m venv .venv && source .venv/bin/activate
+#   pip install -r search/requirements.txt
+#   python3 search/server.py            # -> http://localhost:8000
+
+mlx-lm==0.31.3            # pulls mlx; Apple-Silicon only
+sentence-transformers==5.4.1   # embedding distortion metric (pulls torch, transformers)
+numpy<2                   # mlx 0.31 expects numpy 1.x
+fastapi==0.136.1
+uvicorn[standard]==0.40.0

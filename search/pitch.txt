@@ -1,0 +1,14 @@
+Aleph: for any output, a short prompt that regenerates it — an upper bound on the shortest.
+A prompt is a parameter — training fixes the data and tunes the weights; Aleph fixes the weights and tunes the prompt.
+So every output y has a shortest-prompt length at distortion ε: the fewest tokens that make a fixed model θ reproduce y.
+Push ε toward zero and that length approaches K(y|θ) — y's Kolmogorov complexity under the model, the smallest seed θ can unfold back into y.
+The left end is that limit: extreme compression, where the model's own knowledge does the work; the right end is the identity prompt, y pasted verbatim.
+Between them is a real rate–distortion curve: spend more prompt, buy more fidelity.
+Why it matters: it is a hard, comparable measure of how much a model already knows — how short a description of y already lives inside its weights.
+It makes "compression is intelligence" operational, measured backwards: not how well a model compresses data into weights, but how far a frozen model can re-compress any output.
+And it turns prompt engineering into a curve instead of folklore — you pick your point on the frontier: how short a prompt, for how much fidelity.
+The demo is real: a fixed local Qwen3 on this machine is θ; the same model proposes its own compressed prompts; distortion is embedding distance; the curve is the monotone best-known frontier.
+Example: a 24-token prompt that merely names the Gettysburg Address makes the model regenerate Lincoln almost exactly — distortion two thousandths — because the text already lives in θ.
+We never claim the minimum: K(y|θ) is uncomputable, so Aleph reports an upper bound — "we haven't found shorter," not "none exists."
+Which is the trick you are watching right now: this explanation is the output y, and the slider is Aleph expanding its own pitch from one compressed line into the full talk.
+The medium is the message — you did not need me to speak; you needed the right seed.

@@ -1,0 +1,55 @@
+/* Iosevka Etoile (latin + greek + symbols subset). */
+@font-face {
+  font-family: 'Iosevka Etoile';
+  src: url('/fonts/iosevka-etoile/IosevkaEtoile-Regular.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Iosevka Etoile';
+  src: url('/fonts/iosevka-etoile/IosevkaEtoile-Semibold.woff2') format('woff2');
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+}
+
+:root {
+  --site-bg: #222222;
+  --site-text: #ffffff;
+  --site-link: #aaaaaa;
+  --site-hr: #555555;
+  --site-code-bg: #2a2a2a;
+  --site-code-border: #3a3a3a;
+  --site-card-bg: #2a2a2a;
+  --site-selection-bg: #444444;
+  --site-selection-text: #ffffff;
+}
+
+::selection {
+  background-color: var(--site-selection-bg);
+  color: var(--site-selection-text);
+}
+
+html {
+  min-width: 360px;
+  font-size: 16px;
+  color-scheme: dark;
+  color: var(--site-text);
+  background-color: var(--site-bg);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background-color: var(--site-bg);
+  color: var(--site-text);
+  font-family: 'Iosevka Etoile', 'Noto Sans TC', 'PingFang TC', sans-serif;
+  font-size: 16px;
+  line-height: 1.45;
+  text-transform: lowercase;
+  -webkit-font-smoothing: antialiased;
+}

@@ -12,6 +12,17 @@ coverage/
 .tmp/
 tmp/
 .cache/
+.next/
+out/
+.vercel/
+*.tsbuildinfo
+
+# Heavy local-only assets / regenerable pipeline intermediates
+# (web/public/aleph-frontier.json IS committed; these are sources/intermediates)
+PkgTTC-*/
+*.ttc
+search/frontier.json
+search/frontier_rich.json
 
 # Logs
 *.log

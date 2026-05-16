@@ -2,6 +2,10 @@
 
 This template has four profiles. They describe the amount of process a project can justify. Choose the smallest profile that keeps the work understandable and safe.
 
+## Aleph routing
+
+Aleph is routed at **`micro`**: one artifact, one demo, a short-lived hackathon experiment on M4 Max. The `standard`, `strict`, and `research-strict` profiles below, and the optional routes they call, are kept as inert template scaffolding only — not active process. See [`project-brief.md`](project-brief.md).
+
 ## Profiles
 
 | Profile | Use when | Process budget |
