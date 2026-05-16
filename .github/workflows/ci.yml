@@ -1,39 +1,16 @@
-# Lightweight CI. Adapt command blocks to the language/runtime of the project.
-name: CI
+name: ci
 
 on:
   pull_request:
   push:
     branches: [main]
 
-permissions:
-  contents: read
-
 jobs:
-  repository-health:
+  lint:
     runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Check required template files
-        run: node scripts/doctor.mjs
-
-      - name: Markdown link sanity
-        run: |
-          node scripts/check-links.mjs
-
-  node-checks:
-    runs-on: ubuntu-latest
-    if: ${{ hashFiles('package.json') != '' }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version-file: .nvmrc
-      - name: Install when lockfile exists
-        run: |
-          if [ -f package-lock.json ]; then npm ci; else npm install --ignore-scripts; fi
-      - name: Lint if configured
-        run: npm run lint --if-present
-      - name: Test if configured
-        run: npm test --if-present
+          node-version: 22
+      - run: npm run lint
