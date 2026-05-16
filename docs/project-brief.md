@@ -1,56 +1,44 @@
 # Project Brief — Aleph
 
-> **For any output, find a high-quality short prompt that regenerates it.**
+Aleph is a reverse prompt compression workbench.
 
-## One-line purpose
+## One-line definition
 
-给定一个目标 output `y` 和一个固定的模型 `θ`,Aleph 寻找能生成它的**一个高质量的短 prompt** —— 一个尽量逼近 `y` 在该模型下的**阿莱夫**的候选。它给出的是 prompt rate-distortion 曲线 Pareto frontier 上的一个好解,**不是**数学意义上可证明的最小值。
+Given a target output, a fixed model, fixed decoding, fixed metric, and fixed search budget, Aleph searches for the shortest known prompt that can reproduce or approximate the target output and visualizes the compression path.
 
-面向:做 prompt engineering、模型能力度量、"compression is intelligence" 实证的人。
+## User promise
 
-## Profile
+Paste a target output, generate a path of candidate prompts, drag across the compression slider, and see how prompt length, target fit, stability, leakage, token loss, attribution, waveform, and eval results change.
 
-`micro` —— 一个 artifact、一个 demo、一个短周期实验(M4 Max 上的黑客松版本)。其余 `standard` / `strict` / `research-strict` 仅作为模板脚手架保留,见 [`router.md`](router.md) 与 [`project-scale.md`](project-scale.md)。
+## Developer promise
 
-## Status
+Every panel is driven by the same `AlephRun` contract. Fixture data, black-box observations, white-box observations, and future search adapters can evolve without rewriting the product around a new data shape.
 
-`experimental` —— 黑客松构建,接口与曲线形态都可能变。
+## Product intent
 
-## Public surfaces
+Aleph is designed for two audiences:
 
-- 可拖动的滑条 Web UI:用户在 L̂(ε) 曲线上从「极限压缩 `K(y|θ)`」走到「显式展开 `y` 本身」。
-- FastAPI 端点:给定目标 output 与失真点,返回**当前 prompt / 长度 / 相似度 / 稳定性 / 压缩率**。
+- **Users** who want an immediate, visual understanding of how a target output can be compressed into a prompt coordinate.
+- **Developers and researchers** who need clear data contracts, staged implementation, and honest labels for fixture, black-box, white-box, and simulated observations.
 
-## Experimental surfaces
+## Core interaction
 
-- 产出 L̂(ε) 的搜索 / 优化过程本身(启发式,预算敏感,不保证可复现到 token 级)。
-- "模型越大,最短 prompt 是否越短?" 这类跨尺寸对比实验(Qwen3 尺寸阶梯)。
+The interface centers on a compression slider, but the slider is not the only interaction. Users can also select Pareto points, inspect token loss, compare prompt/output pairs, view waveform and attribution, and run evaluation checks.
+
+## Constraint language
+
+Every run must record:
+
+- model theta;
+- decoding strategy d;
+- metric m;
+- search budget B;
+- leakage mode;
+- observation mode.
 
 ## Non-goals
 
-显式**不做**,留给 v2:
-
-- Qwen3-32B、Llama 70B 等更大模型;
-- full fine-tuning、完整梯度搜索;
-- 跨模型迁移;
-- 复杂数据库 / 持久化层。
-
-认识论上的非目标:**不声称**找到了可证明的最短 prompt。`L*(ε)` 含 Kolmogorov 复杂度,一般不可计算;Aleph 只报告**当前最佳已知上界 `L̂(ε)`** —— "还没找到更短的",不是"不存在更短的"。
-
-## Receipt standard
-
-什么算证据:
-
-- 在**固定搜索预算**下产出的一条 L̂(ε) 曲线 —— 每个 ε 点带 prompt / `|p|` / 相似度 / 稳定性 / 压缩率;
-- 可现场操作的滑条 demo;
-- 同一预算下的横向模型对比表(用于"再压缩能力"的相对度量)。
-
-## Sample
-
-```text
-Profile: micro
-Status: experimental (hackathon, M4 Max)
-Stack: Qwen3-8B-4bit + MLX + FastAPI + React
-Public surface: 可拖动的 L̂(ε) 滑条 Web UI
-Receipt: 固定预算下测得的 L̂(ε) 曲线 + 现场 demo
-```
+- No claim of absolute global shortest prompt.
+- No hidden white-box claims without logits or model internals.
+- No generic prompt-polishing workflow.
+- No assumption that context-window length is the semantic right endpoint.

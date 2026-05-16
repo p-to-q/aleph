@@ -1,42 +1,11 @@
-# Dependencies
 node_modules/
-.venv/
-venv/
-__pycache__/
-*.pyc
-
-# Build/test output
 dist/
 build/
-coverage/
-.tmp/
-tmp/
-.cache/
-.next/
-out/
-.vercel/
-*.tsbuildinfo
-
-# Heavy local-only assets / regenerable pipeline intermediates
-# (web/public/aleph-frontier.json IS committed; these are sources/intermediates)
-PkgTTC-*/
-*.ttc
-search/frontier.json
-search/frontier_rich.json
-
-# Logs
-*.log
-npm-debug.log*
-pnpm-debug.log*
-yarn-debug.log*
-
-# Environment
 .env
-.env.*
-!.env.example
-
-# OS/editor
+.env.local
 .DS_Store
-.idea/
-.vscode/*
-!.vscode/extensions.json
+*.log
+.cache/
+.pytest_cache/
+__pycache__/
+.venv/

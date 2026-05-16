@@ -1,0 +1,147 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "AlephRun",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["id", "createdAt", "target", "config", "candidates", "selectedCandidateId", "observations"],
+  "properties": {
+    "id": { "type": "string" },
+    "createdAt": { "type": "string" },
+    "target": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["text"],
+      "properties": {
+        "text": { "type": "string" },
+        "label": { "type": "string" }
+      }
+    },
+    "config": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["model", "decoding", "metric", "budget", "mode"],
+      "properties": {
+        "model": { "type": "string" },
+        "decoding": { "type": "string" },
+        "metric": { "type": "string" },
+        "mode": { "enum": ["unrestricted", "non_leaking"] },
+        "budget": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["candidates", "maxPromptTokens", "repeatedSamples"],
+          "properties": {
+            "candidates": { "type": "integer", "minimum": 0 },
+            "maxPromptTokens": { "type": "integer", "minimum": 0 },
+            "repeatedSamples": { "type": "integer", "minimum": 0 },
+            "timeLimitSeconds": { "type": "integer", "minimum": 0 }
+          }
+        }
+      }
+    },
+    "candidates": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/candidate" }
+    },
+    "selectedCandidateId": { "type": "string" },
+    "observations": { "$ref": "#/$defs/observations" }
+  },
+  "$defs": {
+    "candidate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "label", "prompt", "output", "tokens", "fit", "stability", "compression", "leakage"],
+      "properties": {
+        "id": { "type": "string" },
+        "label": { "type": "string" },
+        "prompt": { "type": "string" },
+        "output": { "type": "string" },
+        "tokens": { "type": "integer", "minimum": 0 },
+        "fit": { "type": "number", "minimum": 0, "maximum": 1 },
+        "stability": { "type": "number", "minimum": 0, "maximum": 1 },
+        "compression": { "type": "number", "minimum": 0, "maximum": 1 },
+        "leakage": { "type": "number", "minimum": 0, "maximum": 1 },
+        "nll": { "type": "number", "minimum": 0 },
+        "frontierRank": { "type": "integer", "minimum": 1 },
+        "note": { "type": "string" }
+      }
+    },
+    "observations": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["mode"],
+      "properties": {
+        "mode": { "enum": ["fixture", "mock", "black_box", "white_box", "simulated"] },
+        "tokenLoss": { "type": "array", "items": { "$ref": "#/$defs/tokenLoss" } },
+        "waveform": { "type": "array", "items": { "$ref": "#/$defs/waveform" } },
+        "attribution": { "type": "array", "items": { "$ref": "#/$defs/attribution" } },
+        "lossCurve": { "type": "array", "items": { "$ref": "#/$defs/lossCurve" } },
+        "exposureVectors": { "type": "array", "items": { "$ref": "#/$defs/exposure" } },
+        "evalSuite": { "type": "array", "items": { "$ref": "#/$defs/eval" } }
+      }
+    },
+    "tokenLoss": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["token", "loss"],
+      "properties": {
+        "token": { "type": "string" },
+        "loss": { "type": "number" },
+        "rank": { "type": "integer" },
+        "topAlternatives": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "waveform": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["index", "value"],
+      "properties": {
+        "index": { "type": "integer" },
+        "value": { "type": "number" },
+        "token": { "type": "string" }
+      }
+    },
+    "attribution": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["promptToken", "score"],
+      "properties": {
+        "promptToken": { "type": "string" },
+        "score": { "type": "number" },
+        "deltaLossIfRemoved": { "type": "number" },
+        "supports": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "lossCurve": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["step", "loss"],
+      "properties": {
+        "step": { "type": "integer" },
+        "loss": { "type": "number" },
+        "candidateId": { "type": "string" }
+      }
+    },
+    "exposure": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "level", "value"],
+      "properties": {
+        "name": { "type": "string" },
+        "level": { "enum": ["high", "mid", "low", "new_exposure", "reduced"] },
+        "value": { "type": "number" },
+        "note": { "type": "string" }
+      }
+    },
+    "eval": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "passed"],
+      "properties": {
+        "name": { "type": "string" },
+        "passed": { "type": "boolean" },
+        "score": { "type": "number" },
+        "note": { "type": "string" }
+      }
+    }
+  }
+}

@@ -1,53 +1,37 @@
 # Checks
 
-This repository uses lightweight template checks, not project-specific golden tests.
-
-Wittgenstein-style projects may add true golden fixtures later, but this seed should not imply that every repository needs them. The default checks only verify that the template is coherent after routing.
-
-## Commands
+The root lint command is intentionally lightweight and can run without installing frontend dependencies:
 
 ```bash
-npm run doctor
-npm run check:links
-npm run check:template
-npm run check:router
 npm run lint
 ```
 
-## What they check
-
-| Command | Purpose |
-| --- | --- |
-| `npm run doctor` | Required public files, license consistency, core docs. |
-| `npm run check:links` | Relative Markdown links across active and optional content. |
-| `npm run check:template` | Profile matrix and README sample sections. |
-| `npm run check:router` | Router/profile docs and optional route locations. |
-| `npm run lint` | All of the above. |
-
-## Template matrix
-
-[`checks/profile-matrix.json`](../checks/profile-matrix.json) records the minimum files promised by each profile. It is a seed-level contract, not a complete project test plan.
-
-## Golden tests
-
-Use true golden tests only when the project produces outputs that should be stable byte-for-byte or semantically over time. Examples:
+It runs:
 
 ```text
-rendered artifact snapshots
-compiled package surfaces
-CLI output fixtures
-schema validation examples
-research receipt summaries
+scripts/doctor.mjs
+scripts/check-links.mjs
+scripts/check-placeholders.mjs
+scripts/check-maintenance-routes.mjs
+scripts/check-repo.mjs
 ```
 
-Keep those project-specific tests in the project that needs them. Do not keep a `goldens/` directory just to look rigorous.
+## What these checks prove
 
-## Sample
+- Required repository files exist.
+- Local Markdown links resolve.
+- Template placeholders are not left in active files.
+- Maintenance route language matches the current artifact-first shape.
+- The sample run fixture has enough candidates and observation data.
+- Reference screenshots are not kept in the archive.
+- `optional/` is not active as a template leftover.
+- `THESIS.md`, `docs/open-questions.md`, `docs/strategy.md`, `docs/quality-bar.md`, and `docs/repository-shape.md` are present.
 
-```text
-After routing a standard project:
-1. Delete unused optional routes.
-2. Update checks/profile-matrix.json only if the profile promises changed.
-3. Run npm run lint.
-4. Record the result in docs/verification.md.
-```
+## What these checks do not prove
+
+- The React app builds; that requires `npm install` and `npm run build`.
+- Any real model search is implemented.
+- Token loss, attribution, or waveform values are real model internals.
+- External URLs are still live.
+
+Record broader checks in `docs/verification.md`.

@@ -1,21 +1,22 @@
 {
-  "name": "p-to-q-repo-template",
+  "name": "aleph",
+  "version": "0.0.0",
   "private": true,
-  "version": "0.4.0",
-  "description": "Seed-positioned p-to-q repository template with router, profiles, optional governance routes, and human/agent handoff.",
   "type": "module",
+  "license": "Apache-2.0",
   "engines": {
     "node": ">=20.19"
   },
+  "workspaces": [
+    "apps/web",
+    "packages/core",
+    "packages/ui",
+    "packages/fixtures"
+  ],
   "scripts": {
-    "doctor": "node scripts/doctor.mjs",
-    "check:links": "node scripts/check-links.mjs",
-    "check:template": "node scripts/check-template.mjs",
-    "check:router": "node scripts/check-router.mjs",
-    "sync:github-ledger": "node scripts/sync-github-ledger.mjs",
-    "labels:print": "node scripts/apply-labels.mjs",
-    "lint": "npm run doctor && npm run check:links && npm run check:template && npm run check:router",
-    "test": "npm run lint"
-  },
-  "license": "Apache-2.0"
+    "lint": "node scripts/doctor.mjs && node scripts/check-links.mjs && node scripts/check-placeholders.mjs && node scripts/check-maintenance-routes.mjs && node scripts/check-repo.mjs",
+    "dev": "npm --workspace apps/web run dev",
+    "build": "npm --workspace apps/web run build",
+    "test": "node scripts/check-repo.mjs"
+  }
 }

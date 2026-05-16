@@ -1,31 +1,18 @@
 # Glossary — Aleph
 
-项目术语。保持短而稳定。
+**Target output**: The text the user wants a model to reproduce or approximate.
 
-## 核心对象
+**Prompt coordinate**: A prompt treated as a coordinate into a model's output space.
 
-- **Aleph / 阿莱夫** — 博尔赫斯《阿莱夫》(1945)中包含所有点的那个点。在本项目里:一个极短的 prompt 种子,经模型 `θ` 解码后展开成整个目标 output。
-- **output `y`** — 目标产物。固定不变,是被压缩的对象。
-- **模型 `θ`** — 固定的、权重冻结的模型。充当"通用图灵机 / 解码器"。本项目默认 Qwen3-8B-4bit。
-- **prompt `p`** — 被优化的对象。对偶于传统训练里的"模型权重"。prompt 空间是离散 token 序列,梯度走不动,只能启发式搜索。
-- **失真 `d` / `ε`** — output 与 `f_θ(p)` 之间的距离,以及允许的失真上限。`ε` 越小要求越逐字一致。
+**Shortest found**: The shortest prompt discovered under the current model, decoding, metric, and budget.
+It is not a proof of global optimality.
 
-## 曲线
+**Explicit reconstruction**: A baseline prompt that includes the target output directly, such as "reproduce this text".
 
-- **`L*(ε)`** — 理论最优长度:`min{|p| : d(f_θ(p), y) ≤ ε}`。一般**不可计算**,只能逼近。
-- **`K(y|θ)`** — `ε → 0` 时的 `L*(0)`,即 `y` 在模型 `θ` 下的 Kolmogorov 复杂度。曲线左端的理论下界,永远只能逼近、无法证明触达。
-- **`L̂(ε)`** — Aleph 实际报告的量:通过搜索找到的**当前最佳已知上界**。能说"还没找到更短的",不能说"不存在更短的"。
-- **rate-distortion curve** — `L*(ε)` 这条曲线本身。典型形态:允许粗略相似时极短,要求逐字一致时接近原文长度。
-- **Pareto frontier** — 长度与精度的权衡前沿。Aleph 给的是前沿上的一个高质量近似点。
+**Leakage score**: A measure of how much target text appears directly in the prompt.
 
-## 两端
+**Pareto frontier**: Candidate prompts that trade off prompt length, fit, stability, and leakage without being dominated.
 
-- **左端 / model limit** — `K(y|θ)`。极短、高度依赖模型内部知识的候选。只能 asymptotically approachable。
-- **右端 / Identity Prompt(自指 prompt)** — `p = y` 本身,`|p| = |y|`,`ε = 0`。平凡且可构造的上界;任何 output 都能达到。意义是"再长就只是噪声"。两端认识论地位不对称。
+**Token loss**: Per-token target loss or a fixture approximation of it.
 
-## 度量
-
-- **相似度** — `f_θ(p)` 与 `y` 的接近程度(`1 − d`)。
-- **稳定性** — 同一 prompt 多次采样下 output 的一致程度。
-- **压缩率** — `|y| / |p|`,种子相对原文压了多少。
-- **滑条** — 呈现形式。用户用手指在 L̂(ε) 曲线上从极限压缩走到显式展开,实时显示当前点各项指标。致敬 getcoleman.com 的可拖动审美滑条,但这里走的是信息论维度上的真实曲线。
+**Inherent signal**: The part of the generated output that appears to be unfolded from model knowledge rather than copied from the prompt.

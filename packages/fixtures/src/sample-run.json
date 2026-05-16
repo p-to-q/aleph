@@ -1,0 +1,376 @@
+{
+  "id": "run-borges-coordinate-001",
+  "createdAt": "2026-05-16T00:00:00.000Z",
+  "target": {
+    "label": "Prompt coordinate aphorism",
+    "text": "Prompt is not an instruction. Prompt is a coordinate in the model's library of possible continuations."
+  },
+  "config": {
+    "model": "fixture/local-model",
+    "decoding": "greedy temperature=0 seed=0",
+    "metric": "semantic-fit + exactness + leakage",
+    "budget": {
+      "candidates": 5,
+      "maxPromptTokens": 160,
+      "repeatedSamples": 10,
+      "timeLimitSeconds": 180
+    },
+    "mode": "unrestricted"
+  },
+  "selectedCandidateId": "description",
+  "candidates": [
+    {
+      "id": "aleph-limit",
+      "label": "Shortest Found Candidate",
+      "prompt": "Aleph prompt coordinate",
+      "output": "An Aleph-like prompt is a small coordinate that unfolds a larger region of meaning from the model.",
+      "tokens": 3,
+      "fit": 0.52,
+      "stability": 0.31,
+      "compression": 0.86,
+      "leakage": 0.0,
+      "nll": 3.44,
+      "frontierRank": 1,
+      "note": "Shortest found in the fixture, not a proof of global optimality."
+    },
+    {
+      "id": "symbolic",
+      "label": "Symbolic Seed",
+      "prompt": "prompt != command; prompt = coordinate",
+      "output": "A prompt is less a command than a coordinate, pointing into the model's space of continuations.",
+      "tokens": 6,
+      "fit": 0.69,
+      "stability": 0.44,
+      "compression": 0.73,
+      "leakage": 0.04,
+      "nll": 2.62,
+      "frontierRank": 2,
+      "note": "Short and legible, but less stable."
+    },
+    {
+      "id": "concept",
+      "label": "Concept Coordinate",
+      "prompt": "prompt as coordinate in LLM output space",
+      "output": "A prompt can be viewed as a coordinate: a compact signal that guides an LLM toward one area of its output space.",
+      "tokens": 7,
+      "fit": 0.76,
+      "stability": 0.58,
+      "compression": 0.68,
+      "leakage": 0.09,
+      "nll": 2.05,
+      "frontierRank": 3,
+      "note": "Good demonstration of non-verbatim compression."
+    },
+    {
+      "id": "description",
+      "label": "Descriptive Prompt",
+      "prompt": "Write a concise aphorism explaining that prompts locate regions in a language model's output space, rather than acting as simple commands.",
+      "output": "A prompt is not merely an instruction; it is a coordinate that points the model toward a region of possible continuations.",
+      "tokens": 20,
+      "fit": 0.89,
+      "stability": 0.77,
+      "compression": 0.09,
+      "leakage": 0.28,
+      "nll": 1.16,
+      "frontierRank": 4,
+      "note": "Best default point for the product narrative."
+    },
+    {
+      "id": "explicit",
+      "label": "Explicit Reconstruction",
+      "prompt": "Please reproduce the following text exactly: Prompt is not an instruction. Prompt is a coordinate in the model's library of possible continuations.",
+      "output": "Prompt is not an instruction. Prompt is a coordinate in the model's library of possible continuations.",
+      "tokens": 22,
+      "fit": 0.99,
+      "stability": 0.96,
+      "compression": 0.0,
+      "leakage": 0.91,
+      "nll": 0.24,
+      "frontierRank": 5,
+      "note": "Natural upper-bound baseline with high leakage."
+    }
+  ],
+  "observations": {
+    "mode": "fixture",
+    "tokenLoss": [
+      {
+        "token": "Prompt",
+        "loss": 0.12,
+        "rank": 1,
+        "topAlternatives": [
+          "A",
+          "The"
+        ]
+      },
+      {
+        "token": "is",
+        "loss": 0.28,
+        "rank": 1
+      },
+      {
+        "token": "not",
+        "loss": 0.36,
+        "rank": 2
+      },
+      {
+        "token": "an",
+        "loss": 0.21,
+        "rank": 1
+      },
+      {
+        "token": "instruction.",
+        "loss": 0.92,
+        "rank": 4
+      },
+      {
+        "token": "Prompt",
+        "loss": 0.18,
+        "rank": 1
+      },
+      {
+        "token": "is",
+        "loss": 0.22,
+        "rank": 1
+      },
+      {
+        "token": "a",
+        "loss": 0.31,
+        "rank": 1
+      },
+      {
+        "token": "coordinate",
+        "loss": 1.18,
+        "rank": 5
+      },
+      {
+        "token": "in",
+        "loss": 0.64,
+        "rank": 3
+      },
+      {
+        "token": "the",
+        "loss": 0.27,
+        "rank": 1
+      },
+      {
+        "token": "model's",
+        "loss": 0.74,
+        "rank": 3
+      },
+      {
+        "token": "library",
+        "loss": 1.41,
+        "rank": 8
+      },
+      {
+        "token": "of",
+        "loss": 0.19,
+        "rank": 1
+      },
+      {
+        "token": "possible",
+        "loss": 0.82,
+        "rank": 4
+      },
+      {
+        "token": "continuations.",
+        "loss": 1.09,
+        "rank": 5
+      }
+    ],
+    "waveform": [
+      {
+        "index": 0,
+        "value": 0.2
+      },
+      {
+        "index": 1,
+        "value": 0.34
+      },
+      {
+        "index": 2,
+        "value": 0.49
+      },
+      {
+        "index": 3,
+        "value": 0.31
+      },
+      {
+        "index": 4,
+        "value": 0.77
+      },
+      {
+        "index": 5,
+        "value": 0.42
+      },
+      {
+        "index": 6,
+        "value": 0.38
+      },
+      {
+        "index": 7,
+        "value": 0.56
+      },
+      {
+        "index": 8,
+        "value": 0.88
+      },
+      {
+        "index": 9,
+        "value": 0.62
+      },
+      {
+        "index": 10,
+        "value": 0.29
+      },
+      {
+        "index": 11,
+        "value": 0.72
+      },
+      {
+        "index": 12,
+        "value": 0.95
+      },
+      {
+        "index": 13,
+        "value": 0.37
+      },
+      {
+        "index": 14,
+        "value": 0.68
+      },
+      {
+        "index": 15,
+        "value": 0.81
+      }
+    ],
+    "attribution": [
+      {
+        "promptToken": "prompt",
+        "score": 0.22,
+        "deltaLossIfRemoved": 0.12,
+        "supports": [
+          "Prompt"
+        ]
+      },
+      {
+        "promptToken": "coordinate",
+        "score": 0.71,
+        "deltaLossIfRemoved": 0.42,
+        "supports": [
+          "coordinate"
+        ]
+      },
+      {
+        "promptToken": "LLM",
+        "score": 0.41,
+        "deltaLossIfRemoved": 0.19,
+        "supports": [
+          "model's"
+        ]
+      },
+      {
+        "promptToken": "space",
+        "score": 0.58,
+        "deltaLossIfRemoved": 0.31,
+        "supports": [
+          "library",
+          "continuations"
+        ]
+      }
+    ],
+    "lossCurve": [
+      {
+        "step": 0,
+        "loss": 4.82
+      },
+      {
+        "step": 25,
+        "loss": 2.44
+      },
+      {
+        "step": 50,
+        "loss": 1.38
+      },
+      {
+        "step": 100,
+        "loss": 0.91
+      },
+      {
+        "step": 150,
+        "loss": 0.76
+      }
+    ],
+    "exposureVectors": [
+      {
+        "name": "Verbatim leakage",
+        "level": "mid",
+        "value": 28,
+        "note": "Some target phrasing appears in the prompt."
+      },
+      {
+        "name": "Semantic drift",
+        "level": "low",
+        "value": 14,
+        "note": "Meaning is mostly preserved."
+      },
+      {
+        "name": "Format collapse",
+        "level": "low",
+        "value": 8
+      },
+      {
+        "name": "Entity loss",
+        "level": "low",
+        "value": 11
+      },
+      {
+        "name": "Stochastic failure",
+        "level": "mid",
+        "value": 23
+      },
+      {
+        "name": "Over-compression",
+        "level": "reduced",
+        "value": 16
+      }
+    ],
+    "evalSuite": [
+      {
+        "name": "semantic fit",
+        "passed": true,
+        "score": 0.89
+      },
+      {
+        "name": "format fit",
+        "passed": true,
+        "score": 0.92
+      },
+      {
+        "name": "leakage under threshold",
+        "passed": true,
+        "score": 0.28
+      },
+      {
+        "name": "exact match",
+        "passed": false,
+        "score": 0.52
+      },
+      {
+        "name": "repeatability",
+        "passed": true,
+        "score": 0.77
+      },
+      {
+        "name": "cross-seed stability",
+        "passed": false,
+        "score": 0.61
+      },
+      {
+        "name": "compression validity",
+        "passed": true,
+        "score": 0.09
+      }
+    ]
+  }
+}
