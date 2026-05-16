@@ -1,12 +1,18 @@
-p-to-q Repo Template
+Aleph
+Copyright 2026 Aleph contributors.
 
-This template is inspired by the public p-to-q/Wittgenstein repository and the
-p-to-q organization profile. It is not a verbatim copy. Files marked as adapted
-preserve the intent of the original surfaces while replacing project-specific
-architecture with template-ready governance language.
+This repository was structured from the p-to-q repo-template conventions: file-first
+public surface, explicit repository shape, short docs map, visible artifacts, and
+receipts or limitations.
 
-Primary references:
-- https://github.com/p-to-q/wittgenstein
-- https://github.com/p-to-q/wittgenstein/tree/main/.github
-- https://github.com/p-to-q/wittgenstein/tree/main/docs
-- https://github.com/p-to-q/.github/tree/main/profile
+Short-term notice:
+- Hackathon v0 is frontend-led.
+- The current prototype uses fixtures and mock observation values unless marked otherwise.
+- The project does not claim to find a globally shortest prompt.
+
+Long-term notice:
+- Future model integrations must label whether they are black-box, white-box, or simulated.
+- Future releases must preserve the distinction between explicit reconstruction,
+  shortest found prompt, and non-leaking prompt search.
+- If model internals are not available, token loss, NLL, layer scan, and attribution
+  panels must not be represented as true white-box measurements.

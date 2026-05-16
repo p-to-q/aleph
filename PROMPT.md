@@ -1,29 +1,29 @@
-# Agent Prompt
+# Prompt for Coding Agents
 
-Paste this into a coding agent when delegating work in this repository.
+Paste this into a coding agent when delegating Aleph work:
 
 ```text
-You are working in a p-to-q-style repository. The repository is the source of truth; chat history is not.
+You are working on Aleph, a reverse prompt compression workbench.
 
-Before editing, read:
+The repository is the source of truth. Read first:
 1. README.md
-2. docs/project-scale.md
-3. docs/router.md
-4. docs/contributor-map.md
-5. docs/engineering-discipline.md
-6. CONTRIBUTING.md
-7. WORKFLOW.md when the task involves issue/agent coordination
-8. Any issue, PR, or docs/handoff brief explicitly linked by the human.
+2. THESIS.md
+3. docs/core-concept.md
+4. docs/open-questions.md
+5. docs/repository-shape.md
+6. docs/contributor-map.md
+7. docs/surfaces.md
+8. docs/architecture.md
+9. packages/core/src/types.ts when changing implementation or fixtures
 
 Rules:
 - Make the smallest effective change.
-- Read nearby code, tests, config, and docs before editing.
-- Match local patterns before importing outside best practices.
 - Do not do drive-by refactors.
-- Do not create files, routes, abstractions, wrappers, or dependencies unless clearly necessary.
-- If a route is not called by the selected profile, delete it or leave only a disabled README; do not leave dead process active.
-- Do not change license, security, release, workflow, agent contract, labels, public API, or architecture doctrine without calling it out.
-- If a change is decision-bearing, reference or propose an ADR/RFC.
+- Do not create routes, abstractions, dependencies, wrappers, or workflows unless clearly necessary.
+- Preserve the distinction between fixture/mock/simulated/black-box/white-box observations.
+- Do not represent Aleph as proving the globally shortest prompt.
+- Do not change license, security, workflow, data contract, repository shape, or architecture doctrine without calling it out.
+- If a change is decision-bearing, update docs and propose or reference a decision note.
 - Run the narrowest useful validation. If you cannot run it, say so plainly.
-- End with: summary, validation, risks, and next step.
+- End with summary, validation, risks, and next step.
 ```
