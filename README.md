@@ -8,7 +8,20 @@ Read the full project thesis in [THESIS.md](THESIS.md).
 
 ## The image
 
-In Borges' image, the Aleph is a point in space that contains every other point. Seen from any angle, it reveals the universe at once: no overlap, no transparency, no obstruction. In that tiny sphere, the narrator sees seas, dawns and dusks, crowds across the Americas, a silver web at the center of a pyramid, a broken labyrinth called London, every mirror in his bedroom, grapes and snow and tobacco and metal and vapor in a California garden, the convex equatorial desert and each grain of sand, Beatriz Viterbo in Inverness, his own face, his own viscera, and all the words in the repository you are reading now.
+> In Borges' image, the Aleph is a point in space that contains every other point. 
+> Seen from any angle, it reveals the universe at once: no overlap, no veil, no obstruction. 
+> In that tiny sphere, the narrator sees：
+
+- the sea, dawn and dusk, and the crowds of the Americas
+- a silver spiderweb at the center of a pyramid
+- a shattered labyrinth — London
+- every mirror in his bedroom
+- grapes, snow, tobacco, metal, and steam in a California garden
+- the red desert, and every grain of sand
+- Beatriz Viterbo in Inverness, and the unreadable letter she wrote to Daneri
+- his own face, his own inner body
+- every word in the book now being read
+- and everything else
 
 Aleph adopts that image for model output space: the model contains a finite library of possible continuations, and a prompt is a coordinate that opens one region of that space.
 
@@ -71,18 +84,18 @@ apps/web/static/aleph-atlas-console.html
 The current maintainer strategy is console-first, fixture-backed, and adapter-ready. If model runtime fails, the static prototype and fixture run must still communicate the thesis.
 
 
-- Ship a frontend-led Hackathon console using fixtures and mock observations.
-- Preserve the compression slider as the main interaction.
-- Make target input, current prompt, model output, Pareto frontier, token loss, search dial, waveform, attribution, exposure vectors, and eval suite work from one `AlephRun` contract.
-- Mark every mocked or simulated observation clearly.
+[ ] Ship a frontend-led Hackathon console using fixtures and mock observations.
+[ ] Preserve the compression slider as the main interaction.
+[ ] Make target input, current prompt, model output, Pareto frontier, token loss, search dial, waveform, attribution, exposure vectors, and eval suite work from one `AlephRun` contract.
+[ ] Mark every mocked or simulated observation clearly.
 
 ## Long-term plan
 
-- Add a model-adapter API with black-box and local white-box routes.
-- Support repeated sampling, leakage scoring, and Pareto reranking.
-- Add teacher-forced likelihood and token-level loss when logits are available.
-- Add deletion ablation, prompt-token attribution, non-leaking mode, saved runs, cross-model transfer, and research reports.
+[ ] Add a model-adapter API with black-box and local white-box routes.
+[ ] Support repeated sampling, leakage scoring, and Pareto reranking.
+[ ] Add teacher-forced likelihood and token-level loss when logits are available.
+[ ] Add deletion ablation, prompt-token attribution, non-leaking mode, saved runs, cross-model transfer, and research reports.
 
 ## License
 
-Apache-2.0. See [LICENSE](LICENSE) and [NOTICE](NOTICE).
+Apache-2.0.
