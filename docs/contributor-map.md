@@ -1,36 +1,50 @@
 # Contributor Map
 
-This map exists so humans and agents can find the right surface without reading the whole repository.
+Read this file when you are new to the repository and need to know where work belongs.
 
-## If you are new
+## Start here
 
-1. Read `README.md`.
-2. Read `docs/project-brief.md`.
-3. Read `CONTRIBUTING.md`.
-4. Read `docs/engineering-discipline.md` before editing.
+1. `README.md` — short public entrypoint.
+2. `THESIS.md` — full product and research thesis.
+3. `docs/core-concept.md` — settled, open, and deferred decisions.
+4. `docs/open-questions.md` — active uncertainty and maintainer leanings.
+5. `docs/surfaces.md` — which surfaces are stable, experimental, stub, or archived.
+6. `docs/repository-shape.md` — why the repository is shaped this way.
+7. `docs/architecture.md` — implementation shape and data flow.
+8. `docs/strategy.md` — Hackathon and long-term path, including fallbacks.
+9. `docs/quality-bar.md` — review checklist and language/code boundaries.
+10. `docs/maintainer-review.md` — current maintainer judgment and next best changes.
 
-## If you are using an agent
+## Product and UI
 
-1. Paste `PROMPT.md` into the agent.
-2. Link the issue and any `docs/handoff/*.md` brief.
-3. Ask for summary, validation, risk, and next step at the end.
+- `docs/ui/product-principles.md`
+- `docs/ui/interaction-model.md`
+- `docs/ui/visual-system.md`
+- `apps/web/`
+- `packages/ui/`
 
-## If you are changing governance
+## Core contracts
 
-Read:
+- `packages/core/src/types.ts` — shared `AlephRun` contract.
+- `schemas/aleph-run.schema.json` — JSON shape for run fixtures or API output.
+- `packages/fixtures/src/sample-run.json` — current fixture used by the demo.
 
-- `WORKFLOW.md`
-- `docs/labels.md`
-- `.github/CODEOWNERS`
-- `.github/PULL_REQUEST_TEMPLATE.md`
-- `optional/decisions/README.md`
+## Research and framing
 
-## If you are changing public behavior
+- `docs/research/research-process.md` — research receipts and how each source changes the project.
+- `docs/research/prior-art.md` — relationship to ARCA, GCG, inversion, and instrumentation references.
+- `docs/research/implementation-routes.md` — staged implementation options.
+- `docs/research/compression-definition.md` — model-relative description-length framing.
 
-Check whether the change touches:
+## Process
 
-- README or docs;
-- release notes;
-- public API or CLI;
-- support/security expectations;
-- stable vs experimental status in `docs/surfaces.md`.
+- `AGENTS.md` — agent/human operating rules.
+- `PROMPT.md` — short prompt for delegated coding work.
+- `WORKFLOW.md` — lightweight work contract.
+- `docs/decisions/` — durable decisions.
+- `docs/plans/` — multi-step implementation plans.
+
+## Archive
+
+- `docs/archive/` preserves early prototypes and summarized decisions.
+- Archive files are receipts, not product contracts.

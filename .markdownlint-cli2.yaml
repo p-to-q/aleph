@@ -1,8 +1,0 @@
-globs:
-  - "**/*.md"
-ignores:
-  - "node_modules/**"
-  - "dist/**"
-config:
-  MD013: false
-  MD033: false

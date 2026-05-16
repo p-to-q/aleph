@@ -1,28 +1,6 @@
-# Adapted from Wittgenstein's Dependabot posture: group routine updates,
-# keep major changes visible to humans, and avoid dependency PR noise.
 version: 2
 updates:
-  - package-ecosystem: "github-actions"
-    directory: "/"
-    schedule:
-      interval: "weekly"
-    labels:
-      - "dependencies"
-      - "slice/infra"
-    groups:
-      github-actions:
-        patterns:
-          - "*"
-
   - package-ecosystem: "npm"
     directory: "/"
     schedule:
       interval: "weekly"
-    labels:
-      - "dependencies"
-      - "slice/infra"
-    groups:
-      npm-minor-patch:
-        update-types:
-          - "minor"
-          - "patch"

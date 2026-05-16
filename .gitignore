@@ -1,31 +1,11 @@
-# Dependencies
 node_modules/
-.venv/
-venv/
-__pycache__/
-*.pyc
-
-# Build/test output
 dist/
 build/
-coverage/
-.tmp/
-tmp/
-.cache/
-
-# Logs
-*.log
-npm-debug.log*
-pnpm-debug.log*
-yarn-debug.log*
-
-# Environment
 .env
-.env.*
-!.env.example
-
-# OS/editor
+.env.local
 .DS_Store
-.idea/
-.vscode/*
-!.vscode/extensions.json
+*.log
+.cache/
+.pytest_cache/
+__pycache__/
+.venv/

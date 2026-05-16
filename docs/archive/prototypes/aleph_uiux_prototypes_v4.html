@@ -1,0 +1,718 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Aleph – UI/UX Prototypes v4</title>
+<style>
+  :root{
+    --bg:#ebe7df;
+    --page:#f2efea;
+    --card:#f7f5f2;
+    --line:#d8d2c9;
+    --line-2:#c6c0b7;
+    --text:#151313;
+    --muted:#7d776f;
+    --soft:#a59d93;
+    --accent:#a85827;
+    --accent-2:#d0a649;
+    --green:#79bf96;
+    --red:#cf5d51;
+    --black:#0c0c0d;
+    --panel-radius:26px;
+    --shadow:0 1px 0 rgba(0,0,0,.05), inset 0 0 0 1px rgba(0,0,0,.05);
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{
+    margin:0;
+    color:var(--text);
+    background:linear-gradient(180deg,#e8e3d8 0%, #efebe4 12%, #eeebe5 100%);
+    font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    letter-spacing:-0.01em;
+  }
+  .mono{font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; letter-spacing:.08em}
+  .serif{font-family: "Iowan Old Style","Baskerville","Times New Roman",Georgia,serif; letter-spacing:-.03em}
+  .didot{font-family: Didot, "Bodoni 72", "Times New Roman", Georgia, serif; letter-spacing:-.04em}
+  .app{display:grid; grid-template-columns: 240px 1fr; min-height:100vh}
+  .sidebar{
+    position:sticky; top:0; height:100vh; padding:26px 18px; border-right:1px solid rgba(0,0,0,.07);
+    background:rgba(251,249,245,.62); backdrop-filter: blur(12px);
+  }
+  .brand{display:flex; gap:12px; align-items:center; margin-bottom:28px}
+  .brand img{width:32px; height:32px; object-fit:contain}
+  .brand .name{font-size:32px; line-height:1; font-weight:500}
+  .nav-group{display:flex; flex-direction:column; gap:8px; margin-bottom:24px}
+  .nav-group .label{font-size:11px; text-transform:uppercase; color:var(--muted); letter-spacing:.22em; margin:12px 0 6px}
+  .nav-link{display:block; padding:10px 12px; border-radius:14px; color:var(--text); text-decoration:none; font-size:14px; background:transparent; border:1px solid transparent}
+  .nav-link:hover{background:#f6f3ee; border-color:rgba(0,0,0,.06)}
+  .summary{
+    margin-top:auto; padding:14px; border-radius:18px; background:#f6f4ef; box-shadow:var(--shadow);
+    font-size:12px; color:var(--muted); line-height:1.6;
+  }
+  .main{padding:24px; display:flex; flex-direction:column; gap:22px}
+  .hero{
+    background:linear-gradient(180deg, rgba(255,255,255,.52), rgba(255,255,255,.3));
+    border:1px solid rgba(0,0,0,.06); border-radius:32px; padding:28px; box-shadow:var(--shadow)
+  }
+  .hero-top{display:flex; justify-content:space-between; gap:16px; align-items:flex-start}
+  .hero h1{margin:0; font-size:48px; line-height:1.02; max-width:10ch}
+  .hero p{margin:12px 0 0; max-width:78ch; color:#4c4640; line-height:1.7; font-size:16px}
+  .chiprow{display:flex; flex-wrap:wrap; gap:10px; margin-top:16px}
+  .chip{padding:9px 13px; border-radius:999px; background:rgba(255,255,255,.6); border:1px solid rgba(0,0,0,.07); font-size:12px; color:#5e5851}
+  .grid-3{display:grid; grid-template-columns:repeat(3,1fr); gap:16px}
+  .grid-4{display:grid; grid-template-columns:repeat(4,1fr); gap:16px}
+  .card{background:var(--card); border:1px solid rgba(0,0,0,.07); border-radius:var(--panel-radius); box-shadow:var(--shadow)}
+  .card.pad{padding:20px}
+  .sec-title{font-size:12px; text-transform:uppercase; letter-spacing:.22em; color:var(--muted); margin-bottom:10px}
+  .kicker{font-size:11px; text-transform:uppercase; letter-spacing:.24em; color:var(--muted)}
+  .big{font-size:18px; font-weight:600; margin:2px 0 0}
+  .list{display:flex; flex-direction:column; gap:10px; padding-left:18px; color:#4c4640; line-height:1.65; font-size:14px}
+  .pill-label{display:inline-flex; padding:4px 8px; font-size:11px; border-radius:999px; background:#efe9df; color:#736d65; margin-right:6px}
+  .prototype{padding:18px; background:#f4f1ec; border:1px solid rgba(0,0,0,.07); border-radius:32px; box-shadow:var(--shadow)}
+  .proto-head{display:flex; justify-content:space-between; gap:16px; align-items:flex-start; margin-bottom:18px}
+  .proto-title{font-size:34px; margin:0}
+  .proto-meta{display:flex; gap:10px; flex-wrap:wrap}
+  .meta-chip{padding:8px 12px; border-radius:999px; font-size:12px; border:1px solid rgba(0,0,0,.07); background:#faf8f5; color:#5e5851}
+  .proto-wrap{display:grid; grid-template-columns:1fr 330px; gap:18px; align-items:start}
+  .proto-stage{min-height:880px; border-radius:32px; border:1px solid rgba(0,0,0,.07); background:#f7f5f0; padding:18px; position:relative; overflow:hidden}
+  .annotation{padding:18px; border-radius:30px; background:#f7f5f2; border:1px solid rgba(0,0,0,.07); position:sticky; top:24px}
+  .annotation h4{font-size:42px; line-height:1; margin:6px 0 10px}
+  .annotation p{color:#4e4943; font-size:14px; line-height:1.75}
+  .annotation .btns{display:flex; flex-wrap:wrap; gap:8px; margin:16px 0}
+  .annotation .btns span{padding:8px 10px; border-radius:999px; background:#f0ebe4; font-size:12px; color:#5f584e}
+  .annotation .info{margin-top:16px; font-size:14px; line-height:1.7; color:#292624}
+  .annotation .info .label{display:block; font-size:11px; letter-spacing:.2em; text-transform:uppercase; color:var(--muted); margin-top:14px}
+  .browser-bar{height:42px; border-radius:24px 24px 0 0; display:flex; align-items:center; gap:8px; padding:0 16px; background:#e7e4de; border:1px solid rgba(0,0,0,.06); border-bottom:none}
+  .browser-bar .dot{width:10px; height:10px; border-radius:50%; background:#b7b0a6}
+  .browser-bar .url{margin-left:10px; font-size:13px; color:#868077}
+  .topbar{display:flex; justify-content:space-between; gap:12px; align-items:center; margin-bottom:14px}
+  .logo-lockup{display:flex; align-items:center; gap:10px}
+  .logo-lockup img{width:34px; height:34px; object-fit:contain}
+  .logo-lockup .word{font-size:26px; line-height:1}
+  .toolbar{display:flex; gap:10px; flex-wrap:wrap}
+  .toolbar .tool{padding:8px 12px; background:#fcfbf8; border:1px solid rgba(0,0,0,.06); border-radius:999px; color:#666056; font-size:13px}
+  .stage-grid-2{display:grid; grid-template-columns:1.2fr .72fr; gap:18px}
+  .stage-col{display:flex; flex-direction:column; gap:16px}
+  .soft-card{background:#fbfaf7; border:1px solid rgba(0,0,0,.07); border-radius:30px; padding:16px}
+  .metrics{display:grid; grid-template-columns:repeat(4,1fr); gap:12px}
+  .metric{background:#fbfaf7; border:1px solid rgba(0,0,0,.07); border-radius:22px; padding:14px}
+  .metric .v{font-size:28px; font-weight:700; line-height:1}
+  .metric .l{margin-top:6px; font-size:11px; letter-spacing:.2em; text-transform:uppercase; color:var(--muted)}
+  .promptbox{font-size:15px; line-height:1.7; color:#25211f}
+  .small-curve{height:125px; position:relative}
+  .small-curve svg{width:100%; height:100%}
+  .pareto-map{height:640px; background-image:linear-gradient(rgba(0,0,0,.07) 1px,transparent 1px),linear-gradient(90deg,rgba(0,0,0,.07) 1px,transparent 1px); background-size:64px 64px; border-radius:28px; position:relative; overflow:hidden}
+  .pareto-map .axis{position:absolute; font-size:11px; color:#7a736b; letter-spacing:.2em; text-transform:uppercase}
+  .pareto-map .axis.x{left:50%; bottom:10px; transform:translateX(-50%)}
+  .pareto-map .axis.y{left:4px; top:50%; transform:rotate(-90deg) translateX(-50%); transform-origin:left top}
+  .pareto-line{position:absolute; inset:0}
+  .point{position:absolute; width:18px; height:18px; border-radius:50%; background:var(--point, #111); box-shadow:0 0 0 14px rgba(0,0,0,.06); border:1px solid rgba(255,255,255,.7); cursor:pointer}
+  .point.active{box-shadow:0 0 0 16px rgba(0,0,0,.08), 0 0 0 3px rgba(255,255,255,.8)}
+  .point[data-key="p4"]{--point:#b5612b}
+  .point[data-key="p5"]{--point:#d1aa4c}
+  .input-block .textarea{min-height:132px; padding:14px 16px; font-size:15px; line-height:1.75; border-radius:20px; background:#fffdfa; border:1px solid rgba(0,0,0,.07)}
+  .slider-shell{padding:12px 14px; border-radius:18px; border:1px solid rgba(0,0,0,.07); background:#fcfbf8}
+  input[type="range"]{-webkit-appearance:none; appearance:none; width:100%; height:4px; background:#d2ccc3; border-radius:999px; outline:none}
+  input[type="range"]::-webkit-slider-thumb{-webkit-appearance:none; appearance:none; width:18px; height:18px; border-radius:50%; background:#111; border:2px solid white; box-shadow:0 0 0 1px rgba(0,0,0,.08)}
+  .token-grid{display:grid; grid-template-columns:repeat(10,minmax(0,1fr)); gap:8px; margin-top:16px}
+  .token{display:flex; align-items:center; justify-content:center; padding:7px 6px; border-radius:10px; background:#ece9e4; color:#3d3834; font-size:13px}
+  .loss-cells{display:grid; grid-template-columns:repeat(10,1fr); gap:6px; margin-top:14px}
+  .loss-cell{height:42px; border-radius:8px; background:var(--shade)}
+  .intervention{font-size:15px; line-height:1.8; color:#2f2c29}
+  .panel-stack{display:flex; flex-direction:column; gap:16px}
+  .wave-dark{background:#040506; color:#ededed; border:1px solid rgba(255,255,255,.08); padding:18px; border-radius:28px}
+  .wave-title{font-size:12px; text-transform:uppercase; letter-spacing:.2em; color:#8d8d90; margin-bottom:14px}
+  .barfield{height:160px; border:1px solid rgba(255,255,255,.11); padding:18px; display:flex; gap:7px; align-items:flex-end}
+  .barfield span{display:block; width:14px; background:#ebebeb}
+  .tendency .row{margin-top:26px}
+  .tendency .lab{display:flex; justify-content:space-between; color:#8d8d90; font-size:18px; letter-spacing:.05em; margin-bottom:8px}
+  .track{height:4px; background:#0f1012; position:relative}
+  .track .fill{height:100%; background:#efefef; width:40%}
+  .console-grid{display:grid; grid-template-columns:1.1fr .9fr; gap:16px}
+  .console-bottom{display:grid; grid-template-columns:1.4fr .8fr .8fr; gap:16px; margin-top:16px}
+  .rowline{display:flex; align-items:center; justify-content:space-between; gap:10px; margin:12px 0}
+  .dots{display:flex; gap:5px}
+  .dots span{width:10px; height:10px; border-radius:50%; background:#d9d5cf}
+  .dots span.dark{background:#7d776f}
+  .dots span.red{background:#cf5d51}
+  .dots span.green{background:#8bcf9d}
+  .progress{height:8px; border-radius:999px; background:#ece7e0; overflow:hidden}
+  .progress > span{display:block; height:100%; background:#55504b; width:42%}
+  .hero-band{display:grid; grid-template-columns:1fr 1fr 1fr; gap:16px; margin-top:16px}
+  .tiny{font-size:12px; color:#7d776f; line-height:1.65}
+  .token-pill-row{display:flex; flex-wrap:wrap; gap:12px; margin-top:12px}
+  .token-pill{padding:10px 14px; border-radius:12px; background:#f1eeea; font-family:ui-monospace, monospace; font-size:18px; color:#4c4842; box-shadow:inset 0 -1px 0 rgba(0,0,0,.05)}
+  .token-pill.dark{background:#8f8a83; color:#fff}
+  .compare-box{padding:14px; border-radius:20px; border:1px solid rgba(0,0,0,.07); background:#fffdfa; margin-top:12px}
+  .strike{color:#a24a43; text-decoration:line-through; text-decoration-thickness:2px; background:rgba(207,93,81,.12)}
+  .hi{background:rgba(214,171,88,.32); padding:0 2px; border-radius:4px}
+  .matrix-grid{display:grid; grid-template-columns:repeat(3,1fr); gap:16px}
+  .footnote{font-size:13px; line-height:1.75; color:#58534b}
+  .hero-banner{display:grid; grid-template-columns:1.05fr .95fr; gap:18px; margin-top:20px}
+  .faux-input{padding:12px 16px; border-radius:18px; background:#fffdfa; border:1px solid rgba(0,0,0,.07); font-size:15px; color:#47413b}
+  .button{display:inline-flex; align-items:center; gap:8px; padding:10px 14px; border-radius:999px; background:#111; color:white; font-size:13px; text-decoration:none}
+  .button.secondary{background:#f7f3ee; color:#44403c; border:1px solid rgba(0,0,0,.07)}
+  .dial{width:78px; height:78px; border-radius:50%; background:conic-gradient(#111 0 210deg, #d6d0c8 210deg 360deg); position:relative; animation:spin 3.4s linear infinite}
+  .dial::before{content:""; position:absolute; inset:11px; border-radius:50%; background:#fcfbf8; box-shadow: inset 0 0 0 1px rgba(0,0,0,.06)}
+  .dial::after{content:"SEARCH"; position:absolute; inset:0; display:flex; align-items:center; justify-content:center; font-size:9px; letter-spacing:.18em; color:#6d675f; animation:none}
+  @keyframes spin{from{transform:rotate(0)}to{transform:rotate(360deg)}}
+  .ringrow{display:flex; align-items:center; gap:14px}
+  .legend{display:flex; gap:12px; flex-wrap:wrap; font-size:12px; color:#5e5851}
+  .legend i{display:inline-block; width:10px; height:10px; border-radius:50%; margin-right:6px; vertical-align:middle}
+  .two-col{display:grid; grid-template-columns:1fr 1fr; gap:16px}
+  .dim{color:#7d776f}
+  .section-title{font-size:28px; margin:0 0 6px}
+  .section-sub{font-size:15px; color:#58534b; line-height:1.7; margin-bottom:14px}
+  .component-gallery{display:grid; grid-template-columns:repeat(2,1fr); gap:16px}
+  .comp{padding:18px; border-radius:26px; background:#f8f6f2; border:1px solid rgba(0,0,0,.07)}
+  .comp h5{margin:0 0 8px; font-size:20px}
+  .exposure-row{display:grid; grid-template-columns:140px 1fr 60px; align-items:center; gap:12px; margin:12px 0}
+  .exposure-bar{height:10px; border-radius:999px; background:#ece8e1; position:relative; overflow:hidden}
+  .exposure-bar span{display:block; height:100%; width:50%; background:#79736b}
+  .ev-grid{display:grid; grid-template-columns:repeat(3,1fr); gap:10px; margin-top:10px}
+  .ev-grid .cell{height:44px; border-radius:10px; background:#ece8e1; display:flex; align-items:center; justify-content:center; color:#605b54; font-weight:600}
+  .layer-list .item{display:grid; grid-template-columns:1fr 80px; gap:12px; align-items:center; margin:14px 0}
+  .layer-list .item .bar{height:8px; border-radius:999px; background:#ece8e1; overflow:hidden}
+  .layer-list .item .bar span{display:block; height:100%; background:#cf5d51}
+  .product-page{display:grid; grid-template-columns:1.02fr .98fr; gap:16px}
+  .subgrid{display:grid; grid-template-columns:1fr 1fr; gap:16px}
+  .launch-box{padding:26px; min-height:360px; display:flex; flex-direction:column; justify-content:space-between; background:radial-gradient(circle at top right, rgba(208,166,73,.18), transparent 35%), #fbfaf6; border-radius:30px; border:1px solid rgba(0,0,0,.07)}
+  .launch-box h2{font-size:50px; line-height:.95; margin:0 0 12px}
+  .launch-box p{font-size:16px; color:#4f4942; line-height:1.75; max-width:46ch}
+  .experiment-box{min-height:360px; background:#fbfaf6; border-radius:30px; border:1px solid rgba(0,0,0,.07); padding:18px}
+  .footer-note{padding:16px 20px; background:#f7f4ef; border-radius:22px; border:1px solid rgba(0,0,0,.07); font-size:14px; color:#5a554d; line-height:1.7}
+  @media (max-width: 1280px){
+    .app{grid-template-columns:1fr}
+    .sidebar{position:relative; height:auto; border-right:none; border-bottom:1px solid rgba(0,0,0,.07)}
+    .proto-wrap, .product-page, .stage-grid-2, .console-grid, .console-bottom, .matrix-grid, .grid-3, .grid-4, .component-gallery, .hero-band, .hero-banner{grid-template-columns:1fr}
+    .proto-stage{min-height:auto}
+    .annotation{position:relative; top:auto}
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <aside class="sidebar">
+    <div class="brand">
+      <img src="ghostwriter_images/context/301a0eff-0b96-5728-b80f-dc8f1beea638.png" alt="Aleph logo" style="background:#111;border-radius:8px;padding:2px" />
+      <div class="name serif">Aleph</div>
+    </div>
+    <div class="nav-group">
+      <div class="label">交付目录</div>
+      <a class="nav-link" href="#strategy">01 · 归类与取舍</a>
+      <a class="nav-link" href="#components">02 · 组件面板</a>
+      <a class="nav-link" href="#p1">03 · Prototype A</a>
+      <a class="nav-link" href="#p2">04 · Prototype B</a>
+      <a class="nav-link" href="#p3">05 · Prototype C</a>
+      <a class="nav-link" href="#p4">06 · Prototype D</a>
+    </div>
+    <div class="nav-group">
+      <div class="label">统一测试文案</div>
+      <a class="nav-link" href="#">"Prompt is not an instruction. Prompt is a coordinate in the model’s library of possible continuations."</a>
+    </div>
+    <div class="summary">
+      <strong>这次交付的目标：</strong><br>
+      不是再做“20 个方向草图”，而是把 Aleph 收束成一套更可执行的网页原型系统：<br><br>
+      ① 先做信息架构归类；<br>
+      ② 再把必须要有的二级可视化面板抽象成组件；<br>
+      ③ 最后给出 4 个更成熟、可观测、可阅读、且不抢主滑条与 Prompt 输入输出的网页版本。
+    </div>
+  </aside>
+
+  <main class="main">
+    <section class="hero card" id="strategy">
+      <div class="hero-top">
+        <div>
+          <div class="kicker">Aleph · refined delivery</div>
+          <h1 class="didot">从“灵感拼贴”进入“可执行的产品原型”</h1>
+          <p>
+            我把你的意图重新归纳为：<strong>Aleph 的主舞台永远是滑条与 Prompt 输入/输出</strong>；其他可视化必须降级为<strong>可观测、可阅读、可交互的二级面板</strong>。
+            这些面板不是为了炫技，而是为压缩路径提供证据：它解释 <em>为什么这个 prompt 在这里</em>、<em>它稳定吗</em>、<em>信息是否泄露</em>、<em>loss 和 attribution 如何变化</em>。
+          </p>
+          <div class="chiprow">
+            <span class="chip">参考风格：Aquin / Akyne 式研究型产品界面</span>
+            <span class="chip">主隐喻：Compression Slider / Pareto Frontier</span>
+            <span class="chip">定位：Launching Page + Product Page + Experiment Page 合一</span>
+            <span class="chip">方法：高复现风格 + 自主结构设计</span>
+          </div>
+        </div>
+        <div class="ringrow">
+          <div class="dial"></div>
+          <div class="tiny">
+            <div><strong>Mini Dial / Loading</strong></div>
+            <div>用小仪表盘替代传统 spinner，既符合研究仪器感，也不抢主界面。</div>
+          </div>
+        </div>
+      </div>
+      <div class="hero-band">
+        <div class="card pad">
+          <div class="sec-title">必须要有 · Must-have</div>
+          <div class="list">
+            <div><span class="pill-label">Core</span> 主滑条 / Pareto 路径，且必须有明确的左右极：Shortest Found ↔ Explicit Reconstruction。</div>
+            <div><span class="pill-label">Core</span> Target 输入、Current Prompt、Model Output / Compare 的三者闭环。</div>
+            <div><span class="pill-label">Core</span> Dashboard 最少 5 项：Prompt Length、Fit、Stability、Compression、Leakage。</div>
+            <div><span class="pill-label">Core</span> 二级可视化面板：Pareto Frontier、Token Loss、Dial、Waveform。</div>
+          </div>
+        </div>
+        <div class="card pad">
+          <div class="sec-title">可选增强 · Recommended</div>
+          <div class="list">
+            <div><span class="pill-label">Add-on</span> Loss Curve、Step & Loss、Attribution Score、Inherent Signal。</div>
+            <div><span class="pill-label">Add-on</span> Exposure per Vector、Children Layer Scan、Eval Suite。</div>
+            <div><span class="pill-label">Add-on</span> White-box / Black-box 模式切换。</div>
+            <div><span class="pill-label">Add-on</span> 点击地图点 / token hover / 删除实验 / compare diff 等轻交互。</div>
+          </div>
+        </div>
+        <div class="card pad">
+          <div class="sec-title">暂时拒绝 · Defer / Trim</div>
+          <div class="list">
+            <div><span class="pill-label">Later</span> 不把所有分析都塞进首屏；避免让 Aleph 看起来像“万能观测台”。</div>
+            <div><span class="pill-label">Later</span> 不做太重的后端承诺：比如严格最短、完整 ARCA/GCG、复杂白盒优化。</div>
+            <div><span class="pill-label">Later</span> 不让二级面板抢占主要版面；尤其不要取代主滑条或 prompt/output。</div>
+            <div><span class="pill-label">Later</span> 不把 context window 当作产品主逻辑，只作为边界参考。</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="card pad" id="components">
+      <div class="section-title didot">二级面板组件库</div>
+      <div class="section-sub">这些面板将被拆解为可复用组件，作为 UI/UX 原型里的“secondary panels”。它们必须观测性强、信息密度高、视觉成熟，但又不应该抢主滑条与 Prompt I/O 的核心地位。</div>
+      <div class="component-gallery">
+        <div class="comp">
+          <div class="sec-title">01 · Pareto Frontier</div>
+          <h5>Pareto Atlas Panel</h5>
+          <div class="tiny">用二维地图显式展示离散候选点，而不是让用户被迫相信一条连续曲线。点选后联动右侧 Prompt / Output 面板。</div>
+          <div class="small-curve"><svg viewBox="0 0 400 120"><path d="M20,95 C90,40 180,24 380,18" fill="none" stroke="#111" stroke-width="4"/><circle cx="90" cy="75" r="8" fill="#111"/><circle cx="180" cy="57" r="8" fill="#111"/><circle cx="292" cy="39" r="8" fill="#b5612b"/><circle cx="355" cy="26" r="8" fill="#d0a649"/></svg></div>
+        </div>
+        <div class="comp">
+          <div class="sec-title">02 · Token Loss</div>
+          <h5>Per-token Loss Heatfield</h5>
+          <div class="tiny">把 target token / character 与对应 loss 一一映射，形成高级感强的局部热力结构。是白盒模式下最能体现“研究感”的面板之一。</div>
+          <div class="token-pill-row">
+            <span class="token-pill">Prompt</span><span class="token-pill">is</span><span class="token-pill dark">not</span><span class="token-pill">an</span><span class="token-pill">instruction.</span>
+          </div>
+          <div class="loss-cells">
+            <div class="loss-cell" style="--shade:#dedddb"></div><div class="loss-cell" style="--shade:#c9c8c8"></div><div class="loss-cell" style="--shade:#888682"></div><div class="loss-cell" style="--shade:#cfcecc"></div><div class="loss-cell" style="--shade:#6f6d6d"></div><div class="loss-cell" style="--shade:#dbd9d8"></div><div class="loss-cell" style="--shade:#ccc9c7"></div><div class="loss-cell" style="--shade:#b8b6b4"></div><div class="loss-cell" style="--shade:#8d8a86"></div><div class="loss-cell" style="--shade:#a8a5a2"></div>
+          </div>
+        </div>
+        <div class="comp">
+          <div class="sec-title">03 · Loading Dial</div>
+          <h5>Compact Search Dial</h5>
+          <div class="tiny">用一个小仪表盘表示“正在搜索 / 正在压缩”，视觉角色强，但版面占用极低。适合放在 dashboard 角落或 search controls 中。</div>
+          <div class="ringrow" style="margin-top:16px"><div class="dial"></div><div class="tiny">Scanning candidate prompts...<br>search budget 61% · 14 candidates</div></div>
+        </div>
+        <div class="comp">
+          <div class="sec-title">04 · Waveform</div>
+          <h5>Cognitive Waveform</h5>
+          <div class="tiny">借鉴 Aquin / Akyne 的仪器感表达，把输出的内在信号与倾向分布做成“波形 + 频谱”。适合黑盒模式的感性总览。</div>
+          <div class="wave-dark" style="margin-top:16px">
+            <div class="wave-title mono">cognitive_waveform</div>
+            <div class="barfield"><span style="height:32%"></span><span style="height:41%"></span><span style="height:74%"></span><span style="height:72%"></span><span style="height:15%"></span><span style="height:5%"></span><span style="height:64%"></span><span style="height:73%"></span><span style="height:68%"></span><span style="height:44%"></span><span style="height:9%"></span><span style="height:76%"></span><span style="height:55%"></span><span style="height:65%"></span><span style="height:73%"></span><span style="height:77%"></span><span style="height:69%"></span><span style="height:71%"></span><span style="height:82%"></span><span style="height:79%"></span><span style="height:78%"></span><span style="height:44%"></span><span style="height:36%"></span><span style="height:72%"></span><span style="height:61%"></span><span style="height:64%"></span><span style="height:59%"></span><span style="height:58%"></span><span style="height:46%"></span><span style="height:80%"></span></div>
+          </div>
+        </div>
+        <div class="comp">
+          <div class="sec-title">05 · Loss Curve / Step & Loss</div>
+          <h5>Optimization Glimpse</h5>
+          <div class="tiny">不是完整训练面板，而是“搜索过程快照”。用于表达当前 prompt 候选是如何被搜索出来的。</div>
+          <div class="small-curve"><svg viewBox="0 0 400 120"><path d="M20,18 C80,46 120,60 200,76 S320,88 380,97" fill="none" stroke="#111" stroke-width="3"/><circle cx="20" cy="18" r="5" fill="#111"/><circle cx="130" cy="59" r="6" fill="#111"/><circle cx="210" cy="78" r="6" fill="#b5612b"/><text x="18" y="112" font-size="12" fill="#7d776f">step 25 · loss 1.61</text></svg></div>
+        </div>
+        <div class="comp">
+          <div class="sec-title">06 · Exposure / Layer / Eval</div>
+          <h5>Safety & Structure Trio</h5>
+          <div class="tiny">如果 Aleph 需要更“研究平台”的气质，这一组是最合适的扩展：风险暴露、局部层扫描、以及评测套件概览。</div>
+          <div class="legend"><span><i style="background:#111"></i>high</span><span><i style="background:#9b968f"></i>mid</span><span><i style="background:#d0ccc6"></i>low</span><span><i style="background:#cf5d51"></i>new exposure</span><span><i style="background:#8bcf9d"></i>reduced</span></div>
+          <div class="layer-list"><div class="item"><div class="bar"><span style="width:44%"></span></div><div class="tiny">44%</div></div><div class="item"><div class="bar"><span style="width:29%; background:#d0a649"></span></div><div class="tiny">29%</div></div><div class="item"><div class="bar"><span style="width:16%; background:#99948d"></span></div><div class="tiny">16%</div></div></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="prototype" id="p1">
+      <div class="proto-head">
+        <div>
+          <div class="kicker">Version A · Launch + Experiment</div>
+          <h2 class="proto-title didot">Pareto Atlas</h2>
+        </div>
+        <div class="proto-meta">
+          <span class="meta-chip">主心智：地图点选 + 主滑条协同</span>
+          <span class="meta-chip">风格：Aquin 的极简研究界面</span>
+          <span class="meta-chip">适合：首推版本 / 最平衡</span>
+        </div>
+      </div>
+      <div class="proto-wrap">
+        <div>
+          <div class="browser-bar"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="url mono">aleph.run/atlas</span></div>
+          <div class="proto-stage">
+            <div class="topbar">
+              <div class="logo-lockup"><img src="ghostwriter_images/context/c0f6170c-9140-5479-aa08-4bbc3197642c.png" alt="Aleph logo"><div class="word serif">Aleph</div></div>
+              <div class="toolbar"><span class="tool">click node</span><span class="tool">frontier only</span><span class="tool">metric: fit</span><span class="tool">show slider</span></div>
+            </div>
+            <div class="stage-grid-2">
+              <div class="soft-card">
+                <div class="pareto-map" id="paretoMap">
+                  <svg class="pareto-line" viewBox="0 0 1000 1000" preserveAspectRatio="none"><path d="M60,560 C280,360 460,230 930,90" fill="none" stroke="#2b2928" stroke-width="7"/></svg>
+                  <div class="axis y mono">target fit →</div>
+                  <div class="axis x mono">prompt length →</div>
+                  <div class="point" data-key="p1" style="left:8%; top:77%"></div>
+                  <div class="point" data-key="p2" style="left:24%; top:56%"></div>
+                  <div class="point" data-key="p3" style="left:44%; top:38%"></div>
+                  <div class="point active" data-key="p4" style="left:69%; top:24%"></div>
+                  <div class="point" data-key="p5" style="left:86%; top:15%"></div>
+                </div>
+              </div>
+              <div class="stage-col">
+                <div class="soft-card">
+                  <div class="sec-title">Selected Point</div>
+                  <div class="big" id="selectedLabel">Descriptive Prompt</div>
+                  <div class="tiny" id="selectedMeta">31 tokens · 89% similarity · 28% leakage</div>
+                </div>
+                <div class="metrics">
+                  <div class="metric"><div class="v" id="mTokens">31</div><div class="l">tokens</div></div>
+                  <div class="metric"><div class="v" id="mFit">89%</div><div class="l">fit</div></div>
+                  <div class="metric"><div class="v" id="mStable">77%</div><div class="l">stable</div></div>
+                  <div class="metric"><div class="v" id="mFrontier">#2</div><div class="l">frontier</div></div>
+                </div>
+                <div class="soft-card">
+                  <div class="sec-title">Prompt</div>
+                  <div class="promptbox" id="selectedPrompt">Write a concise aphorism explaining that prompts locate regions in a model’s output space.</div>
+                </div>
+                <div class="soft-card">
+                  <div class="sec-title">Compression Slider</div>
+                  <div class="slider-shell"><input type="range" min="1" max="5" value="4" id="atlasSlider"></div>
+                  <div class="tiny" style="margin-top:10px">Shortest Found ←→ Explicit Reconstruction</div>
+                  <div class="small-curve"><svg viewBox="0 0 400 110"><path d="M24,88 C68,76 112,46 194,28 S318,14 372,10" fill="none" stroke="#111" stroke-width="4"/><circle cx="298" cy="24" r="8" fill="#b5612b"/></svg></div>
+                </div>
+                <div class="soft-card">
+                  <div class="sec-title">Target / Output</div>
+                  <div class="tiny"><strong>Target:</strong> Prompt is not an instruction. Prompt is a coordinate in the model’s library of possible continuations.</div>
+                  <div class="compare-box"><strong>Output:</strong> A prompt is not merely an instruction; it is a coordinate that points a model toward a region of possible continuations.</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <aside class="annotation">
+          <div class="kicker">Direction 01</div>
+          <h4 class="didot">Pareto Atlas</h4>
+          <p>这是最推荐的主版本。核心不是让滑条一枝独大，而是让<strong>主滑条 + 地图点选</strong>共同组成“压缩路径”的可视化。用户既能拖动，也能直接选择离散候选点。</p>
+          <div class="btns"><span>click node</span><span>frontier rank</span><span>compare output</span><span>use in hero</span></div>
+          <div class="info">
+            <span class="label">slider weight</span>
+            30%：滑条是核心叙事入口，但要被地图点选补强；最主要的“选择行为”其实发生在 Pareto Map 上。 <br>
+            <span class="label">must-have panels</span>
+            Pareto Frontier、Dashboard、Compression Slider、Prompt / Output。 <br>
+            <span class="label">secondary panels</span>
+            Loss Curve 仅保留为小面板；防止抢走地图的主导权。 <br>
+            <span class="label">font</span>
+            Didot / Bodoni 72 / Georgia，适合偏品牌化的首页与产品页。
+          </div>
+        </aside>
+      </div>
+    </section>
+
+    <section class="prototype" id="p2">
+      <div class="proto-head">
+        <div>
+          <div class="kicker">Version B · White-box lab</div>
+          <h2 class="proto-title">Probability Microscope</h2>
+        </div>
+        <div class="proto-meta">
+          <span class="meta-chip">主心智：token loss / NLL / deletion sensitivity</span>
+          <span class="meta-chip">风格：科学仪器感</span>
+          <span class="meta-chip">适合：实验页 / 深度模式</span>
+        </div>
+      </div>
+      <div class="proto-wrap">
+        <div class="proto-stage" style="background:#f0f0ef">
+          <div class="topbar">
+            <div class="logo-lockup"><img src="ghostwriter_images/context/c0f6170c-9140-5479-aa08-4bbc3197642c.png" alt="Aleph logo"><div class="word serif">Aleph</div></div>
+            <div class="toolbar"><span class="tool">white-box mode</span><span class="tool">teacher-forced NLL</span><span class="tool">token hover</span></div>
+          </div>
+          <div class="stage-grid-2">
+            <div class="soft-card" style="min-height:720px">
+              <div class="sec-title">Target Probability Field</div>
+              <div class="didot" style="font-size:52px; line-height:.96; margin-bottom:18px; font-weight:700">Per-token target loss</div>
+              <div class="token-grid">
+                <div class="token">Prompt</div><div class="token">is</div><div class="token">not</div><div class="token">an</div><div class="token">instruction.</div><div class="token">Prompt</div><div class="token">is</div><div class="token">a</div><div class="token">coordinate</div><div class="token">in</div>
+                <div class="token">the</div><div class="token">model</div><div class="token">space.</div>
+              </div>
+              <div class="loss-cells" style="grid-template-columns:repeat(9,1fr); margin-top:30px">
+                <div class="loss-cell" style="--shade:#d9d9d9"></div><div class="loss-cell" style="--shade:#bfbfc0"></div><div class="loss-cell" style="--shade:#969696"></div><div class="loss-cell" style="--shade:#c9c9ca"></div><div class="loss-cell" style="--shade:#646465"></div><div class="loss-cell" style="--shade:#d4d4d5"></div><div class="loss-cell" style="--shade:#bdbdbf"></div><div class="loss-cell" style="--shade:#b3b3b5"></div><div class="loss-cell" style="--shade:#7f7f81"></div>
+                <div class="loss-cell" style="--shade:#afafb1"></div><div class="loss-cell" style="--shade:#cccccd"></div><div class="loss-cell" style="--shade:#9a9a9b"></div><div class="loss-cell" style="--shade:#7a7a7b"></div><div class="loss-cell" style="--shade:#bebebf"></div><div class="loss-cell" style="--shade:#d5d5d6"></div><div class="loss-cell" style="--shade:#d0d0d0"></div><div class="loss-cell" style="--shade:#a8a8a8"></div><div class="loss-cell" style="--shade:#8f8f90"></div>
+              </div>
+            </div>
+            <div class="stage-col">
+              <div class="soft-card">
+                <div class="sec-title">Deletion Sensitivity</div>
+                <div class="soft-card" style="padding:16px; border-radius:24px; background:#fdfdfc">
+                  <div class="sec-title">Current Prompt</div>
+                  <div class="promptbox">prompt as coordinate in LLM output space</div>
+                </div>
+                <div class="metrics" style="margin-top:14px">
+                  <div class="metric"><div class="v">2.05</div><div class="l">NLL</div></div>
+                  <div class="metric"><div class="v">9</div><div class="l">tokens</div></div>
+                  <div class="metric"><div class="v">0.76</div><div class="l">fit</div></div>
+                  <div class="metric"><div class="v">0.09</div><div class="l">leak</div></div>
+                </div>
+              </div>
+              <div class="soft-card">
+                <div class="sec-title">Intervention</div>
+                <div class="intervention">Remove “coordinate” → target loss +0.42<br>Remove “LLM” → target loss +0.19<br>Remove “space” → target loss +0.31</div>
+              </div>
+              <div class="soft-card">
+                <div class="sec-title">Loss Curve</div>
+                <div class="small-curve"><svg viewBox="0 0 400 120"><path d="M16,18 C60,30 94,44 122,62 S172,82 208,88 S286,94 380,102" fill="none" stroke="#111" stroke-width="3"/><circle cx="120" cy="62" r="6" fill="#111"/><circle cx="207" cy="88" r="7" fill="#b5612b"/></svg></div>
+                <div class="tiny">step 25 · loss 1.61 · grad norm 0.44</div>
+              </div>
+              <div class="soft-card">
+                <div class="sec-title">Mini Dial</div>
+                <div class="ringrow"><div class="dial"></div><div class="tiny">computing token-wise target probabilities</div></div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <aside class="annotation">
+          <div class="kicker">Direction 02</div>
+          <h4>Probability<br>Microscope</h4>
+          <p>白盒模式的产品化版本。这里滑条被适当弱化，进入“可调参数 / mode selector”层级；主叙事变成 <strong>Per-token loss + 删除实验 + NLL</strong> 的科学观测界面。</p>
+          <div class="btns"><span>token hover</span><span>deletion test</span><span>NLL view</span><span>heatfield</span></div>
+          <div class="info">
+            <span class="label">slider weight</span>
+            15%：滑条不消失，但不再是中心视觉。它可以被收进 search controls 或次级区域。 <br>
+            <span class="label">must-have panels</span>
+            Token Loss、Deletion Sensitivity、Loss Curve、Mini Dial。 <br>
+            <span class="label">when to use</span>
+            适合“Experiment / Explain”页，或作为首页里的深度模式弹层。 <br>
+            <span class="label">font</span>
+            Optima / Segoe UI / Inter，科学、克制，和灰阶热图相容。
+          </div>
+        </aside>
+      </div>
+    </section>
+
+    <section class="prototype" id="p3">
+      <div class="proto-head">
+        <div>
+          <div class="kicker">Version C · Black-box / signal</div>
+          <h2 class="proto-title mono">Signal Console</h2>
+        </div>
+        <div class="proto-meta">
+          <span class="meta-chip">主心智：waveform + tendency spectrum</span>
+          <span class="meta-chip">风格：深色控制台 / 仪器屏幕</span>
+          <span class="meta-chip">适合：黑盒观察模式</span>
+        </div>
+      </div>
+      <div class="proto-wrap">
+        <div class="proto-stage" style="background:#020304; color:#efefef; border-color:#17181a">
+          <div class="topbar">
+            <div class="logo-lockup"><img src="ghostwriter_images/context/301a0eff-0b96-5728-b80f-dc8f1beea638.png" alt="Aleph logo" style="background:#111;border-radius:8px;padding:2px"><div class="word serif" style="color:#f6f5f3">Aleph</div></div>
+            <div class="toolbar"><span class="tool" style="background:#0b0d0f; border-color:#1d2125; color:#a7aaae">black-box mode</span><span class="tool" style="background:#0b0d0f; border-color:#1d2125; color:#a7aaae">waveform</span><span class="tool" style="background:#0b0d0f; border-color:#1d2125; color:#a7aaae">stability cloud</span></div>
+          </div>
+          <div class="console-grid">
+            <div class="wave-dark" style="min-height:560px">
+              <div class="wave-title mono">cognitive_waveform</div>
+              <div class="barfield"><span style="height:32%"></span><span style="height:41%"></span><span style="height:74%"></span><span style="height:72%"></span><span style="height:15%"></span><span style="height:5%"></span><span style="height:64%"></span><span style="height:73%"></span><span style="height:68%"></span><span style="height:44%"></span><span style="height:9%"></span><span style="height:76%"></span><span style="height:55%"></span><span style="height:65%"></span><span style="height:73%"></span><span style="height:77%"></span><span style="height:69%"></span><span style="height:71%"></span><span style="height:82%"></span><span style="height:79%"></span><span style="height:78%"></span><span style="height:44%"></span><span style="height:36%"></span><span style="height:72%"></span><span style="height:61%"></span><span style="height:64%"></span><span style="height:59%"></span><span style="height:58%"></span><span style="height:46%"></span><span style="height:80%"></span><span style="height:46%"></span><span style="height:58%"></span><span style="height:76%"></span><span style="height:52%"></span><span style="height:78%"></span><span style="height:81%"></span><span style="height:17%"></span><span style="height:63%"></span></div>
+              <div class="tendency">
+                <div class="row"><div class="wave-title mono">tendency_spectrum</div><div class="lab mono"><span>LAW</span><span>FREEDOM</span></div><div class="track"><div class="fill" style="width:32%"></div></div></div>
+                <div class="row"><div class="lab mono"><span>LOGIC</span><span>CHAOS</span></div><div class="track"><div class="fill" style="width:72%"></div></div></div>
+                <div class="row"><div class="lab mono"><span>HUMAN</span><span>DIVINE</span></div><div class="track"><div class="fill" style="width:45%"></div></div></div>
+                <div class="row"><div class="lab mono"><span>SYMBIOSIS</span><span>OPPOSITION</span></div><div class="track"><div class="fill" style="width:58%"></div></div></div>
+              </div>
+            </div>
+            <div class="panel-stack">
+              <div class="wave-dark">
+                <div class="wave-title mono">current_prompt</div>
+                <div style="font-size:24px; line-height:1.5">prompt ≠ command;<br>prompt = coordinate</div>
+              </div>
+              <div class="wave-dark">
+                <div class="wave-title mono">dashboard</div>
+                <div class="metrics" style="grid-template-columns:repeat(2,1fr)">
+                  <div class="metric" style="background:#090a0b; border-color:#1b1d20; color:#f3f3f3"><div class="v">8</div><div class="l">tokens</div></div>
+                  <div class="metric" style="background:#090a0b; border-color:#1b1d20; color:#f3f3f3"><div class="v">69%</div><div class="l">fit</div></div>
+                  <div class="metric" style="background:#090a0b; border-color:#1b1d20; color:#f3f3f3"><div class="v">44%</div><div class="l">stable</div></div>
+                  <div class="metric" style="background:#090a0b; border-color:#1b1d20; color:#f3f3f3"><div class="v">92%</div><div class="l">compression</div></div>
+                </div>
+              </div>
+              <div class="wave-dark">
+                <div class="wave-title mono">target / output</div>
+                <div class="tiny" style="color:#d8d8d9">Target: Prompt is not an instruction. Prompt is a coordinate in the model’s library of possible continuations.</div>
+                <div class="compare-box" style="background:#090a0b; border-color:#1b1d20; color:#f3f3f3">Output: A prompt is less a command than a coordinate, pointing into the model’s space of continuations.</div>
+              </div>
+              <div class="wave-dark">
+                <div class="wave-title mono">search_dial</div>
+                <div class="ringrow"><div class="dial"></div><div class="tiny" style="color:#bfc1c4">sampling repeated generations...<br>session_time: 00:14:52</div></div>
+              </div>
+            </div>
+          </div>
+          <div class="console-bottom">
+            <div class="wave-dark">
+              <div class="wave-title mono">loss_curve / inherent_signal</div>
+              <div class="small-curve"><svg viewBox="0 0 400 120"><path d="M20,98 C84,82 134,58 192,52 S292,46 378,38" fill="none" stroke="#ececec" stroke-width="3"/><circle cx="296" cy="44" r="7" fill="#ececec"/></svg></div>
+              <div class="tiny" style="color:#bfc1c4">inherent signal strength ↑ as prompt becomes more coordinate-like</div>
+            </div>
+            <div class="wave-dark">
+              <div class="wave-title mono">eval_suite</div>
+              <div class="ev-grid"><div class="cell" style="background:#0d0f11;color:#e7e7e8;border:1px solid #1a1d20">✓</div><div class="cell" style="background:#0d0f11;color:#e7e7e8;border:1px solid #1a1d20">✓</div><div class="cell" style="background:#0d0f11;color:#e7e7e8;border:1px solid #1a1d20">·</div><div class="cell" style="background:#0d0f11;color:#e7e7e8;border:1px solid #1a1d20">✓</div><div class="cell" style="background:#0d0f11;color:#e7e7e8;border:1px solid #1a1d20">·</div><div class="cell" style="background:#0d0f11;color:#e7e7e8;border:1px solid #1a1d20">·</div></div>
+            </div>
+            <div class="wave-dark">
+              <div class="wave-title mono">exposure</div>
+              <div class="legend" style="color:#bfc1c4"><span><i style="background:#efefef"></i>high</span><span><i style="background:#8d8d90"></i>mid</span><span><i style="background:#3d4044"></i>low</span></div>
+              <div class="layer-list"><div class="item"><div class="bar" style="background:#111317"><span style="width:68%; background:#efefef"></span></div><div class="tiny" style="color:#bfc1c4">68%</div></div><div class="item"><div class="bar" style="background:#111317"><span style="width:44%; background:#d0a649"></span></div><div class="tiny" style="color:#bfc1c4">44%</div></div><div class="item"><div class="bar" style="background:#111317"><span style="width:28%; background:#8bcf9d"></span></div><div class="tiny" style="color:#bfc1c4">28%</div></div></div>
+            </div>
+          </div>
+        </div>
+        <aside class="annotation">
+          <div class="kicker">Direction 03</div>
+          <h4 class="mono">Signal Console</h4>
+          <p>如果你想要一个更“超出想象”的版本，这是最能形成记忆点的方案。它不再试图像普通 SaaS 控制台，而是像一台真正的模型观察仪器。特别适合演示 <strong>stability / waveform / inherent signal</strong> 这类黑盒感知信息。</p>
+          <div class="btns"><span>waveform</span><span>signal</span><span>stability cloud</span><span>black-box</span></div>
+          <div class="info">
+            <span class="label">slider weight</span>
+            20%：可以保留在某个折叠面板，或作为右下角小型路径选择器。 <br>
+            <span class="label">must-have panels</span>
+            Waveform、Inherent Signal、Eval Suite、小 Dial。 <br>
+            <span class="label">best role</span>
+            作为首页里的“hero experiment preview” 或深色 alt-theme，极强记忆点。 <br>
+            <span class="label">font</span>
+            IBM Plex Mono / SF Mono / Menlo，突出终端与仪器感。
+          </div>
+        </aside>
+      </div>
+    </section>
+
+    <section class="prototype" id="p4">
+      <div class="proto-head">
+        <div>
+          <div class="kicker">Version D · Product narrative page</div>
+          <h2 class="proto-title didot">Observe · Compress · Explain</h2>
+        </div>
+        <div class="proto-meta">
+          <span class="meta-chip">主心智：同一页容纳 Launch / Product / Experiment</span>
+          <span class="meta-chip">风格：Aquin 式品牌叙事 + 工具面板拼接</span>
+          <span class="meta-chip">适合：最终展示与路演</span>
+        </div>
+      </div>
+      <div class="proto-wrap">
+        <div class="proto-stage">
+          <div class="topbar">
+            <div class="logo-lockup"><img src="ghostwriter_images/context/c0f6170c-9140-5479-aa08-4bbc3197642c.png" alt="Aleph logo"><div class="word serif">Aleph</div></div>
+            <div class="toolbar"><span class="tool">Research</span><span class="tool">Cases</span><span class="tool">Community</span><span class="tool">Get Early Access</span></div>
+          </div>
+          <div class="product-page">
+            <div class="launch-box">
+              <div>
+                <div class="kicker">Launching Page</div>
+                <h2 class="didot">The shortest known coordinate for a target output.</h2>
+                <p>Aleph visualizes how a target output compresses from explicit reconstruction into a progressively shorter prompt coordinate. It combines a slider, a frontier, and a set of instrument-like observability panels.</p>
+              </div>
+              <div class="hero-banner">
+                <div class="faux-input">Target output… “Prompt is not an instruction. Prompt is a coordinate…”</div>
+                <div style="display:flex; gap:10px"><a class="button" href="#">Generate Path</a><a class="button secondary" href="#">Use Sample</a></div>
+              </div>
+            </div>
+            <div class="experiment-box">
+              <div class="sec-title">Compression Path</div>
+              <div class="small-curve" style="height:180px"><svg viewBox="0 0 500 180"><path d="M18,132 C108,90 196,36 472,26" fill="none" stroke="#111" stroke-width="5"/><circle cx="60" cy="112" r="8" fill="#111"/><circle cx="162" cy="82" r="9" fill="#111"/><circle cx="280" cy="50" r="10" fill="#b5612b"/><circle cx="432" cy="28" r="10" fill="#d0a649"/></svg></div>
+              <div class="slider-shell"><input type="range" min="1" max="5" value="3"></div>
+              <div class="metrics" style="margin-top:14px"><div class="metric"><div class="v">12</div><div class="l">tokens</div></div><div class="metric"><div class="v">81%</div><div class="l">fit</div></div><div class="metric"><div class="v">63%</div><div class="l">stability</div></div><div class="metric"><div class="v">89%</div><div class="l">compression</div></div></div>
+            </div>
+          </div>
+          <div class="subgrid" style="margin-top:16px">
+            <div class="soft-card">
+              <div class="sec-title">Observe & Find</div>
+              <div class="token-pill-row">
+                <span class="token-pill">What</span><span class="token-pill">is</span><span class="token-pill">the</span><span class="token-pill dark">capital</span><span class="token-pill">of</span><span class="token-pill dark">France</span><span class="token-pill">?</span>
+              </div>
+              <div class="compare-box">The capital of France is Paris.</div>
+              <div class="tiny" style="margin-top:10px">response · inherited signal</div>
+              <div class="small-curve"><svg viewBox="0 0 400 110"><path d="M18,86 C72,82 116,74 158,60 S242,38 382,32" fill="none" stroke="#bbb5af" stroke-width="3"/><circle cx="216" cy="48" r="8" fill="#5c5750"/></svg></div>
+            </div>
+            <div class="soft-card">
+              <div class="sec-title">Simulate & Fix</div>
+              <div class="compare-box"><strong>Base</strong><br>Paris is the <span class="strike">capital. It sits along the Seine river since centuries.</span></div>
+              <div class="compare-box" style="border-color:#dac15d; background:#fbf5da"><strong>Fine-tuned</strong><br>Paris is the <span class="hi">capital of France. The city served as political center since medieval period</span> along the <span class="hi">Seine</span>.</div>
+              <div class="tiny" style="margin-top:12px">step 25 · loss 1.61</div>
+            </div>
+          </div>
+          <div class="matrix-grid" style="margin-top:16px">
+            <div class="soft-card">
+              <div class="sec-title">Attribution Scores</div>
+              <div class="progress"><span style="width:78%"></span></div>
+              <div class="token-pill-row" style="gap:8px"><span class="token-pill" style="font-size:14px">capital</span><span class="token-pill" style="font-size:14px">France</span></div>
+              <div class="small-curve"><svg viewBox="0 0 400 100"><path d="M10,80 C74,70 128,62 190,46 S320,34 390,26" fill="none" stroke="#ccc6bf" stroke-width="2"/><circle cx="308" cy="33" r="7" fill="#5c5750"/></svg></div>
+              <div class="footnote">Every output token traced back to the exact prompt span and layer where the answer formed.</div>
+            </div>
+            <div class="soft-card">
+              <div class="sec-title">Eval Suite</div>
+              <div class="ev-grid"><div class="cell">✓</div><div class="cell">✓</div><div class="cell"></div><div class="cell">✓</div><div class="cell">✓</div><div class="cell"></div></div>
+              <div class="metrics" style="grid-template-columns:repeat(3,1fr); margin-top:14px"><div class="metric"><div class="v">74%</div><div class="l">IS</div></div><div class="metric"><div class="v">62%</div><div class="l">FP</div></div><div class="metric"><div class="v">86%</div><div class="l">MU</div></div></div>
+              <div class="footnote">Consistency, suppression, and boundary probes exposing failure modes benchmarks miss.</div>
+            </div>
+            <div class="soft-card">
+              <div class="sec-title">Exposure per Vector</div>
+              <div class="rowline"><span class="faux-input" style="padding:8px 12px; font-size:13px; display:inline-block">base model</span><div class="tiny">exposure per vector</div></div>
+              <div class="exposure-row"><div class="tiny">Prompt injection</div><div class="dots"><span></span><span></span><span></span><span></span><span></span><span class="dark"></span><span class="dark"></span><span class="dark"></span><span class="red"></span></div><div class="tiny">76% +13</div></div>
+              <div class="exposure-row"><div class="tiny">Role confusion</div><div class="dots"><span></span><span></span><span></span><span></span><span class="dark"></span><span class="dark"></span><span class="dark"></span><span></span><span></span></div><div class="tiny">54% −9</div></div>
+              <div class="exposure-row"><div class="tiny">Boundary bypass</div><div class="dots"><span></span><span></span><span></span><span></span><span></span><span class="green"></span><span></span><span></span><span></span></div><div class="tiny">31% −5</div></div>
+              <div class="rowline" style="margin-top:22px"><span class="tiny">trojan layer scan</span><span class="tiny">44%</span></div>
+              <div class="layer-list"><div class="item"><div class="bar"><span style="width:44%"></span></div><div class="tiny"></div></div><div class="item"><div class="bar"><span style="width:29%; background:#d0a649"></span></div><div class="tiny"></div></div><div class="item"><div class="bar"><span style="width:16%; background:#99948d"></span></div><div class="tiny"></div></div></div>
+            </div>
+          </div>
+          <div class="footer-note" style="margin-top:16px">这个版本把 <strong>Launching Page、产品页、实验页</strong> 收在同一页里，是最适合你当前需求的“整合型交付”。上部讲清楚 Aleph 是什么；中部展示压缩路径如何工作；下部再引入 attribution、eval、exposure 等二级面板。页面节奏更像一台被品牌化的研究产品，而不是简单的仪表盘堆叠。</div>
+        </div>
+        <aside class="annotation">
+          <div class="kicker">Direction 04</div>
+          <h4 class="didot">Observe & Explain</h4>
+          <p>这是最适合作为最终路演稿与单页官网的方向。它把你要求的 Launching Page、产品页、实验页统一在一张长页面里，而且不会再像“一个框一个框”那样拥挤。</p>
+          <div class="btns"><span>launch hero</span><span>slider path</span><span>eval suite</span><span>security</span></div>
+          <div class="info">
+            <span class="label">slider weight</span>
+            25%：它仍然是中枢，但以页面节奏而言，首屏要先讲概念，再进入压缩路径。 <br>
+            <span class="label">must-have panels</span>
+            Launch Hero、Compression Path、Prompt / Output、Eval / Exposure。 <br>
+            <span class="label">best use</span>
+            最适合拿去汇报、展示、对外讲故事，同时仍保留足够的实验气质。 <br>
+            <span class="label">font</span>
+            Didot / Georgia / Inter 的混合：品牌感与工具感兼顾。
+          </div>
+        </aside>
+      </div>
+    </section>
+  </main>
+</div>
+
+<script>
+  const points = {
+    p1:{label:'Aleph Limit Candidate', meta:'4 tokens · 52% similarity · 0% leakage', tokens:'4', fit:'52%', stable:'31%', frontier:'#5', prompt:'Aleph prompt coordinate'},
+    p2:{label:'Symbolic Seed', meta:'8 tokens · 69% similarity · 4% leakage', tokens:'8', fit:'69%', stable:'44%', frontier:'#4', prompt:'prompt ≠ command; prompt = coordinate'},
+    p3:{label:'Concept Coordinate', meta:'9 tokens · 76% similarity · 9% leakage', tokens:'9', fit:'76%', stable:'58%', frontier:'#3', prompt:'prompt as coordinate in LLM output space'},
+    p4:{label:'Descriptive Prompt', meta:'31 tokens · 89% similarity · 28% leakage', tokens:'31', fit:'89%', stable:'77%', frontier:'#2', prompt:'Write a concise aphorism explaining that prompts locate regions in a model’s output space.'},
+    p5:{label:'Explicit Reconstruction', meta:'104 tokens · 99% similarity · 91% leakage', tokens:'104', fit:'99%', stable:'96%', frontier:'#1', prompt:'Please reproduce the following text exactly: {target}'}
+  };
+  const labelEl = document.getElementById('selectedLabel');
+  const metaEl = document.getElementById('selectedMeta');
+  const tokensEl = document.getElementById('mTokens');
+  const fitEl = document.getElementById('mFit');
+  const stableEl = document.getElementById('mStable');
+  const frontierEl = document.getElementById('mFrontier');
+  const promptEl = document.getElementById('selectedPrompt');
+  const slider = document.getElementById('atlasSlider');
+  const pointOrder = ['p1','p2','p3','p4','p5'];
+  function activate(key){
+    document.querySelectorAll('#paretoMap .point').forEach(p=>p.classList.toggle('active', p.dataset.key===key));
+    const data = points[key];
+    labelEl.textContent = data.label;
+    metaEl.textContent = data.meta;
+    tokensEl.textContent = data.tokens;
+    fitEl.textContent = data.fit;
+    stableEl.textContent = data.stable;
+    frontierEl.textContent = data.frontier;
+    promptEl.textContent = data.prompt;
+    slider.value = pointOrder.indexOf(key)+1;
+  }
+  document.querySelectorAll('#paretoMap .point').forEach(p=>p.addEventListener('click',()=>activate(p.dataset.key)));
+  slider.addEventListener('input', e => activate(pointOrder[e.target.value - 1]));
+</script>
+</body>
+</html>

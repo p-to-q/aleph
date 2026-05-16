@@ -1,48 +1,44 @@
 # Project Brief
 
-Fill this in before publishing a repository from the template.
+Aleph is a reverse prompt compression workbench.
 
-## One-line purpose
+## One-line definition
 
-> What does this project do, for whom, and why should it exist?
+Given a target output, a fixed model, fixed decoding, fixed metric, and fixed search budget, Aleph searches for the shortest known prompt that can reproduce or approximate the target output and visualizes the compression path.
 
-## Profile
+## User promise
 
-Choose one: `micro`, `standard`, `strict`, or `research-strict`. Link to `docs/project-scale.md` if unsure.
+Paste a target output, generate a path of candidate prompts, drag across the compression slider, and see how prompt length, target fit, stability, leakage, token loss, attribution, waveform, and eval results change.
 
-## Status
+## Developer promise
 
-Choose one:
+Every panel is driven by the same `AlephRun` contract. Fixture data, black-box observations, white-box observations, and future search adapters can evolve without rewriting the product around a new data shape.
 
-- `exploratory`
-- `experimental`
-- `alpha`
-- `stable`
-- `maintenance`
-- `archived`
+## Product intent
 
-## Public surfaces
+Aleph is designed for two audiences:
 
-List what external users may rely on.
+- **Users** who want an immediate, visual understanding of how a target output can be compressed into a prompt coordinate.
+- **Developers and researchers** who need clear data contracts, staged implementation, and honest labels for fixture, black-box, white-box, and simulated observations.
 
-## Experimental surfaces
+## Core interaction
 
-List what exists for feedback but should not be depended on.
+The interface centers on a compression slider, but the slider is not the only interaction. Users can also select Pareto points, inspect token loss, compare prompt/output pairs, view waveform and attribution, and run evaluation checks.
+
+## Constraint language
+
+Every run must record:
+
+- model theta;
+- decoding strategy d;
+- metric m;
+- search budget B;
+- leakage mode;
+- observation mode.
 
 ## Non-goals
 
-List work that is explicitly out of scope.
-
-## Receipt standard
-
-What counts as evidence in this project? Examples: test command, fixture, snapshot, benchmark, release artifact, deployment link, security review.
-
-## Sample
-
-```text
-Profile: standard
-Status: experimental
-Public surfaces: README, CLI command, package API
-Experimental surfaces: plugin API
-Receipt standard: npm test, typecheck, release artifact
-```
+- No claim of absolute global shortest prompt.
+- No hidden white-box claims without logits or model internals.
+- No generic prompt-polishing workflow.
+- No assumption that context-window length is the semantic right endpoint.

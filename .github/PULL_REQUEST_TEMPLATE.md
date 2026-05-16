@@ -1,39 +1,13 @@
-## What changed
+## Summary
 
--
-
-## Why
-
--
-
-## Scope hygiene
-
-- [ ] This PR has one logical purpose.
-- [ ] I avoided unrelated refactors or formatting churn.
-- [ ] Public behavior/docs were updated if needed.
-- [ ] Decision-bearing changes reference an ADR/RFC, or explain why none is needed.
+## Screenshots / demo
 
 ## Validation
 
-Commands run:
+- [ ] `npm run lint`
 
-```text
+## Surfaces changed
 
-```
-
-If not run, explain why:
-
-```text
-
-```
-
-## Risks
-
-- Compatibility:
-- Security:
-- Release/deploy:
-- Workflow/agent impact:
+## Risks and limitations
 
 ## Follow-up
-
--
