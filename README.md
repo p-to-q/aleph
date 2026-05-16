@@ -8,8 +8,10 @@ Read the full project thesis in [THESIS.md](THESIS.md).
 
 ## The image
 
-> In Borges' image, the Aleph is a point in space that contains every other point. 
-> Seen from any angle, it reveals the universe at once: no overlap, no veil, no obstruction. 
+> In Borges' image, the Aleph is a point in space that contains every other point.
+
+> Seen from any angle, it reveals the universe at once: no overlap, no veil, no obstruction.
+> 
 > In that tiny sphere, the narrator sees：
 
 - the sea, dawn and dusk, and the crowds of the Americas
@@ -24,6 +26,10 @@ Read the full project thesis in [THESIS.md](THESIS.md).
 - and everything else
 
 Aleph adopts that image for model output space: the model contains a finite library of possible continuations, and a prompt is a coordinate that opens one region of that space.
+
+a small place for seeing too much,
+
+gently.
 
 ## What it is
 
