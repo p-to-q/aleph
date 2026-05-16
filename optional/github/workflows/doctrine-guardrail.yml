@@ -1,0 +1,33 @@
+# Gentle guardrail: warn when doctrine-bearing surfaces change without an ADR/RFC mention.
+# This mirrors Wittgenstein's non-blocking posture: alert maintainers, don't create fake process.
+name: Doctrine Guardrail
+
+on:
+  pull_request:
+    types: [opened, edited, synchronize, reopened]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  guardrail:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Check decision-bearing changes
+        env:
+          PR_BODY: ${{ github.event.pull_request.body }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+        run: |
+          base="${{ github.event.pull_request.base.sha }}"
+          head="${{ github.event.pull_request.head.sha }}"
+          changed=$(git diff --name-only "$base" "$head")
+          echo "$changed"
+          if echo "$changed" | grep -E '^(LICENSE|NOTICE|SECURITY.md|SUPPORT.md|CONTRIBUTING.md|AGENTS.md|PROMPT.md|WORKFLOW.md|\.github/|docs/(engineering-discipline|agent-rules|router|labels)\.md|optional/decisions/)' >/dev/null; then
+            if ! printf '%s\n%s\n' "$PR_TITLE" "$PR_BODY" | grep -E 'ADR|RFC|decision|governance' >/dev/null; then
+              echo "::warning::Decision-bearing files changed without ADR/RFC/decision language in the PR title/body. This is a nudge, not a blocker."
+            fi
+          fi

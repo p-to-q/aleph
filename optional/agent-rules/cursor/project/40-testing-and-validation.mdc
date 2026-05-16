@@ -1,0 +1,19 @@
+---
+description: Testing and validation behavior for repository changes.
+alwaysApply: false
+---
+
+# Testing and Validation Rule
+
+Do not claim success without evidence.
+
+- State exactly what you verified.
+- Do not imply checks you did not run.
+- Any meaningful behavior change should be validated.
+- Prefer the narrowest relevant verification first.
+- Follow existing repository testing style.
+- Add or update tests when appropriate.
+- Test behavior rather than implementation trivia where practical.
+- If verification is incomplete, say so clearly.
+
+Preferred order: narrow test -> type check -> lint -> build -> broader regression or golden check.

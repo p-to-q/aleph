@@ -1,0 +1,21 @@
+{
+  "name": "p-to-q-repo-template",
+  "private": true,
+  "version": "0.4.0",
+  "description": "Seed-positioned p-to-q repository template with router, profiles, optional governance routes, and human/agent handoff.",
+  "type": "module",
+  "engines": {
+    "node": ">=20.19"
+  },
+  "scripts": {
+    "doctor": "node scripts/doctor.mjs",
+    "check:links": "node scripts/check-links.mjs",
+    "check:template": "node scripts/check-template.mjs",
+    "check:router": "node scripts/check-router.mjs",
+    "sync:github-ledger": "node scripts/sync-github-ledger.mjs",
+    "labels:print": "node scripts/apply-labels.mjs",
+    "lint": "npm run doctor && npm run check:links && npm run check:template && npm run check:router",
+    "test": "npm run lint"
+  },
+  "license": "Apache-2.0"
+}

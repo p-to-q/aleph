@@ -1,0 +1,28 @@
+# CODEOWNERS - automatic review-request routing.
+#
+# This file is read by GitHub when a PR is opened. Every owner listed for a
+# touched path is auto-requested for review.
+#
+# Maintainers: @koriyoshi2041 + @Jah-yee + @moapacha.
+
+* @koriyoshi2041 @Jah-yee @moapacha
+
+# ----- Repository contract surfaces -----
+
+/README.md @koriyoshi2041 @Jah-yee @moapacha
+/LICENSE @koriyoshi2041 @Jah-yee @moapacha
+/NOTICE @koriyoshi2041 @Jah-yee @moapacha
+/CODE_OF_CONDUCT.md @koriyoshi2041 @Jah-yee @moapacha
+/CONTRIBUTING.md @koriyoshi2041 @Jah-yee @moapacha
+/SECURITY.md @koriyoshi2041 @Jah-yee @moapacha
+/SUPPORT.md @koriyoshi2041 @Jah-yee @moapacha
+/AGENTS.md @koriyoshi2041 @Jah-yee @moapacha
+/PROMPT.md @koriyoshi2041 @Jah-yee @moapacha
+/WORKFLOW.md @koriyoshi2041 @Jah-yee @moapacha
+/.github/ @koriyoshi2041 @Jah-yee @moapacha
+/docs/engineering-discipline.md @koriyoshi2041 @Jah-yee @moapacha
+/docs/labels.md @koriyoshi2041 @Jah-yee @moapacha
+/docs/router.md @koriyoshi2041 @Jah-yee @moapacha
+/optional/decisions/ @koriyoshi2041 @Jah-yee @moapacha
+/optional/research/ @koriyoshi2041 @Jah-yee @moapacha
+/docs/handoff/ @koriyoshi2041 @Jah-yee @moapacha

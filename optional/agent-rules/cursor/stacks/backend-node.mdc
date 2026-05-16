@@ -1,0 +1,17 @@
+---
+description: Node.js / TypeScript backend service stack guidance.
+alwaysApply: false
+---
+
+# Backend Node Stack Rule
+
+For Node.js / TypeScript backend code:
+
+- Keep request handling, business logic, and data access separated where practical.
+- Validate inputs at HTTP or RPC boundaries.
+- Make failure paths explicit and map them to appropriate status semantics.
+- Preserve meaningful errors for logging, tracing, and monitoring.
+- Avoid hidden side effects in utility layers.
+- Keep handlers thin when possible; keep domain logic in testable services.
+- Prefer extending existing service patterns over creating parallel structures or frameworks.
+- Consider API compatibility, observability, rollback simplicity, and impact radius.

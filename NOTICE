@@ -1,0 +1,12 @@
+p-to-q Repo Template
+
+This template is inspired by the public p-to-q/Wittgenstein repository and the
+p-to-q organization profile. It is not a verbatim copy. Files marked as adapted
+preserve the intent of the original surfaces while replacing project-specific
+architecture with template-ready governance language.
+
+Primary references:
+- https://github.com/p-to-q/wittgenstein
+- https://github.com/p-to-q/wittgenstein/tree/main/.github
+- https://github.com/p-to-q/wittgenstein/tree/main/docs
+- https://github.com/p-to-q/.github/tree/main/profile

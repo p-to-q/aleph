@@ -1,0 +1,15 @@
+# Optional: use this as a seed for project-specific status automation.
+name: Status Labeler
+
+on:
+  pull_request:
+    types: [opened, ready_for_review, converted_to_draft, closed]
+
+permissions:
+  pull-requests: write
+
+jobs:
+  note:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "Configure status label automation here if your project needs it."

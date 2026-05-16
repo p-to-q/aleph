@@ -1,0 +1,13 @@
+# Issue title/body hint labeler. This keeps labels helpful but non-authoritative.
+type/bug:
+  - '/\bbug\b|\bbroken\b|\brepro\b|\bfailing\b/i'
+type/feature:
+  - '/\bfeature\b|\brequest\b|\bproposal\b/i'
+type/question:
+  - '/\bquestion\b|\bhow do\b|\bwhy\b/i'
+type/governance:
+  - '/\bgovernance\b|\bworkflow\b|\blabel\b|\bADR\b|\bRFC\b|\blicense\b|\bsecurity\b/i'
+slice/research:
+  - '/\bresearch\b|\bbrief\b|\baudit\b/i'
+slice/infra:
+  - '/\bCI\b|\bworkflow\b|\bdependabot\b|\bautomation\b/i'
