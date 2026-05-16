@@ -9,3 +9,12 @@ build/
 .pytest_cache/
 __pycache__/
 .venv/
+
+# Aleph: local-only heavy assets / regenerable pipeline intermediates
+PkgTTC-*/
+*.ttc
+.next/
+.vercel/
+*.tsbuildinfo
+search/frontier.json
+search/frontier_rich.json
