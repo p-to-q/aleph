@@ -32,7 +32,7 @@ This is a product/research hypothesis with enough evidence to build around, but 
 | Area | Current state | Source |
 |---|---|---|
 | Active launch UI | Next.js app in `web/`, started by `start.sh`. | `web/app/page.tsx`, `start.sh` |
-| Reference workbench UI | Vite/React console remains as a reference and fallback. | `apps/web/src/main.tsx` |
+| Archived workbench UI | Vite/React console is retained only as a historical reference. | `apps/web/src/main.tsx`, `docs/archive/legacy-frontend.md` |
 | Run contract | `AlephRun`, candidates, observations, metrics, leakage, frontier helpers. | `packages/core/src/types.ts`, `schemas/aleph-run.schema.json` |
 | Fixtures | Multiple demo runs with explicit fixture/simulated modes. | `packages/fixtures/src/` |
 | API boundary | FastAPI mock route and local MLX adapter wrapper. | `apps/api/` |
@@ -60,14 +60,14 @@ This is a product/research hypothesis with enough evidence to build around, but 
 | Stable white-box observation contract | Partially evidenced by local NLL, not product-stable. | Expose token NLL and related fields through a documented `ObservationSet` migration. |
 | Deletion ablation / prompt-token attribution | UI-shaped, not real. | Compute from model internals or repeated behavioral probes and label source mode. |
 | Persistence | Not chosen. | JSON import/export first; database only after saved-run workflow proves useful. |
-| Permanent frontend path | Open after Hackathon. | Decide whether `web/` remains active, moves under `apps/web`, or replaces the Vite console. |
+| Permanent frontend path | settled | `web/` is the active launch path; `apps/web/` is archived reference material. |
 
 ## Interface Cleanliness
 
 The interface story is understandable but still split across two histories:
 
 - `web/` is the current launch/demo surface.
-- `apps/web/` is the earlier contract-driven console and should be treated as reference until migrated or archived.
+- `apps/web/` is archived reference material and no longer part of the terminal-facing launch path.
 - The product object should remain simple: target output, run settings, candidate path, selected prompt/output, and observations.
 - Secondary panels should stay useful, but they should not obscure the main compression path.
 
@@ -85,7 +85,7 @@ What should I try next?
 
 The next phase should not start with heavier theory or more routes. It should start with one stabilizing product pass:
 
-1. Decide and document the permanent frontend path.
+1. Keep the active UI path unambiguous and aligned with `web/`.
 2. Make the active UI show the compression path and evidence modes more plainly than the launch shell does today.
 3. Add JSON import for `AlephRun` so the repo becomes file-first in the product, not only in docs.
 4. Add a hosted black-box adapter spike only after the UI and `AlephRun` path are unambiguous.

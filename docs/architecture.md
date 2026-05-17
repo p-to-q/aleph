@@ -6,7 +6,7 @@ Aleph is a frontend-led research product repository. The first working artifact 
 
 ```text
 User Surface       web
-Reference Surface  apps/web
+Archive Surface     apps/web
 Developer Surface  packages/core, packages/ui, packages/fixtures, apps/api
 Research Surface   docs/research, docs/decisions, docs/plans
 Archive Surface    docs/archive
@@ -47,7 +47,7 @@ AlephRun
 | `packages/fixtures` | stable sample runs | product claims, real model evidence |
 | `packages/ui` | reusable panel shells | search strategy, scoring truth |
 | `web` | current product composition, interaction, visual state | hidden business logic or new data contracts |
-| `apps/web` | legacy/reference Vite console | new product-only behavior without an explicit migration decision |
+| `apps/web` | archived/reference Vite console | new product-only behavior without an explicit migration decision |
 | `apps/api` | future HTTP service and model adapters | UI rendering |
 | `docs/research` | source-backed framing and feasibility | unsupported claims of implementation |
 

@@ -11,6 +11,7 @@ root public files       public face and delegation contracts
 THESIS.md               durable product/research thesis
 apps/                   runnable artifacts
 web/                    current Next.js launch surface
+apps/web/               archived legacy frontend reference
 packages/               shared code contracts
 packages/fixtures       stable demo data
 docs/                   architecture, research, UI, decisions, plans, verification

@@ -8,9 +8,8 @@ Goal: one obvious place to change the product UI.
 
 Tasks:
 
-- Decide whether `web/` remains the active app, moves under `apps/web`, or replaces the Vite console.
-- Update the root workspace only after the path decision.
-- Archive or delete the inactive UI path after useful pieces are migrated.
+- Keep `web/` as the active app.
+- Keep `apps/web/` archived and out of the root workspace.
 - Keep `docs/state-of-play.md`, `docs/surfaces.md`, and `README.md` aligned with the decision.
 
 Acceptance gate:

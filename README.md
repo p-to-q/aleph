@@ -54,7 +54,7 @@ Experimental scaffold. The repository is ready for a Hackathon v0 and leaves roo
 ```text
 THESIS.md             Product and research thesis
 web/                  Active Next.js launch surface
-apps/web              Legacy/reference React/Vite console
+apps/web              Archived legacy/reference React/Vite console
 apps/api              FastAPI orchestration layer (mock + local MLX search adapter)
 search/               Local MLX live-search engine (requires Apple Silicon)
 packages/core         Shared AlephRun data contracts and scoring helpers
@@ -80,13 +80,6 @@ For the current launch UI:
 
 ```bash
 ./start.sh
-```
-
-For the legacy/reference Vite console:
-
-```bash
-npm install
-npm run dev
 ```
 
 The static HTML prototype is available at:

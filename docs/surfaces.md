@@ -18,9 +18,9 @@ Use this file to prevent accidental overpromising.
 | AlephRun data contract | experimental | Maintainer | `packages/core/src/types.ts` | Expected to evolve by explicit migration or decision note. |
 | JSON run schema | experimental | Maintainer | `schemas/aleph-run.schema.json` | Mirrors the fixture contract. |
 | Fixture run | experimental | Maintainer | `packages/fixtures/src/sample-run.json` | Demo data, not model evidence. |
-| Static console demo | experimental | UI owner | `apps/web/static/aleph-atlas-console.html` | Prototype/reference surface. |
-| Next.js launch surface | experimental | UI owner | `web/app/page.tsx` | Current launch/demo app, started by `start.sh` on port 3000. |
-| React/Vite console | reference | UI owner | `apps/web/src/main.tsx` | Legacy/reference console: fixture selector, mode select, API search wired, Pareto slider, token-loss panel, export. Keep until migrated or archived. |
+| Static console demo | archived | UI owner | `apps/web/static/aleph-atlas-console.html` | Prototype/reference surface kept as historical receipt. |
+| Next.js launch surface | stable | UI owner | `web/app/page.tsx` | Current launch/demo app, started by `start.sh` on port 3000. |
+| React/Vite console | archived | UI owner | `apps/web/src/main.tsx` | Legacy Hackathon console: fixture selector, mode select, API search wired, Pareto slider, token-loss panel, export. Archived as reference only. |
 | FastAPI API | experimental | Backend owner | `apps/api/` | Mock generation/scoring and `/api/search` exist; local MLX search requires a separate `search/server.py` process. |
 | Token loss / waveform / attribution panels | simulated fixture | UI/research owner | fixture observations | Useful UI behavior; not real model internals. |
 | Local MLX search wrapper | experimental | Backend/research owner | `apps/api/aleph_api/services/local_mlx_search.py`, `search/server.py`, `npm run api:live-smoke` | Adapter boundary exists; real runs depend on local MLX setup and model availability. |
