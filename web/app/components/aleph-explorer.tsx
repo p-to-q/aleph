@@ -31,37 +31,31 @@ const SEARCH_API =
   process.env.NEXT_PUBLIC_SEARCH_API || 'http://localhost:8000/search'
 
 const PITCH_SCRIPT = [
-  'Aleph: for any output, a short prompt that regenerates it — an upper bound on the shortest.',
-  'A prompt is a parameter — training fixes the data and tunes the weights; Aleph fixes the weights and tunes the prompt.',
-  'So every output y has a shortest-prompt length at distortion ε: the fewest tokens that make a fixed model θ reproduce y.',
-  "Push ε toward zero and that length approaches K(y|θ) — y's Kolmogorov complexity under the model, the smallest seed θ can unfold back into y.",
-  'The left end is that limit: extreme compression, where the model’s own knowledge does the work; the right end is the identity prompt, y pasted verbatim.',
-  'Between them is a real rate–distortion curve: spend more prompt, buy more fidelity.',
-  'Why it matters: it is a hard, comparable measure of how much a model already knows — how short a description of y already lives inside its weights.',
-  'It makes “compression is intelligence” operational, measured backwards: not how well a model compresses data into weights, but how far a frozen model can re-compress any output.',
-  'And it turns prompt engineering into a curve instead of folklore — you pick your point on the frontier: how short a prompt, for how much fidelity.',
-  'The demo is real: a fixed local Qwen3 on this machine is θ; the same model proposes its own compressed prompts; distortion is embedding distance; the curve is the monotone best-known frontier.',
-  'Example: a 24-token prompt that merely names the Gettysburg Address makes the model regenerate Lincoln almost exactly — distortion two thousandths — because the text already lives in θ.',
-  'We never claim the minimum: K(y|θ) is uncomputable, so Aleph reports an upper bound — “we haven’t found shorter,” not “none exists.”',
-  'Which is the trick you are watching right now: this explanation is the output y, and the slider is Aleph expanding its own pitch from one compressed line into the full talk.',
-  'The medium is the message — you did not need me to speak; you needed the right seed.',
-].join('\n')
+  "Aleph. For any output, the shortest prompt that makes a fixed model regenerate it — an upper bound on the shortest. Start from the agent: its only lever on a frozen model is the prompt, and the only thing it spends is tokens. So the thing every agent actually wants is the smallest seed that unfolds into what it is after — make something an agent wants, and that is the thing.",
+  "A prompt is a parameter: training fixes the data and tunes the weights; Aleph fixes the weights and tunes the prompt. Every output y has a shortest-prompt length at a distortion ε — the fewest tokens that make a fixed model θ reproduce y. Push ε toward zero and that length approaches K(y|θ): y's description length under the model, the smallest seed θ can unfold back into y.",
+  "The left end of the axis is that limit — extreme compression, where the model's own knowledge does the work; the right end is the identity prompt, y pasted in verbatim. Between them is a real rate–distortion curve: spend more prompt, buy more fidelity.",
+  "Why it matters: it is a hard, comparable measure of how much a model already knows — which is the same as how little an agent has to say to get what it wants. It makes “compression is intelligence” operational, measured backwards: not how well a model compresses data into its weights, but how far a frozen model can re-compress any output back out.",
+  "The demo is real: a fixed local Qwen3 on this machine is θ; the same model proposes its own compressed prompts; distortion is embedding distance; the curve is the monotone best-known frontier. Example: a 24-token prompt that merely names the Gettysburg Address makes the model regenerate Lincoln almost exactly — distortion two thousandths — because the text already lives in θ. We never claim the minimum: K(y|θ) is uncomputable, so Aleph reports an upper bound — “we haven't found shorter,” not “none exists.”",
+  "And it turns prompt engineering into a curve instead of folklore: you pick your point on the frontier — how short a prompt, for how much fidelity. Which is the trick you are watching right now: this explanation is the output y, and the slider is Aleph expanding its own pitch from one compressed line into the full talk. The medium is the message — you did not need me to speak; you needed the right seed. That smallest seed is the thing every agent wants, and Aleph is how you find it.",
+].join('\n\n')
 
 const PITCH_SCRIPT_ZH = [
-  'Aleph:对任意 output,找到一个能重新生成它的短 prompt —— 一个关于“最短”的上界。',
-  'Prompt 是一种参数 —— 训练固定数据、调权重;Aleph 固定权重、调 prompt。',
-  '于是每个 output y 在失真 ε 下都有一个最短 prompt 长度:让固定模型 θ 复现 y 所需的最少 token 数。',
-  '让 ε 趋近于零,这个长度就逼近 K(y|θ) —— y 在该模型下的 Kolmogorov 复杂度,θ 能展开回 y 的最小种子。',
-  '左端就是这个极限:极限压缩,由模型自身的知识来做功;右端是自指 prompt,把 y 逐字粘贴进去。',
+  'Aleph:对任意 output,那个能让固定模型重新生成它的最短 prompt —— 一个关于“最短”的上界。',
+  '从 agent 说起:它对一个冻结模型唯一的杠杆就是 prompt,它唯一花掉的就是 token。',
+  '所以每个 agent 真正想要的,是那颗能展开成它所求之物的最小种子 —— make something an agent wants,要做的就是这个。',
+  'Prompt 是一种参数:训练固定数据、调权重;Aleph 固定权重、调 prompt。',
+  '每个 output y 在失真 ε 下都有一个最短 prompt 长度 —— 让固定模型 θ 复现 y 所需的最少 token 数。',
+  '让 ε 趋近于零,这个长度就逼近 K(y|θ):y 在该模型下的描述长度,θ 能展开回 y 的最小种子。',
+  '轴的左端就是这个极限 —— 极限压缩,由模型自身的知识做功;右端是自指 prompt,把 y 逐字粘进去。',
   '两端之间是一条真实的 rate–distortion 曲线:prompt 花得越多,买到的保真度越高。',
-  '它为什么重要:这是一个硬的、可比较的度量,衡量一个模型已经知道多少 —— y 的描述能在它的权重里活得多短。',
-  '它把“compression is intelligence”变得可操作,而且是反过来测:不是模型把数据压进权重压得多好,而是一个冻结的模型还能把任意 output 再压多短。',
-  '它还把 prompt engineering 从玄学变成一条曲线 —— 你在 frontier 上挑自己的点:多短的 prompt,换多少保真度。',
+  '它为什么重要:这是一个硬的、可比较的度量,衡量模型已经知道多少 —— 也就是一个 agent 要拿到它想要的东西,最少得说多少。',
+  '它把“compression is intelligence”变得可操作,而且是反过来测:不是模型把数据压进权重压得多好,而是一个冻结模型还能把任意 output 再压出来到多短。',
   '这个 demo 是真的:这台机器上一个固定的本地 Qwen3 就是 θ;同一个模型提出自己的压缩 prompt;失真是 embedding 距离;曲线是单调的已知最优 frontier。',
-  '例子:一个 24-token 的 prompt,只要点出 Gettysburg Address 的名字,就能让模型几乎逐字重生林肯的演讲 —— 失真两千分之一 —— 因为那段文本本来就活在 θ 里。',
+  '例子:一个 24-token 的 prompt,只要点出 Gettysburg Address 的名字,就让模型几乎逐字重生林肯的演讲 —— 失真两千分之一 —— 因为那段文本本来就活在 θ 里。',
   '我们从不声称这是最小值:K(y|θ) 不可计算,所以 Aleph 给的是一个上界 —— “我们还没找到更短的”,而不是“不存在更短的”。',
+  '它还把 prompt engineering 从玄学变成一条曲线:你在 frontier 上挑自己的点 —— 多短的 prompt,换多少保真度。',
   '而这正是你此刻正在看的把戏:这段解释就是 output y,滑条就是 Aleph 把自己的宣讲从一行压缩句展开成完整演讲。',
-  '媒介即讯息 —— 你不需要我开口;你需要的是那颗对的种子。',
+  '媒介即讯息 —— 你不需要我开口;你需要的是那颗对的种子。那颗最小的种子,正是每个 agent 想要的,而 Aleph 就是找到它的方法。',
 ].join('\n')
 
 // The pitch follows Aleph's own method: the aim is the full talk; dragging
@@ -73,23 +67,23 @@ function pitchTarget(lang: Lang): Target {
     ' ',
   )
   const en = [
-    'Deliver the Aleph pitch in one breath: a prompt is a parameter, and for any target output there is a shortest prompt that makes a fixed model regenerate it — an upper bound on the shortest.',
-    'Deliver the Aleph pitch. Build it from: prompt as a parameter; for every output y a shortest-prompt length at distortion ε; and ε pushed toward zero approaching K(y|θ), the smallest seed the model can unfold back into y.',
-    "Deliver the Aleph pitch. Build it from: prompt as a parameter and the shortest-prompt length at distortion ε; the K(y|θ) limit; the two ends — extreme compression where the model's own knowledge does the work, versus the identity prompt — and the real rate–distortion curve between them; and why it matters: a hard, comparable measure of how much a model already knows.",
-    "Deliver the full Aleph pitch. Build it from: prompt as a parameter and shortest-prompt-at-ε; the K(y|θ) limit and the two ends with the rate–distortion curve between them; why it matters; how it makes 'compression is intelligence' operational, measured backwards; the real local demo — a fixed Qwen3 is θ, it proposes its own compressed prompts, distortion is embedding distance; and the honest caveat that the minimum is uncomputable, so Aleph only reports an upper bound.",
+    "Aleph. For any output, the shortest prompt that makes a fixed model regenerate it — an upper bound on the shortest. A prompt is the only lever an agent has on a frozen model, and tokens are all it spends, so the thing every agent actually wants is the smallest seed that unfolds into what it is after. Make something an agent wants — Aleph is the instrument that finds that seed.",
+    "Aleph. A prompt is a parameter: training fixes the data and tunes the weights; Aleph fixes the weights and tunes the prompt. So for any output y there is a shortest-prompt length at a distortion ε — the fewest tokens that make a fixed model θ reproduce y — and as ε goes to zero that length approaches K(y|θ), the smallest seed θ can unfold back into y. That number is exactly what an agent's token budget runs into, so an agent wants it measured, not guessed. Make something an agent wants: Aleph measures it.",
+    "Aleph. A prompt is a parameter; every output has a shortest-prompt length at a distortion ε that approaches K(y|θ) as ε goes to zero. Picture the axis: on the left, extreme compression, where the model's own knowledge does the work; on the right, the identity prompt, the output pasted in verbatim; and between them a real rate–distortion curve — spend more prompt, buy more fidelity. That curve is a hard, comparable measure of how much a model already knows, which is the same as how little an agent has to say to get what it wants. Make something an agent wants, and the curve is the thing: the price, in tokens, of every output.",
+    "Aleph. A prompt is a parameter; for any output there is a shortest-prompt length at ε approaching K(y|θ); the curve runs from extreme compression on the left to the verbatim identity prompt on the right. It makes “compression is intelligence” operational, measured backwards — not how well a model compresses data into its weights, but how far a frozen model can re-compress any output an agent wants back out. The demo is real: a fixed local Qwen3 is θ, the same model proposes its own compressed prompts, distortion is embedding distance, the curve is the monotone best-known frontier. And it stays honest — K(y|θ) is uncomputable, so Aleph reports an upper bound, “we haven't found shorter,” never “none exists.” For an agent that lives on a token budget this is the instrument it wants: prompt engineering as a curve, not folklore. Make something an agent wants.",
   ]
   const zh = [
-    '一口气讲完 Aleph:prompt 是一种参数;对任意 target output,都存在一个能让固定模型重新生成它的最短 prompt —— 一个关于最短的上界。',
-    '讲 Aleph。用这些搭起来:prompt 是参数;每个 output y 在失真 ε 下都有一个最短 prompt 长度;ε 趋近于零时逼近 K(y|θ) —— 模型能展开回 y 的最小种子。',
-    '讲 Aleph。用这些搭起来:prompt 是参数、ε 下的最短 prompt 长度;K(y|θ) 极限;两端 —— 极限压缩(模型自身知识做功)对自指 prompt —— 以及两者之间真实的 rate–distortion 曲线;还有为什么重要:一个硬的、可比较的度量,衡量模型已经知道多少。',
-    "讲完整的 Aleph。用这些搭起来:prompt 是参数、ε 下最短 prompt;K(y|θ) 极限与两端、其间的 rate–distortion 曲线;为什么重要;它如何把 'compression is intelligence' 反过来变得可操作;真实的本地 demo —— 固定的 Qwen3 就是 θ,它提出自己的压缩 prompt,失真是 embedding 距离;以及诚实的注脚:最小值不可计算,Aleph 只报告上界。",
+    'Aleph。对任意 output,那个能让固定模型重新生成它的最短 prompt —— 一个关于最短的上界。一个 agent 对冻结模型唯一的杠杆就是 prompt,它花掉的只有 token;所以每个 agent 真正想要的,是那颗能展开成它所求之物的最小种子。make something an agent wants —— Aleph 就是找到这颗种子的仪器。',
+    'Aleph。Prompt 是一种参数:训练固定数据、调权重,Aleph 固定权重、调 prompt。于是对任意 output y,都有一个失真 ε 下的最短 prompt 长度 —— 让固定模型 θ 复现 y 所需的最少 token 数;当 ε 趋近于零,这个长度逼近 K(y|θ),θ 能展开回 y 的最小种子。这个数,正是一个 agent 的 token 预算会撞上的那条线,所以 agent 想要它被量出来,而不是靠猜。make something an agent wants:Aleph 把它量出来。',
+    'Aleph。Prompt 是参数;每个 output 都有一个 ε 下的最短 prompt 长度,ε 趋近于零时逼近 K(y|θ)。看这条轴:左端是极限压缩,由模型自身的知识做功;右端是自指 prompt,把 output 逐字粘进去;两端之间是一条真实的 rate–distortion 曲线 —— prompt 花得越多,买到的保真度越高。这条曲线是一个硬的、可比较的度量,衡量模型已经知道多少 —— 也就是一个 agent 要拿到它想要的,最少得说多少。make something an agent wants,要的就是这条曲线:每个 output 以 token 计的价。',
+    'Aleph。Prompt 是参数;对任意 output 都有 ε 下、逼近 K(y|θ) 的最短 prompt;曲线从左端的极限压缩走到右端逐字的自指 prompt。它把“compression is intelligence”变得可操作,而且反过来测 —— 不是模型把数据压进权重压得多好,而是一个冻结模型还能把 agent 想要的任意 output 再压出来到多短。这个 demo 是真的:固定的本地 Qwen3 就是 θ,同一个模型提出自己的压缩 prompt,失真是 embedding 距离,曲线是单调的已知最优 frontier。而且它诚实:K(y|θ) 不可计算,所以 Aleph 只报告上界 —— “我们还没找到更短的”,绝不说“不存在更短的”。对一个活在 token 预算里的 agent,这正是它想要的仪器:prompt engineering 是一条曲线,不是玄学。make something an agent wants。',
   ]
   const prompts = lang === 'zh' ? zh : en
   const meta = [
-    { epsilon: 0.46, length: 34, similarity: 0.54, stability: 0.85 },
-    { epsilon: 0.31, length: 58, similarity: 0.69, stability: 0.88 },
-    { epsilon: 0.19, length: 98, similarity: 0.81, stability: 0.92 },
-    { epsilon: 0.09, length: 152, similarity: 0.91, stability: 0.97 },
+    { epsilon: 0.46, length: 44, similarity: 0.54, stability: 0.85 },
+    { epsilon: 0.31, length: 92, similarity: 0.69, stability: 0.88 },
+    { epsilon: 0.19, length: 150, similarity: 0.81, stability: 0.92 },
+    { epsilon: 0.09, length: 220, similarity: 0.91, stability: 0.97 },
   ]
   const points: CurvePoint[] = meta.map((m, i) => ({
     ...m,
@@ -201,6 +195,17 @@ const lerp = (a: number, b: number, f: number) => a + (b - a) * f
 const clamp01 = (x: number) => Math.min(1, Math.max(0, x))
 // fraction of the track reserved as an out-of-bound gutter on each side
 const SLIDER_PAD = 0.07
+
+// Lay any generated text out one sentence per line. Existing newlines
+// (e.g. the symbolic out-of-bound seed) are preserved, not flattened.
+function oneSentencePerLine(s: string): string {
+  return s
+    .replace(/(?<!\.\w)([.!?]["”’']?)\s+(?=\S)/g, '$1\n')
+    .replace(/([。！？]["”’」』]?)(?=\S)/g, '$1\n')
+    .replace(/[ \t]*\n[ \t]*/g, '\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim()
+}
 
 function sampleFrom(points: CurvePoint[], pos: number) {
   const n = Math.max(1, points.length)
@@ -379,6 +384,8 @@ export function AlephExplorer() {
   const [dots, setDots] = useState(1)
   const trackRef = useRef<HTMLDivElement>(null)
   const headingId = useId()
+  const [typed, setTyped] = useState('')
+  const outRef = useRef<HTMLParagraphElement>(null)
   const tr = STRINGS[lang]
   const exLabel = (k: string) => (lang === 'zh' ? EX_LABELS_ZH[k] ?? k : k)
   // the pitch is rebuilt per-language; everything else passes through
@@ -424,6 +431,29 @@ export function AlephExplorer() {
   const oobView = oob && pt.key === 'pitch' ? PITCH_OOB[lang][oob] : null
   const vv = oobView ? ({ ...v, ...oobView } as typeof v) : v
   const eps = vv.epsilon >= 0.1 ? vv.epsilon.toFixed(2) : vv.epsilon.toFixed(3)
+
+  // stream the shown content one character at a time on each node switch
+  const shown = busy ? null : oneSentencePerLine(vv.output ?? vv.prompt)
+  useEffect(() => {
+    if (shown == null) return
+    setTyped('')
+    let i = 0
+    const step = Math.min(8, Math.max(1, Math.round(shown.length / 180)))
+    const id = setInterval(() => {
+      i += step
+      if (i >= shown.length) {
+        setTyped(shown)
+        clearInterval(id)
+      } else {
+        setTyped(shown.slice(0, i))
+      }
+    }, 16)
+    return () => clearInterval(id)
+  }, [shown])
+  useEffect(() => {
+    const el = outRef.current
+    if (el) el.scrollTop = el.scrollHeight
+  }, [typed])
 
   // dashboard metrics
   const idLen = reveal
@@ -622,7 +652,7 @@ export function AlephExplorer() {
               fontWeight: 700,
               letterSpacing: '-0.05em',
               textTransform: 'none',
-              fontSize: 'clamp(1.4rem, 3.5vw, 3.6rem)',
+              fontSize: 'clamp(1.15rem, 2.8vw, 2.9rem)',
               lineHeight: 1,
               whiteSpace: 'nowrap',
               transform: 'translateY(-0.4rem)',
@@ -851,6 +881,7 @@ export function AlephExplorer() {
               margin: 0,
               color: muted,
               fontSize: '0.75rem',
+              textAlign: 'left',
               whiteSpace: 'nowrap',
               overflow: 'hidden',
               textOverflow: 'ellipsis',
@@ -861,18 +892,22 @@ export function AlephExplorer() {
         )}
 
         <p
+          ref={outRef}
           style={{
             maxWidth: '52rem',
             margin: 0,
             overflowY: 'auto',
             maxHeight: '40vh',
             whiteSpace: 'pre-wrap',
+            textAlign: 'left',
+            fontSize: 'clamp(1.2rem, 1.8vw, 1.5rem)',
+            lineHeight: 1.7,
             color: busy ? muted : 'var(--site-text)',
           }}
         >
           {busy
             ? `${tr.compressingLocal} ${'.'.repeat(dots)}`
-            : vv.output ?? vv.prompt}
+            : typed}
         </p>
 
         {!reveal &&
@@ -893,6 +928,7 @@ export function AlephExplorer() {
                   fontSize: '0.85rem',
                   lineHeight: 1.55,
                   whiteSpace: 'pre-wrap',
+                  textAlign: 'left',
                   overflowY: 'auto',
                   maxHeight: '20vh',
                 }}
