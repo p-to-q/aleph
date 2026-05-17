@@ -14,6 +14,7 @@ Read this file when you are new to the repository and need to know where work be
 8. `docs/strategy.md` — Hackathon and long-term path, including fallbacks.
 9. `docs/quality-bar.md` — review checklist and language/code boundaries.
 10. `docs/maintainer-review.md` — current maintainer judgment and next best changes.
+11. `docs/claim-ledger.md` — settled claims, evidence, and account drift owners.
 
 ## Product and UI
 
@@ -35,6 +36,7 @@ Read this file when you are new to the repository and need to know where work be
 - `docs/research/prior-art.md` — relationship to ARCA, GCG, inversion, and instrumentation references.
 - `docs/research/implementation-routes.md` — staged implementation options.
 - `docs/research/compression-definition.md` — model-relative description-length framing.
+- `docs/claim-ledger.md` — claim-to-evidence map for convergence between accounts.
 
 ## Process
 

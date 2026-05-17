@@ -33,7 +33,7 @@
             "candidates": { "type": "integer", "minimum": 0 },
             "maxPromptTokens": { "type": "integer", "minimum": 0 },
             "repeatedSamples": { "type": "integer", "minimum": 0 },
-            "timeLimitSeconds": { "type": "integer", "minimum": 0 }
+            "timeLimitSeconds": { "type": "number", "minimum": 0 }
           }
         }
       }

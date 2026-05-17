@@ -43,13 +43,13 @@ This file records the research that currently shapes Aleph. It is a source ledge
 - `packages/fixtures` provides stable demo data.
 - `apps/web` consumes `AlephRun` and should not invent its own data model.
 - `apps/api` is the stable product API surface and should wrap model/search engines rather than exposing experimental backend shapes directly to the UI.
-- `search/` is the current local MLX live-search experiment and should be adapted behind `apps/api` before becoming the main product path.
+- `search/` is the current local MLX live-search experiment and is wrapped behind `apps/api` through the `local_mlx_search` adapter. It remains optional until local setup and runtime evidence are available.
 - Future adapters should be pluggable: `mock`, `hosted_black_box`, `local_openai`, `local_white_box`, `arca`, `gcg`.
 - Open questions belong in `docs/open-questions.md`, not in hidden assumptions.
 
 ## Current gaps
 
-- A real local MLX search runtime exists in `search/`, but it is not yet integrated into `apps/api` or the shared `AlephRun` contract.
+- A real local MLX search runtime exists in `search/`, and `apps/api` has a `local_mlx_search` wrapper that maps live-search-shaped output into `AlephRun`. Current local verification still depends on the optional `search/.venv` MLX environment.
 - The demo uses embedding similarity when available with a char-ngram fallback, but the default product metric is not yet settled.
 - `search/` computes token-level NLL for precomputed runs, but the product API does not yet expose a stable white-box observation contract.
 - No deletion ablation is implemented.

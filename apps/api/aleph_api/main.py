@@ -1,6 +1,10 @@
 from __future__ import annotations
 
+import json
+from pathlib import Path
+
 from fastapi import FastAPI
+from fastapi.responses import JSONResponse
 
 from aleph_api.adapters.base import GenerationConfig
 from aleph_api.adapters.mock import MockAdapter
@@ -12,11 +16,22 @@ from aleph_api.models import (
     GenerateResponse,
     ScoreRequest,
     ScoreResponse,
+    SearchRequest,
+    SearchResponse,
 )
 from aleph_api.services.candidates import build_candidate_prompts
+from aleph_api.services.local_mlx_search import run_search
 from aleph_api.services.scoring import compression_ratio, leakage_score, overall_score, similarity_score, token_count
 
+from fastapi.middleware.cors import CORSMiddleware
+
 app = FastAPI(title="Aleph API", version="0.1.0")
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 ADAPTERS = {
     "mock": MockAdapter(),
@@ -30,6 +45,7 @@ def health() -> dict[str, object]:
         "status": "ok",
         "version": "0.1.0",
         "modes": list(ADAPTERS.keys()),
+        "search_modes": ["mock", "local_mlx_search"],
         "default_model": "Qwen/Qwen3-8B-MLX-4bit",
     }
 
@@ -84,3 +100,18 @@ def score(request: ScoreRequest) -> ScoreResponse:
         reliability=request.reliability,
         overall_score=total_score,
     )
+
+
+@app.post("/api/search", response_model=SearchResponse, response_model_exclude_none=True)
+def search(request: SearchRequest) -> SearchResponse:
+    return run_search(request)
+
+
+_FIXTURE_PATH = Path(__file__).parent.parent.parent.parent / "packages" / "fixtures" / "src" / "sample-run.json"
+
+
+@app.get("/runs/fixture")
+def runs_fixture() -> JSONResponse:
+    """Return the sample fixture run as an AlephRun-shaped object. Mode: fixture."""
+    data = json.loads(_FIXTURE_PATH.read_text(encoding="utf-8"))
+    return JSONResponse(content=data)

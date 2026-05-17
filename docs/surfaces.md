@@ -16,10 +16,11 @@ Use this file to prevent accidental overpromising.
 | JSON run schema | experimental | Maintainer | `schemas/aleph-run.schema.json` | Mirrors the fixture contract. |
 | Fixture run | experimental | Maintainer | `packages/fixtures/src/sample-run.json` | Demo data, not model evidence. |
 | Static console demo | experimental | UI owner | `apps/web/static/aleph-atlas-console.html` | Prototype/reference surface. |
-| React console | experimental | UI owner | `apps/web/src/main.tsx` | Source scaffold. Requires install/build validation before relying on it. |
-| FastAPI API | stub | Backend owner | `apps/api/` | Skeleton only. No model calls yet. |
+| React console | experimental | UI owner | `apps/web/src/main.tsx` | Working console: fixture selector, mode select, API search wired, Pareto slider, token-loss panel, export. Build verified (204 kB). |
+| FastAPI API | experimental | Backend owner | `apps/api/` | Mock generation/scoring and `/api/search` exist; local MLX search requires a separate `search/server.py` process. |
 | Token loss / waveform / attribution panels | simulated fixture | UI/research owner | fixture observations | Useful UI behavior; not real model internals. |
-| White-box mode | stub | Research owner | docs only | Requires logits/model internals. |
+| Local MLX search wrapper | experimental | Backend/research owner | `apps/api/aleph_api/services/local_mlx_search.py`, `search/server.py`, `npm run api:live-smoke` | Adapter boundary exists; real runs depend on local MLX setup and model availability. |
+| White-box mode | experimental adapter output | Research owner | `search/aleph_search.py`, `search/server.py`, `apps/api/aleph_api/services/local_mlx_search.py` | Live local search can return token NLL for the explicit/right-end point and the API can label that response `white_box`; product panels are not integrated end-to-end. |
 | ARCA/GCG adapters | future | Research owner | docs only | Not implemented. |
 | Research prior art | stable notes | Maintainer | `docs/research/` | Framing and route selection, not implementation lock-in. |
 | Archive | archived | Maintainer | `docs/archive/` | Receipts only; not product contract. |

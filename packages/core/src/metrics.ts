@@ -1,4 +1,4 @@
-import type { CandidatePoint } from "./types";
+import type { CandidatePoint } from "./types.ts";
 
 export function tokenEstimate(text: string): number {
   return text.trim() ? text.trim().split(/\s+/).length : 0;

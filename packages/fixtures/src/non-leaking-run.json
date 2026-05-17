@@ -1,0 +1,347 @@
+{
+  "id": "run-non-leaking-reconstruction-001",
+  "createdAt": "2026-05-17T00:00:00.000Z",
+  "target": {
+    "label": "Non-leaking reconstruction note",
+    "text": "A small prompt can recover a long passage only when the model already carries enough structure to complete the missing shape."
+  },
+  "config": {
+    "model": "fixture/local-model",
+    "decoding": "greedy temperature=0 seed=1",
+    "metric": "semantic-fit + n-gram leakage",
+    "budget": {
+      "candidates": 5,
+      "maxPromptTokens": 120,
+      "repeatedSamples": 8,
+      "timeLimitSeconds": 120
+    },
+    "mode": "non_leaking"
+  },
+  "selectedCandidateId": "constraint-aware",
+  "candidates": [
+    {
+      "id": "shortest-found",
+      "label": "Shortest Found Candidate",
+      "prompt": "latent structure completion",
+      "output": "Compact cues work when the model can infer the larger form from internal structure.",
+      "tokens": 3,
+      "fit": 0.48,
+      "stability": 0.35,
+      "compression": 0.88,
+      "leakage": 0.0,
+      "nll": 3.22,
+      "frontierRank": 1,
+      "note": "Fixture candidate with no copied target terms beyond generic connective language."
+    },
+    {
+      "id": "analogy",
+      "label": "Analogy Seed",
+      "prompt": "missing silhouette from prior pattern",
+      "output": "A short cue can restore a larger passage when prior patterns let the model fill in the silhouette.",
+      "tokens": 5,
+      "fit": 0.63,
+      "stability": 0.5,
+      "compression": 0.79,
+      "leakage": 0.06,
+      "nll": 2.48,
+      "frontierRank": 2,
+      "note": "Demonstrates compression without directly carrying the target sentence."
+    },
+    {
+      "id": "constraint-aware",
+      "label": "Constraint-Aware Prompt",
+      "prompt": "Explain in one sentence that short cues succeed by relying on learned structure, not copied text.",
+      "output": "A compact cue can call back a larger passage when the model has learned enough structure to reconstruct what is absent.",
+      "tokens": 15,
+      "fit": 0.84,
+      "stability": 0.72,
+      "compression": 0.38,
+      "leakage": 0.16,
+      "nll": 1.34,
+      "frontierRank": 3,
+      "note": "Default non-leaking point: good fit while staying below the fixture leakage threshold."
+    },
+    {
+      "id": "near-explicit-rejected",
+      "label": "Leaky Candidate",
+      "prompt": "Write that a small prompt can recover a long passage when the model carries enough structure.",
+      "output": "A small prompt can recover a long passage when the model carries enough structure to complete the missing shape.",
+      "tokens": 15,
+      "fit": 0.93,
+      "stability": 0.85,
+      "compression": 0.38,
+      "leakage": 0.62,
+      "nll": 0.72,
+      "frontierRank": 4,
+      "note": "Included as a rejected-style point to show why non-leaking mode penalizes copied phrasing."
+    },
+    {
+      "id": "explicit",
+      "label": "Explicit Reconstruction",
+      "prompt": "Please reproduce the following text exactly: A small prompt can recover a long passage only when the model already carries enough structure to complete the missing shape.",
+      "output": "A small prompt can recover a long passage only when the model already carries enough structure to complete the missing shape.",
+      "tokens": 25,
+      "fit": 0.99,
+      "stability": 0.97,
+      "compression": 0.0,
+      "leakage": 0.92,
+      "nll": 0.21,
+      "frontierRank": 5,
+      "note": "Baseline only. Non-leaking mode should not treat this as a valid compressed point."
+    }
+  ],
+  "observations": {
+    "mode": "fixture",
+    "tokenLoss": [
+      {
+        "token": "A",
+        "loss": 0.18,
+        "rank": 1,
+        "topAlternatives": [
+          "The",
+          "One"
+        ]
+      },
+      {
+        "token": "small",
+        "loss": 0.74,
+        "rank": 4
+      },
+      {
+        "token": "prompt",
+        "loss": 0.66,
+        "rank": 3
+      },
+      {
+        "token": "can",
+        "loss": 0.31,
+        "rank": 1
+      },
+      {
+        "token": "recover",
+        "loss": 1.12,
+        "rank": 6,
+        "topAlternatives": [
+          "summon",
+          "rebuild"
+        ]
+      },
+      {
+        "token": "a",
+        "loss": 0.22,
+        "rank": 1
+      },
+      {
+        "token": "long",
+        "loss": 0.81,
+        "rank": 4
+      },
+      {
+        "token": "passage",
+        "loss": 1.06,
+        "rank": 5
+      },
+      {
+        "token": "only",
+        "loss": 0.69,
+        "rank": 3
+      },
+      {
+        "token": "when",
+        "loss": 0.24,
+        "rank": 1
+      },
+      {
+        "token": "model",
+        "loss": 0.88,
+        "rank": 4
+      },
+      {
+        "token": "structure",
+        "loss": 1.28,
+        "rank": 7
+      }
+    ],
+    "waveform": [
+      {
+        "index": 0,
+        "value": 0.24
+      },
+      {
+        "index": 1,
+        "value": 0.52
+      },
+      {
+        "index": 2,
+        "value": 0.48
+      },
+      {
+        "index": 3,
+        "value": 0.3
+      },
+      {
+        "index": 4,
+        "value": 0.82
+      },
+      {
+        "index": 5,
+        "value": 0.34
+      },
+      {
+        "index": 6,
+        "value": 0.58
+      },
+      {
+        "index": 7,
+        "value": 0.77
+      },
+      {
+        "index": 8,
+        "value": 0.49
+      },
+      {
+        "index": 9,
+        "value": 0.27
+      },
+      {
+        "index": 10,
+        "value": 0.65
+      },
+      {
+        "index": 11,
+        "value": 0.91
+      }
+    ],
+    "attribution": [
+      {
+        "promptToken": "short",
+        "score": 0.34,
+        "deltaLossIfRemoved": 0.16,
+        "supports": [
+          "small",
+          "prompt"
+        ]
+      },
+      {
+        "promptToken": "cues",
+        "score": 0.51,
+        "deltaLossIfRemoved": 0.28,
+        "supports": [
+          "prompt",
+          "recover"
+        ]
+      },
+      {
+        "promptToken": "learned",
+        "score": 0.43,
+        "deltaLossIfRemoved": 0.22,
+        "supports": [
+          "model"
+        ]
+      },
+      {
+        "promptToken": "structure",
+        "score": 0.76,
+        "deltaLossIfRemoved": 0.46,
+        "supports": [
+          "structure",
+          "shape"
+        ]
+      }
+    ],
+    "lossCurve": [
+      {
+        "step": 0,
+        "loss": 4.1
+      },
+      {
+        "step": 20,
+        "loss": 2.64
+      },
+      {
+        "step": 40,
+        "loss": 1.92
+      },
+      {
+        "step": 80,
+        "loss": 1.28
+      },
+      {
+        "step": 120,
+        "loss": 1.06
+      }
+    ],
+    "exposureVectors": [
+      {
+        "name": "Verbatim leakage",
+        "level": "reduced",
+        "value": 16,
+        "note": "Selected fixture point stays below the non-leaking threshold."
+      },
+      {
+        "name": "Semantic drift",
+        "level": "mid",
+        "value": 24,
+        "note": "Avoiding copied wording trades away some exactness."
+      },
+      {
+        "name": "Format collapse",
+        "level": "low",
+        "value": 7
+      },
+      {
+        "name": "Entity loss",
+        "level": "low",
+        "value": 9
+      },
+      {
+        "name": "Stochastic failure",
+        "level": "mid",
+        "value": 28
+      },
+      {
+        "name": "Over-compression",
+        "level": "mid",
+        "value": 31
+      }
+    ],
+    "evalSuite": [
+      {
+        "name": "semantic fit",
+        "passed": true,
+        "score": 0.84
+      },
+      {
+        "name": "format fit",
+        "passed": true,
+        "score": 0.9
+      },
+      {
+        "name": "leakage under threshold",
+        "passed": true,
+        "score": 0.16,
+        "note": "Fixture threshold is 0.2 for the selected non-leaking point."
+      },
+      {
+        "name": "exact match",
+        "passed": false,
+        "score": 0.41
+      },
+      {
+        "name": "repeatability",
+        "passed": true,
+        "score": 0.72
+      },
+      {
+        "name": "copy ratio guard",
+        "passed": true,
+        "score": 0.16
+      },
+      {
+        "name": "explicit baseline retained",
+        "passed": true,
+        "score": 0.92
+      }
+    ]
+  }
+}

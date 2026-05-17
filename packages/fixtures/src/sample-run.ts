@@ -1,2 +1,2 @@
-import sampleRun from "./sample-run.json";
-export default sampleRun;
+export { default } from "./index.ts";
+export { fixtureManifest, fixtureRuns, nonLeakingRun, sampleRun } from "./index.ts";

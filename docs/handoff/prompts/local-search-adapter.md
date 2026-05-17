@@ -49,7 +49,10 @@ Validation:
   - existing `POST /api/candidates`
   - existing `POST /api/generate` in `mock` mode
   - new local search route in failure/fallback mode if MLX is unavailable
-- If you can run the local MLX engine, include one successful sample response.
+- If you can run the local MLX engine, run `npm run api:live-smoke` and paste
+  the emitted receipt block. The receipt must include command/date, model,
+  observation mode, candidate count, selected candidate id, and whether token
+  NLL was present.
 
 End with:
 Status: done | partial | blocked

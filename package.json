@@ -14,9 +14,13 @@
     "packages/fixtures"
   ],
   "scripts": {
-    "lint": "node scripts/doctor.mjs && node scripts/check-links.mjs && node scripts/check-placeholders.mjs && node scripts/check-maintenance-routes.mjs && node scripts/check-repo.mjs",
+    "lint": "node scripts/doctor.mjs && node scripts/check-links.mjs && node scripts/check-placeholders.mjs && node scripts/check-maintenance-routes.mjs && node scripts/check-language.mjs && node scripts/check-core.mjs && node scripts/check-contract.mjs && node scripts/check-fixtures.mjs && node scripts/check-repo.mjs",
+    "api:smoke": "PYTHONPATH=apps/api apps/api/.venv/bin/python apps/api/smoke.py",
+    "api:live-smoke": "PYTHONPATH=apps/api apps/api/.venv/bin/python apps/api/live_smoke.py",
+    "demo:check": "node scripts/demo-check.mjs",
+    "search:preflight": "${ALEPH_PY:-python3} search/preflight.py",
     "dev": "npm --workspace apps/web run dev",
     "build": "npm --workspace apps/web run build",
-    "test": "node scripts/check-repo.mjs"
+    "test": "node scripts/check-core.mjs && node scripts/check-contract.mjs && node scripts/check-fixtures.mjs && node scripts/check-repo.mjs"
   }
 }

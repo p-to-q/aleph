@@ -25,14 +25,6 @@ if (existsSync("docs/archive/images") || existsSync("docs/archive/research-scree
   throw new Error("reference screenshots should not be kept in the archive");
 }
 
-const run = JSON.parse(readFileSync("packages/fixtures/src/sample-run.json", "utf8"));
-if (!Array.isArray(run.candidates) || run.candidates.length < 5) throw new Error("expected at least five candidates");
-if (run.config.budget.candidates !== run.candidates.length) throw new Error("candidate budget should match fixture candidate count");
-if (!run.candidates.some((c) => c.id === run.selectedCandidateId)) throw new Error("selected candidate missing");
-if (!run.candidates.some((c) => c.id === "explicit" && c.leakage > 0.8)) throw new Error("explicit reconstruction baseline missing or not marked leaky");
-if (!run.observations || run.observations.mode !== "fixture") throw new Error("fixture observation mode missing");
-if (!Array.isArray(run.observations.tokenLoss) || run.observations.tokenLoss.length < 8) throw new Error("token loss fixture too small");
-
 const concept = readFileSync("docs/core-concept.md", "utf8");
 for (const phrase of ["Settled", "Open for discussion", "Deferred or explicitly out of scope"]) {
   if (!concept.includes(phrase)) throw new Error(`core concept missing section: ${phrase}`);

@@ -1,4 +1,4 @@
-import type { CandidatePoint } from "./types";
+import type { CandidatePoint } from "./types.ts";
 
 export function paretoFrontier(candidates: CandidatePoint[]): CandidatePoint[] {
   return candidates

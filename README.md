@@ -47,15 +47,16 @@ gently.
 
 ## Current status
 
-Experimental scaffold. The repository is ready for a Hackathon v0 and leaves room for long-term model adapters, real scoring, non-leaking mode, and white-box observations.
+Experimental scaffold. The repository is ready for a Hackathon v0 and leaves room for long-term model adapters, real scoring, non-leaking mode, and future white-box observation panels that require model logits or internals.
 
 ## Repository map
 
 ```text
 THESIS.md             Product and research thesis
-apps/web              Frontend console and static demo
-apps/api              Future FastAPI service skeleton
-packages/core         Shared Aleph data contracts and scoring helpers
+apps/web              React/Vite frontend console
+apps/api              FastAPI orchestration layer (mock + local MLX search adapter)
+search/               Local MLX live-search engine (requires Apple Silicon)
+packages/core         Shared AlephRun data contracts and scoring helpers
 packages/ui           UI component shells for console panels
 packages/fixtures     Sample runs used by the demo and checks
 docs/                 Thesis support, strategy, architecture, research, UI, decisions, plans, verification
@@ -90,10 +91,10 @@ apps/web/static/aleph-atlas-console.html
 The current maintainer strategy is console-first, fixture-backed, and adapter-ready. If model runtime fails, the static prototype and fixture run must still communicate the thesis.
 
 
-[ ] Ship a frontend-led Hackathon console using fixtures and mock observations.
-[ ] Preserve the compression slider as the main interaction.
-[ ] Make target input, current prompt, model output, Pareto frontier, token loss, search dial, waveform, attribution, exposure vectors, and eval suite work from one `AlephRun` contract.
-[ ] Mark every mocked or simulated observation clearly.
+[x] Ship a frontend-led Hackathon console using fixtures and mock observations.
+[x] Preserve the compression slider as the main interaction.
+[x] Make target input, current prompt, model output, Pareto frontier, token loss, search dial, waveform, attribution, exposure vectors, and eval suite work from one `AlephRun` contract.
+[x] Mark every mocked or simulated observation clearly.
 
 ## Long-term plan
 
