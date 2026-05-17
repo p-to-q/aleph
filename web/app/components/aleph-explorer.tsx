@@ -382,6 +382,13 @@ const FONT = "'Iosevka Etoile', 'Noto Sans TC', 'PingFang TC', sans-serif"
 const CHROME_FADE_DELAY_MS = 1250
 const HEADER_LOGO_SIZE = 'clamp(3.5rem, 5.5vw, 5.25rem)'
 const INTRO_LOGO_SIZE = 'clamp(13rem, 48vmin, 30rem)'
+const LOGO_IMG_STYLE: React.CSSProperties = {
+  width: '100%',
+  height: '100%',
+  objectFit: 'contain',
+  objectPosition: 'center',
+  display: 'block',
+}
 
 type Lang = 'en' | 'zh'
 
@@ -403,8 +410,12 @@ const STRINGS = {
     frontierRank: 'frontier rank',
     modelTheta: 'model θ',
     localQwen: 'local Qwen3 (mlx)',
+    localMinimum: 'local minimum',
+    basinHint: 'prompt search basin',
     placeholder:
-      'paste any text — long is fine — and Aleph searches a short prompt that regenerates it · ⌘↵ to compress',
+      'paste any text here — long or short is fine.\n' +
+      'aleph searches for the shortest prompt it can find to regenerate it.\n' +
+      '⌘↵ to compress',
     examples: 'examples:',
     compress: 'compress ↵',
     compressing: 'compressing …',
@@ -433,8 +444,12 @@ const STRINGS = {
     frontierRank: 'frontier 排名',
     modelTheta: '模型 θ',
     localQwen: '本地 Qwen3 (mlx)',
+    localMinimum: '局部最小值',
+    basinHint: 'prompt 搜索盆地',
     placeholder:
-      '粘贴任意文本 —— 长一点也没关系 —— Aleph 会搜索一个能重新生成它的短 prompt · ⌘↵ 压缩',
+      '可以在这里粘贴任意文本，长一点、短一点都没关系。\n' +
+      'aleph 会搜索目前能找到的最短 prompt，用来重新生成它。\n' +
+      '⌘↵ 压缩',
     examples: '示例:',
     compress: '压缩 ↵',
     compressing: '压缩中 …',
@@ -806,6 +821,136 @@ function MiniCharts({ pt, pos, epsilon, similarity, length, toknll, toktext }: M
   )
 }
 
+type BasinPoint = {
+  x: number
+  y: number
+  z: number
+  sx: number
+  sy: number
+}
+
+const BASIN_GRID = 9
+
+function basinZ(x: number, y: number, centerX: number, centerY: number, depth: number, tilt: number) {
+  const dx = x - centerX
+  const dy = y - centerY
+  const r2 = dx * dx + dy * dy
+  const crater = depth * Math.exp(-r2 * 2.35)
+  const rim = 0.18 * Math.exp(-Math.pow(Math.sqrt(r2) - 0.88, 2) * 16)
+  return 0.66 + rim + tilt * x - tilt * 0.65 * y - crater
+}
+
+function projectBasinPoint(x: number, y: number, z: number): BasinPoint {
+  const sx = 150 + (x - y) * 68
+  const sy = 116 + (x + y) * 28 - z * 52
+  return { x, y, z, sx, sy }
+}
+
+function buildBasinRows(centerX: number, centerY: number, depth: number, tilt: number): BasinPoint[][] {
+  return Array.from({ length: BASIN_GRID }, (_, row) =>
+    Array.from({ length: BASIN_GRID }, (_, col) => {
+      const x = -1 + (col / (BASIN_GRID - 1)) * 2
+      const y = -1 + (row / (BASIN_GRID - 1)) * 2
+      return projectBasinPoint(x, y, basinZ(x, y, centerX, centerY, depth, tilt))
+    }),
+  )
+}
+
+function LocalMinimumBasin({
+  epsilon,
+  hint,
+  label,
+  length,
+  pos,
+  similarity,
+}: {
+  epsilon: number
+  hint: string
+  label: string
+  length: number
+  pos: number
+  similarity: number
+}) {
+  const basinPos = clamp01(pos)
+  const centerX = lerp(-0.18, 0.2, basinPos)
+  const centerY = lerp(0.2, -0.16, basinPos)
+  const depth = lerp(0.56, 1.08, similarity)
+  const tilt = lerp(0.16, 0.04, basinPos)
+  const rows = buildBasinRows(centerX, centerY, depth, tilt)
+  const center = projectBasinPoint(
+    centerX,
+    centerY,
+    basinZ(centerX, centerY, centerX, centerY, depth, tilt),
+  )
+  const sampleX = lerp(-0.72, centerX, basinPos)
+  const sampleY = lerp(0.62, centerY, basinPos)
+  const sample = projectBasinPoint(sampleX, sampleY, basinZ(sampleX, sampleY, centerX, centerY, depth, tilt))
+  const ringR = lerp(14, 7, similarity)
+  const confidence = Math.round(similarity * 100)
+  const epsStr = epsilon >= 0.1 ? epsilon.toFixed(2) : epsilon.toFixed(3)
+  const linePath = (pts: BasinPoint[]) =>
+    pts.map((p, i) => `${i === 0 ? 'M' : 'L'} ${f1(p.sx)} ${f1(p.sy)}`).join(' ')
+  const columns = Array.from({ length: BASIN_GRID }, (_, col) =>
+    rows.map((row) => row[col]),
+  )
+
+  return (
+    <div
+      style={{
+        marginBottom: '0.35rem',
+        paddingBottom: '0.65rem',
+        borderBottom: '1px solid rgba(255,255,255,0.08)',
+        gridColumn: '1 / -1',
+      }}
+    >
+      <div style={{ display: 'flex', justifyContent: 'space-between', gap: '1rem', marginBottom: 4 }}>
+        <span style={LABEL}>{label}</span>
+        <span style={VAL}>ε {epsStr} · {confidence}% fit</span>
+      </div>
+      <svg
+        viewBox="0 0 300 178"
+        role="img"
+        aria-label={`${label}: x y z basin wireframe`}
+        style={{ width: '100%', display: 'block', overflow: 'visible' }}
+      >
+        <line x1="150" y1="142" x2="258" y2="98" stroke={DIM} strokeWidth="0.8" />
+        <line x1="150" y1="142" x2="50" y2="101" stroke={DIM} strokeWidth="0.8" />
+        <line x1="150" y1="142" x2="150" y2="30" stroke={DIM} strokeWidth="0.8" />
+        <text x="262" y="105" fontSize="8" fill="rgba(255,255,255,0.34)" fontFamily={FONT}>x</text>
+        <text x="42" y="108" fontSize="8" fill="rgba(255,255,255,0.34)" fontFamily={FONT}>y</text>
+        <text x="154" y="38" fontSize="8" fill="rgba(255,255,255,0.34)" fontFamily={FONT}>z</text>
+
+        <path
+          d={`M ${f1(sample.sx)} ${f1(sample.sy)} C ${f1(lerp(sample.sx, center.sx, 0.35))} ${f1(sample.sy - 22)}, ${f1(lerp(sample.sx, center.sx, 0.72))} ${f1(center.sy - 8)}, ${f1(center.sx)} ${f1(center.sy)}`}
+          fill="none"
+          stroke={`rgba(255,255,255,${(0.28 + similarity * 0.34).toFixed(2)})`}
+          strokeWidth="1"
+          strokeDasharray="3 4"
+        />
+
+        {[...rows, ...columns].map((pts, i) => (
+          <path
+            key={i}
+            d={linePath(pts)}
+            fill="none"
+            stroke={`rgba(255,255,255,${(0.12 + similarity * 0.08).toFixed(2)})`}
+            strokeWidth={i === Math.floor(BASIN_GRID / 2) || i === BASIN_GRID + Math.floor(BASIN_GRID / 2) ? 1.25 : 0.7}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        ))}
+
+        <circle cx={f1(sample.sx)} cy={f1(sample.sy)} r="3.5" fill="rgba(255,255,255,0.5)" />
+        <circle cx={f1(center.sx)} cy={f1(center.sy)} r="5" fill="#fff" />
+        <circle cx={f1(center.sx)} cy={f1(center.sy)} r={f1(ringR)} fill="none" stroke="rgba(255,255,255,0.2)" />
+        <text x={f1(center.sx + 11)} y={f1(center.sy + 4)} fontSize="7" fill="rgba(255,255,255,0.42)" fontFamily={FONT}>min</text>
+        <text x="8" y="170" fontSize="6.5" fill="rgba(255,255,255,0.28)" fontFamily={FONT}>{hint}</text>
+        <text x="292" y="170" textAnchor="end" fontSize="6.5" fill="rgba(255,255,255,0.28)" fontFamily={FONT}>≈ {length}t</text>
+      </svg>
+    </div>
+  )
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 
 // ── Backend health URLs ────────────────────────────────────────────────────
@@ -1119,6 +1264,7 @@ export function AlephExplorer() {
         style={{
           flex: 1,
           minHeight: 0,
+          position: 'relative',
           display: 'flex',
           flexDirection: 'column',
           opacity: launched ? 1 : 0,
@@ -1128,18 +1274,34 @@ export function AlephExplorer() {
       >
       <header
         style={{
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          right: 0,
+          zIndex: 30,
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'flex-start',
           gap: '1rem',
+          pointerEvents: 'none',
         }}
       >
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+        <div
+          style={{
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '1.5rem',
+            pointerEvents: 'auto',
+          }}
+        >
           {/* Logo + wordmark row */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 'clamp(0.75rem, 2vw, 1.25rem)' }}>
             <button
               type="button"
-              onClick={() => setView('input')}
+              onClick={() => {
+                setView('input')
+                setOpen(false)
+              }}
               onMouseEnter={() => setHeaderLogoHover(true)}
               onMouseLeave={() => setHeaderLogoHover(false)}
               onFocus={() => setHeaderLogoHover(true)}
@@ -1163,10 +1325,7 @@ export function AlephExplorer() {
                 src={headerLogoHover ? '/horns.png' : '/aleph-logo.png'}
                 alt="aleph"
                 style={{
-                  width: '100%',
-                  height: '100%',
-                  objectFit: 'contain',
-                  display: 'block',
+                  ...LOGO_IMG_STYLE,
                   filter: headerLogoHover ? 'none' : 'brightness(0) invert(1)',
                 }}
               />
@@ -1188,7 +1347,7 @@ export function AlephExplorer() {
               Aleph
             </span>
           </div>
-          {/* Mini charts under logo */}
+          {/* Mini charts — always visible; header is overlay so input stays centered */}
           <MiniCharts
             pt={pt}
             pos={pos}
@@ -1201,7 +1360,12 @@ export function AlephExplorer() {
         </div>
 
         <div
-          style={{ display: 'flex', alignItems: 'flex-start', gap: '1.25rem' }}
+          style={{
+            display: 'flex',
+            alignItems: 'flex-start',
+            gap: '1.25rem',
+            pointerEvents: 'auto',
+          }}
         >
           <button
             type="button"
@@ -1272,7 +1436,9 @@ export function AlephExplorer() {
                 // adaptive: hug the right gutter, always keep a gap from the
                 // centered 52rem text column so the panel never overlaps it
                 width:
-                  'clamp(10rem, calc((100vw - 2 * clamp(1.25rem, 4vw, 2.5rem) - min(52rem, 100vw - 2 * clamp(1.25rem, 4vw, 2.5rem))) / 2 - 1.25rem), 24rem)',
+                  'clamp(18rem, 27vw, 26rem)',
+                maxHeight: 'calc(100vh - 7.5rem)',
+                overflowY: 'auto',
                 margin: 0,
                 padding: '0.8rem 0.9rem',
                 background: 'var(--site-card-bg)',
@@ -1297,6 +1463,14 @@ export function AlephExplorer() {
                 {rank} / {N}
               </Row>
               <Row label={tr.modelTheta}>{pt.evalModel ?? tr.localQwen}</Row>
+              <LocalMinimumBasin
+                epsilon={vv.epsilon}
+                hint={tr.basinHint}
+                label={tr.localMinimum}
+                length={vv.length}
+                pos={pos}
+                similarity={vv.similarity}
+              />
             </dl>
           )}
           </div>
@@ -1307,12 +1481,16 @@ export function AlephExplorer() {
         style={{
           flex: 1,
           minHeight: 0,
+          width: '100%',
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'center',
-          justifyContent: 'center',
+          justifyContent: view === 'input' ? 'center' : 'flex-start',
           textAlign: 'center',
           gap: '1.1rem',
+          overflowY: view === 'result' ? 'auto' : 'hidden',
+          paddingTop: view === 'result' ? 'clamp(6rem, 14vh, 10rem)' : 0,
+          paddingBottom: view === 'result' ? '0.5rem' : 0,
         }}
       >
         {view === 'input' ? (
@@ -1326,6 +1504,7 @@ export function AlephExplorer() {
           }}
         >
           <textarea
+            className="aleph-target-input"
             value={text}
             onChange={(e) => setText(e.target.value)}
             onKeyDown={(e) => {
@@ -1335,7 +1514,7 @@ export function AlephExplorer() {
             spellCheck={false}
             style={{
               width: '100%',
-              minHeight: 'clamp(10rem, 38vh, 18rem)',
+              minHeight: 'clamp(11rem, 40vh, 20rem)',
               maxHeight: '52vh',
               resize: 'none',
               overflowY: 'auto',
@@ -1344,9 +1523,9 @@ export function AlephExplorer() {
               border: '1px solid var(--site-code-border)',
               color: 'var(--site-text)',
               font: 'inherit',
-              lineHeight: 1.5,
+              lineHeight: 1.6,
               textAlign: 'left',
-              padding: '0.9rem 1rem',
+              padding: '1rem 1.1rem',
               outline: 'none',
             }}
           />
@@ -1564,7 +1743,8 @@ export function AlephExplorer() {
         )}
       </main>
 
-      <footer style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+      {view === 'result' && (
+      <footer style={{ display: 'flex', flexDirection: 'column', gap: '1rem', flexShrink: 0 }}>
         <div
           ref={trackRef}
           role="slider"
@@ -1708,6 +1888,7 @@ export function AlephExplorer() {
           <span>{tr.footRight} · y itself</span>
         </div>
       </footer>
+      )}
       </div>
 
       <button
@@ -1724,8 +1905,8 @@ export function AlephExplorer() {
           top: launched ? 'clamp(1.25rem, 4vw, 2.5rem)' : '50%',
           left: launched ? 'clamp(1.25rem, 4vw, 2.5rem)' : '50%',
           transform: launched ? 'none' : 'translate(-50%, -50%)',
-          width: launched ? HEADER_LOGO_SIZE : INTRO_LOGO_SIZE,
-          height: launched ? HEADER_LOGO_SIZE : INTRO_LOGO_SIZE,
+          width: launched ? HEADER_LOGO_SIZE : 'min(62vw, 34rem)',
+          height: launched ? HEADER_LOGO_SIZE : 'auto',
           zIndex: 20,
           background: 'none',
           border: 'none',
@@ -1744,10 +1925,8 @@ export function AlephExplorer() {
           src={launched || introLogoHover ? '/aleph-logo.png' : '/horns.png'}
           alt="aleph"
           style={{
-            width: '100%',
-            height: '100%',
-            objectFit: 'contain',
-            display: 'block',
+            ...LOGO_IMG_STYLE,
+            height: launched ? '100%' : 'auto',
             filter:
               launched || introLogoHover ? 'brightness(0) invert(1)' : 'none',
           }}

@@ -143,6 +143,60 @@ class Proposer:
         cands = self._parse(txt, n)
         return cands or [f"Write the {('text'):s}: {target[:budget*6]}"]
 
+    def propose_ladder(self, target, budgets, n_each):
+        """Generate candidates across a length ladder in one proposer call.
+
+        The live server uses this to avoid the brittle pattern where each API
+        request only gets one or two prompt coordinates back.
+        """
+        budgets = [int(b) for b in budgets if int(b) > 0]
+        if not budgets:
+            return {}
+        budget_lines = "\n".join(
+            f"- {budget} words: {n_each} prompts" for budget in budgets
+        )
+        instr = (
+            "I will give you a TARGET text. Generate candidate prompts at "
+            "several length budgets. Each prompt, if given to an AI assistant, "
+            "should make it reproduce the TARGET as closely as possible. Prefer "
+            "naming the work, author, form, or exact coordinate over restating "
+            "the target. Stay within each word budget.\n\n"
+            f"Budgets:\n{budget_lines}\n\n"
+            "Output ONLY lines in this exact format:\n"
+            "BUDGET=<word_budget>: <prompt>\n\n"
+            f"TARGET:\n{target}"
+        )
+        txt = self.theta.gen(
+            instr,
+            max_tokens=sum(min(80, budget * 8) for budget in budgets) * n_each + 120,
+            temp=0.85,
+        )
+        by_budget = {budget: [] for budget in budgets}
+        seen = set()
+        for raw in txt.splitlines():
+            match = re.match(r"^\s*BUDGET\s*=\s*(\d+)\s*:\s*(.+)$", raw, re.I)
+            if not match:
+                continue
+            budget = int(match.group(1))
+            if budget not in by_budget:
+                continue
+            prompt = self._clean(match.group(2))
+            key = (budget, prompt.lower())
+            if len(prompt) < 4 or key in seen:
+                continue
+            seen.add(key)
+            by_budget[budget].append(prompt)
+        for budget in budgets:
+            if len(by_budget[budget]) < n_each:
+                for prompt in self.propose(target, budget, n_each):
+                    key = (budget, prompt.lower())
+                    if key not in seen:
+                        seen.add(key)
+                        by_budget[budget].append(prompt)
+                    if len(by_budget[budget]) >= n_each:
+                        break
+        return {budget: prompts[:n_each] for budget, prompts in by_budget.items()}
+
     def refine(self, target, prompt, got, budget, hard=None):
         miss = (
             f"\nThe model reproduced these TARGET words least reliably — fix "
