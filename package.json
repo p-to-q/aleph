@@ -8,6 +8,7 @@
     "node": ">=20.19"
   },
   "workspaces": [
+    "web",
     "apps/web",
     "packages/core",
     "packages/ui",
