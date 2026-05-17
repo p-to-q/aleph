@@ -53,7 +53,8 @@ Experimental scaffold. The repository is ready for a Hackathon v0 and leaves roo
 
 ```text
 THESIS.md             Product and research thesis
-apps/web              React/Vite frontend console
+web/                  Active Next.js launch surface
+apps/web              Legacy/reference React/Vite console
 apps/api              FastAPI orchestration layer (mock + local MLX search adapter)
 search/               Local MLX live-search engine (requires Apple Silicon)
 packages/core         Shared AlephRun data contracts and scoring helpers
@@ -64,6 +65,8 @@ scripts/              Repository health checks that run without external install
 ```
 
 Start with [docs/contributor-map.md](docs/contributor-map.md) if you are joining the project. The current implementation path and fallbacks are in [docs/strategy.md](docs/strategy.md).
+For the clearest snapshot of what is settled, implemented, researched, and still open, read [docs/state-of-play.md](docs/state-of-play.md).
+Near-term follow-up work lives in [docs/next-backlog.md](docs/next-backlog.md).
 
 ## Quick start
 
@@ -73,7 +76,13 @@ The repository is intentionally usable before model integration.
 npm run lint
 ```
 
-For UI implementation work:
+For the current launch UI:
+
+```bash
+./start.sh
+```
+
+For the legacy/reference Vite console:
 
 ```bash
 npm install

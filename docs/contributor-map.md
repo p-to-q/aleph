@@ -9,18 +9,22 @@ Read this file when you are new to the repository and need to know where work be
 3. `docs/core-concept.md` — settled, open, and deferred decisions.
 4. `docs/open-questions.md` — active uncertainty and maintainer leanings.
 5. `docs/surfaces.md` — which surfaces are stable, experimental, stub, or archived.
-6. `docs/repository-shape.md` — why the repository is shaped this way.
-7. `docs/architecture.md` — implementation shape and data flow.
-8. `docs/strategy.md` — Hackathon and long-term path, including fallbacks.
-9. `docs/quality-bar.md` — review checklist and language/code boundaries.
-10. `docs/maintainer-review.md` — current maintainer judgment and next best changes.
-11. `docs/claim-ledger.md` — settled claims, evidence, and account drift owners.
+6. `docs/state-of-play.md` — what is settled, implemented, researched, still open, and next.
+7. `docs/repository-shape.md` — why the repository is shaped this way.
+8. `docs/repository-governance.md` — post-Hackathon path, naming, branch, and claim cleanup rules.
+9. `docs/architecture.md` — implementation shape and data flow.
+10. `docs/strategy.md` — Hackathon and long-term path, including fallbacks.
+11. `docs/next-backlog.md` — next issue candidates and acceptance gates.
+12. `docs/quality-bar.md` — review checklist and language/code boundaries.
+13. `docs/maintainer-review.md` — current maintainer judgment and next best changes.
+14. `docs/claim-ledger.md` — settled claims, evidence, and account drift owners.
 
 ## Product and UI
 
 - `docs/ui/product-principles.md`
 - `docs/ui/interaction-model.md`
 - `docs/ui/visual-system.md`
+- `web/` — active Next.js launch surface.
 - `apps/web/`
 - `packages/ui/`
 

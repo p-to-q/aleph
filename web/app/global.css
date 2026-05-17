@@ -53,3 +53,20 @@ body {
   text-transform: lowercase;
   -webkit-font-smoothing: antialiased;
 }
+
+.aleph-target-input {
+  font-size: 1.05rem;
+}
+
+.aleph-target-input::placeholder {
+  font-size: 1.15rem;
+  line-height: 1.7;
+  color: rgba(255, 255, 255, 0.44);
+  opacity: 1;
+}
+
+@media (max-width: 70rem) {
+  .aleph-mini-charts {
+    display: none;
+  }
+}

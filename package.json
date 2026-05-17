@@ -8,6 +8,7 @@
     "node": ">=20.19"
   },
   "workspaces": [
+    "web",
     "apps/web",
     "packages/core",
     "packages/ui",
@@ -19,8 +20,10 @@
     "api:live-smoke": "PYTHONPATH=apps/api apps/api/.venv/bin/python apps/api/live_smoke.py",
     "demo:check": "node scripts/demo-check.mjs",
     "search:preflight": "${ALEPH_PY:-python3} search/preflight.py",
-    "dev": "npm --workspace apps/web run dev",
-    "build": "npm --workspace apps/web run build",
+    "dev": "npm --workspace web run dev",
+    "dev:reference": "npm --workspace apps/web run dev",
+    "build": "npm --workspace web run build",
+    "build:reference": "npm --workspace apps/web run build",
     "test": "node scripts/check-core.mjs && node scripts/check-contract.mjs && node scripts/check-fixtures.mjs && node scripts/check-repo.mjs"
   }
 }

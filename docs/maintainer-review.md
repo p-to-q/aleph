@@ -4,7 +4,7 @@ This review records the current maintainer judgment about the repository shape a
 
 ## Judgment
 
-Final review conclusion: the current global optimum is not to add more process or force a heavier template. It is to keep the repository artifact-first, define a fallback ladder, and make every future runtime adapter conform to the same visible run contract.
+Final review conclusion: the current global optimum is not to add more process or force a heavier template. It is to keep the repository artifact-first, define a fallback ladder, make every future runtime adapter conform to the same visible run contract, and keep `docs/state-of-play.md` as the short confidence map for what is settled, implemented, researched, and still open.
 
 
 Aleph should be an artifact-first research product repository, not a template-first repository and not a pure research dump.
@@ -37,6 +37,7 @@ The repository should be comfortable for three readers:
 
 Open questions are tracked in `docs/open-questions.md`; implementation path and fallbacks are tracked in `docs/strategy.md`. The most important are:
 
+- permanent frontend path after the Hackathon split between `web/` and `apps/web`;
 - first real adapter;
 - default metric;
 - leakage formula;

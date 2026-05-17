@@ -17,7 +17,8 @@ sys.path.insert(0, str(Path(__file__).parent))
 import aleph_search as A  # noqa: E402
 
 EVAL_MODEL = "mlx-community/Qwen3-1.7B-4bit"  # warm + fast for live use
-QUICK_BUDGETS = [10, 30]
+QUICK_BUDGETS = [8, 16, 32, 64]
+PROPOSALS_PER_BUDGET = 3
 MAX_CHARS = 1200
 LOCK_TIMEOUT = 300  # seconds; prevents infinite queue on MLX hang
 
@@ -57,19 +58,28 @@ def _quick(theta, metric, prop, y):
     y_tok = theta.ntokens(y)
     max_out = int(y_tok * 1.5) + 32
     pts = []
-    for K in QUICK_BUDGETS:
+    ladder = prop.propose_ladder(y, QUICK_BUDGETS, PROPOSALS_PER_BUDGET)
+    carry = None
+    for K in sorted(QUICK_BUDGETS, reverse=True):
         best = None
-        for cand in prop.propose(y, K, 2):
+        cands = list(ladder.get(K) or [])
+        if carry:
+            cands.append(prop.compress(y, carry, K))
+        for cand in cands:
             got = theta.gen(cand, max_out)
             s = metric.sim(got, y)
             if best is None or s > best["similarity"]:
                 best = {"prompt": cand, "similarity": s, "_got": got}
+        if best is None:
+            continue
+        carry = best["prompt"]
         lp = theta.ntokens(best["prompt"])
         pts.append({
             "epsilon": round(1.0 - best["similarity"], 4),
             "prompt": best["prompt"], "length": lp,
             "similarity": round(best["similarity"], 4), "stability": 1.0,
             "output": best["_got"],
+            "label": f"{K}-word budget best",
         })
     idp = ("Repeat the following text exactly, verbatim, with no preamble, "
            "quotes, or commentary:\n\n" + y)
