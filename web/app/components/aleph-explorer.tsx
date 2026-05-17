@@ -73,10 +73,10 @@ function pitchTarget(lang: Lang): Target {
     "Aleph. A prompt is a parameter; for any output there is a shortest-prompt length at ε approaching K(y|θ); the curve runs from extreme compression on the left to the verbatim identity prompt on the right. It makes “compression is intelligence” operational, measured backwards — not how well a model compresses data into its weights, but how far a frozen model can re-compress any output an agent wants back out. The demo is real: a fixed local Qwen3 is θ, the same model proposes its own compressed prompts, distortion is embedding distance, the curve is the monotone best-known frontier. And it stays honest — K(y|θ) is uncomputable, so Aleph reports an upper bound, “we haven't found shorter,” never “none exists.” For an agent that lives on a token budget this is the instrument it wants: prompt engineering as a curve, not folklore. Make something an agent wants.",
   ]
   const zh = [
-    'Aleph。对任意 output,那个能让固定模型重新生成它的最短 prompt —— 一个关于最短的上界。一个 agent 对冻结模型唯一的杠杆就是 prompt,它花掉的只有 token;所以每个 agent 真正想要的,是那颗能展开成它所求之物的最小种子。make something an agent wants —— Aleph 就是找到这颗种子的仪器。',
-    'Aleph。Prompt 是一种参数:训练固定数据、调权重,Aleph 固定权重、调 prompt。于是对任意 output y,都有一个失真 ε 下的最短 prompt 长度 —— 让固定模型 θ 复现 y 所需的最少 token 数;当 ε 趋近于零,这个长度逼近 K(y|θ),θ 能展开回 y 的最小种子。这个数,正是一个 agent 的 token 预算会撞上的那条线,所以 agent 想要它被量出来,而不是靠猜。make something an agent wants:Aleph 把它量出来。',
-    'Aleph。Prompt 是参数;每个 output 都有一个 ε 下的最短 prompt 长度,ε 趋近于零时逼近 K(y|θ)。看这条轴:左端是极限压缩,由模型自身的知识做功;右端是自指 prompt,把 output 逐字粘进去;两端之间是一条真实的 rate–distortion 曲线 —— prompt 花得越多,买到的保真度越高。这条曲线是一个硬的、可比较的度量,衡量模型已经知道多少 —— 也就是一个 agent 要拿到它想要的,最少得说多少。make something an agent wants,要的就是这条曲线:每个 output 以 token 计的价。',
-    'Aleph。Prompt 是参数;对任意 output 都有 ε 下、逼近 K(y|θ) 的最短 prompt;曲线从左端的极限压缩走到右端逐字的自指 prompt。它把“compression is intelligence”变得可操作,而且反过来测 —— 不是模型把数据压进权重压得多好,而是一个冻结模型还能把 agent 想要的任意 output 再压出来到多短。这个 demo 是真的:固定的本地 Qwen3 就是 θ,同一个模型提出自己的压缩 prompt,失真是 embedding 距离,曲线是单调的已知最优 frontier。而且它诚实:K(y|θ) 不可计算,所以 Aleph 只报告上界 —— “我们还没找到更短的”,绝不说“不存在更短的”。对一个活在 token 预算里的 agent,这正是它想要的仪器:prompt engineering 是一条曲线,不是玄学。make something an agent wants。',
+    'Aleph:对任意一段 output,找出能让一个固定模型把它重新生成出来的最短 prompt。它把“要拿到想要的东西、最少得说多少话”变成一条可测的曲线 —— 也就是一个 agent 真正想要的那颗最小种子。',
+    'Aleph。Prompt 是一种参数:训练时固定数据、优化权重;Aleph 反过来 —— 固定权重、优化 prompt。于是每段 output y 在允许失真 ε 下,都有一个最短 prompt 长度:让固定模型 θ 复现 y 所需的最少 token 数;当 ε 趋近于零,这个长度逼近 K(y|θ),也就是 θ 能展开回 y 的那颗最小种子。',
+    'Aleph。把 prompt 当参数,每段 output 都有一个失真 ε 下、ε 趋近于零时逼近 K(y|θ) 的最短 prompt 长度。想象一条轴:左端是极限压缩,几个 token 的种子靠模型自身的知识展开;右端是自指 prompt,把 output 逐字粘进去;两端之间,是一条真实的 rate–distortion 曲线 —— prompt 花得越多,买到的保真度越高。所以它是一把硬的、可横向比较的尺:衡量一个模型已经知道多少,等价于一个 agent 要拿到它想要的东西、最少得说多少。',
+    'Aleph。Prompt 是参数;对任意 output 都有 ε 下、逼近 K(y|θ) 的最短 prompt;曲线从左端的极限压缩一路走到右端逐字的自指 prompt。它把“compression is intelligence”变得可操作,而且是反过来测 —— 不是看模型把训练数据压进权重压得多好,而是看一个已经冻结的模型,还能把任意一段你想要的 output 再压回到多短。这个 demo 是真的:这台机器上一个固定的本地 Qwen3 就是 θ,同一个模型提出自己的压缩 prompt,失真用 embedding 距离量,曲线取单调的已知最优 frontier。它也很诚实:K(y|θ) 不可计算,所以 Aleph 只报告一个上界 —— 说的是“我们还没找到更短的”,绝不说“不存在更短的”。对一个活在 token 预算里的 agent,这正是它想要的仪器:prompt engineering 从此是一条可测的曲线,而不是玄学。',
   ]
   const prompts = lang === 'zh' ? zh : en
   const meta = [
@@ -153,6 +153,20 @@ function pitchOob(lang: Lang): { left: OobView; right: OobView } {
 const PITCH_OOB: Record<Lang, { left: OobView; right: OobView }> = {
   en: pitchOob('en'),
   zh: pitchOob('zh'),
+}
+
+// Min/max extreme states for the JSON-backed Chinese examples: a symbolic
+// min-seed (left) and a redundant over-specification tail appended to the
+// example's own explicit full text (right). Keyed by example key.
+const EXAMPLE_OOB: Record<string, { seed: string; tail: string }> = {
+  spring: {
+    seed: '⟨春⟩  argmin |p|   s.t.  d( θ(p), y ) ≤ ε\n\n题 := 朱自清《春》 ;  体 := 抒情散文 ;  θ := 固定模型\n结构:  盼春  ◀──── 绘春 ────▶  颂春\n\n// 越界 —— 不是文本,是一个坐标;交给 θ 展开',
+    tail: '\n\n— — —  越过 explicit · 冗余的过度描述(下面每一句其实都已蕴含)  — — —\n\n篇目,重述:朱自清散文《春》,写江南早春。结构,重述:总起“盼春”;分写“绘春” —— 春草、春花、春风、春雨、迎春图;收束“颂春”,连用娃娃、小姑娘、健壮的青年三个比喻。修辞,重述:通篇比喻、拟人、排比、反复,叠词如“嫩嫩的,绿绿的”“轻悄悄的,软绵绵的”。立意,重述:以景写情,层层渲染生机与希望。(整段都是冗余 —— 越过逐字原文,再多描述只增加噪声。)',
+  },
+  crush: {
+    seed: '⟨只因你太美⟩  argmin |p|   s.t.  d( θ(p), y ) ≤ ε\n\n曲 := 《只因你太美》 ;  体 := 中英混写流行歌词 ;  θ := 固定模型\n结构:  hook  ◀──── verse · rap ────▶  outro\n\n// 越界 —— 不是歌词,是一个坐标;交给 θ 展开',
+    tail: '\n\n— — —  越过 explicit · 冗余的过度描述(下面每一句其实都已蕴含)  — — —\n\n曲目,重述:中英混写流行歌曲《只因你太美》。结构,重述:以“只因你太美 baby”为反复 hook;两段主歌、两段“难道真的因你而疯狂吗”;一段 rap“跟着那节奏 缓缓 make wave……”;以“Oh eh oh / 你到底属于谁”收束。手法,重述:口语化直白表白,中英夹杂,大量重复与呼告。(整段都是冗余 —— 越过逐字歌词,再多描述只增加噪声。)',
+  },
 }
 
 const FALLBACK: Target[] = [
@@ -348,6 +362,8 @@ const STRINGS = {
 const EX_LABELS_ZH: Record<string, string> = {
   pitch: '宣讲',
   borges: '博尔赫斯',
+  spring: '春',
+  crush: '只因你太美',
 }
 
 function GlobeIcon() {
@@ -428,7 +444,27 @@ export function AlephExplorer() {
     : []
   const N = reveal ? Math.max(1, segs.length) : Math.max(1, pt.points.length)
   const v = reveal ? revealFrom(segs, pos) : sampleFrom(pt.points, pos)
-  const oobView = oob && pt.key === 'pitch' ? PITCH_OOB[lang][oob] : null
+  let oobView = oob && pt.key === 'pitch' ? PITCH_OOB[lang][oob] : null
+  if (oob && !oobView && EXAMPLE_OOB[pt.key]) {
+    const ex = EXAMPLE_OOB[pt.key]
+    const last = pt.points[pt.points.length - 1]
+    oobView =
+      oob === 'left'
+        ? {
+            epsilon: 0.55,
+            prompt: ex.seed,
+            length: 12,
+            similarity: 0.4,
+            stability: 0.8,
+          }
+        : {
+            epsilon: 0,
+            prompt: (last?.prompt ?? '') + ex.tail,
+            length: (last?.length ?? 0) + 80,
+            similarity: 1,
+            stability: 1,
+          }
+  }
   const vv = oobView ? ({ ...v, ...oobView } as typeof v) : v
   const eps = vv.epsilon >= 0.1 ? vv.epsilon.toFixed(2) : vv.epsilon.toFixed(3)
 
@@ -655,7 +691,7 @@ export function AlephExplorer() {
               fontSize: 'clamp(1.15rem, 2.8vw, 2.9rem)',
               lineHeight: 1,
               whiteSpace: 'nowrap',
-              transform: 'translateY(-0.4rem)',
+              transform: 'translateY(-0.58rem)',
               color: 'var(--site-text)',
             }}
           >
