@@ -904,16 +904,21 @@ function LocalMinimumBasin({
   )
 
   return (
-    <div
-      style={{
-        marginBottom: '0.35rem',
-        paddingBottom: '0.65rem',
-        borderBottom: '1px solid rgba(255,255,255,0.08)',
-        gridColumn: '1 / -1',
-      }}
-    >
-      <div style={{ display: 'flex', justifyContent: 'space-between', gap: '1rem', marginBottom: 4 }}>
-        <span style={LABEL}>{label}</span>
+    <>
+      <dt style={{ color: 'var(--site-link)', gridColumn: '1 / -1' }}>
+        {label}
+      </dt>
+      <dd
+        style={{
+          margin: 0,
+          marginBottom: '0.35rem',
+          paddingBottom: '0.65rem',
+          borderBottom: '1px solid rgba(255,255,255,0.08)',
+          gridColumn: '1 / -1',
+          color: 'var(--site-text)',
+        }}
+      >
+      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '1rem', marginBottom: 4 }}>
         <span style={VAL}>ε {epsStr} · {confidence}% fit</span>
       </div>
       <svg
@@ -956,7 +961,8 @@ function LocalMinimumBasin({
         <text x="8" y="170" fontSize="6.5" fill="rgba(255,255,255,0.28)" fontFamily={FONT}>{hint}</text>
         <text x="292" y="170" textAnchor="end" fontSize="6.5" fill="rgba(255,255,255,0.28)" fontFamily={FONT}>≈ {length}t</text>
       </svg>
-    </div>
+      </dd>
+    </>
   )
 }
 

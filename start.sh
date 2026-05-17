@@ -26,9 +26,8 @@ if ! command -v tmux >/dev/null 2>&1; then
     > "$REPO/.aleph-web.log" 2>&1 &
   nohup bash -lc "cd '$REPO/search' && source .venv/bin/activate && python3 server.py" \
     > "$REPO/.aleph-mlx.log" 2>&1 &
-  (
-    nohup bash -lc "cd '$REPO/apps/api' && source .venv/bin/activate && ALEPH_MLX_SEARCH_URL=http://127.0.0.1:8000/search uvicorn aleph_api.main:app --host 0.0.0.0 --port 8010 --reload"
-  ) > "$REPO/.aleph-api.log" 2>&1 &
+  nohup bash -lc "cd '$REPO/apps/api' && source .venv/bin/activate && ALEPH_MLX_SEARCH_URL=http://127.0.0.1:8000/search uvicorn aleph_api.main:app --host 0.0.0.0 --port 8010 --reload" \
+    > "$REPO/.aleph-api.log" 2>&1 &
 
   echo "All 3 servers starting in the background."
   echo "  port 3000  ->  Next.js frontend"

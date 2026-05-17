@@ -149,7 +149,15 @@ class Proposer:
         The live server uses this to avoid the brittle pattern where each API
         request only gets one or two prompt coordinates back.
         """
-        budgets = [int(b) for b in budgets if int(b) > 0]
+        valid_budgets = []
+        for raw_budget in budgets:
+            try:
+                budget = int(raw_budget)
+            except (TypeError, ValueError):
+                continue
+            if budget > 0:
+                valid_budgets.append(budget)
+        budgets = valid_budgets
         if not budgets:
             return {}
         budget_lines = "\n".join(
@@ -181,6 +189,8 @@ class Proposer:
             if budget not in by_budget:
                 continue
             prompt = self._clean(match.group(2))
+            if len(prompt.split()) > budget:
+                continue
             key = (budget, prompt.lower())
             if len(prompt) < 4 or key in seen:
                 continue
@@ -189,6 +199,8 @@ class Proposer:
         for budget in budgets:
             if len(by_budget[budget]) < n_each:
                 for prompt in self.propose(target, budget, n_each):
+                    if len(prompt.split()) > budget:
+                        continue
                     key = (budget, prompt.lower())
                     if key not in seen:
                         seen.add(key)
