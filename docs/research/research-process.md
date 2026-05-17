@@ -34,21 +34,24 @@ This file records the research that currently shapes Aleph. It is a source ledge
 - Leakage scoring is mandatory because explicit reconstruction can otherwise masquerade as compression.
 - ARCA/GCG are implementation candidates, not product identity.
 - The repository should be artifact-first, not template-first.
+- The current `search/` spike is real local-model evidence for the thesis: a fixed MLX Qwen model can propose prompts, generate outputs, score a frontier, and bake measured examples for the demo.
+- That spike should be treated as an experiment engine, not as the stable product API contract.
 
 ## Implementation implications
 
 - `packages/core` owns the shared types and pure helpers.
 - `packages/fixtures` provides stable demo data.
 - `apps/web` consumes `AlephRun` and should not invent its own data model.
-- `apps/api` remains stubbed until a model adapter is selected.
-- Future adapters should be pluggable: `mock`, `hosted_black_box`, `local_white_box`, `arca`, `gcg`.
+- `apps/api` is the stable product API surface and should wrap model/search engines rather than exposing experimental backend shapes directly to the UI.
+- `search/` is the current local MLX live-search experiment and should be adapted behind `apps/api` before becoming the main product path.
+- Future adapters should be pluggable: `mock`, `hosted_black_box`, `local_openai`, `local_white_box`, `arca`, `gcg`.
 - Open questions belong in `docs/open-questions.md`, not in hidden assumptions.
 
 ## Current gaps
 
-- No real model runtime is included.
-- No default similarity metric has been selected.
-- No true token-level NLL is computed.
+- A real local MLX search runtime exists in `search/`, but it is not yet integrated into `apps/api` or the shared `AlephRun` contract.
+- The demo uses embedding similarity when available with a char-ngram fallback, but the default product metric is not yet settled.
+- `search/` computes token-level NLL for precomputed runs, but the product API does not yet expose a stable white-box observation contract.
 - No deletion ablation is implemented.
 - No persistence layer is chosen.
 

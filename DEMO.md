@@ -1,9 +1,9 @@
 # Aleph — demo script
 
-**Thesis.** For a fixed model θ and a target output y, find a short prompt p that
-regenerates y. The shortest such p approaches K(y | θ) — y's Kolmogorov
-complexity *under the model*. We can't prove the minimum, so we report
-**L̂(ε)** — the best known upper bound — as a rate–distortion curve.
+**Thesis.** For a fixed model θ and a target output y, search for short prompts
+p that regenerate y. Aleph reports **L-hat(ε)**: the best known upper bound found
+under the current model, metric, decoding rule, and search budget. It is a
+model-relative description-length estimate, not a proof of K(y | θ).
 
 ## What is actually real (defendable in Q&A)
 
@@ -25,14 +25,14 @@ complexity *under the model*. We can't prove the minimum, so we report
 1. Open **http://localhost:3000/** (PC / full screen). Input screen: a paste box
    + example chips. Click an example (or paste + compress) → the result screen:
    logo, a morphing prompt/output, a draggable frontier, end labels
-   `極限壓縮 · k(y|θ)` ↔ `顯式展開 · y itself`. Logo always returns to input.
+   `極限壓縮 · shortest found` ↔ `顯式展開 · y itself`. Logo always returns to input.
 2. Pick target **“Gettysburg Address”** (target line, center).
 3. Drag the slider **right → left**:
    - far right: the identity prompt (paste the whole text), |p| ≈ |y|, ε ≈ 0.
    - middle (~26 tokens): **“Duplicate the opening of the Gettysburg Address …”**
      → ε ≈ **0.002**. Punchline: *a 26-token prompt regenerates Lincoln almost
      exactly — not because we sent the text, but because it’s already in θ.
-     That’s the K(y|θ) end of the curve.*
+     That is the shortest-found end of this measured curve.*
    - far left (~9 tokens): a cryptic guess → ε jumps up. The frontier is real.
 4. Open **dashboard** (top-right ▸) — real metrics: length |p|, similarity,
    stability, compression |p|/|y|, `L̂(ε ≈ …) — upper bound, not a proven
@@ -43,7 +43,7 @@ complexity *under the model*. We can't prove the minimum, so we report
    *L̂ is an upper bound; “we haven’t found shorter,” not “none exists.”*
 
 Close: this is *compression-is-intelligence*, measured backwards — how short a
-description of y already lives inside θ.
+description of y we have found that θ can unfold back into y.
 
 ## If something breaks
 
