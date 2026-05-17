@@ -7,6 +7,20 @@ model-relative description-length estimate, not a proof of K(y | θ).
 
 ## What is actually real (defendable in Q&A)
 
+For the current `apps/web + apps/api` console:
+
+- **Fixture mode is real as a UI/contract path**: the console starts from
+  `packages/fixtures` data shaped as `AlephRun`. These observations are fixture
+  data, not model evidence.
+- **Mock API mode is real as an API path**: `POST /api/search` returns an
+  `AlephRun`-compatible response without MLX or model downloads.
+- **Local MLX mode is optional**: `POST /api/search` can call `search/server.py`
+  through the `local_mlx_search` adapter when the search environment is set up.
+  If it is not running, the API fails recoverably and tells the user to switch
+  back to `mock`.
+
+For the legacy `web/` demo:
+
 - **θ (evaluator) = local `Qwen3-4B-4bit` via MLX**, on this M4 Max. Fixed. This
   is the thesis: a frozen model is the decoder.
 - **Proposer = the same local Qwen3** (no API key here) — the model proposes its
@@ -19,6 +33,87 @@ model-relative description-length estimate, not a proof of K(y | θ).
 - Page reads `web/public/aleph-frontier.json` (pipeline output). A real measured
   result is also **baked into the component** as fallback → the demo works even
   with no server/network.
+
+## Primary demo surface: React console (`apps/web + apps/api`)
+
+This is the current interactive console. It requires no model download and works
+in mock mode immediately.
+
+```bash
+# Terminal 1: API (mock mode, no model needed)
+cd /Users/dujiayi/code/aleph
+PYTHONPATH=apps/api apps/api/.venv/bin/python -m uvicorn aleph_api.main:app \
+  --app-dir apps/api --port 8010
+
+# Terminal 2: Frontend
+npm run dev   # → http://localhost:5173
+```
+
+Paste any text, select **mock** mode, click **Generate Compression Path**.
+The UI renders the compression path, Pareto frontier slider, token-loss panel,
+and candidate-ribbon in a single run.
+
+**With local MLX search (Apple Silicon, model required):**
+
+```bash
+# Terminal 1: MLX search engine
+source search/.venv/bin/activate
+python3 search/preflight.py
+python3 search/server.py   # → http://localhost:8000
+
+# Terminal 2: API (pointing at search engine)
+ALEPH_MLX_SEARCH_URL=http://127.0.0.1:8000/search \
+PYTHONPATH=apps/api apps/api/.venv/bin/python -m uvicorn aleph_api.main:app \
+  --app-dir apps/api --port 8010
+
+# Terminal 3: Frontend
+npm run dev
+```
+
+Select **local mlx** mode in the UI and generate. If the local engine returns
+`toktext`/`toknll`, the token-loss panel shows those model-derived values;
+otherwise the console should continue to render the run without claiming
+white-box observations.
+
+**Fixture mode (no server needed):** The console loads fixture data at startup.
+Built-in fixtures are indexed in `packages/fixtures/src/manifest.json`
+(Borges-style coordinate, non-leaking reconstruction, and Gettysburg/Lincoln).
+Switch with the fixture selector in the top bar.
+
+## Current local verification
+
+Run these before demo freeze:
+
+```bash
+npm run demo:check
+```
+
+`demo:check` runs the required fixture/mock demo path: repo tests, lint, React
+build, API smoke, API Python compile, and API pytest. It also tries
+`search/preflight.py` with `search/.venv/bin/python` when available. If
+`search/server.py` is already healthy on port 8000, it runs `api:live-smoke`
+and records whether the API can adapt the live MLX response. Blocked optional
+checks do not fail the demo-safe path. If preflight is ok but live smoke is
+blocked, start `search/server.py`; if preflight is blocked, set up
+`search/.venv`.
+
+Optional local search check:
+
+```bash
+npm run search:preflight
+```
+
+If this reports missing `mlx_lm`, `sentence_transformers`, `fastapi`, or
+`uvicorn`, the main mock/fixture demo path is still valid. Set up
+`search/.venv` with `pip install -r search/requirements.txt` before trying the
+local MLX route.
+
+---
+
+## Legacy demo surface: Next.js app (`web/`)
+
+The original deployed demo (Vercel). Precomputed frontier data baked in — no
+server needed at presentation time.
 
 ## The click path (≈90s)
 
@@ -53,7 +148,6 @@ the Python process or network at presentation time.
 ## Run / regenerate the data
 
 ```bash
-cd ~/Desktop/Repositories/aleph
 python3 search/aleph_search.py \
   --targets borges,dickens,gettysburg,genesis,hamlet \
   --eval-model mlx-community/Qwen3-4B-4bit --candidates 4 --refine 1 \
@@ -65,7 +159,7 @@ python3 search/add_pitch.py                                   # → prepend the 
 **Frontend (self-contained, in this repo): `aleph/web/`**
 
 ```bash
-cd ~/Desktop/Repositories/aleph/web && npm install && npm run dev   # → http://localhost:3000/
+cd web && npm install && npm run dev   # → http://localhost:3000/
 ```
 
 **Deploy:** Vercel project with **root directory = `web/`** (Next auto-detected,
@@ -84,8 +178,9 @@ gracefully if it's unreachable ("live search offline — examples still work").
 ```bash
 # 1. backend on the Mac
 cd ~/Desktop/Repositories/aleph
-python3 -m venv .venv && source .venv/bin/activate
+python3 -m venv search/.venv && source search/.venv/bin/activate
 pip install -r search/requirements.txt
+python3 search/preflight.py
 python3 search/server.py                      # -> http://localhost:8000
 
 # 2. expose it (signup-free quick tunnel)

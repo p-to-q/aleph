@@ -22,9 +22,7 @@ cleanup() { [ -n "$CF" ] && kill "$CF" 2>/dev/null || true
 trap cleanup EXIT INT TERM
 
 # 0. preflight
-"$PY" - <<'EOF' 2>/dev/null || { echo "[serve] missing backend deps → run: $PY -m pip install -r search/requirements.txt"; exit 1; }
-import mlx_lm, sentence_transformers, fastapi, uvicorn  # noqa
-EOF
+"$PY" "$ROOT/search/preflight.py" || { echo "[serve] preflight failed"; exit 1; }
 command -v cloudflared >/dev/null 2>&1 || { echo "[serve] cloudflared not found → run: brew install cloudflared"; exit 1; }
 
 # 1. backend (reuse if already healthy)

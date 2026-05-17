@@ -1,11 +1,14 @@
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 
+const SKIP_DIRS = new Set(["node_modules", ".git", ".venv", "__pycache__", "dist"]);
+
 function walk(dir) {
   const out = [];
   for (const entry of readdirSync(dir)) {
+    if (SKIP_DIRS.has(entry)) continue;
     const path = join(dir, entry);
-    if (["node_modules", ".git", "docs/archive/images"].includes(path)) continue;
+    if (path === "docs/archive/images") continue;
     if (statSync(path).isDirectory()) out.push(...walk(path));
     else if (/\.(md|ts|tsx|json|mjs|yml|yaml|html|css|py|toml)$/.test(path)) out.push(path);
   }

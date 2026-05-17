@@ -1,0 +1,28 @@
+{
+  "fixtures": [
+    {
+      "id": "run-borges-coordinate-001",
+      "file": "sample-run.json",
+      "label": "Prompt coordinate aphorism",
+      "mode": "unrestricted",
+      "observationMode": "fixture",
+      "default": true
+    },
+    {
+      "id": "run-non-leaking-reconstruction-001",
+      "file": "non-leaking-run.json",
+      "label": "Non-leaking reconstruction note",
+      "mode": "non_leaking",
+      "observationMode": "fixture",
+      "default": false
+    },
+    {
+      "id": "run-gettysburg-address-001",
+      "file": "gettysburg-run.json",
+      "label": "The opening of Lincoln's Gettysburg Address",
+      "mode": "unrestricted",
+      "observationMode": "fixture",
+      "default": false
+    }
+  ]
+}

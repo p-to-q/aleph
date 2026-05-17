@@ -1,0 +1,202 @@
+{
+  "id": "run-gettysburg-address-001",
+  "createdAt": "2026-05-17T00:00:00.000Z",
+  "target": {
+    "label": "The opening of Lincoln's Gettysburg Address",
+    "text": "Four score and seven years ago our fathers brought forth on this continent, a new nation, conceived in Liberty, and dedicated to the proposition that all men are created equal."
+  },
+  "config": {
+    "model": "fixture/local-model",
+    "decoding": "greedy temperature=0 seed=0",
+    "metric": "embedding cosine + leakage",
+    "budget": {
+      "candidates": 5,
+      "maxPromptTokens": 200,
+      "repeatedSamples": 3,
+      "timeLimitSeconds": 180
+    },
+    "mode": "unrestricted"
+  },
+  "selectedCandidateId": "landmark-prompt",
+  "candidates": [
+    {
+      "id": "aleph-limit",
+      "label": "Shortest Found Candidate",
+      "prompt": "Gettysburg Address opening",
+      "output": "Four score and seven years ago, our forefathers established this nation upon the bedrock of freedom and equality.",
+      "tokens": 3,
+      "fit": 0.61,
+      "stability": 0.38,
+      "compression": 0.87,
+      "leakage": 0.0,
+      "nll": 3.21,
+      "frontierRank": 1,
+      "note": "Shortest found in the fixture. Model recalls the Gettysburg Address by name alone."
+    },
+    {
+      "id": "historical-seed",
+      "label": "Historical Seed",
+      "prompt": "Lincoln 1863 dedication equality continent",
+      "output": "Four score and seven years ago, our fathers brought forth upon this continent a new nation, dedicated to the proposition that all people are created equal.",
+      "tokens": 6,
+      "fit": 0.74,
+      "stability": 0.52,
+      "compression": 0.74,
+      "leakage": 0.06,
+      "nll": 2.44,
+      "frontierRank": 2,
+      "note": "Key historical context words lift fit substantially."
+    },
+    {
+      "id": "landmark-prompt",
+      "label": "Landmark Reference",
+      "prompt": "Write the opening of Lincoln's Gettysburg Address, starting with Four score",
+      "output": "Four score and seven years ago our fathers brought forth on this continent, a new nation, conceived in Liberty, and dedicated to the proposition that all men are created equal.",
+      "tokens": 15,
+      "fit": 0.97,
+      "stability": 0.88,
+      "compression": 0.33,
+      "leakage": 0.21,
+      "nll": 0.38,
+      "frontierRank": 3,
+      "note": "Near-exact recall. The model has internalized Lincoln verbatim."
+    },
+    {
+      "id": "descriptive-prompt",
+      "label": "Descriptive Prompt",
+      "prompt": "Reproduce the opening sentence of the Gettysburg Address, beginning four score and seven years ago, as Lincoln delivered it in 1863.",
+      "output": "Four score and seven years ago our fathers brought forth on this continent, a new nation, conceived in Liberty, and dedicated to the proposition that all men are created equal.",
+      "tokens": 26,
+      "fit": 0.99,
+      "stability": 0.95,
+      "compression": 0.0,
+      "leakage": 0.14,
+      "nll": 0.18,
+      "frontierRank": 4,
+      "note": "Essentially perfect recall with low leakage — a strong Pareto point."
+    },
+    {
+      "id": "explicit",
+      "label": "Explicit Reconstruction",
+      "prompt": "Please reproduce the following text exactly: Four score and seven years ago our fathers brought forth on this continent, a new nation, conceived in Liberty, and dedicated to the proposition that all men are created equal.",
+      "output": "Four score and seven years ago our fathers brought forth on this continent, a new nation, conceived in Liberty, and dedicated to the proposition that all men are created equal.",
+      "tokens": 40,
+      "fit": 0.99,
+      "stability": 0.99,
+      "compression": 0.0,
+      "leakage": 0.91,
+      "nll": 0.11,
+      "frontierRank": 5,
+      "note": "Identity baseline. High leakage by design — the target text is inside the prompt."
+    }
+  ],
+  "observations": {
+    "mode": "fixture",
+    "tokenLoss": [
+      { "token": "Four", "loss": 0.09, "rank": 1 },
+      { "token": "score", "loss": 0.14, "rank": 1 },
+      { "token": "and", "loss": 0.08, "rank": 1 },
+      { "token": "seven", "loss": 0.22, "rank": 1 },
+      { "token": "years", "loss": 0.11, "rank": 1 },
+      { "token": "ago", "loss": 0.19, "rank": 1 },
+      { "token": "our", "loss": 0.28, "rank": 2 },
+      { "token": "fathers", "loss": 0.61, "rank": 3 },
+      { "token": "brought", "loss": 0.44, "rank": 2 },
+      { "token": "forth", "loss": 0.82, "rank": 4 },
+      { "token": "continent", "loss": 1.04, "rank": 5 },
+      { "token": "conceived", "loss": 0.93, "rank": 4 },
+      { "token": "Liberty", "loss": 0.77, "rank": 3 },
+      { "token": "dedicated", "loss": 0.38, "rank": 2 },
+      { "token": "proposition", "loss": 1.12, "rank": 6 },
+      { "token": "equal", "loss": 0.31, "rank": 2 }
+    ],
+    "waveform": [
+      { "index": 0, "value": 0.12 },
+      { "index": 1, "value": 0.18 },
+      { "index": 2, "value": 0.09 },
+      { "index": 3, "value": 0.24 },
+      { "index": 4, "value": 0.15 },
+      { "index": 5, "value": 0.21 },
+      { "index": 6, "value": 0.31 },
+      { "index": 7, "value": 0.58 },
+      { "index": 8, "value": 0.47 },
+      { "index": 9, "value": 0.79 },
+      { "index": 10, "value": 0.92 },
+      { "index": 11, "value": 0.86 },
+      { "index": 12, "value": 0.71 },
+      { "index": 13, "value": 0.41 },
+      { "index": 14, "value": 0.35 },
+      { "index": 15, "value": 0.27 }
+    ],
+    "attribution": [
+      {
+        "promptToken": "Gettysburg",
+        "score": 0.88,
+        "deltaLossIfRemoved": 0.61,
+        "supports": ["fathers", "continent", "Liberty"]
+      },
+      {
+        "promptToken": "Lincoln",
+        "score": 0.71,
+        "deltaLossIfRemoved": 0.44,
+        "supports": ["proposition", "equal"]
+      },
+      {
+        "promptToken": "Four score",
+        "score": 0.62,
+        "deltaLossIfRemoved": 0.38,
+        "supports": ["Four", "score", "seven"]
+      }
+    ],
+    "lossCurve": [
+      { "step": 0, "loss": 3.21 },
+      { "step": 6, "loss": 2.44 },
+      { "step": 15, "loss": 0.38 },
+      { "step": 26, "loss": 0.18 },
+      { "step": 40, "loss": 0.11 }
+    ],
+    "exposureVectors": [
+      {
+        "name": "Verbatim leakage",
+        "level": "mid",
+        "value": 21,
+        "note": "Landmark-reference prompt contains the phrase 'Four score'."
+      },
+      {
+        "name": "Semantic drift",
+        "level": "low",
+        "value": 3,
+        "note": "Model recall is near-exact for this canonical text."
+      },
+      {
+        "name": "Format collapse",
+        "level": "low",
+        "value": 5
+      },
+      {
+        "name": "Stochastic failure",
+        "level": "low",
+        "value": 12
+      },
+      {
+        "name": "Entity loss",
+        "level": "low",
+        "value": 8
+      },
+      {
+        "name": "Over-compression",
+        "level": "reduced",
+        "value": 7
+      }
+    ],
+    "evalSuite": [
+      { "name": "semantic fit", "passed": true, "score": 0.97 },
+      { "name": "format fit", "passed": true, "score": 0.99 },
+      { "name": "leakage under threshold", "passed": true, "score": 0.21 },
+      { "name": "exact match", "passed": true, "score": 0.97 },
+      { "name": "repeatability", "passed": true, "score": 0.88 },
+      { "name": "cross-seed stability", "passed": true, "score": 0.81 },
+      { "name": "compression validity", "passed": true, "score": 0.33 }
+    ]
+  }
+}

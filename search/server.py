@@ -5,6 +5,7 @@ kept warm; each /search runs a fast shallow frontier search on arbitrary text.
 Run:  python3 search/server.py     (→ http://localhost:8000)
 """
 import sys, threading, time
+from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import FastAPI
@@ -18,23 +19,27 @@ import aleph_search as A  # noqa: E402
 EVAL_MODEL = "mlx-community/Qwen3-1.7B-4bit"  # warm + fast for live use
 QUICK_BUDGETS = [10, 30]
 MAX_CHARS = 1200
-
-app = FastAPI(title="Aleph live search")
-app.add_middleware(
-    CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"]
-)
+LOCK_TIMEOUT = 300  # seconds; prevents infinite queue on MLX hang
 
 _lock = threading.Lock()
 _state = {}
 
 
-@app.on_event("startup")
-def _load():
+@asynccontextmanager
+async def lifespan(app: FastAPI):  # noqa: ARG001
     t = time.time()
     _state["theta"] = A.Theta(EVAL_MODEL)
     _state["metric"] = A.Metric()
     _state["prop"] = A.Proposer(_state["theta"])
     print(f"[server] warm in {time.time()-t:.1f}s", flush=True)
+    yield
+    _state.clear()
+
+
+app = FastAPI(title="Aleph live search", lifespan=lifespan)
+app.add_middleware(
+    CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"]
+)
 
 
 class Req(BaseModel):
@@ -70,9 +75,18 @@ def _quick(theta, metric, prop, y):
            "quotes, or commentary:\n\n" + y)
     gi = theta.gen(idp, int(y_tok * 1.4) + 32)
     sid = metric.sim(gi, y)
-    pts.append({"epsilon": round(1.0 - sid, 4), "prompt": idp,
+    explicit = {"epsilon": round(1.0 - sid, 4), "prompt": idp,
                 "length": theta.ntokens(idp), "similarity": round(sid, 4),
-                "stability": 1.0, "output": gi})
+                "stability": 1.0, "output": gi,
+                "label": "Explicit Reconstruction"}
+    try:
+        toks, nll = theta.score(idp, y)
+        if toks and len(toks) == len(nll):
+            explicit["toktext"] = toks
+            explicit["toknll"] = nll
+    except Exception as e:
+        print(f"[search] token NLL unavailable: {e}", flush=True)
+    pts.append(explicit)
     return {"key": "custom", "label": "your text",
             "targetTokens": y_tok, "evalModel": EVAL_MODEL,
             "points": A.monotone(pts)}
@@ -86,11 +100,14 @@ def search(req: Req):
     if "theta" not in _state:
         return {"error": "model still warming up, try again in a moment"}
     t = time.time()
-    with _lock:  # serialize: one MLX search at a time
-        try:
-            out = _quick(_state["theta"], _state["metric"], _state["prop"], txt)
-        except Exception as e:  # never crash the server on a bad request
-            return {"error": f"search failed: {e}"}
+    if not _lock.acquire(timeout=LOCK_TIMEOUT):
+        return {"error": "search engine busy — another search is running; try again shortly"}
+    try:
+        out = _quick(_state["theta"], _state["metric"], _state["prop"], txt)
+    except Exception as e:  # never crash the server on a bad request
+        return {"error": f"search failed: {e}"}
+    finally:
+        _lock.release()
     out["label"] = (req.label or txt[:48] + ("…" if len(txt) > 48 else ""))
     out["elapsed"] = round(time.time() - t, 1)
     print(f"[search] {out['elapsed']}s  |y|={out['targetTokens']}  "

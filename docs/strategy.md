@@ -104,12 +104,12 @@ Use the first fallback that preserves the thesis.
 
 These are local optima that improve the whole system without forcing hard product decisions:
 
-1. Split `apps/web/src/main.tsx` into components.
-2. Add run import/export.
-3. Add a mock `/runs` API that returns the fixture shape.
+1. ~~Split `apps/web/src/main.tsx` into components.~~ Done: `main.tsx` is now a pure composition layer; logic lives in `useAlephRun`, `runClient`, `runView`.
+2. Add run JSON import (export already ships).
+3. ~~Add a mock `/runs` API that returns the fixture shape.~~ Done: `/runs/fixture` returns `sample-run.json`.
 4. Add tiny tests for `paretoFrontier`, `leakageScore`, and `compressionRatio`.
-5. Add a visible mode badge to every observation panel.
-6. Add one second fixture with a different target style.
+5. ~~Add a visible mode badge to every observation panel.~~ Done: every `Panel` carries an `observationBadge`.
+6. ~~Add one second fixture with a different target style.~~ Done: `gettysburg-run.json` (Lincoln) and `non-leaking-run.json` ship alongside the Borges fixture.
 7. Add a candidate comparison view before adding any heavy search backend.
 
 ## Decision gates

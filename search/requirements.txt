@@ -4,8 +4,9 @@
 # run on Vercel / generic Linux x86. Deploy = run on the Mac and expose via a
 # tunnel, or rewrite Theta/Proposer onto a non-MLX runtime (see DEMO.md).
 #
-#   python3 -m venv .venv && source .venv/bin/activate
+#   python3 -m venv search/.venv && source search/.venv/bin/activate
 #   pip install -r search/requirements.txt
+#   python3 search/preflight.py
 #   python3 search/server.py            # -> http://localhost:8000
 
 mlx-lm==0.31.3            # pulls mlx; Apple-Silicon only

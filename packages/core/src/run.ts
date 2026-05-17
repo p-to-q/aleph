@@ -1,5 +1,5 @@
-import type { AlephRun, CandidatePoint } from "./types";
-import { paretoFrontier } from "./frontier";
+import type { AlephRun, CandidatePoint } from "./types.ts";
+import { paretoFrontier } from "./frontier.ts";
 
 export function annotateFrontier(run: AlephRun): AlephRun {
   const frontierIds = paretoFrontier(run.candidates).map((candidate) => candidate.id);

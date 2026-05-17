@@ -1,4 +1,4 @@
-import type { CandidatePoint } from "./types";
+import type { CandidatePoint } from "./types.ts";
 
 export function selectedCandidate(candidates: CandidatePoint[], selectedCandidateId: string): CandidatePoint {
   const candidate = candidates.find((item) => item.id === selectedCandidateId);

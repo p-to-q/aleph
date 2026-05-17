@@ -60,3 +60,64 @@ class ScoreResponse(BaseModel):
     leakage_score: float
     reliability: float | None = None
     overall_score: float
+
+
+SearchAdapterMode = Literal["mock", "local_mlx_search"]
+
+
+class SearchRequest(BaseModel):
+    target_text: str = Field(min_length=8)
+    mode: SearchAdapterMode = "mock"
+    label: str | None = None
+
+
+class SearchTarget(BaseModel):
+    text: str
+    label: str | None = None
+
+
+class SearchBudget(BaseModel):
+    candidates: int
+    maxPromptTokens: int
+    repeatedSamples: int
+    timeLimitSeconds: float | None = None
+
+
+class SearchConfig(BaseModel):
+    model: str
+    decoding: str
+    metric: str
+    budget: SearchBudget
+    mode: Literal["unrestricted", "non_leaking"] = "unrestricted"
+
+
+class SearchCandidatePoint(BaseModel):
+    id: str
+    label: str
+    prompt: str
+    output: str
+    tokens: int
+    fit: float
+    stability: float
+    compression: float
+    leakage: float
+    nll: float | None = None
+    frontierRank: int | None = None
+    note: str | None = None
+
+
+class SearchObservations(BaseModel):
+    mode: Literal["fixture", "mock", "black_box", "white_box", "simulated"]
+    tokenLoss: list[dict[str, object]] | None = None
+    lossCurve: list[dict[str, object]] | None = None
+    evalSuite: list[dict[str, object]] | None = None
+
+
+class SearchResponse(BaseModel):
+    id: str
+    createdAt: str
+    target: SearchTarget
+    config: SearchConfig
+    candidates: list[SearchCandidatePoint]
+    selectedCandidateId: str
+    observations: SearchObservations
