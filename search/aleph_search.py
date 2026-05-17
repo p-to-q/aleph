@@ -143,13 +143,30 @@ class Proposer:
         cands = self._parse(txt, n)
         return cands or [f"Write the {('text'):s}: {target[:budget*6]}"]
 
-    def refine(self, target, prompt, got, budget):
+    def refine(self, target, prompt, got, budget, hard=None):
+        miss = (
+            f"\nThe model reproduced these TARGET words least reliably — fix "
+            f"these specifically: {', '.join(hard)}." if hard else "")
         instr = (
             f"Improve the PROMPT so an AI's output matches the TARGET better. "
-            f"Keep it within {budget} words. Output ONLY the single improved "
+            f"Keep it within {budget} words; prefer naming the work/author/form "
+            f"over restating content.{miss} Output ONLY the single improved "
             f"prompt, nothing else.\n\nTARGET:\n{target}\n\nCURRENT PROMPT:\n"
             f"{prompt}\n\nWHAT THE MODEL PRODUCED:\n{got[:600]}")
         txt = self.theta.gen(instr, max_tokens=budget * 6 + 60, temp=0.6)
+        c = self._parse(txt, 1)
+        return c[0] if c else prompt
+
+    def compress(self, target, prompt, budget):
+        """Distil a known-working (longer) prompt down to <=budget words —
+        this is what pushes the short-prompt end of the frontier left."""
+        instr = (
+            f"Below is a WORKING prompt that already makes an AI reproduce the "
+            f"TARGET. Rewrite it to AT MOST {budget} words, keeping only what is "
+            f"essential to still reproduce the TARGET — prefer a bare "
+            f"work/author/form reference over restating text. Output ONLY the "
+            f"shortened prompt.\n\nTARGET:\n{target}\n\nWORKING PROMPT:\n{prompt}")
+        txt = self.theta.gen(instr, max_tokens=budget * 6 + 60, temp=0.5)
         c = self._parse(txt, 1)
         return c[0] if c else prompt
 
@@ -163,6 +180,25 @@ def stability(theta, metric, prompt, target, max_tok, runs=3):
     if len(sims) < 2:
         return 1.0
     return round(max(0.0, 1.0 - min(1.0, statistics.pstdev(sims) * 4)), 3)
+
+
+def hardest_tokens(toks, nll, k=8):
+    """The target tokens θ reproduced least confidently under the current
+    prompt (highest NLL) — i.e. exactly what the prompt fails to carry."""
+    if not toks or not nll:
+        return []
+    pairs = sorted(zip(toks, nll), key=lambda tn: -tn[1])
+    seen, out = set(), []
+    for t, v in pairs:
+        w = t.strip()
+        lw = w.lower()
+        if len(w) < 2 or lw in seen or v <= 0.05:
+            continue
+        seen.add(lw)
+        out.append(w)
+        if len(out) >= k:
+            break
+    return out
 
 
 def monotone(points):
@@ -189,19 +225,26 @@ def search_target(theta, metric, prop, key, spec, n_cand, n_refine):
     max_out = int(y_tok * 1.6) + 32
     print(f"\n=== target '{key}'  |y|={y_tok} tok ===", flush=True)
     points = []
-    for K in BUDGETS:
+    carry = None  # best prompt from the larger budget → seeds the next (smaller)
+    for K in sorted(BUDGETS, reverse=True):
+        cands = prop.propose(y, K, n_cand)
+        if carry:  # distil the known-working longer prompt down to this budget
+            cands = cands + [prop.compress(y, carry, K)]
         best = None
-        for cand in prop.propose(y, K, n_cand):
+        for cand in cands:
             got = theta.gen(cand, max_out)
             s = metric.sim(got, y)
             if best is None or s > best["similarity"]:
                 best = {"prompt": cand, "similarity": s, "_got": got}
-        for _ in range(n_refine):
-            imp = prop.refine(y, best["prompt"], best["_got"], K)
+        for _ in range(n_refine):  # NLL-guided hill-climb
+            tk, nl = theta.score(best["prompt"], y)
+            imp = prop.refine(y, best["prompt"], best["_got"], K,
+                              hardest_tokens(tk, nl))
             got = theta.gen(imp, max_out)
             s = metric.sim(got, y)
             if s > best["similarity"]:
                 best = {"prompt": imp, "similarity": s, "_got": got}
+        carry = best["prompt"]
         lp = theta.ntokens(best["prompt"])
         toks, nll = theta.score(best["prompt"], y)
         pt = {
@@ -250,8 +293,8 @@ def main():
     ap.add_argument("--targets", default="borges")
     ap.add_argument("--out", default=str(Path(__file__).parent / "frontier.json"))
     ap.add_argument("--eval-model", default="auto")
-    ap.add_argument("--candidates", type=int, default=4)
-    ap.add_argument("--refine", type=int, default=1)
+    ap.add_argument("--candidates", type=int, default=5)
+    ap.add_argument("--refine", type=int, default=2)
     ap.add_argument("--budgets", default="", help="comma list, overrides default")
     ap.add_argument("--no-stability", action="store_true")
     a = ap.parse_args()
