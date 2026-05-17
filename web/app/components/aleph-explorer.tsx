@@ -1,6 +1,13 @@
 'use client'
 
-import { useCallback, useEffect, useId, useRef, useState } from 'react'
+import {
+  createElement,
+  useCallback,
+  useEffect,
+  useId,
+  useRef,
+  useState,
+} from 'react'
 
 interface CurvePoint {
   epsilon: number
@@ -200,7 +207,7 @@ const EXAMPLE_OOB: Record<string, { seed: string; tail: string }> = {
     tail: '\n\n— — —  越过 explicit · 冗余的过度描述(下面每一句其实都已蕴含)  — — —\n\n篇目,重述:朱自清散文《春》,写江南早春。结构,重述:总起“盼春”;分写“绘春” —— 春草、春花、春风、春雨、迎春图;收束“颂春”,连用娃娃、小姑娘、健壮的青年三个比喻。修辞,重述:通篇比喻、拟人、排比、反复,叠词如“嫩嫩的,绿绿的”“轻悄悄的,软绵绵的”。立意,重述:以景写情,层层渲染生机与希望。(整段都是冗余 —— 越过逐字原文,再多描述只增加噪声。)',
   },
   crush: {
-    seed: '⟨只因你太美⟩  argmin |p|   s.t.  d( θ(p), y ) ≤ ε\n\n曲 := 《只因你太美》 ;  体 := 中英混写流行歌词 ;  θ := 固定模型\n结构:  hook  ◀──── verse · rap ────▶  outro\n\n// 越界 —— 不是歌词,是一个坐标;交给 θ 展开',
+    seed: '         __\n        / o>             .---.\n       / __/            ( -|- )\n       |/   )            (--+--)\n       (  _/             ( -|- )\n       |  |               .---.\n      _|  |_',
     tail: '\n\n— — —  越过 explicit · 冗余的过度描述(下面每一句其实都已蕴含)  — — —\n\n曲目,重述:中英混写流行歌曲《只因你太美》。结构,重述:以“只因你太美 baby”为反复 hook;两段主歌、两段“难道真的因你而疯狂吗”;一段 rap“跟着那节奏 缓缓 make wave……”;以“Oh eh oh / 你到底属于谁”收束。手法,重述:口语化直白表白,中英夹杂,大量重复与呼告。(整段都是冗余 —— 越过逐字歌词,再多描述只增加噪声。)',
   },
 }
@@ -379,6 +386,193 @@ function leakageScore(p: string, y: string): number {
 }
 
 const FONT = "'Iosevka Etoile', 'Noto Sans TC', 'PingFang TC', sans-serif"
+
+// Tiny dependency-free markdown renderer for the central display.
+// Single \n inside a paragraph becomes <br/>; blank line splits paragraphs.
+function mdInline(s: string, kb: string) {
+  const out: Array<string | JSX.Element> = []
+  let k = 0
+  const pushText = (txt: string) => {
+    const parts = txt.split('\n')
+    parts.forEach((p, idx) => {
+      if (p) out.push(p)
+      if (idx < parts.length - 1) out.push(<br key={`${kb}-br-${k++}`} />)
+    })
+  }
+  const re = /(\*\*([^*]+)\*\*|\*([^*]+)\*|`([^`]+)`|\[([^\]]+)\]\(([^)\s]+)\))/g
+  let m: RegExpExecArray | null
+  let last = 0
+  while ((m = re.exec(s))) {
+    if (m.index > last) pushText(s.slice(last, m.index))
+    if (m[2] != null)
+      out.push(<strong key={`${kb}-s-${k++}`}>{m[2]}</strong>)
+    else if (m[3] != null) out.push(<em key={`${kb}-e-${k++}`}>{m[3]}</em>)
+    else if (m[4] != null)
+      out.push(
+        <code
+          key={`${kb}-c-${k++}`}
+          style={{
+            fontFamily: FONT,
+            background: 'rgba(255,255,255,0.06)',
+            border: '1px solid var(--site-code-border)',
+            borderRadius: 3,
+            padding: '0 4px',
+            fontSize: '0.9em',
+          }}
+        >
+          {m[4]}
+        </code>,
+      )
+    else if (m[5] != null)
+      out.push(
+        <a
+          key={`${kb}-a-${k++}`}
+          href={m[6]}
+          target="_blank"
+          rel="noreferrer"
+          style={{ color: 'var(--site-link)', textDecoration: 'underline' }}
+        >
+          {m[5]}
+        </a>,
+      )
+    last = re.lastIndex
+  }
+  if (last < s.length) pushText(s.slice(last))
+  return out
+}
+
+function Markdown({ text }: { text: string }) {
+  const lines = String(text).replace(/\r\n/g, '\n').split('\n')
+  const blocks: JSX.Element[] = []
+  let i = 0
+  const key = () => `b${blocks.length}`
+  while (i < lines.length) {
+    const line = lines[i]
+    if (/^```/.test(line)) {
+      const buf: string[] = []
+      i++
+      while (i < lines.length && !/^```/.test(lines[i])) buf.push(lines[i++])
+      i++
+      blocks.push(
+        <pre
+          key={key()}
+          style={{
+            margin: '0 0 0.9em',
+            fontFamily: FONT,
+            whiteSpace: 'pre',
+            overflowX: 'auto',
+            background: 'rgba(255,255,255,0.05)',
+            border: '1px solid var(--site-code-border)',
+            borderRadius: 4,
+            padding: '0.6em 0.8em',
+            fontSize: '0.85em',
+          }}
+        >
+          {buf.join('\n')}
+        </pre>,
+      )
+      continue
+    }
+    if (/^\s*$/.test(line)) {
+      i++
+      continue
+    }
+    const h = line.match(/^(#{1,6})\s+(.*)$/)
+    if (h) {
+      const lvl = h[1].length
+      blocks.push(
+        createElement(
+          `h${lvl}`,
+          {
+            key: key(),
+            style: {
+              margin: '0 0 0.5em',
+              fontSize: `${1.6 - (lvl - 1) * 0.12}em`,
+              fontWeight: 700,
+              lineHeight: 1.3,
+            },
+          },
+          mdInline(h[2], key()),
+        ),
+      )
+      i++
+      continue
+    }
+    if (/^(-{3,}|\*{3,})\s*$/.test(line)) {
+      blocks.push(
+        <hr
+          key={key()}
+          style={{
+            border: 'none',
+            borderTop: '1px solid var(--site-hr)',
+            margin: '1em 0',
+          }}
+        />,
+      )
+      i++
+      continue
+    }
+    if (/^>\s?/.test(line)) {
+      const buf: string[] = []
+      while (i < lines.length && /^>\s?/.test(lines[i]))
+        buf.push(lines[i++].replace(/^>\s?/, ''))
+      blocks.push(
+        <blockquote
+          key={key()}
+          style={{
+            margin: '0 0 0.9em',
+            paddingLeft: '0.9em',
+            borderLeft: '3px solid var(--site-hr)',
+            color: 'var(--site-link)',
+          }}
+        >
+          {mdInline(buf.join('\n'), key())}
+        </blockquote>,
+      )
+      continue
+    }
+    if (/^\s*([-*+]|\d+\.)\s+/.test(line)) {
+      const ordered = /^\s*\d+\.\s+/.test(line)
+      const items: string[] = []
+      while (i < lines.length && /^\s*([-*+]|\d+\.)\s+/.test(lines[i]))
+        items.push(lines[i++].replace(/^\s*([-*+]|\d+\.)\s+/, ''))
+      const lis = items.map((it, idx) => (
+        <li key={idx} style={{ margin: '0.15em 0' }}>
+          {mdInline(it, `${key()}-${idx}`)}
+        </li>
+      ))
+      blocks.push(
+        ordered ? (
+          <ol key={key()} style={{ margin: '0 0 0.9em', paddingLeft: '1.4em' }}>
+            {lis}
+          </ol>
+        ) : (
+          <ul key={key()} style={{ margin: '0 0 0.9em', paddingLeft: '1.4em' }}>
+            {lis}
+          </ul>
+        ),
+      )
+      continue
+    }
+    const buf: string[] = []
+    while (
+      i < lines.length &&
+      !/^\s*$/.test(lines[i]) &&
+      !/^```/.test(lines[i]) &&
+      !/^#{1,6}\s/.test(lines[i]) &&
+      !/^>\s?/.test(lines[i]) &&
+      !/^\s*([-*+]|\d+\.)\s+/.test(lines[i]) &&
+      !/^(-{3,}|\*{3,})\s*$/.test(lines[i])
+    )
+      buf.push(lines[i++])
+    blocks.push(
+      <p key={key()} style={{ margin: '0 0 0.9em' }}>
+        {mdInline(buf.join('\n'), key())}
+      </p>,
+    )
+  }
+  return <>{blocks}</>
+}
 const CHROME_FADE_DELAY_MS = 1250
 const HEADER_LOGO_SIZE = 'clamp(3.5rem, 5.5vw, 5.25rem)'
 const INTRO_LOGO_SIZE = 'clamp(13rem, 48vmin, 30rem)'
@@ -1508,23 +1702,40 @@ export function AlephExplorer() {
           </p>
         )}
 
-        <p
+        <div
           style={{
-            maxWidth: '52rem',
-            margin: 0,
+            position: 'fixed',
+            top: '50%',
+            left: '50%',
+            transform: 'translate(-50%, -50%)',
+            width: 'min(52rem, 90vw)',
+            maxHeight: '70vh',
             overflowY: 'auto',
-            maxHeight: '40vh',
-            whiteSpace: 'pre-wrap',
             textAlign: 'left',
+            fontFamily: FONT,
             fontSize: 'clamp(1.2rem, 1.8vw, 1.5rem)',
             lineHeight: 1.7,
             color: busy ? muted : 'var(--site-text)',
+            zIndex: 5,
           }}
         >
-          {busy
-            ? `${tr.compressingLocal} ${'.'.repeat(dots)}`
-            : vv.output ?? vv.prompt}
-        </p>
+          {busy ? (
+            `${tr.compressingLocal} ${'.'.repeat(dots)}`
+          ) : oob === 'left' ? (
+            <pre
+              style={{
+                margin: 0,
+                fontFamily: FONT,
+                whiteSpace: 'pre',
+                overflowX: 'auto',
+              }}
+            >
+              {vv.output ?? vv.prompt}
+            </pre>
+          ) : (
+            <Markdown text={vv.output ?? vv.prompt} />
+          )}
+        </div>
 
         {!reveal &&
           !busy &&
