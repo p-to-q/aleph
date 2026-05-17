@@ -28,6 +28,18 @@ Run an open-weight model where logits are available. Score target likelihood und
 - Strength: makes token-level NLL real.
 - Weakness: local setup and model choice become heavy.
 - Likely features: teacher-forced likelihood, per-token target loss, top-k alternatives, entropy.
+- Current evidence: `search/aleph_search.py` already runs an MLX Qwen evaluator and computes teacher-forced token NLL for precomputed runs.
+- Integration requirement: expose the result through `apps/api` and `AlephRun` before treating it as a product surface.
+
+## Route C1: Local live-search spike
+
+Use the same local MLX model as proposer and evaluator for shallow prompt-frontier search.
+
+- Best for: Hackathon demo credibility and local no-cloud operation.
+- Strength: very close to the Aleph thesis because the fixed local model is the decoder.
+- Weakness: expensive startup, serialized requests, heuristic proposer, and metric/runtime assumptions live in one script.
+- Current status: implemented in `search/server.py` and `search/aleph_search.py`.
+- Likely role: wrap behind `apps/api` as a `local_mlx_search` adapter.
 
 ## Route D: ARCA-style discrete optimization
 
@@ -59,7 +71,8 @@ Use embedding inversion methods as an adjacent comparison, not core Aleph behavi
 ## Maintainer recommendation
 
 1. Ship Route A.
-2. Add Route B for first real runs.
-3. Add Route C when token loss must become real.
-4. Treat Routes D and E as optional adapters.
-5. Keep Route F as adjacent prior art.
+2. Keep Route C1 as the Hackathon live-search engine, but wrap it behind `apps/api`.
+3. Add Route B for hosted black-box runs when local setup is too heavy.
+4. Promote Route C observations when `AlephRun` has stable white-box fields.
+5. Treat Routes D and E as optional adapters.
+6. Keep Route F as adjacent prior art.

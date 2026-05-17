@@ -12,7 +12,7 @@ Options:
 - local open-weight adapter first;
 - fixture-only Hackathon v0 followed by both.
 
-Maintainer leaning: fixture-first for v0, hosted black-box for the first real external run, local white-box when token loss becomes real.
+Maintainer leaning: fixture-first for the stable UI contract, local MLX live-search for the Hackathon demo, hosted black-box for the first external run, and local white-box once token loss becomes a stable product observation.
 
 ### 2. Default metric
 
@@ -47,7 +47,7 @@ Options:
 - GCG-style hard-prompt search;
 - soft-prompt route later.
 
-Maintainer leaning: ship heuristic + scoring first, then make ARCA/GCG external adapters once the run contract is stable.
+Maintainer leaning: keep the current local MLX shallow-search spike for demo credibility, wrap it behind `apps/api`, then make ARCA/GCG external adapters once the run contract is stable.
 
 ### 5. UI emphasis
 
