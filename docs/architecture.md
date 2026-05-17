@@ -62,6 +62,7 @@ ObservationSet -> TokenLoss / Waveform / Attribution / Exposure / EvalSuite
 Future model integrations should use adapters behind the run contract:
 
 - `mock` adapter: deterministic fixture-like runs for UI work;
+- `local_mlx_search` adapter: wraps the current `search/` experiment behind the product API;
 - `hosted_black_box` adapter: repeated sampling, similarity, leakage, stability;
 - `local_white_box` adapter: logits, token NLL, teacher-forced likelihood;
 - `arca` adapter: length-scanned discrete optimization;
