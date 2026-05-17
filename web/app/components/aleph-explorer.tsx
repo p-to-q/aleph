@@ -380,14 +380,23 @@ function leakageScore(p: string, y: string): number {
 
 const FONT = "'Iosevka Etoile', 'Noto Sans TC', 'PingFang TC', sans-serif"
 const CHROME_FADE_DELAY_MS = 1250
-const HEADER_LOGO_SIZE = 'clamp(3.5rem, 5.5vw, 5.25rem)'
-const INTRO_LOGO_SIZE = 'clamp(13rem, 48vmin, 30rem)'
+const HEADER_LOGO_SIZE = 'clamp(3.35rem, 5vw, 4.9rem)'
+const INTRO_HORNS_SIZE = 'clamp(13.6rem, 48vmin, 30rem)'
 const LOGO_IMG_STYLE: React.CSSProperties = {
   width: '100%',
   height: '100%',
   objectFit: 'contain',
   objectPosition: 'center',
   display: 'block',
+  transform: 'translate(-3%, -1.5%) scale(1.07)',
+}
+const LOGO_HORNS_STYLE: React.CSSProperties = {
+  width: '100%',
+  height: '100%',
+  objectFit: 'contain',
+  objectPosition: 'center',
+  display: 'block',
+  transform: 'translate(0, 0)',
 }
 
 type Lang = 'en' | 'zh'
@@ -1325,7 +1334,7 @@ export function AlephExplorer() {
                 src={headerLogoHover ? '/horns.png' : '/aleph-logo.png'}
                 alt="aleph"
                 style={{
-                  ...LOGO_IMG_STYLE,
+                  ...(headerLogoHover ? LOGO_HORNS_STYLE : LOGO_IMG_STYLE),
                   filter: headerLogoHover ? 'none' : 'brightness(0) invert(1)',
                 }}
               />
@@ -1339,7 +1348,7 @@ export function AlephExplorer() {
                 fontSize: 'clamp(0.85rem, 1.8vw, 1.9rem)',
                 lineHeight: 1,
                 whiteSpace: 'nowrap',
-                transform: 'translate(-0.68rem, -0.95rem)',
+                transform: 'translate(-1.18rem, -0.95rem)',
                 transformOrigin: 'left top',
                 color: 'var(--site-text)',
               }}
@@ -1905,8 +1914,8 @@ export function AlephExplorer() {
           top: launched ? 'clamp(1.25rem, 4vw, 2.5rem)' : '50%',
           left: launched ? 'clamp(1.25rem, 4vw, 2.5rem)' : '50%',
           transform: launched ? 'none' : 'translate(-50%, -50%)',
-          width: launched ? HEADER_LOGO_SIZE : 'min(62vw, 34rem)',
-          height: launched ? HEADER_LOGO_SIZE : 'auto',
+          width: launched ? HEADER_LOGO_SIZE : INTRO_HORNS_SIZE,
+          height: launched ? HEADER_LOGO_SIZE : INTRO_HORNS_SIZE,
           zIndex: 20,
           background: 'none',
           border: 'none',
@@ -1917,7 +1926,7 @@ export function AlephExplorer() {
           opacity: launched ? 0 : 1,
           pointerEvents: launched ? 'none' : 'auto',
           transition:
-            'top 1000ms ease, left 1000ms ease, width 1000ms ease, height 1000ms ease, transform 1000ms ease, opacity 450ms ease 950ms',
+            'top 1000ms ease, left 1000ms ease, transform 1000ms ease, opacity 450ms ease 950ms',
         }}
       >
         {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -1925,7 +1934,7 @@ export function AlephExplorer() {
           src={launched || introLogoHover ? '/aleph-logo.png' : '/horns.png'}
           alt="aleph"
           style={{
-            ...LOGO_IMG_STYLE,
+            ...(launched || introLogoHover ? LOGO_IMG_STYLE : LOGO_HORNS_STYLE),
             height: launched ? '100%' : 'auto',
             filter:
               launched || introLogoHover ? 'brightness(0) invert(1)' : 'none',

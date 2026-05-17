@@ -15,6 +15,8 @@ A contributor should be able to answer these within minutes:
 7. What should I not claim yet?
 8. What is the next smallest useful change?
 
+`docs/state-of-play.md` is the fast answer to those questions. `THESIS.md` remains the durable product/research claim; the README remains the public entrypoint; governance docs carry operational cleanup.
+
 ## Local quality rules
 
 ### Product language

@@ -10,6 +10,7 @@ Use an **artifact-first product lab** shape:
 root public files       public face and delegation contracts
 THESIS.md               durable product/research thesis
 apps/                   runnable artifacts
+web/                    current Next.js launch surface
 packages/               shared code contracts
 packages/fixtures       stable demo data
 docs/                   architecture, research, UI, decisions, plans, verification
@@ -27,6 +28,7 @@ The previous `optional/` template route has been removed. Decisions and plans no
 | `docs/core-concept.md` | Settled/open/deferred split. |
 | `docs/architecture.md` | How implementation pieces fit. |
 | `docs/surfaces.md` | What is stable, experimental, simulated, stub, future, or archived. |
+| `docs/repository-governance.md` | Post-Hackathon path, naming, branch, and claim cleanup rules. |
 | `docs/research/` | Source-backed research that changes implementation or roadmap. |
 | `docs/decisions/` | Durable decisions. Sparse by design. |
 | `docs/plans/` | Multi-file execution plans. |

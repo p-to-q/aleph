@@ -10,6 +10,20 @@ Borges' Aleph is a point that contains every other point. From one small sphere,
 
 Aleph turns that image into a product surface: paste an output, ask the model-space for coordinates that summon it, then inspect how much information is carried by the prompt, how much is supplied by the model, and where compression begins to fail.
 
+## Confidence posture
+
+Aleph's strongest claim is now stable: reverse prompt search is a real product direction when framed as **shortest known prompt under fixed run conditions**, not as a proof of the globally shortest prompt.
+
+The research pass supports building around this shape:
+
+- ARCA and Reversing LLMs show that output-to-prompt search can be treated as discrete optimization;
+- GCG-style hard-prompt search is a future adapter route, not Aleph's identity;
+- embedding inversion is adjacent prior art, not the same problem;
+- local MLX/Qwen experiments provide adapter evidence for AlephRun-compatible search output;
+- fixture and simulated panels are product-shape evidence, not model evidence.
+
+This means the product should become clearer before it becomes broader: one target output, one run contract, one compression path, visible evidence modes, and explicit boundaries around what remains unproven.
+
 ## The core claim
 
 The core object is not a better prompt. The core object is a compression path.
