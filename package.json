@@ -9,7 +9,6 @@
   },
   "workspaces": [
     "web",
-    "apps/web",
     "packages/core",
     "packages/ui",
     "packages/fixtures"
@@ -21,9 +20,11 @@
     "demo:check": "node scripts/demo-check.mjs",
     "search:preflight": "${ALEPH_PY:-python3} search/preflight.py",
     "dev": "npm --workspace web run dev",
-    "dev:reference": "npm --workspace apps/web run dev",
     "build": "npm --workspace web run build",
-    "build:reference": "npm --workspace apps/web run build",
     "test": "node scripts/check-core.mjs && node scripts/check-contract.mjs && node scripts/check-fixtures.mjs && node scripts/check-repo.mjs"
+  },
+  "dependencies": {
+    "react": "18.3.1",
+    "react-dom": "18.3.1"
   }
 }

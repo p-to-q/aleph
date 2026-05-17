@@ -31,7 +31,7 @@ Goal: replace fixture candidate data with real repeated model calls.
 
 Likely work:
 
-- choose the permanent frontend path: keep `web/`, move it under `apps/web`, or retire the Vite console;
+- keep the active frontend path on `web/` and leave `apps/web/` archived;
 - FastAPI `/runs` skeleton becomes real;
 - hosted/local black-box adapter;
 - candidate generation strategies;

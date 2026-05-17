@@ -37,7 +37,6 @@ The repository should be comfortable for three readers:
 
 Open questions are tracked in `docs/open-questions.md`; implementation path and fallbacks are tracked in `docs/strategy.md`. The most important are:
 
-- permanent frontend path after the Hackathon split between `web/` and `apps/web`;
 - first real adapter;
 - default metric;
 - leakage formula;

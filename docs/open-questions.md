@@ -6,13 +6,10 @@ This file is for real uncertainty. Do not let unresolved questions become produc
 
 ### 0. Permanent frontend path
 
-Options:
+Settled:
 
-- keep `web/` as the active Next.js app and archive `apps/web`;
-- move the active Next.js app under `apps/web`;
-- keep both temporarily, with `apps/web` as a reference console.
-
-Maintainer leaning: keep `web/` active for the immediate launch pass, but choose one permanent path before adding major UI features.
+- `web/` is the active Next.js app.
+- `apps/web/` is archived reference material.
 
 ### 1. First real model adapter
 

@@ -51,7 +51,7 @@ Use the first fallback that preserves the thesis.
 
 | Risk | Fallback | What remains true |
 |---|---|---|
-| React/Vite install fails | Serve `apps/web/static/aleph-atlas-console.html` | The visual product thesis is still demonstrable. |
+| Legacy console review needed | Inspect `apps/web/static/aleph-atlas-console.html` | The historical visual thesis is still demonstrable. |
 | Model runtime fails | Use `packages/fixtures/src/sample-run.json` | The compression path and UI contract still work. |
 | Real scoring is noisy | Mark scoring as `mock` or `fixture` | The honesty layer remains intact. |
 | Token loss is unavailable | Show simulated token-loss panel with visible mode label | The panel shape is validated without white-box claims. |

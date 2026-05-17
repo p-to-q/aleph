@@ -9,7 +9,7 @@ Aleph has one durable product contract and two runnable frontend histories:
 | Surface | Status | Rule |
 |---|---|---|
 | `web/` | active app | Current Next.js launch surface. Use this for product UI work unless a migration note says otherwise. |
-| `apps/web/` | legacy/reference console | Vite console that proves the `AlephRun` workbench shape. Keep it as a reference until its useful pieces move into `web/` or it is archived. |
+| `apps/web/` | archived/reference console | Legacy Vite console preserved as historical reference. Do not use it as the terminal-facing launch path. |
 | `apps/api/` | active API boundary | Owns `/runs/fixture`, mock search, and the local MLX adapter wrapper. |
 | `search/` | experimental local adapter | Real local-model spike. Keep claims scoped to the local setup and emitted receipts. |
 | `packages/core` | stable-ish contract layer | Owns `AlephRun`, `CandidatePoint`, `ObservationSet`, metrics, leakage, and frontier helpers. |
@@ -53,7 +53,7 @@ As of the post-Hackathon cleanup on 2026-05-18:
 ## Next governance moves
 
 1. Merge or close `codex/publish-aleph-explorer-update`.
-2. Decide whether `web/` replaces `apps/web/`, or whether the Next.js app moves under `apps/web`.
-3. Add `web/` to the root workspace only after deciding the app layout.
+2. Keep `web/` as the only active frontend launch path.
+3. Leave `apps/web/` out of the root workspace and treat it as archive/reference only.
 4. Convert active handoff notes into either `docs/strategy.md`, `docs/roadmap.md`, or issues, then archive stale handoffs.
 5. Open a small set of issues for the next phase instead of keeping roadmap intent only in prose.

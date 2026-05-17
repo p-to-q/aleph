@@ -25,7 +25,7 @@ Read this file when you are new to the repository and need to know where work be
 - `docs/ui/interaction-model.md`
 - `docs/ui/visual-system.md`
 - `web/` — active Next.js launch surface.
-- `apps/web/`
+- `apps/web/` — archived legacy frontend reference.
 - `packages/ui/`
 
 ## Core contracts
