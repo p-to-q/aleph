@@ -115,6 +115,52 @@ const PITCH: Record<Lang, Target> = {
   zh: pitchTarget('zh'),
 }
 
+type OobView = {
+  epsilon: number
+  prompt: string
+  length: number
+  similarity: number
+  stability: number
+}
+
+// Past the curve: left = a symbolic seed only an agent unfolds; right =
+// the explicit output plus redundant, more-concrete over-specification.
+function pitchOob(lang: Lang): { left: OobView; right: OobView } {
+  const full = (lang === 'zh' ? PITCH_SCRIPT_ZH : PITCH_SCRIPT).replace(
+    /\n/g,
+    ' ',
+  )
+  const leftEn =
+    '⟨Aleph⟩  p* = argmin |p|   s.t.  d( θ(p), y ) ≤ ε\n\nθ := frozen local Qwen3 ;  y := this talk ;  ε := embedding distortion\naxis:  K(y|θ) ◀─────────▶ y\n\n// out of bound — not prose, a symbolic seed; θ unfolds it'
+  const leftZh =
+    '⟨Aleph⟩  p* = argmin |p|,  s.t.  d( θ(p), y ) ≤ ε\n\nθ := 冻结的本地 Qwen3 ;  y := 本场宣讲 ;  ε := embedding 失真\n轴:  K(y|θ) ◀─────────▶ y\n\n// 越界 —— 非散文,一颗符号化的种子;由 θ 展开'
+  const tailEn =
+    '\n\n— — —  beyond explicit · redundant over-specification (every line below is already implied)  — — —\n\nDefinitions, restated: a prompt p is the input token sequence; θ is the fixed model with frozen weights; |p| is the token count of p; ε is one minus the embedding cosine similarity between θ(p) and y; the target output y is exactly the talk above, verbatim, including punctuation and line breaks. Procedure, restated: hold θ fixed and never fine-tune; sample θ(p) several times to estimate stability; score leakage as the fraction of y word-trigrams copied into p. Endpoints, restated: the left end approaches K(y|θ), the smallest seed θ can unfold; the right end is the identity prompt where p literally equals y. Example, restated: a 24-token prompt that merely names the Gettysburg Address already drives θ to near-verbatim recovery, distortion ≈ 0.002. Caveat, restated: K(y|θ) is uncomputable, so every figure here is an upper bound, never a proven minimum. (This entire paragraph is redundant — past the explicit prompt, more length only adds noise.)'
+  const tailZh =
+    '\n\n— — —  越过 explicit · 冗余的过度描述(下面每一句其实都已蕴含)  — — —\n\n定义,重述:prompt p 是输入 token 序列;θ 是权重冻结的固定模型;|p| 是 p 的 token 数;ε 是 θ(p) 与 y 的 embedding 余弦相似度的补;目标 output y 就是上面那段宣讲的逐字原文,含标点与换行。流程,重述:固定 θ、绝不 fine-tune;对 θ(p) 多次采样以估计 stability;leakage 取 y 的词三元组被复制进 p 的比例。两端,重述:左端逼近 K(y|θ),θ 能展开的最小种子;右端是自指 prompt,p 字面等于 y。例子,重述:一个仅点出 Gettysburg Address 名字的 24-token prompt,已能驱动 θ 近乎逐字复原,失真 ≈ 0.002。注脚,重述:K(y|θ) 不可计算,所以这里每个数都是上界,绝非可证明的最小值。(整段都是冗余 —— 越过 explicit prompt,再长只会增加噪声。)'
+  return {
+    left: {
+      epsilon: 0.58,
+      prompt: lang === 'zh' ? leftZh : leftEn,
+      length: lang === 'zh' ? 14 : 18,
+      similarity: 0.42,
+      stability: 0.8,
+    },
+    right: {
+      epsilon: 0,
+      prompt: full + (lang === 'zh' ? tailZh : tailEn),
+      length: lang === 'zh' ? 300 : 430,
+      similarity: 1,
+      stability: 1,
+    },
+  }
+}
+
+const PITCH_OOB: Record<Lang, { left: OobView; right: OobView }> = {
+  en: pitchOob('en'),
+  zh: pitchOob('zh'),
+}
+
 const FALLBACK: Target[] = [
   PITCH.en,
   {
@@ -260,6 +306,7 @@ const STRINGS = {
     footLeft: 'extreme compression',
     footRight: 'explicit',
     langSwitch: 'switch language · 切换语言',
+    oob: 'out of bound',
   },
   zh: {
     backAria: 'aleph —— 返回输入',
@@ -289,6 +336,7 @@ const STRINGS = {
     footLeft: '极限压缩',
     footRight: '显式展开',
     langSwitch: 'switch language · 切换语言',
+    oob: '越界',
   },
 } as const
 
@@ -320,6 +368,8 @@ export function AlephExplorer() {
   const [examples, setExamples] = useState<Target[]>(FALLBACK)
   const [current, setCurrent] = useState<Target>(FALLBACK[0])
   const [pos, setPos] = useState(0)
+  const [oob, setOob] = useState<null | 'left' | 'right'>(null)
+  const [launched, setLaunched] = useState(false)
   const [open, setOpen] = useState(false)
   const [text, setText] = useState('')
   const [busy, setBusy] = useState(false)
@@ -352,6 +402,7 @@ export function AlephExplorer() {
           setExamples(j as Target[])
           setCurrent(j[0] as Target)
           setPos(0)
+          setOob(null)
         }
       })
       .catch(() => {})
@@ -370,7 +421,9 @@ export function AlephExplorer() {
     : []
   const N = reveal ? Math.max(1, segs.length) : Math.max(1, pt.points.length)
   const v = reveal ? revealFrom(segs, pos) : sampleFrom(pt.points, pos)
-  const eps = v.epsilon >= 0.1 ? v.epsilon.toFixed(2) : v.epsilon.toFixed(3)
+  const oobView = oob && pt.key === 'pitch' ? PITCH_OOB[lang][oob] : null
+  const vv = oobView ? ({ ...v, ...oobView } as typeof v) : v
+  const eps = vv.epsilon >= 0.1 ? vv.epsilon.toFixed(2) : vv.epsilon.toFixed(3)
 
   // dashboard metrics
   const idLen = reveal
@@ -381,12 +434,12 @@ export function AlephExplorer() {
     : 0
   const saved = reveal
     ? fullWords
-      ? Math.max(0, 1 - v.length / fullWords)
+      ? Math.max(0, 1 - vv.length / fullWords)
       : 0
     : idLen
-      ? Math.max(0, 1 - v.length / idLen)
+      ? Math.max(0, 1 - vv.length / idLen)
       : 0
-  const leak = reveal ? null : leakageScore(v.prompt, targetOf(pt.points))
+  const leak = reveal ? null : leakageScore(vv.prompt, targetOf(pt.points))
   const rank = reveal
     ? Math.min(N, Math.max(1, Math.ceil(clamp01(pos) * N)))
     : Math.round(clamp01(pos) * (N - 1)) + 1
@@ -395,6 +448,7 @@ export function AlephExplorer() {
     setErr('')
     setCurrent(t)
     setPos(0)
+    setOob(null)
     setView('result')
   }
 
@@ -414,6 +468,7 @@ export function AlephExplorer() {
       if (j && Array.isArray(j.points) && j.points.length) {
         setCurrent(j as Target)
         setPos(0)
+        setOob(null)
       } else {
         setErr(j?.error || STRINGS[lang].errNothing)
         setView('input')
@@ -432,7 +487,16 @@ export function AlephExplorer() {
     const rect = el.getBoundingClientRect()
     if (rect.width === 0) return
     const raw = (clientX - rect.left) / rect.width
-    setPos(clamp01((raw - SLIDER_PAD) / (1 - 2 * SLIDER_PAD)))
+    if (raw < SLIDER_PAD) {
+      setPos(0)
+      setOob('left')
+    } else if (raw > 1 - SLIDER_PAD) {
+      setPos(1)
+      setOob('right')
+    } else {
+      setOob(null)
+      setPos(clamp01((raw - SLIDER_PAD) / (1 - 2 * SLIDER_PAD)))
+    }
   }, [])
 
   const onPointerDown = (e: React.PointerEvent) => {
@@ -453,23 +517,33 @@ export function AlephExplorer() {
     const fine = e.shiftKey ? 0.002 : reveal ? 1 / N : 0.02
     if (e.key === 'ArrowLeft' || e.key === 'ArrowDown') {
       e.preventDefault()
-      setPos((p) => clamp01(p - fine))
+      if (oob === 'right') setOob(null)
+      else if (oob === 'left') {
+        /* already fully out of bound */
+      } else if (pos <= 0) setOob('left')
+      else setPos((p) => clamp01(p - fine))
     } else if (e.key === 'ArrowRight' || e.key === 'ArrowUp') {
       e.preventDefault()
-      setPos((p) => clamp01(p + fine))
+      if (oob === 'left') setOob(null)
+      else if (oob === 'right') {
+        /* already fully out of bound */
+      } else if (pos >= 1) setOob('right')
+      else setPos((p) => clamp01(p + fine))
     } else if (e.key === 'Home') {
       e.preventDefault()
+      setOob(null)
       setPos(0)
     } else if (e.key === 'End') {
       e.preventDefault()
+      setOob(null)
       setPos(1)
     }
   }
 
   const muted = 'var(--site-link)'
   const ruleColor = 'var(--site-hr)'
-  const atLeft = pos <= 0.002
-  const atRight = pos >= 0.998
+  const atLeft = oob === 'left'
+  const atRight = oob === 'right'
 
   return (
     <div
@@ -487,6 +561,17 @@ export function AlephExplorer() {
         fontFamily: FONT,
       }}
     >
+      <div
+        style={{
+          flex: 1,
+          minHeight: 0,
+          display: 'flex',
+          flexDirection: 'column',
+          opacity: launched ? 1 : 0,
+          transition: 'opacity 1100ms ease 450ms',
+          pointerEvents: launched ? undefined : 'none',
+        }}
+      >
       <header
         style={{
           display: 'flex',
@@ -495,6 +580,13 @@ export function AlephExplorer() {
           gap: '1rem',
         }}
       >
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 'clamp(0.75rem, 2vw, 1.25rem)',
+          }}
+        >
         <button
           type="button"
           onClick={() => setView('input')}
@@ -522,6 +614,24 @@ export function AlephExplorer() {
             }}
           />
         </button>
+          <span
+            aria-hidden
+            style={{
+              fontFamily:
+                "'Avenir Next', 'Helvetica Neue', -apple-system, BlinkMacSystemFont, sans-serif",
+              fontWeight: 700,
+              letterSpacing: '-0.05em',
+              textTransform: 'none',
+              fontSize: 'clamp(1.4rem, 3.5vw, 3.6rem)',
+              lineHeight: 1,
+              whiteSpace: 'nowrap',
+              transform: 'translateY(-0.4rem)',
+              color: 'var(--site-text)',
+            }}
+          >
+            Aleph
+          </span>
+        </div>
 
         <div
           style={{ display: 'flex', alignItems: 'flex-start', gap: '1.25rem' }}
@@ -733,7 +843,7 @@ export function AlephExplorer() {
         </div>
         ) : (
         <>
-        {!reveal && !busy && v.output && (
+        {!reveal && !busy && vv.output && (
           <p
             style={{
               maxWidth: '52rem',
@@ -746,7 +856,7 @@ export function AlephExplorer() {
               textOverflow: 'ellipsis',
             }}
           >
-            p · {v.prompt}
+            p · {vv.prompt}
           </p>
         )}
 
@@ -762,17 +872,17 @@ export function AlephExplorer() {
         >
           {busy
             ? `${tr.compressingLocal} ${'.'.repeat(dots)}`
-            : v.output ?? v.prompt}
+            : vv.output ?? vv.prompt}
         </p>
 
         {!reveal &&
           !busy &&
-          v.toknll &&
-          v.toktext &&
-          v.toknll.length === v.toktext.length &&
-          v.toknll.length > 0 &&
+          vv.toknll &&
+          vv.toktext &&
+          vv.toknll.length === vv.toktext.length &&
+          vv.toknll.length > 0 &&
           (() => {
-            const ns = v.toknll
+            const ns = vv.toknll
             const lo = Math.min(...ns)
             const span = Math.max(...ns) - lo || 1
             return (
@@ -787,7 +897,7 @@ export function AlephExplorer() {
                   maxHeight: '20vh',
                 }}
               >
-                {v.toktext.map((tk, i) => (
+                {vv.toktext.map((tk, i) => (
                   <span
                     key={i}
                     style={{ opacity: 0.22 + 0.78 * ((ns[i] - lo) / span) }}
@@ -810,11 +920,15 @@ export function AlephExplorer() {
           aria-label={tr.sliderAria}
           aria-valuemin={0}
           aria-valuemax={100}
-          aria-valuenow={Math.round(pos * 100)}
+          aria-valuenow={
+            oob === 'left' ? 0 : oob === 'right' ? 100 : Math.round(pos * 100)
+          }
           aria-valuetext={
-            reveal
-              ? `${v.length} ${tr.wordsShown}`
-              : `ε ≈ ${eps}, ≈ ${v.length} tokens`
+            oob
+              ? `${tr.oob} · ≈ ${vv.length} tokens`
+              : reveal
+                ? `${vv.length} ${tr.wordsShown}`
+                : `ε ≈ ${eps}, ≈ ${vv.length} tokens`
           }
           onPointerDown={onPointerDown}
           onKeyDown={onKeyDown}
@@ -911,7 +1025,12 @@ export function AlephExplorer() {
             style={{
               position: 'absolute',
               top: '50%',
-              left: `${(SLIDER_PAD + pos * (1 - 2 * SLIDER_PAD)) * 100}%`,
+              left:
+                oob === 'left'
+                  ? `${(SLIDER_PAD / 2) * 100}%`
+                  : oob === 'right'
+                    ? `${(1 - SLIDER_PAD / 2) * 100}%`
+                    : `${(SLIDER_PAD + pos * (1 - 2 * SLIDER_PAD)) * 100}%`,
               width: 13,
               height: 13,
               borderRadius: '50%',
@@ -937,6 +1056,46 @@ export function AlephExplorer() {
           <span>{tr.footRight} · y itself</span>
         </div>
       </footer>
+      </div>
+
+      <button
+        type="button"
+        onClick={() => setLaunched(true)}
+        aria-label={lang === 'zh' ? '进入 Aleph' : 'Enter Aleph'}
+        title={lang === 'zh' ? '进入 Aleph' : 'Enter Aleph'}
+        style={{
+          position: 'fixed',
+          top: launched ? 'clamp(1.25rem, 4vw, 2.5rem)' : '50%',
+          left: launched ? 'clamp(1.25rem, 4vw, 2.5rem)' : '50%',
+          transform: launched ? 'none' : 'translate(-50%, -50%)',
+          zIndex: 20,
+          background: 'none',
+          border: 'none',
+          padding: 0,
+          margin: 0,
+          lineHeight: 0,
+          cursor: launched ? 'default' : 'pointer',
+          opacity: launched ? 0 : 1,
+          pointerEvents: launched ? 'none' : 'auto',
+          transition:
+            'top 1000ms ease, left 1000ms ease, transform 1000ms ease, opacity 500ms ease 650ms',
+        }}
+      >
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src="/aleph-logo.png"
+          alt="aleph"
+          style={{
+            height: launched
+              ? 'clamp(3.5rem, 5.5vw, 5.25rem)'
+              : 'clamp(7rem, 26vw, 14rem)',
+            width: 'auto',
+            display: 'block',
+            filter: 'brightness(0) invert(1)',
+            transition: 'height 1000ms ease',
+          }}
+        />
+      </button>
     </div>
   )
 }
