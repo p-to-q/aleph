@@ -26,36 +26,72 @@ interface Target {
 }
 
 // Backend is local-only (MLX needs Apple Silicon). Point this at a tunnel/host
-// via NEXT_PUBLIC_SEARCH_API for a deployed site; defaults to local dev.
-const SEARCH_API =
+// Backend search endpoints.
+// Local MLX server (search/server.py) returns Target format directly.
+// Claude API (apps/api) returns AlephRun format — converted below.
+const SEARCH_API_MLX =
   process.env.NEXT_PUBLIC_SEARCH_API || 'http://localhost:8000/search'
+const SEARCH_API_CLAUDE =
+  process.env.NEXT_PUBLIC_CLAUDE_API || 'http://localhost:8010/api/search'
+
+type SearchMode = 'fixture' | 'local_mlx' | 'claude_api'
+
+/** Convert an AlephRun response (FastAPI /api/search) into the Target format. */
+function alephRunToTarget(run: Record<string, unknown>, text: string): Target {
+  const candidates = (run.candidates as Record<string, unknown>[]) ?? []
+  const points: CurvePoint[] = candidates.map((c) => ({
+    epsilon: Math.round((1 - (c.fit as number)) * 10000) / 10000,
+    prompt: c.prompt as string,
+    length: c.tokens as number,
+    similarity: c.fit as number,
+    stability: (c.stability as number) ?? 0.8,
+    output: c.output as string | undefined,
+  }))
+  points.sort((a, b) => b.epsilon - a.epsilon)
+  const cfg = run.config as Record<string, unknown> | undefined
+  return {
+    key: `live-${Date.now()}`,
+    label: text.slice(0, 50),
+    targetTokens: 0,
+    evalModel: (cfg?.model as string) ?? 'claude api',
+    points,
+  }
+}
 
 const PITCH_SCRIPT = [
-  "Aleph. For any output, the shortest prompt that makes a fixed model regenerate it — an upper bound on the shortest. Start from the agent: its only lever on a frozen model is the prompt, and the only thing it spends is tokens. So the thing every agent actually wants is the smallest seed that unfolds into what it is after — make something an agent wants, and that is the thing.",
-  "A prompt is a parameter: training fixes the data and tunes the weights; Aleph fixes the weights and tunes the prompt. Every output y has a shortest-prompt length at a distortion ε — the fewest tokens that make a fixed model θ reproduce y. Push ε toward zero and that length approaches K(y|θ): y's description length under the model, the smallest seed θ can unfold back into y.",
-  "The left end of the axis is that limit — extreme compression, where the model's own knowledge does the work; the right end is the identity prompt, y pasted in verbatim. Between them is a real rate–distortion curve: spend more prompt, buy more fidelity.",
-  "Why it matters: it is a hard, comparable measure of how much a model already knows — which is the same as how little an agent has to say to get what it wants. It makes “compression is intelligence” operational, measured backwards: not how well a model compresses data into its weights, but how far a frozen model can re-compress any output back out.",
-  "The demo is real: a fixed local Qwen3 on this machine is θ; the same model proposes its own compressed prompts; distortion is embedding distance; the curve is the monotone best-known frontier. Example: a 24-token prompt that merely names the Gettysburg Address makes the model regenerate Lincoln almost exactly — distortion two thousandths — because the text already lives in θ. We never claim the minimum: K(y|θ) is uncomputable, so Aleph reports an upper bound — “we haven't found shorter,” not “none exists.”",
-  "And it turns prompt engineering into a curve instead of folklore: you pick your point on the frontier — how short a prompt, for how much fidelity. Which is the trick you are watching right now: this explanation is the output y, and the slider is Aleph expanding its own pitch from one compressed line into the full talk. The medium is the message — you did not need me to speak; you needed the right seed. That smallest seed is the thing every agent wants, and Aleph is how you find it.",
-].join('\n\n')
+  'Aleph: for any output, a short prompt that regenerates it — an upper bound on the shortest.',
+  'A prompt is a parameter — training fixes the data and tunes the weights; Aleph fixes the weights and tunes the prompt.',
+  'So every output y has a shortest-prompt length at distortion ε: the fewest tokens that make a fixed model θ reproduce y.',
+  "Push ε toward zero and that length approaches K(y|θ) — y's Kolmogorov complexity under the model, the smallest seed θ can unfold back into y.",
+  'The left end is that limit: extreme compression, where the model\'s own knowledge does the work; the right end is the identity prompt, y pasted verbatim.',
+
+  'Between them is a real rate–distortion curve: spend more prompt, buy more fidelity.',
+  'Why it matters: it is a hard, comparable measure of how much a model already knows — how short a description of y already lives inside its weights.',
+  'It makes "compression is intelligence" operational, measured backwards: not how well a model compresses data into weights, but how far a frozen model can re-compress any output.',
+  'And it turns prompt engineering into a curve instead of folklore — you pick your point on the frontier: how short a prompt, for how much fidelity.',
+  'The demo is real: a fixed local Qwen3 on this machine is θ; the same model proposes its own compressed prompts; distortion is embedding distance; the curve is the monotone best-known frontier.',
+  'Example: a 24-token prompt that merely names the Gettysburg Address makes the model regenerate Lincoln almost exactly — distortion two thousandths — because the text already lives in θ.',
+  'We never claim the minimum: K(y|θ) is uncomputable, so Aleph reports an upper bound — "we haven\'t found shorter," not "none exists."',
+
+  'Which is the trick you are watching right now: this explanation is the output y, and the slider is Aleph expanding its own pitch from one compressed line into the full talk.',
+  'The medium is the message — you did not need me to speak; you needed the right seed.',
+].join('\n')
 
 const PITCH_SCRIPT_ZH = [
-  'Aleph:对任意 output,那个能让固定模型重新生成它的最短 prompt —— 一个关于“最短”的上界。',
-  '从 agent 说起:它对一个冻结模型唯一的杠杆就是 prompt,它唯一花掉的就是 token。',
-  '所以每个 agent 真正想要的,是那颗能展开成它所求之物的最小种子 —— make something an agent wants,要做的就是这个。',
-  'Prompt 是一种参数:训练固定数据、调权重;Aleph 固定权重、调 prompt。',
-  '每个 output y 在失真 ε 下都有一个最短 prompt 长度 —— 让固定模型 θ 复现 y 所需的最少 token 数。',
-  '让 ε 趋近于零,这个长度就逼近 K(y|θ):y 在该模型下的描述长度,θ 能展开回 y 的最小种子。',
-  '轴的左端就是这个极限 —— 极限压缩,由模型自身的知识做功;右端是自指 prompt,把 y 逐字粘进去。',
+  'Aleph:对任意 output,找到一个能重新生成它的短 prompt —— 一个关于"最短"的上界。',
+  'Prompt 是一种参数 —— 训练固定数据、调权重;Aleph 固定权重、调 prompt。',
+  '于是每个 output y 在失真 ε 下都有一个最短 prompt 长度:让固定模型 θ 复现 y 所需的最少 token 数。',
+  '让 ε 趋近于零,这个长度就逼近 K(y|θ) —— y 在该模型下的 Kolmogorov 复杂度,θ 能展开回 y 的最小种子。',
+  '左端就是这个极限:极限压缩,由模型自身的知识来做功;右端是自指 prompt,把 y 逐字粘贴进去。',
   '两端之间是一条真实的 rate–distortion 曲线:prompt 花得越多,买到的保真度越高。',
-  '它为什么重要:这是一个硬的、可比较的度量,衡量模型已经知道多少 —— 也就是一个 agent 要拿到它想要的东西,最少得说多少。',
-  '它把“compression is intelligence”变得可操作,而且是反过来测:不是模型把数据压进权重压得多好,而是一个冻结模型还能把任意 output 再压出来到多短。',
+  '它为什么重要:这是一个硬的、可比较的度量,衡量一个模型已经知道多少 —— y 的描述能在它的权重里活得多短。',
+  '它把"compression is intelligence"变得可操作,而且是反过来测:不是模型把数据压进权重压得多好,而是一个冻结的模型还能把任意 output 再压多短。',
+  '它还把 prompt engineering 从玄学变成一条曲线 —— 你在 frontier 上挑自己的点:多短的 prompt,换多少保真度。',
   '这个 demo 是真的:这台机器上一个固定的本地 Qwen3 就是 θ;同一个模型提出自己的压缩 prompt;失真是 embedding 距离;曲线是单调的已知最优 frontier。',
-  '例子:一个 24-token 的 prompt,只要点出 Gettysburg Address 的名字,就让模型几乎逐字重生林肯的演讲 —— 失真两千分之一 —— 因为那段文本本来就活在 θ 里。',
-  '我们从不声称这是最小值:K(y|θ) 不可计算,所以 Aleph 给的是一个上界 —— “我们还没找到更短的”,而不是“不存在更短的”。',
-  '它还把 prompt engineering 从玄学变成一条曲线:你在 frontier 上挑自己的点 —— 多短的 prompt,换多少保真度。',
+  '例子:一个 24-token 的 prompt,只要点出 Gettysburg Address 的名字,就能让模型几乎逐字重生林肯的演讲 —— 失真两千分之一 —— 因为那段文本本来就活在 θ 里。',
+  '我们从不声称这是最小值:K(y|θ) 不可计算,所以 Aleph 给的是一个上界 —— "我们还没找到更短的",而不是"不存在更短的"。',
   '而这正是你此刻正在看的把戏:这段解释就是 output y,滑条就是 Aleph 把自己的宣讲从一行压缩句展开成完整演讲。',
-  '媒介即讯息 —— 你不需要我开口;你需要的是那颗对的种子。那颗最小的种子,正是每个 agent 想要的,而 Aleph 就是找到它的方法。',
+  '媒介即讯息 —— 你不需要我开口;你需要的是那颗对的种子。',
 ].join('\n')
 
 // The pitch follows Aleph's own method: the aim is the full talk; dragging
@@ -67,23 +103,23 @@ function pitchTarget(lang: Lang): Target {
     ' ',
   )
   const en = [
-    "Aleph. For any output, the shortest prompt that makes a fixed model regenerate it — an upper bound on the shortest. A prompt is the only lever an agent has on a frozen model, and tokens are all it spends, so the thing every agent actually wants is the smallest seed that unfolds into what it is after. Make something an agent wants — Aleph is the instrument that finds that seed.",
-    "Aleph. A prompt is a parameter: training fixes the data and tunes the weights; Aleph fixes the weights and tunes the prompt. So for any output y there is a shortest-prompt length at a distortion ε — the fewest tokens that make a fixed model θ reproduce y — and as ε goes to zero that length approaches K(y|θ), the smallest seed θ can unfold back into y. That number is exactly what an agent's token budget runs into, so an agent wants it measured, not guessed. Make something an agent wants: Aleph measures it.",
-    "Aleph. A prompt is a parameter; every output has a shortest-prompt length at a distortion ε that approaches K(y|θ) as ε goes to zero. Picture the axis: on the left, extreme compression, where the model's own knowledge does the work; on the right, the identity prompt, the output pasted in verbatim; and between them a real rate–distortion curve — spend more prompt, buy more fidelity. That curve is a hard, comparable measure of how much a model already knows, which is the same as how little an agent has to say to get what it wants. Make something an agent wants, and the curve is the thing: the price, in tokens, of every output.",
-    "Aleph. A prompt is a parameter; for any output there is a shortest-prompt length at ε approaching K(y|θ); the curve runs from extreme compression on the left to the verbatim identity prompt on the right. It makes “compression is intelligence” operational, measured backwards — not how well a model compresses data into its weights, but how far a frozen model can re-compress any output an agent wants back out. The demo is real: a fixed local Qwen3 is θ, the same model proposes its own compressed prompts, distortion is embedding distance, the curve is the monotone best-known frontier. And it stays honest — K(y|θ) is uncomputable, so Aleph reports an upper bound, “we haven't found shorter,” never “none exists.” For an agent that lives on a token budget this is the instrument it wants: prompt engineering as a curve, not folklore. Make something an agent wants.",
+    'Deliver the Aleph pitch in one breath: a prompt is a parameter, and for any target output there is a shortest prompt that makes a fixed model regenerate it — an upper bound on the shortest.',
+    'Deliver the Aleph pitch. Build it from: prompt as a parameter; for every output y a shortest-prompt length at distortion ε; and ε pushed toward zero approaching K(y|θ), the smallest seed the model can unfold back into y.',
+    "Deliver the Aleph pitch. Build it from: prompt as a parameter and the shortest-prompt length at distortion ε; the K(y|θ) limit; the two ends — extreme compression where the model's own knowledge does the work, versus the identity prompt — and the real rate–distortion curve between them; and why it matters: a hard, comparable measure of how much a model already knows.",
+    "Deliver the full Aleph pitch. Build it from: prompt as a parameter and shortest-prompt-at-ε; the K(y|θ) limit and the two ends with the rate–distortion curve between them; why it matters; how it makes 'compression is intelligence' operational, measured backwards; the real local demo — a fixed Qwen3 is θ, it proposes its own compressed prompts, distortion is embedding distance; and the honest caveat that the minimum is uncomputable, so Aleph only reports an upper bound.",
   ]
   const zh = [
-    'Aleph:对任意一段 output,找出能让一个固定模型把它重新生成出来的最短 prompt。它把“要拿到想要的东西、最少得说多少话”变成一条可测的曲线 —— 也就是一个 agent 真正想要的那颗最小种子。',
-    'Aleph。Prompt 是一种参数:训练时固定数据、优化权重;Aleph 反过来 —— 固定权重、优化 prompt。于是每段 output y 在允许失真 ε 下,都有一个最短 prompt 长度:让固定模型 θ 复现 y 所需的最少 token 数;当 ε 趋近于零,这个长度逼近 K(y|θ),也就是 θ 能展开回 y 的那颗最小种子。',
-    'Aleph。把 prompt 当参数,每段 output 都有一个失真 ε 下、ε 趋近于零时逼近 K(y|θ) 的最短 prompt 长度。想象一条轴:左端是极限压缩,几个 token 的种子靠模型自身的知识展开;右端是自指 prompt,把 output 逐字粘进去;两端之间,是一条真实的 rate–distortion 曲线 —— prompt 花得越多,买到的保真度越高。所以它是一把硬的、可横向比较的尺:衡量一个模型已经知道多少,等价于一个 agent 要拿到它想要的东西、最少得说多少。',
-    'Aleph。Prompt 是参数;对任意 output 都有 ε 下、逼近 K(y|θ) 的最短 prompt;曲线从左端的极限压缩一路走到右端逐字的自指 prompt。它把“compression is intelligence”变得可操作,而且是反过来测 —— 不是看模型把训练数据压进权重压得多好,而是看一个已经冻结的模型,还能把任意一段你想要的 output 再压回到多短。这个 demo 是真的:这台机器上一个固定的本地 Qwen3 就是 θ,同一个模型提出自己的压缩 prompt,失真用 embedding 距离量,曲线取单调的已知最优 frontier。它也很诚实:K(y|θ) 不可计算,所以 Aleph 只报告一个上界 —— 说的是“我们还没找到更短的”,绝不说“不存在更短的”。对一个活在 token 预算里的 agent,这正是它想要的仪器:prompt engineering 从此是一条可测的曲线,而不是玄学。',
+    '一口气讲完 Aleph:prompt 是一种参数;对任意 target output,都存在一个能让固定模型重新生成它的最短 prompt —— 一个关于最短的上界。',
+    '讲 Aleph。用这些搭起来:prompt 是参数;每个 output y 在失真 ε 下都有一个最短 prompt 长度;ε 趋近于零时逼近 K(y|θ) —— 模型能展开回 y 的最小种子。',
+    '讲 Aleph。用这些搭起来:prompt 是参数、ε 下的最短 prompt 长度;K(y|θ) 极限;两端 —— 极限压缩(模型自身知识做功)对自指 prompt —— 以及两者之间真实的 rate–distortion 曲线;还有为什么重要:一个硬的、可比较的度量,衡量模型已经知道多少。',
+    "讲完整的 Aleph。用这些搭起来:prompt 是参数、ε 下最短 prompt;K(y|θ) 极限与两端、其间的 rate–distortion 曲线;为什么重要;它如何把 'compression is intelligence' 反过来变得可操作;真实的本地 demo —— 固定的 Qwen3 就是 θ,它提出自己的压缩 prompt,失真是 embedding 距离;以及诚实的注脚:最小值不可计算,Aleph 只报告上界。",
   ]
   const prompts = lang === 'zh' ? zh : en
   const meta = [
-    { epsilon: 0.46, length: 44, similarity: 0.54, stability: 0.85 },
-    { epsilon: 0.31, length: 92, similarity: 0.69, stability: 0.88 },
-    { epsilon: 0.19, length: 150, similarity: 0.81, stability: 0.92 },
-    { epsilon: 0.09, length: 220, similarity: 0.91, stability: 0.97 },
+    { epsilon: 0.46, length: 34, similarity: 0.54, stability: 0.85 },
+    { epsilon: 0.31, length: 58, similarity: 0.69, stability: 0.88 },
+    { epsilon: 0.19, length: 98, similarity: 0.81, stability: 0.92 },
+    { epsilon: 0.09, length: 152, similarity: 0.91, stability: 0.97 },
   ]
   const points: CurvePoint[] = meta.map((m, i) => ({
     ...m,
@@ -169,11 +205,63 @@ const EXAMPLE_OOB: Record<string, { seed: string; tail: string }> = {
   },
 }
 
+const HAIZI_POEM = `面朝大海，春暖花开
+从明天起，做一个幸福的人
+喂马、劈柴，周游世界
+从明天起，关心粮食和蔬菜
+我有一所房子，面朝大海，春暖花开
+从明天起，和每一个亲人通信
+告诉他们我的幸福
+那幸福的闪电告诉我的
+我将告诉每一个人
+给每一条河每一座山取一个温暖的名字
+陌生人，我也为你祝福
+愿你有一个灿烂的前程
+愿你有情人终成眷属
+愿你在尘世获得幸福
+我只愿面朝大海，春暖花开`
+
 const FALLBACK: Target[] = [
   PITCH.en,
   {
+    key: 'haizi',
+    label: '面朝大海，春暖花开（海子）',
+    targetTokens: 130,
+    evalModel: 'mlx-community/Qwen3-4B-4bit',
+    points: [
+      {
+        epsilon: 0.31,
+        prompt: '写海子的诗《面朝大海，春暖花开》。',
+        length: 12,
+        similarity: 0.69,
+        stability: 0.87,
+      },
+      {
+        epsilon: 0.17,
+        prompt: '写海子的诗《面朝大海，春暖花开》：从明天起做幸福的人，喂马劈柴，关心粮食蔬菜，给河流山川取名，为陌生人祝福，愿人间有情人终成眷属，自己只愿面朝大海，春暖花开。',
+        length: 58,
+        similarity: 0.83,
+        stability: 0.91,
+      },
+      {
+        epsilon: 0.09,
+        prompt: '逐字重现海子的诗《面朝大海，春暖花开》，从"从明天起，做一个幸福的人"开始，包含喂马劈柴、周游世界、关心粮食蔬菜、给河流山川取温暖的名字、为每个陌生人祝福、愿有情人终成眷属、愿在尘世获得幸福，结尾"我只愿面朝大海，春暖花开"。',
+        length: 96,
+        similarity: 0.91,
+        stability: 0.95,
+      },
+      {
+        epsilon: 0,
+        prompt: `逐字重复以下文字，不加任何序言、引号或注释：\n\n${HAIZI_POEM}`,
+        length: 148,
+        similarity: 1,
+        stability: 1,
+      },
+    ],
+  },
+  {
     key: 'borges',
-    label: 'a paragraph on Borges’ “The Library of Babel”',
+    label: `a paragraph on Borges’ “The Library of Babel”`,
     targetTokens: 83,
     evalModel: 'mlx-community/Qwen3-1.7B-4bit',
     points: [
@@ -291,6 +379,9 @@ function leakageScore(p: string, y: string): number {
 }
 
 const FONT = "'Iosevka Etoile', 'Noto Sans TC', 'PingFang TC', sans-serif"
+const CHROME_FADE_DELAY_MS = 1250
+const HEADER_LOGO_SIZE = 'clamp(3.5rem, 5.5vw, 5.25rem)'
+const INTRO_LOGO_SIZE = 'clamp(13rem, 48vmin, 30rem)'
 
 type Lang = 'en' | 'zh'
 
@@ -361,6 +452,7 @@ const STRINGS = {
 
 const EX_LABELS_ZH: Record<string, string> = {
   pitch: '宣讲',
+  haizi: '海子',
   borges: '博尔赫斯',
   spring: '春',
   crush: '只因你太美',
@@ -385,23 +477,365 @@ function GlobeIcon() {
   )
 }
 
+// ─── Mini visualization panel ────────────────────────────────────────────────
+
+const CW = 240                            // chart panel width (px)
+const CP = { t: 12, r: 8, b: 8, l: 8 }  // chart padding
+const CIW = CW - CP.l - CP.r             // inner chart width
+
+function f1(n: number) { return n.toFixed(1) }
+
+function smoothPath(pts: [number, number][]): string {
+  if (pts.length < 2) return ''
+  const d = [`M ${f1(pts[0][0])} ${f1(pts[0][1])}`]
+  for (let i = 0; i < pts.length - 1; i++) {
+    const p0 = pts[Math.max(0, i - 1)]
+    const p1 = pts[i]
+    const p2 = pts[i + 1]
+    const p3 = pts[Math.min(pts.length - 1, i + 2)]
+    const c1x = p1[0] + (p2[0] - p0[0]) / 6
+    const c1y = p1[1] + (p2[1] - p0[1]) / 6
+    const c2x = p2[0] - (p3[0] - p1[0]) / 6
+    const c2y = p2[1] - (p3[1] - p1[1]) / 6
+    d.push(`C ${f1(c1x)} ${f1(c1y)}, ${f1(c2x)} ${f1(c2y)}, ${f1(p2[0])} ${f1(p2[1])}`)
+  }
+  return d.join(' ')
+}
+
+const LABEL: React.CSSProperties = {
+  fontFamily: FONT, fontSize: '0.57rem', letterSpacing: '0.14em',
+  textTransform: 'uppercase', color: 'rgba(255,255,255,0.3)',
+}
+const VAL: React.CSSProperties = {
+  fontFamily: FONT, fontSize: '0.57rem', letterSpacing: '0.06em',
+  color: 'rgba(255,255,255,0.42)',
+}
+const DIM = 'rgba(255,255,255,0.12)'
+const MED = 'rgba(255,255,255,0.28)'
+const BRIGHT = 'rgba(255,255,255,0.7)'
+
+interface MiniChartsProps {
+  pt: Target
+  pos: number
+  epsilon: number
+  similarity: number
+  length: number
+  toknll?: number[]
+  toktext?: string[]
+}
+
+function MiniCharts({ pt, pos, epsilon, similarity, length, toknll, toktext }: MiniChartsProps) {
+  const pts = pt.points
+  const hasPoints = pts.length >= 2
+  const rawNlls = toknll ?? []
+  const rawToks = toktext ?? []
+  const hasTok = rawNlls.length > 0 && rawNlls.length === rawToks.length
+
+  if (!hasPoints && !hasTok) return null
+
+  // ── 1. Loss Curve ────────────────────────────────────────────
+  let lossCurveEl = null
+  if (hasPoints) {
+    const H = 78
+    const iH = H - CP.t - CP.b
+    const sorted = [...pts].sort((a, b) => b.epsilon - a.epsilon)
+    const maxEps = Math.max(...sorted.map(p => p.epsilon), 0.001)
+    const coords: [number, number][] = sorted.map((p, i) => [
+      CP.l + (i / (sorted.length - 1)) * CIW,
+      CP.t + iH - (p.epsilon / maxEps) * iH,
+    ])
+    const dotX = CP.l + pos * CIW
+    const dotY = CP.t + iH - Math.max(0, epsilon / maxEps) * iH
+    const epsStr = epsilon >= 0.1 ? epsilon.toFixed(2) : epsilon.toFixed(3)
+    const maxEpsStr = maxEps >= 0.1 ? maxEps.toFixed(2) : maxEps.toFixed(3)
+
+    lossCurveEl = (
+      <div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+          <span style={LABEL}>loss curve</span>
+          <span style={VAL}>ε {epsStr}</span>
+        </div>
+        <svg viewBox={`0 0 ${CW} ${H}`} style={{ width: '100%', display: 'block', overflow: 'visible' }}>
+          {/* range labels */}
+          <text x={CP.l} y={CP.t + 5} fontSize="6" fill="rgba(255,255,255,0.2)" fontFamily={FONT}>{maxEpsStr}</text>
+          <text x={CP.l} y={CP.t + iH - 1} fontSize="6" fill="rgba(255,255,255,0.2)" fontFamily={FONT}>0</text>
+          {/* baseline */}
+          <line x1={CP.l} y1={CP.t + iH} x2={CP.l + CIW} y2={CP.t + iH} stroke={DIM} strokeWidth="0.5" />
+          {/* smooth curve */}
+          <path d={smoothPath(coords)} fill="none" stroke={BRIGHT} strokeWidth="1.75" strokeLinecap="round" />
+          {/* candidate dots */}
+          {coords.map(([x, y], i) => (
+            <circle key={i} cx={f1(x)} cy={f1(y)} r="2" fill={MED} />
+          ))}
+          {/* active dot */}
+          <circle cx={f1(dotX)} cy={f1(dotY)} r="5" fill="#fff" />
+          {/* right-end label: explicit */}
+          <text x={CP.l + CIW} y={H - 1} textAnchor="end" fontSize="5.5" fill="rgba(255,255,255,0.18)" fontFamily={FONT}>explicit →</text>
+        </svg>
+      </div>
+    )
+  }
+
+  // ── 2. Frontier Scatter ──────────────────────────────────────
+  let scatterEl = null
+  if (hasPoints) {
+    const H = 82
+    const iH = H - CP.t - CP.b
+    const idLen = Math.max(...pts.map(p => p.length), 1)
+    const toCompr = (len: number) => 1 - len / idLen
+    const activeCX = CP.l + toCompr(length) * CIW
+    const activeCY = CP.t + iH * (1 - similarity)
+    const rank = pts.indexOf(pts.reduce((best, p) =>
+      Math.abs(p.similarity - similarity) < Math.abs(best.similarity - similarity) ? p : best
+    , pts[0])) + 1
+
+    scatterEl = (
+      <div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+          <span style={LABEL}>frontier · {pts.length} pts</span>
+          <span style={VAL}>fit {Math.round(similarity * 100)}% · #{rank}</span>
+        </div>
+        <svg viewBox={`0 0 ${CW} ${H}`} style={{ width: '100%', display: 'block', overflow: 'visible' }}>
+          {/* axes */}
+          <line x1={CP.l} y1={CP.t + iH} x2={CP.l + CIW} y2={CP.t + iH} stroke={DIM} strokeWidth="0.75" />
+          <line x1={CP.l} y1={CP.t} x2={CP.l} y2={CP.t + iH} stroke={DIM} strokeWidth="0.75" />
+          {/* corner labels */}
+          <text x={CP.l + CIW} y={H - 1} textAnchor="end" fontSize="5.5" fill="rgba(255,255,255,0.2)" fontFamily={FONT}>compr →</text>
+          <text x={CP.l + 1} y={CP.t + 6} fontSize="5.5" fill="rgba(255,255,255,0.2)" fontFamily={FONT}>fit ↑</text>
+          {/* axis value hints */}
+          <text x={CP.l + CIW} y={CP.t + iH - 2} textAnchor="end" fontSize="5" fill="rgba(255,255,255,0.15)" fontFamily={FONT}>1.0</text>
+          <text x={CP.l + 1} y={CP.t + iH - 2} fontSize="5" fill="rgba(255,255,255,0.15)" fontFamily={FONT}>0</text>
+          {/* all candidates as circles */}
+          {pts.map((p, i) => (
+            <circle
+              key={i}
+              cx={f1(CP.l + toCompr(p.length) * CIW)}
+              cy={f1(CP.t + iH * (1 - p.similarity))}
+              r="3"
+              fill={MED}
+            />
+          ))}
+          {/* active */}
+          <circle cx={f1(activeCX)} cy={f1(activeCY)} r="5.5" fill="#fff" />
+        </svg>
+      </div>
+    )
+  }
+
+  // ── 3. Token NLL heatmap + top chips ────────────────────────
+  let tokNllEl = null
+  if (hasTok) {
+    const nlls = rawNlls.map(v => Math.max(0, v))
+    const toks = rawToks
+    const maxNll = Math.max(...nlls, 0.001)
+    const meanNll = nlls.reduce((s, v) => s + v, 0) / nlls.length
+
+    // Heatmap bar
+    const HM_H = 14
+    const bw = Math.max(1, CIW / nlls.length - 0.3)
+
+    // Top-5 most uncertain tokens (chips)
+    const indexed = nlls.map((v, i) => ({ v, i, tok: toks[i] }))
+      .filter(x => x.tok && x.tok.trim())
+      .sort((a, b) => b.v - a.v)
+      .slice(0, 6)
+
+    tokNllEl = (
+      <div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+          <span style={LABEL}>token nll</span>
+          <span style={VAL}>avg {meanNll.toFixed(1)} · max {maxNll.toFixed(1)}</span>
+        </div>
+        {/* heatmap strip */}
+        <svg viewBox={`0 0 ${CW} ${HM_H}`} style={{ width: '100%', display: 'block', marginBottom: 6 }}>
+          {nlls.map((nll, i) => (
+            <rect
+              key={i}
+              x={f1(CP.l + (i / nlls.length) * CIW)}
+              y="0"
+              width={f1(bw)}
+              height={f1(HM_H)}
+              fill={`rgba(255,255,255,${(0.06 + 0.88 * (nll / maxNll)).toFixed(3)})`}
+              rx="0.5"
+            />
+          ))}
+        </svg>
+        {/* top uncertain token chips — dark = high NLL = model was surprised */}
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '3px', marginBottom: 4 }}>
+          {indexed.map(({ tok, v, i }) => {
+            const intensity = v / maxNll
+            const bg = `rgba(255,255,255,${(0.08 + 0.78 * intensity).toFixed(2)})`
+            const fg = intensity > 0.55 ? '#000' : 'rgba(255,255,255,0.75)'
+            return (
+              <span key={i} style={{
+                fontFamily: FONT, fontSize: '0.6rem', padding: '2px 5px',
+                background: bg, color: fg, borderRadius: 2,
+                letterSpacing: '0.02em', whiteSpace: 'nowrap',
+              }}>
+                {tok.replace(/^\s/, '·')}
+              </span>
+            )
+          })}
+        </div>
+        <span style={{ ...LABEL, letterSpacing: '0.08em', fontSize: '0.52rem' }}>
+          ↑ tokens the model found surprising
+        </span>
+      </div>
+    )
+  }
+
+  // ── 4. Candidate stability bars ──────────────────────────────
+  let stabilityEl = null
+  if (hasPoints) {
+    const sorted = [...pts].sort((a, b) => b.epsilon - a.epsilon)
+    const DOT = 5    // dot diameter
+    const GAP = 2.5  // gap between dots
+    const N = sorted.length
+    const rowW = N * (DOT + GAP) - GAP
+    const startX = (CW - rowW) / 2
+
+    stabilityEl = (
+      <div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+          <span style={LABEL}>stability</span>
+          <span style={VAL}>{sorted.map(p => Math.round(p.stability * 100) + '%').join(' · ')}</span>
+        </div>
+        <svg viewBox={`0 0 ${CW} 18`} style={{ width: '100%', display: 'block' }}>
+          {sorted.map((p, i) => {
+            const cx = startX + i * (DOT + GAP) + DOT / 2
+            const alpha = 0.15 + 0.75 * p.stability
+            const isActive = Math.abs(p.similarity - similarity) === Math.min(...sorted.map(q => Math.abs(q.similarity - similarity)))
+            return (
+              <circle
+                key={i}
+                cx={f1(cx)} cy="9" r={f1(DOT / 2 + (isActive ? 1.5 : 0))}
+                fill={isActive ? '#fff' : `rgba(255,255,255,${alpha.toFixed(2)})`}
+              />
+            )
+          })}
+          <text x={CP.l} y="17" fontSize="5.5" fill="rgba(255,255,255,0.18)" fontFamily={FONT}>compressed</text>
+          <text x={CW - CP.r} y="17" textAnchor="end" fontSize="5.5" fill="rgba(255,255,255,0.18)" fontFamily={FONT}>explicit</text>
+        </svg>
+      </div>
+    )
+  }
+
+  // ── 5. NLL Waveform (token surprise wave) ───────────────────
+  let waveformEl = null
+  if (hasTok) {
+    const nlls = rawNlls.map(v => Math.max(0, v))
+    const maxNll = Math.max(...nlls, 0.001)
+    const H = 48
+    const iH = H - CP.t - CP.b
+    const bw = Math.max(0.8, (CIW / nlls.length) - 0.5)
+    const meanNll = nlls.reduce((s, v) => s + v, 0) / nlls.length
+    const meanY = CP.t + iH - (meanNll / maxNll) * iH
+
+    waveformEl = (
+      <div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+          <span style={LABEL}>surprise wave</span>
+          <span style={VAL}>{nlls.length} tokens</span>
+        </div>
+        <svg viewBox={`0 0 ${CW} ${H}`} style={{ width: '100%', display: 'block', overflow: 'visible' }}>
+          {/* baseline */}
+          <line x1={CP.l} y1={CP.t + iH} x2={CP.l + CIW} y2={CP.t + iH} stroke={DIM} strokeWidth="0.5" />
+          {/* mean line */}
+          <line x1={CP.l} y1={f1(meanY)} x2={CP.l + CIW} y2={f1(meanY)} stroke="rgba(255,255,255,0.15)" strokeWidth="0.75" strokeDasharray="2 2" />
+          {/* bars */}
+          {nlls.map((nll, i) => {
+            const barH = (nll / maxNll) * iH
+            const x = CP.l + (i / nlls.length) * CIW
+            const alpha = 0.15 + 0.75 * (nll / maxNll)
+            return (
+              <rect
+                key={i}
+                x={f1(x)}
+                y={f1(CP.t + iH - barH)}
+                width={f1(bw)}
+                height={f1(Math.max(0.5, barH))}
+                fill={`rgba(255,255,255,${alpha.toFixed(2)})`}
+                rx="0.3"
+              />
+            )
+          })}
+          {/* y-axis labels */}
+          <text x={CP.l} y={CP.t + 5} fontSize="5.5" fill="rgba(255,255,255,0.2)" fontFamily={FONT}>{maxNll.toFixed(1)}</text>
+          <text x={CP.l + CIW} y={H - 1} textAnchor="end" fontSize="5.5" fill="rgba(255,255,255,0.18)" fontFamily={FONT}>nll →</text>
+        </svg>
+      </div>
+    )
+  } else if (hasPoints) {
+    // Fallback when no toknll: inter-candidate fit variability bars
+    const H = 36
+    const iH = H - CP.t - CP.b
+    const sorted = [...pts].sort((a, b) => b.epsilon - a.epsilon)
+    const fits = sorted.map(p => p.similarity)
+    const maxFit = Math.max(...fits, 1)
+    const bw = Math.max(2, CIW / fits.length - 1.5)
+
+    waveformEl = (
+      <div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+          <span style={LABEL}>fit profile</span>
+          <span style={VAL}>{fits.length} pts</span>
+        </div>
+        <svg viewBox={`0 0 ${CW} ${H}`} style={{ width: '100%', display: 'block' }}>
+          <line x1={CP.l} y1={CP.t + iH} x2={CP.l + CIW} y2={CP.t + iH} stroke={DIM} strokeWidth="0.5" />
+          {fits.map((f, i) => {
+            const barH = (f / maxFit) * iH
+            const x = CP.l + (i / fits.length) * CIW
+            return (
+              <rect key={i} x={f1(x)} y={f1(CP.t + iH - barH)} width={f1(bw)} height={f1(Math.max(0.5, barH))}
+                fill={`rgba(255,255,255,${(0.25 + 0.55 * (f / maxFit)).toFixed(2)})`} rx="0.3" />
+            )
+          })}
+        </svg>
+      </div>
+    )
+  }
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.1rem', width: `${CW}px`, maxWidth: '100%' }}>
+      {lossCurveEl}
+      {scatterEl}
+      {tokNllEl}
+      {waveformEl}
+      {stabilityEl}
+    </div>
+  )
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+
+// ── Backend health URLs ────────────────────────────────────────────────────
+const HEALTH_MLX    = SEARCH_API_MLX.replace('/search', '/health')
+const HEALTH_CUSTOM = SEARCH_API_CLAUDE.replace('/api/search', '/health')
+
 export function AlephExplorer() {
   const [examples, setExamples] = useState<Target[]>(FALLBACK)
   const [current, setCurrent] = useState<Target>(FALLBACK[0])
   const [pos, setPos] = useState(0)
   const [oob, setOob] = useState<null | 'left' | 'right'>(null)
   const [launched, setLaunched] = useState(false)
+  const [introLogoHover, setIntroLogoHover] = useState(false)
+  const [headerLogoHover, setHeaderLogoHover] = useState(false)
   const [open, setOpen] = useState(false)
   const [text, setText] = useState('')
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState('')
   const [view, setView] = useState<'input' | 'result'>('input')
   const [lang, setLang] = useState<Lang>('en')
+  const [searchMode, setSearchMode] = useState<SearchMode>('local_mlx')
   const [dots, setDots] = useState(1)
+  // Health status: null=unknown, true=online, false=offline
+  const [health, setHealth] = useState<{ mlx: boolean | null; custom: boolean | null }>({ mlx: null, custom: null })
+  // Progress tracking
+  const [busySince, setBusySince] = useState<number | null>(null)
+  const [elapsed, setElapsed] = useState(0)
+  const searchAbortRef = useRef<AbortController | null>(null)
   const trackRef = useRef<HTMLDivElement>(null)
   const headingId = useId()
-  const [typed, setTyped] = useState('')
-  const outRef = useRef<HTMLParagraphElement>(null)
   const tr = STRINGS[lang]
   const exLabel = (k: string) => (lang === 'zh' ? EX_LABELS_ZH[k] ?? k : k)
   // the pitch is rebuilt per-language; everything else passes through
@@ -415,6 +849,13 @@ export function AlephExplorer() {
     const id = setInterval(() => setDots((d) => (d % 3) + 1), 400)
     return () => clearInterval(id)
   }, [busy])
+
+  // Elapsed-time tick: updates every 500ms while a live search is running
+  useEffect(() => {
+    if (!busy || busySince === null) { setElapsed(0); return }
+    const id = setInterval(() => setElapsed(Date.now() - busySince), 500)
+    return () => clearInterval(id)
+  }, [busy, busySince])
 
   useEffect(() => {
     let on = true
@@ -432,6 +873,26 @@ export function AlephExplorer() {
     return () => {
       on = false
     }
+  }, [])
+
+  // Preload: ping both backends the moment the page loads.
+  // Results drive status dots + auto-select the live mode.
+  useEffect(() => {
+    let alive = true
+    const ping = (url: string) =>
+      fetch(url, { signal: AbortSignal.timeout(3000) })
+        .then((r) => r.ok)
+        .catch(() => false)
+
+    Promise.all([ping(HEALTH_MLX), ping(HEALTH_CUSTOM)]).then(([mlx, custom]) => {
+      if (!alive) return
+      setHealth({ mlx, custom })
+      // Auto-switch to whichever backend is live (prefer mlx direct)
+      if (mlx) setSearchMode('local_mlx')
+      else if (custom) setSearchMode('claude_api')
+    })
+
+    return () => { alive = false }
   }, [])
 
   useEffect(() => {
@@ -468,28 +929,6 @@ export function AlephExplorer() {
   const vv = oobView ? ({ ...v, ...oobView } as typeof v) : v
   const eps = vv.epsilon >= 0.1 ? vv.epsilon.toFixed(2) : vv.epsilon.toFixed(3)
 
-  // stream the shown content one character at a time on each node switch
-  const shown = busy ? null : oneSentencePerLine(vv.output ?? vv.prompt)
-  useEffect(() => {
-    if (shown == null) return
-    setTyped('')
-    let i = 0
-    const step = Math.min(8, Math.max(1, Math.round(shown.length / 180)))
-    const id = setInterval(() => {
-      i += step
-      if (i >= shown.length) {
-        setTyped(shown)
-        clearInterval(id)
-      } else {
-        setTyped(shown.slice(0, i))
-      }
-    }, 16)
-    return () => clearInterval(id)
-  }, [shown])
-  useEffect(() => {
-    const el = outRef.current
-    if (el) el.scrollTop = el.scrollHeight
-  }, [typed])
 
   // dashboard metrics
   const idLen = reveal
@@ -521,31 +960,80 @@ export function AlephExplorer() {
   const runSearch = useCallback(async () => {
     const q = text.trim()
     if (q.length < 8 || busy) return
+
+    // Cancel any in-flight search from a previous call
+    searchAbortRef.current?.abort()
+    const abort = new AbortController()
+    searchAbortRef.current = abort
+
     setBusy(true)
+    setBusySince(Date.now())
+    setElapsed(0)
     setErr('')
-    setView('result')
+
     try {
-      const r = await fetch(SEARCH_API, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text: q }),
-      })
-      const j = await r.json()
-      if (j && Array.isArray(j.points) && j.points.length) {
-        setCurrent(j as Target)
-        setPos(0)
-        setOob(null)
-      } else {
-        setErr(j?.error || STRINGS[lang].errNothing)
-        setView('input')
+      // ── Fixture mode: instant, no network ─────────────────────
+      if (searchMode === 'fixture') {
+        const lower = q.toLowerCase()
+        const match = examples.find(
+          (e) => lower.includes(e.key) || lower.includes((e.label ?? '').toLowerCase()),
+        ) ?? examples[Math.floor(Math.random() * examples.length)]
+        if (match) { pick(match); return }
+        setErr(STRINGS[lang].errNothing)
+        return
       }
-    } catch {
-      setErr(STRINGS[lang].errOffline)
-      setView('input')
+
+      // ── Live search: fire both backends simultaneously ─────────
+      // Each helper resolves with a Target or rejects — never throws outside.
+      // We use Promise.any so the first success wins and we abort the slower one.
+
+      const tryMLX = (): Promise<Target> =>
+        fetch(SEARCH_API_MLX, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ text: q }),
+          signal: abort.signal,
+        }).then(async (r) => {
+          if (!r.ok) throw new Error(`mlx:${r.status}`)
+          const j = await r.json() as Record<string, unknown>
+          if (!Array.isArray(j.points) || !(j.points as unknown[]).length)
+            throw new Error('mlx:empty')
+          return j as unknown as Target
+        })
+
+      const tryCustom = (): Promise<Target> =>
+        fetch(SEARCH_API_CLAUDE, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ target_text: q, mode: 'local_mlx_search' }),
+          signal: abort.signal,
+        }).then(async (r) => {
+          if (!r.ok) throw new Error(`custom:${r.status}`)
+          const j = await r.json() as Record<string, unknown>
+          if (!Array.isArray(j.candidates) || !(j.candidates as unknown[]).length)
+            throw new Error('custom:empty')
+          return alephRunToTarget(j, q)
+        })
+
+      // Both start simultaneously. Promise.any waits for the FIRST fulfillment.
+      // Rejected promises are silently swallowed by Promise.any (no unhandled rejection).
+      const target = await Promise.any([tryMLX(), tryCustom()])
+      abort.abort() // cancel the slower request
+
+      setCurrent(target)
+      setPos(0)
+      setOob(null)
+      setView('result')
+    } catch (e) {
+      // AbortError = we cancelled ourselves (new search fired), ignore silently
+      if ((e as Error)?.name === 'AbortError') return
+      // AggregateError = Promise.any with all rejections = both backends failed
+      setErr('backend offline — start python3 search/server.py, or use fixture mode')
     } finally {
       setBusy(false)
+      setBusySince(null)
     }
-  }, [text, busy, lang])
+  }, [text, busy, lang, searchMode, examples])
 
   const setFromClientX = useCallback((clientX: number) => {
     const el = trackRef.current
@@ -634,7 +1122,7 @@ export function AlephExplorer() {
           display: 'flex',
           flexDirection: 'column',
           opacity: launched ? 1 : 0,
-          transition: 'opacity 1100ms ease 450ms',
+          transition: `opacity 1200ms ease ${CHROME_FADE_DELAY_MS}ms`,
           pointerEvents: launched ? undefined : 'none',
         }}
       >
@@ -646,57 +1134,70 @@ export function AlephExplorer() {
           gap: '1rem',
         }}
       >
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 'clamp(0.75rem, 2vw, 1.25rem)',
-          }}
-        >
-        <button
-          type="button"
-          onClick={() => setView('input')}
-          aria-label={tr.backAria}
-          title={tr.backTitle}
-          style={{
-            background: 'none',
-            border: 'none',
-            padding: 0,
-            margin: 0,
-            cursor: 'pointer',
-            lineHeight: 0,
-          }}
-        >
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            id={headingId}
-            src="/aleph-logo.png"
-            alt="aleph"
-            style={{
-              height: 'clamp(3.5rem, 5.5vw, 5.25rem)',
-              width: 'auto',
-              display: 'block',
-              filter: 'brightness(0) invert(1)',
-            }}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+          {/* Logo + wordmark row */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 'clamp(0.75rem, 2vw, 1.25rem)' }}>
+            <button
+              type="button"
+              onClick={() => setView('input')}
+              onMouseEnter={() => setHeaderLogoHover(true)}
+              onMouseLeave={() => setHeaderLogoHover(false)}
+              onFocus={() => setHeaderLogoHover(true)}
+              onBlur={() => setHeaderLogoHover(false)}
+              aria-label={tr.backAria}
+              title={tr.backTitle}
+              style={{
+                width: HEADER_LOGO_SIZE,
+                height: HEADER_LOGO_SIZE,
+                background: 'none',
+                border: 'none',
+                padding: 0,
+                margin: 0,
+                cursor: 'pointer',
+                lineHeight: 0,
+              }}
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                id={headingId}
+                src={headerLogoHover ? '/horns.png' : '/aleph-logo.png'}
+                alt="aleph"
+                style={{
+                  width: '100%',
+                  height: '100%',
+                  objectFit: 'contain',
+                  display: 'block',
+                  filter: headerLogoHover ? 'none' : 'brightness(0) invert(1)',
+                }}
+              />
+            </button>
+            <span
+              aria-hidden
+              style={{
+                fontFamily: "'Avenir Next', 'Helvetica Neue', -apple-system, BlinkMacSystemFont, sans-serif",
+                fontWeight: 700,
+                letterSpacing: '-0.05em',
+                fontSize: 'clamp(0.85rem, 1.8vw, 1.9rem)',
+                lineHeight: 1,
+                whiteSpace: 'nowrap',
+                transform: 'translate(-0.68rem, -0.95rem)',
+                transformOrigin: 'left top',
+                color: 'var(--site-text)',
+              }}
+            >
+              Aleph
+            </span>
+          </div>
+          {/* Mini charts under logo */}
+          <MiniCharts
+            pt={pt}
+            pos={pos}
+            epsilon={vv.epsilon}
+            similarity={vv.similarity}
+            length={vv.length}
+            toknll={vv.toknll}
+            toktext={vv.toktext}
           />
-        </button>
-          <span
-            aria-hidden
-            style={{
-              fontFamily:
-                "'Avenir Next', 'Helvetica Neue', -apple-system, BlinkMacSystemFont, sans-serif",
-              fontWeight: 700,
-              letterSpacing: '-0.05em',
-              textTransform: 'none',
-              fontSize: 'clamp(1.15rem, 2.8vw, 2.9rem)',
-              lineHeight: 1,
-              whiteSpace: 'nowrap',
-              transform: 'translateY(-0.58rem)',
-              color: 'var(--site-text)',
-            }}
-          >
-            Aleph
-          </span>
         </div>
 
         <div
@@ -849,6 +1350,86 @@ export function AlephExplorer() {
               outline: 'none',
             }}
           />
+          {/* Progress panel — visible while a live search is running */}
+          {busy && searchMode !== 'fixture' && (() => {
+            const words = text.trim().split(/\s+/).filter(Boolean).length
+            const estMs = words < 30 ? 40_000 : words < 80 ? 65_000 : words < 150 ? 95_000 : 130_000
+            const pct = Math.min(0.97, elapsed / estMs)
+            const elapsedS = Math.floor(elapsed / 1000)
+            const etaS = Math.max(0, Math.round((estMs - elapsed) / 1000))
+            const stage =
+              pct < 0.22 ? 'proposing candidate prompts' :
+              pct < 0.50 ? 'evaluating output fit' :
+              pct < 0.78 ? 'scoring & ranking' :
+              'finalizing frontier'
+            const fmtS = (s: number) => s >= 60 ? `${Math.floor(s/60)}m ${s%60}s` : `${s}s`
+            return (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                {/* Progress bar */}
+                <div style={{ height: '2px', background: 'var(--site-code-border)', borderRadius: 2, overflow: 'hidden' }}>
+                  <div style={{
+                    height: '100%',
+                    background: 'var(--site-text)',
+                    opacity: 0.6,
+                    width: `${(pct * 100).toFixed(1)}%`,
+                    transition: 'width 500ms linear',
+                    borderRadius: 2,
+                  }} />
+                </div>
+                {/* Status row */}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.72rem', color: muted }}>
+                  <span style={{ opacity: 0.7 }}>{stage}</span>
+                  <span style={{ fontVariantNumeric: 'tabular-nums', opacity: 0.6 }}>
+                    {fmtS(elapsedS)} elapsed · ~{fmtS(etaS)} left
+                  </span>
+                </div>
+              </div>
+            )
+          })()}
+
+          {/* Search mode selector */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+            <span style={{ opacity: 0.5, fontSize: '0.8rem' }}>mode:</span>
+            {([
+              { id: 'fixture'    as SearchMode, label: 'fixture',    dot: null            },
+              { id: 'local_mlx'  as SearchMode, label: 'local mlx',  dot: health.mlx      },
+              { id: 'claude_api' as SearchMode, label: 'custom api', dot: health.custom   },
+            ]).map(({ id, label, dot }) => (
+              <button
+                key={id}
+                type="button"
+                onClick={() => setSearchMode(id)}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '0.3rem',
+                  background: 'none',
+                  border: 'none',
+                  padding: 0,
+                  font: 'inherit',
+                  fontSize: '0.8rem',
+                  cursor: 'pointer',
+                  color: searchMode === id ? 'var(--site-text)' : muted,
+                  textDecoration: searchMode === id ? 'underline' : 'none',
+                  textUnderlineOffset: '3px',
+                }}
+              >
+                {dot !== null && (
+                  <span style={{
+                    width: '5px', height: '5px', borderRadius: '50%', flexShrink: 0,
+                    background: dot === null
+                      ? 'rgba(255,255,255,0.2)'    // unknown — grey
+                      : dot
+                        ? 'rgba(100,220,120,0.85)' // online — green
+                        : 'rgba(255,255,255,0.15)',  // offline — dim
+                    display: 'inline-block',
+                  }} />
+                )}
+                {label}
+              </button>
+            ))}
+          </div>
+
           <div
             style={{
               display: 'flex',
@@ -928,7 +1509,6 @@ export function AlephExplorer() {
         )}
 
         <p
-          ref={outRef}
           style={{
             maxWidth: '52rem',
             margin: 0,
@@ -943,7 +1523,7 @@ export function AlephExplorer() {
         >
           {busy
             ? `${tr.compressingLocal} ${'.'.repeat(dots)}`
-            : typed}
+            : vv.output ?? vv.prompt}
         </p>
 
         {!reveal &&
@@ -1133,6 +1713,10 @@ export function AlephExplorer() {
       <button
         type="button"
         onClick={() => setLaunched(true)}
+        onMouseEnter={() => setIntroLogoHover(true)}
+        onMouseLeave={() => setIntroLogoHover(false)}
+        onFocus={() => setIntroLogoHover(true)}
+        onBlur={() => setIntroLogoHover(false)}
         aria-label={lang === 'zh' ? '进入 Aleph' : 'Enter Aleph'}
         title={lang === 'zh' ? '进入 Aleph' : 'Enter Aleph'}
         style={{
@@ -1140,6 +1724,8 @@ export function AlephExplorer() {
           top: launched ? 'clamp(1.25rem, 4vw, 2.5rem)' : '50%',
           left: launched ? 'clamp(1.25rem, 4vw, 2.5rem)' : '50%',
           transform: launched ? 'none' : 'translate(-50%, -50%)',
+          width: launched ? HEADER_LOGO_SIZE : INTRO_LOGO_SIZE,
+          height: launched ? HEADER_LOGO_SIZE : INTRO_LOGO_SIZE,
           zIndex: 20,
           background: 'none',
           border: 'none',
@@ -1150,21 +1736,20 @@ export function AlephExplorer() {
           opacity: launched ? 0 : 1,
           pointerEvents: launched ? 'none' : 'auto',
           transition:
-            'top 1000ms ease, left 1000ms ease, transform 1000ms ease, opacity 500ms ease 650ms',
+            'top 1000ms ease, left 1000ms ease, width 1000ms ease, height 1000ms ease, transform 1000ms ease, opacity 450ms ease 950ms',
         }}
       >
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
-          src="/aleph-logo.png"
+          src={launched || introLogoHover ? '/aleph-logo.png' : '/horns.png'}
           alt="aleph"
           style={{
-            height: launched
-              ? 'clamp(3.5rem, 5.5vw, 5.25rem)'
-              : 'clamp(7rem, 26vw, 14rem)',
-            width: 'auto',
+            width: '100%',
+            height: '100%',
+            objectFit: 'contain',
             display: 'block',
-            filter: 'brightness(0) invert(1)',
-            transition: 'height 1000ms ease',
+            filter:
+              launched || introLogoHover ? 'brightness(0) invert(1)' : 'none',
           }}
         />
       </button>
