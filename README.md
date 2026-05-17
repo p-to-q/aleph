@@ -1,6 +1,6 @@
 # Aleph
 
-> **Aleph is a reverse prompt compression workbench.**
+> **Aleph is a reverse prompt search engine.**
 >
 > Given a target output, a fixed model, a fixed decoding rule, a fixed metric, and a fixed search budget, Aleph searches for the **shortest known prompt coordinates** that can reproduce or approximate the target, then visualizes the compression path from explicit reconstruction to compact prompt coordinates.
 
