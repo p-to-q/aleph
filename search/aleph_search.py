@@ -143,21 +143,53 @@ class Proposer:
         cands = self._parse(txt, n)
         return cands or [f"Write the {('text'):s}: {target[:budget*6]}"]
 
-    def propose_ladder(self, target, budgets, n_each):
-        """Generate candidates across a length ladder in one proposer call.
-
-        The live server uses this to avoid the brittle pattern where each API
-        request only gets one or two prompt coordinates back.
-        """
-        valid_budgets = []
+    @staticmethod
+    def _valid_budgets(budgets):
+        valid = []
         for raw_budget in budgets:
             try:
                 budget = int(raw_budget)
             except (TypeError, ValueError):
                 continue
             if budget > 0:
-                valid_budgets.append(budget)
-        budgets = valid_budgets
+                valid.append(budget)
+        return valid
+
+    def _parse_budget_line(self, raw_line, by_budget):
+        match = re.match(r"^\s*BUDGET\s*=\s*(\d+)\s*:\s*(.+)$", raw_line, re.I)
+        if not match:
+            return None
+        budget = int(match.group(1))
+        if budget not in by_budget:
+            return None
+        prompt = self._clean(match.group(2))
+        if len(prompt) < 4 or len(prompt.split()) > budget:
+            return None
+        return budget, prompt
+
+    def _add_ladder_prompt(self, by_budget, seen, budget, prompt):
+        key = (budget, prompt.lower())
+        if key in seen:
+            return False
+        seen.add(key)
+        by_budget[budget].append(prompt)
+        return True
+
+    def _backfill_ladder_budget(self, target, budget, n_each, by_budget, seen):
+        for prompt in self.propose(target, budget, n_each):
+            if len(prompt.split()) > budget:
+                continue
+            self._add_ladder_prompt(by_budget, seen, budget, prompt)
+            if len(by_budget[budget]) >= n_each:
+                break
+
+    def propose_ladder(self, target, budgets, n_each):
+        """Generate candidates across a length ladder in one proposer call.
+
+        The live server uses this to avoid the brittle pattern where each API
+        request only gets one or two prompt coordinates back.
+        """
+        budgets = self._valid_budgets(budgets)
         if not budgets:
             return {}
         budget_lines = "\n".join(
@@ -182,31 +214,13 @@ class Proposer:
         by_budget = {budget: [] for budget in budgets}
         seen = set()
         for raw in txt.splitlines():
-            match = re.match(r"^\s*BUDGET\s*=\s*(\d+)\s*:\s*(.+)$", raw, re.I)
-            if not match:
+            parsed = self._parse_budget_line(raw, by_budget)
+            if not parsed:
                 continue
-            budget = int(match.group(1))
-            if budget not in by_budget:
-                continue
-            prompt = self._clean(match.group(2))
-            if len(prompt.split()) > budget:
-                continue
-            key = (budget, prompt.lower())
-            if len(prompt) < 4 or key in seen:
-                continue
-            seen.add(key)
-            by_budget[budget].append(prompt)
+            self._add_ladder_prompt(by_budget, seen, *parsed)
         for budget in budgets:
             if len(by_budget[budget]) < n_each:
-                for prompt in self.propose(target, budget, n_each):
-                    if len(prompt.split()) > budget:
-                        continue
-                    key = (budget, prompt.lower())
-                    if key not in seen:
-                        seen.add(key)
-                        by_budget[budget].append(prompt)
-                    if len(by_budget[budget]) >= n_each:
-                        break
+                self._backfill_ladder_budget(target, budget, n_each, by_budget, seen)
         return {budget: prompts[:n_each] for budget, prompts in by_budget.items()}
 
     def refine(self, target, prompt, got, budget, hard=None):

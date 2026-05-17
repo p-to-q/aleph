@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Aleph dev startup — brings up all 3 servers in tmux panes.
 # Usage:  ./start.sh
-# Requires: tmux, npm, python3 with venvs already set up.
+# Requires: lsof, npm, python3 with venvs already set up (tmux optional).
 
 set -e
 REPO="$(cd "$(dirname "$0")" && pwd)"
@@ -10,6 +10,21 @@ REPO="$(cd "$(dirname "$0")" && pwd)"
 kill_port() {
   local port=$1
   lsof -ti tcp:"$port" | xargs kill -9 2>/dev/null || true
+}
+
+wait_port() {
+  local port=$1
+  local name=$2
+  local log=$3
+  local tries=20
+  for _ in $(seq 1 "$tries"); do
+    if lsof -ti tcp:"$port" >/dev/null 2>&1; then
+      return 0
+    fi
+    sleep 0.5
+  done
+  echo "Error: $name did not bind to port $port. Check $log." >&2
+  return 1
 }
 
 kill_port 3000
@@ -28,6 +43,10 @@ if ! command -v tmux >/dev/null 2>&1; then
     > "$REPO/.aleph-mlx.log" 2>&1 &
   nohup bash -lc "cd '$REPO/apps/api' && source .venv/bin/activate && ALEPH_MLX_SEARCH_URL=http://127.0.0.1:8000/search uvicorn aleph_api.main:app --host 0.0.0.0 --port 8010 --reload" \
     > "$REPO/.aleph-api.log" 2>&1 &
+
+  wait_port 3000 "Next.js frontend" "$REPO/.aleph-web.log"
+  wait_port 8000 "MLX search server" "$REPO/.aleph-mlx.log"
+  wait_port 8010 "Aleph API" "$REPO/.aleph-api.log"
 
   echo "All 3 servers starting in the background."
   echo "  port 3000  ->  Next.js frontend"

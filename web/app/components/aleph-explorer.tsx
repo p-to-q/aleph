@@ -420,11 +420,12 @@ const STRINGS = {
     modelTheta: 'model θ',
     localQwen: 'local Qwen3 (mlx)',
     localMinimum: 'local minimum',
+    basinWireframe: 'x y z basin wireframe',
     basinHint: 'prompt search basin',
     placeholder:
       'paste any text here — long or short is fine.\n' +
       'aleph searches for the shortest prompt it can find to regenerate it.\n' +
-      '⌘↵ to compress',
+      '⌘/Ctrl↵ to compress',
     examples: 'examples:',
     compress: 'compress ↵',
     compressing: 'compressing …',
@@ -454,11 +455,12 @@ const STRINGS = {
     modelTheta: '模型 θ',
     localQwen: '本地 Qwen3 (mlx)',
     localMinimum: '局部最小值',
+    basinWireframe: 'x y z 搜索盆地线框',
     basinHint: 'prompt 搜索盆地',
     placeholder:
       '可以在这里粘贴任意文本，长一点、短一点都没关系。\n' +
       'aleph 会搜索目前能找到的最短 prompt，用来重新生成它。\n' +
-      '⌘↵ 压缩',
+      '⌘/Ctrl↵ 压缩',
     examples: '示例:',
     compress: '压缩 ↵',
     compressing: '压缩中 …',
@@ -866,6 +868,7 @@ function buildBasinRows(centerX: number, centerY: number, depth: number, tilt: n
 }
 
 function LocalMinimumBasin({
+  ariaLabel,
   epsilon,
   hint,
   label,
@@ -873,6 +876,7 @@ function LocalMinimumBasin({
   pos,
   similarity,
 }: {
+  ariaLabel: string
   epsilon: number
   hint: string
   label: string
@@ -921,10 +925,10 @@ function LocalMinimumBasin({
       <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '1rem', marginBottom: 4 }}>
         <span style={VAL}>ε {epsStr} · {confidence}% fit</span>
       </div>
-      <svg
-        viewBox="0 0 300 178"
-        role="img"
-        aria-label={`${label}: x y z basin wireframe`}
+        <svg
+          viewBox="0 0 300 178"
+          role="img"
+          aria-label={`${label}: ${ariaLabel}`}
         style={{ width: '100%', display: 'block', overflow: 'visible' }}
       >
         <line x1="150" y1="142" x2="258" y2="98" stroke={DIM} strokeWidth="0.8" />
@@ -1363,15 +1367,17 @@ export function AlephExplorer() {
             </span>
           </div>
           {/* Mini charts — always visible; header is overlay so input stays centered */}
-          <MiniCharts
-            pt={pt}
-            pos={pos}
-            epsilon={vv.epsilon}
-            similarity={vv.similarity}
-            length={vv.length}
-            toknll={vv.toknll}
-            toktext={vv.toktext}
-          />
+          <div className="aleph-mini-charts">
+            <MiniCharts
+              pt={pt}
+              pos={pos}
+              epsilon={vv.epsilon}
+              similarity={vv.similarity}
+              length={vv.length}
+              toknll={vv.toknll}
+              toktext={vv.toktext}
+            />
+          </div>
         </div>
 
         <div
@@ -1479,6 +1485,7 @@ export function AlephExplorer() {
               </Row>
               <Row label={tr.modelTheta}>{pt.evalModel ?? tr.localQwen}</Row>
               <LocalMinimumBasin
+                ariaLabel={tr.basinWireframe}
                 epsilon={vv.epsilon}
                 hint={tr.basinHint}
                 label={tr.localMinimum}
