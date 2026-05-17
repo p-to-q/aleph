@@ -27,3 +27,6 @@ Rules:
 - Run the narrowest useful validation. If you cannot run it, say so plainly.
 - End with summary, validation, risks, and next step.
 ```
+
+For the current non-UI backend task, use the specialized handoff prompt in
+`docs/handoff/prompts/local-search-adapter.md`.
