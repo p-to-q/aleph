@@ -47,15 +47,76 @@ const PITCH_SCRIPT = [
   'The medium is the message — you did not need me to speak; you needed the right seed.',
 ].join('\n')
 
-const FALLBACK: Target[] = [
-  {
+const PITCH_SCRIPT_ZH = [
+  'Aleph:对任意 output,找到一个能重新生成它的短 prompt —— 一个关于“最短”的上界。',
+  'Prompt 是一种参数 —— 训练固定数据、调权重;Aleph 固定权重、调 prompt。',
+  '于是每个 output y 在失真 ε 下都有一个最短 prompt 长度:让固定模型 θ 复现 y 所需的最少 token 数。',
+  '让 ε 趋近于零,这个长度就逼近 K(y|θ) —— y 在该模型下的 Kolmogorov 复杂度,θ 能展开回 y 的最小种子。',
+  '左端就是这个极限:极限压缩,由模型自身的知识来做功;右端是自指 prompt,把 y 逐字粘贴进去。',
+  '两端之间是一条真实的 rate–distortion 曲线:prompt 花得越多,买到的保真度越高。',
+  '它为什么重要:这是一个硬的、可比较的度量,衡量一个模型已经知道多少 —— y 的描述能在它的权重里活得多短。',
+  '它把“compression is intelligence”变得可操作,而且是反过来测:不是模型把数据压进权重压得多好,而是一个冻结的模型还能把任意 output 再压多短。',
+  '它还把 prompt engineering 从玄学变成一条曲线 —— 你在 frontier 上挑自己的点:多短的 prompt,换多少保真度。',
+  '这个 demo 是真的:这台机器上一个固定的本地 Qwen3 就是 θ;同一个模型提出自己的压缩 prompt;失真是 embedding 距离;曲线是单调的已知最优 frontier。',
+  '例子:一个 24-token 的 prompt,只要点出 Gettysburg Address 的名字,就能让模型几乎逐字重生林肯的演讲 —— 失真两千分之一 —— 因为那段文本本来就活在 θ 里。',
+  '我们从不声称这是最小值:K(y|θ) 不可计算,所以 Aleph 给的是一个上界 —— “我们还没找到更短的”,而不是“不存在更短的”。',
+  '而这正是你此刻正在看的把戏:这段解释就是 output y,滑条就是 Aleph 把自己的宣讲从一行压缩句展开成完整演讲。',
+  '媒介即讯息 —— 你不需要我开口;你需要的是那颗对的种子。',
+].join('\n')
+
+// The pitch follows Aleph's own method: the aim is the full talk; dragging
+// makes the *prompt* more substantial (general → detailed → explicit), it does
+// not append the talk's sentences. A few rungs, each a complete prompt.
+function pitchTarget(lang: Lang): Target {
+  const full = (lang === 'zh' ? PITCH_SCRIPT_ZH : PITCH_SCRIPT).replace(
+    /\n/g,
+    ' ',
+  )
+  const en = [
+    'Deliver the Aleph pitch in one breath: a prompt is a parameter, and for any target output there is a shortest prompt that makes a fixed model regenerate it — an upper bound on the shortest.',
+    'Deliver the Aleph pitch. Build it from: prompt as a parameter; for every output y a shortest-prompt length at distortion ε; and ε pushed toward zero approaching K(y|θ), the smallest seed the model can unfold back into y.',
+    "Deliver the Aleph pitch. Build it from: prompt as a parameter and the shortest-prompt length at distortion ε; the K(y|θ) limit; the two ends — extreme compression where the model's own knowledge does the work, versus the identity prompt — and the real rate–distortion curve between them; and why it matters: a hard, comparable measure of how much a model already knows.",
+    "Deliver the full Aleph pitch. Build it from: prompt as a parameter and shortest-prompt-at-ε; the K(y|θ) limit and the two ends with the rate–distortion curve between them; why it matters; how it makes 'compression is intelligence' operational, measured backwards; the real local demo — a fixed Qwen3 is θ, it proposes its own compressed prompts, distortion is embedding distance; and the honest caveat that the minimum is uncomputable, so Aleph only reports an upper bound.",
+  ]
+  const zh = [
+    '一口气讲完 Aleph:prompt 是一种参数;对任意 target output,都存在一个能让固定模型重新生成它的最短 prompt —— 一个关于最短的上界。',
+    '讲 Aleph。用这些搭起来:prompt 是参数;每个 output y 在失真 ε 下都有一个最短 prompt 长度;ε 趋近于零时逼近 K(y|θ) —— 模型能展开回 y 的最小种子。',
+    '讲 Aleph。用这些搭起来:prompt 是参数、ε 下的最短 prompt 长度;K(y|θ) 极限;两端 —— 极限压缩(模型自身知识做功)对自指 prompt —— 以及两者之间真实的 rate–distortion 曲线;还有为什么重要:一个硬的、可比较的度量,衡量模型已经知道多少。',
+    "讲完整的 Aleph。用这些搭起来:prompt 是参数、ε 下最短 prompt;K(y|θ) 极限与两端、其间的 rate–distortion 曲线;为什么重要;它如何把 'compression is intelligence' 反过来变得可操作;真实的本地 demo —— 固定的 Qwen3 就是 θ,它提出自己的压缩 prompt,失真是 embedding 距离;以及诚实的注脚:最小值不可计算,Aleph 只报告上界。",
+  ]
+  const prompts = lang === 'zh' ? zh : en
+  const meta = [
+    { epsilon: 0.46, length: 34, similarity: 0.54, stability: 0.85 },
+    { epsilon: 0.31, length: 58, similarity: 0.69, stability: 0.88 },
+    { epsilon: 0.19, length: 98, similarity: 0.81, stability: 0.92 },
+    { epsilon: 0.09, length: 152, similarity: 0.91, stability: 0.97 },
+  ]
+  const points: CurvePoint[] = meta.map((m, i) => ({
+    ...m,
+    prompt: prompts[i],
+  }))
+  points.push({
+    epsilon: 0,
+    prompt: full,
+    length: lang === 'zh' ? 240 : 330,
+    similarity: 1,
+    stability: 1,
+  })
+  return {
     key: 'pitch',
-    label: 'the Aleph pitch — read along',
+    label: lang === 'zh' ? 'Aleph 宣讲' : 'the Aleph pitch',
     targetTokens: 0,
-    mode: 'reveal',
-    script: PITCH_SCRIPT,
-    points: [],
-  },
+    points,
+  }
+}
+
+const PITCH: Record<Lang, Target> = {
+  en: pitchTarget('en'),
+  zh: pitchTarget('zh'),
+}
+
+const FALLBACK: Target[] = [
+  PITCH.en,
   {
     key: 'borges',
     label: 'a paragraph on Borges’ “The Library of Babel”',
@@ -92,6 +153,8 @@ const FALLBACK: Target[] = [
 const pct = (x: number) => `${Math.round(x * 100)}%`
 const lerp = (a: number, b: number, f: number) => a + (b - a) * f
 const clamp01 = (x: number) => Math.min(1, Math.max(0, x))
+// fraction of the track reserved as an out-of-bound gutter on each side
+const SLIDER_PAD = 0.07
 
 function sampleFrom(points: CurvePoint[], pos: number) {
   const n = Math.max(1, points.length)
@@ -164,6 +227,95 @@ function leakageScore(p: string, y: string): number {
 
 const FONT = "'Iosevka Etoile', 'Noto Sans TC', 'PingFang TC', sans-serif"
 
+type Lang = 'en' | 'zh'
+
+// UI chrome + reveal pitch + example labels. Established technical terms
+// (K(y|θ), ε, θ, prompt, token, rate–distortion, Qwen3, mlx) stay English.
+const STRINGS = {
+  en: {
+    backAria: 'aleph — back to input',
+    backTitle: 'back to input',
+    dashboard: 'dashboard',
+    promptLength: 'prompt length',
+    words: 'words',
+    targetFit: 'target fit',
+    stability: 'stability',
+    compression: 'compression',
+    vsFullScript: 'vs full script',
+    savedVsExplicit: 'saved vs explicit',
+    leakage: 'leakage',
+    frontierRank: 'frontier rank',
+    modelTheta: 'model θ',
+    localQwen: 'local Qwen3 (mlx)',
+    placeholder:
+      'paste any text — long is fine — and Aleph searches a short prompt that regenerates it · ⌘↵ to compress',
+    examples: 'examples:',
+    compress: 'compress ↵',
+    compressing: 'compressing …',
+    compressingLocal: 'compressing — running θ locally',
+    errNothing: 'search returned nothing',
+    errOffline: 'live search offline — examples still work',
+    sliderAria: 'rate–distortion frontier (continuous)',
+    wordsShown: 'words shown',
+    footLeft: 'extreme compression',
+    footRight: 'explicit',
+    langSwitch: 'switch language · 切换语言',
+  },
+  zh: {
+    backAria: 'aleph —— 返回输入',
+    backTitle: '返回输入',
+    dashboard: '仪表盘',
+    promptLength: 'prompt 长度',
+    words: '词',
+    targetFit: '目标拟合',
+    stability: '稳定性',
+    compression: '压缩率',
+    vsFullScript: '相对完整脚本',
+    savedVsExplicit: '相对显式节省',
+    leakage: '泄漏',
+    frontierRank: 'frontier 排名',
+    modelTheta: '模型 θ',
+    localQwen: '本地 Qwen3 (mlx)',
+    placeholder:
+      '粘贴任意文本 —— 长一点也没关系 —— Aleph 会搜索一个能重新生成它的短 prompt · ⌘↵ 压缩',
+    examples: '示例:',
+    compress: '压缩 ↵',
+    compressing: '压缩中 …',
+    compressingLocal: '压缩中 —— 正在本地运行 θ',
+    errNothing: '搜索没有返回结果',
+    errOffline: '实时搜索离线 —— 示例仍可用',
+    sliderAria: 'rate–distortion frontier(连续)',
+    wordsShown: '词已显示',
+    footLeft: '极限压缩',
+    footRight: '显式展开',
+    langSwitch: 'switch language · 切换语言',
+  },
+} as const
+
+const EX_LABELS_ZH: Record<string, string> = {
+  pitch: '宣讲',
+  borges: '博尔赫斯',
+}
+
+function GlobeIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      width="1em"
+      height="1em"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={1.6}
+      aria-hidden
+      style={{ display: 'block' }}
+    >
+      <circle cx="12" cy="12" r="9" />
+      <path d="M3 12h18" />
+      <path d="M12 3c2.6 2.6 4 5.7 4 9s-1.4 6.4-4 9c-2.6-2.6-4-5.7-4-9s1.4-6.4 4-9z" />
+    </svg>
+  )
+}
+
 export function AlephExplorer() {
   const [examples, setExamples] = useState<Target[]>(FALLBACK)
   const [current, setCurrent] = useState<Target>(FALLBACK[0])
@@ -173,9 +325,14 @@ export function AlephExplorer() {
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState('')
   const [view, setView] = useState<'input' | 'result'>('input')
+  const [lang, setLang] = useState<Lang>('en')
   const [dots, setDots] = useState(1)
   const trackRef = useRef<HTMLDivElement>(null)
   const headingId = useId()
+  const tr = STRINGS[lang]
+  const exLabel = (k: string) => (lang === 'zh' ? EX_LABELS_ZH[k] ?? k : k)
+  // the pitch is rebuilt per-language; everything else passes through
+  const pt = current.key === 'pitch' ? PITCH[lang] : current
 
   useEffect(() => {
     if (!busy) {
@@ -203,18 +360,22 @@ export function AlephExplorer() {
     }
   }, [])
 
-  const reveal = current.mode === 'reveal' && !!current.script
+  useEffect(() => {
+    document.documentElement.lang = lang === 'zh' ? 'zh-Hans' : 'en'
+  }, [lang])
+
+  const reveal = pt.mode === 'reveal' && !!pt.script
   const segs = reveal
-    ? current.script!.split('\n').map((s) => s.trim()).filter(Boolean)
+    ? (pt.script ?? '').split('\n').map((s) => s.trim()).filter(Boolean)
     : []
-  const N = reveal ? Math.max(1, segs.length) : Math.max(1, current.points.length)
-  const v = reveal ? revealFrom(segs, pos) : sampleFrom(current.points, pos)
+  const N = reveal ? Math.max(1, segs.length) : Math.max(1, pt.points.length)
+  const v = reveal ? revealFrom(segs, pos) : sampleFrom(pt.points, pos)
   const eps = v.epsilon >= 0.1 ? v.epsilon.toFixed(2) : v.epsilon.toFixed(3)
 
   // dashboard metrics
   const idLen = reveal
     ? 0
-    : current.points[current.points.length - 1]?.length || 0
+    : pt.points[pt.points.length - 1]?.length || 0
   const fullWords = reveal
     ? segs.join(' ').trim().split(/\s+/).filter(Boolean).length
     : 0
@@ -225,7 +386,7 @@ export function AlephExplorer() {
     : idLen
       ? Math.max(0, 1 - v.length / idLen)
       : 0
-  const leak = reveal ? null : leakageScore(v.prompt, targetOf(current.points))
+  const leak = reveal ? null : leakageScore(v.prompt, targetOf(pt.points))
   const rank = reveal
     ? Math.min(N, Math.max(1, Math.ceil(clamp01(pos) * N)))
     : Math.round(clamp01(pos) * (N - 1)) + 1
@@ -254,23 +415,24 @@ export function AlephExplorer() {
         setCurrent(j as Target)
         setPos(0)
       } else {
-        setErr(j?.error || 'search returned nothing')
+        setErr(j?.error || STRINGS[lang].errNothing)
         setView('input')
       }
     } catch {
-      setErr('live search offline — examples still work')
+      setErr(STRINGS[lang].errOffline)
       setView('input')
     } finally {
       setBusy(false)
     }
-  }, [text, busy])
+  }, [text, busy, lang])
 
   const setFromClientX = useCallback((clientX: number) => {
     const el = trackRef.current
     if (!el) return
     const rect = el.getBoundingClientRect()
     if (rect.width === 0) return
-    setPos(clamp01((clientX - rect.left) / rect.width))
+    const raw = (clientX - rect.left) / rect.width
+    setPos(clamp01((raw - SLIDER_PAD) / (1 - 2 * SLIDER_PAD)))
   }, [])
 
   const onPointerDown = (e: React.PointerEvent) => {
@@ -306,6 +468,8 @@ export function AlephExplorer() {
 
   const muted = 'var(--site-link)'
   const ruleColor = 'var(--site-hr)'
+  const atLeft = pos <= 0.002
+  const atRight = pos >= 0.998
 
   return (
     <div
@@ -334,8 +498,8 @@ export function AlephExplorer() {
         <button
           type="button"
           onClick={() => setView('input')}
-          aria-label="aleph — back to input"
-          title="back to input"
+          aria-label={tr.backAria}
+          title={tr.backTitle}
           style={{
             background: 'none',
             border: 'none',
@@ -359,7 +523,39 @@ export function AlephExplorer() {
           />
         </button>
 
-        <div style={{ position: 'relative' }}>
+        <div
+          style={{ display: 'flex', alignItems: 'flex-start', gap: '1.25rem' }}
+        >
+          <button
+            type="button"
+            onClick={() => setLang((l) => (l === 'en' ? 'zh' : 'en'))}
+            aria-label={tr.langSwitch}
+            title={tr.langSwitch}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '0.5rem',
+              background: 'none',
+              border: 'none',
+              padding: 0,
+              color: muted,
+              cursor: 'pointer',
+              font: 'inherit',
+            }}
+          >
+            <GlobeIcon />
+            <span style={{ color: lang === 'en' ? 'var(--site-text)' : muted }}>
+              EN
+            </span>
+            <span aria-hidden style={{ opacity: 0.4 }}>
+              /
+            </span>
+            <span style={{ color: lang === 'zh' ? 'var(--site-text)' : muted }}>
+              中
+            </span>
+          </button>
+
+          <div style={{ position: 'relative' }}>
           <button
             type="button"
             onClick={() => setOpen((o) => !o)}
@@ -386,7 +582,7 @@ export function AlephExplorer() {
             >
               ▸
             </span>
-            dashboard
+            {tr.dashboard}
           </button>
 
           {open && (
@@ -411,21 +607,22 @@ export function AlephExplorer() {
                 textAlign: 'left',
               }}
             >
-              <Row label="prompt length">
-                {reveal ? `${v.length} words` : `≈ ${v.length} tokens`}
+              <Row label={tr.promptLength}>
+                {reveal ? `${v.length} ${tr.words}` : `≈ ${v.length} tokens`}
               </Row>
-              <Row label="target fit">{pct(v.similarity)}</Row>
-              <Row label="stability">{reveal ? '—' : pct(v.stability)}</Row>
-              <Row label="compression">
-                {pct(saved)} {reveal ? 'vs full script' : 'saved vs explicit'}
+              <Row label={tr.targetFit}>{pct(v.similarity)}</Row>
+              <Row label={tr.stability}>{reveal ? '—' : pct(v.stability)}</Row>
+              <Row label={tr.compression}>
+                {pct(saved)} {reveal ? tr.vsFullScript : tr.savedVsExplicit}
               </Row>
-              <Row label="leakage">{leak === null ? '—' : pct(leak)}</Row>
-              <Row label="frontier rank">
+              <Row label={tr.leakage}>{leak === null ? '—' : pct(leak)}</Row>
+              <Row label={tr.frontierRank}>
                 {rank} / {N}
               </Row>
-              <Row label="model θ">{current.evalModel ?? 'local Qwen3 (mlx)'}</Row>
+              <Row label={tr.modelTheta}>{pt.evalModel ?? tr.localQwen}</Row>
             </dl>
           )}
+          </div>
         </div>
       </header>
 
@@ -457,7 +654,7 @@ export function AlephExplorer() {
             onKeyDown={(e) => {
               if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) runSearch()
             }}
-            placeholder="paste any text — long is fine — and Aleph searches a short prompt that regenerates it · ⌘↵ to compress"
+            placeholder={tr.placeholder}
             spellCheck={false}
             style={{
               width: '100%',
@@ -486,7 +683,7 @@ export function AlephExplorer() {
             }}
           >
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.1rem' }}>
-              <span style={{ opacity: 0.7 }}>examples:&nbsp;</span>
+              <span style={{ opacity: 0.7 }}>{tr.examples}&nbsp;</span>
               {examples.map((t, i) => (
                 <span key={t.key}>
                   {i > 0 && <span style={{ opacity: 0.4 }}> · </span>}
@@ -508,7 +705,7 @@ export function AlephExplorer() {
                       textUnderlineOffset: '3px',
                     }}
                   >
-                    {t.key}
+                    {exLabel(t.key)}
                   </button>
                 </span>
               ))}
@@ -530,7 +727,7 @@ export function AlephExplorer() {
                   busy || text.trim().length < 8 ? 'default' : 'pointer',
               }}
             >
-              {busy ? 'compressing …' : 'compress ↵'}
+              {busy ? tr.compressing : tr.compress}
             </button>
           </div>
         </div>
@@ -564,7 +761,7 @@ export function AlephExplorer() {
           }}
         >
           {busy
-            ? `compressing — running θ locally ${'.'.repeat(dots)}`
+            ? `${tr.compressingLocal} ${'.'.repeat(dots)}`
             : v.output ?? v.prompt}
         </p>
 
@@ -610,12 +807,14 @@ export function AlephExplorer() {
           ref={trackRef}
           role="slider"
           tabIndex={0}
-          aria-label="rate–distortion frontier (continuous)"
+          aria-label={tr.sliderAria}
           aria-valuemin={0}
           aria-valuemax={100}
           aria-valuenow={Math.round(pos * 100)}
           aria-valuetext={
-            reveal ? `${v.length} words shown` : `ε ≈ ${eps}, ≈ ${v.length} tokens`
+            reveal
+              ? `${v.length} ${tr.wordsShown}`
+              : `ε ≈ ${eps}, ≈ ${v.length} tokens`
           }
           onPointerDown={onPointerDown}
           onKeyDown={onKeyDown}
@@ -631,13 +830,61 @@ export function AlephExplorer() {
             style={{
               position: 'absolute',
               top: '50%',
-              left: 0,
-              right: 0,
+              left: `${SLIDER_PAD * 100}%`,
+              right: `${SLIDER_PAD * 100}%`,
               height: 1,
               background: ruleColor,
               transform: 'translateY(-50%)',
             }}
           />
+          <span
+            aria-hidden
+            style={{
+              position: 'absolute',
+              top: '50%',
+              left: 0,
+              width: `${SLIDER_PAD * 100}%`,
+              transform: 'translateY(-50%)',
+              overflow: 'hidden',
+              whiteSpace: 'nowrap',
+              textAlign: 'right',
+              paddingRight: 6,
+              fontFamily: FONT,
+              fontSize: '0.7rem',
+              letterSpacing: '0.04em',
+              userSelect: 'none',
+              pointerEvents: 'none',
+              color: atLeft ? 'var(--site-text)' : muted,
+              opacity: atLeft ? 1 : 0.4,
+              transition: 'color 150ms ease, opacity 150ms ease',
+            }}
+          >
+            ////////////////
+          </span>
+          <span
+            aria-hidden
+            style={{
+              position: 'absolute',
+              top: '50%',
+              right: 0,
+              width: `${SLIDER_PAD * 100}%`,
+              transform: 'translateY(-50%)',
+              overflow: 'hidden',
+              whiteSpace: 'nowrap',
+              textAlign: 'left',
+              paddingLeft: 6,
+              fontFamily: FONT,
+              fontSize: '0.7rem',
+              letterSpacing: '0.04em',
+              userSelect: 'none',
+              pointerEvents: 'none',
+              color: atRight ? 'var(--site-text)' : muted,
+              opacity: atRight ? 1 : 0.4,
+              transition: 'color 150ms ease, opacity 150ms ease',
+            }}
+          >
+            ////////////////
+          </span>
           {Array.from({ length: N }).map((_, i) => (
             <div
               key={i}
@@ -645,7 +892,11 @@ export function AlephExplorer() {
               style={{
                 position: 'absolute',
                 top: '50%',
-                left: `${(i / Math.max(1, N - 1)) * 100}%`,
+                left: `${
+                  (SLIDER_PAD +
+                    (i / Math.max(1, N - 1)) * (1 - 2 * SLIDER_PAD)) *
+                  100
+                }%`,
                 width: 4,
                 height: 4,
                 borderRadius: '50%',
@@ -660,7 +911,7 @@ export function AlephExplorer() {
             style={{
               position: 'absolute',
               top: '50%',
-              left: `${pos * 100}%`,
+              left: `${(SLIDER_PAD + pos * (1 - 2 * SLIDER_PAD)) * 100}%`,
               width: 13,
               height: 13,
               borderRadius: '50%',
@@ -682,8 +933,8 @@ export function AlephExplorer() {
             lineHeight: 1.25,
           }}
         >
-          <span>極限壓縮 · k(y|θ)</span>
-          <span>顯式展開 · y itself</span>
+          <span>{tr.footLeft} · k(y|θ)</span>
+          <span>{tr.footRight} · y itself</span>
         </div>
       </footer>
     </div>
