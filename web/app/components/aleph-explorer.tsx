@@ -39,7 +39,7 @@ interface Target {
 const SEARCH_API_MLX =
   process.env.NEXT_PUBLIC_SEARCH_API || 'http://localhost:8000/search'
 const SEARCH_API_CLAUDE =
-  process.env.NEXT_PUBLIC_CLAUDE_API || 'http://localhost:8010/api/search'
+  process.env.NEXT_PUBLIC_CLAUDE_API || '/api/search'
 
 type SearchMode = 'fixture' | 'local_mlx' | 'claude_api'
 
@@ -1363,7 +1363,7 @@ export function AlephExplorer() {
         fetch(SEARCH_API_CLAUDE, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ target_text: q, mode: 'local_mlx_search' }),
+          body: JSON.stringify({ target_text: q, mode: 'mock' }),
           signal: abort.signal,
         }).then(async (r) => {
           if (!r.ok) throw new Error(`custom:${r.status}`)
@@ -1386,7 +1386,7 @@ export function AlephExplorer() {
       // AbortError = we cancelled ourselves (new search fired), ignore silently
       if ((e as Error)?.name === 'AbortError') return
       // AggregateError = Promise.any with all rejections = both backends failed
-      setErr('backend offline — start python3 search/server.py, or use fixture mode')
+      setErr('backend offline — use fixture mode or retry custom api')
     } finally {
       setBusy(false)
       setBusySince(null)
