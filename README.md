@@ -47,7 +47,7 @@ gently.
 
 ## Current status
 
-Aleph is at `v1.0.0`: a small formal release of the active Next.js launch surface, shared `AlephRun` contract, fixture demos, local MLX evidence traces, and a hosted black-box model adapter.
+Aleph is at `v1.0.1`: a small formal release of the active Next.js launch surface, shared `AlephRun` contract, fixture demos, local MLX evidence traces, a hosted black-box model adapter, and the first release polish pass on navigation, mode selection, and evidence copy.
 
 The release is intentionally honest about evidence:
 

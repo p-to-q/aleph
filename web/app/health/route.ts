@@ -13,9 +13,9 @@ export function GET() {
 
   return NextResponse.json({
     status: 'ok',
-    version: '1.0.0',
-    modes: hostedConfigured ? ['hosted_black_box'] : ['mock'],
-    search_modes: hostedConfigured ? ['hosted_black_box'] : ['mock'],
+    version: '1.0.1',
+    modes: hostedConfigured ? ['fixture', 'hosted_black_box'] : ['fixture', 'mock'],
+    search_modes: hostedConfigured ? ['fixture', 'hosted_black_box'] : ['fixture', 'mock'],
     default_model: hostedConfigured
       ? process.env.ALEPH_CUSTOM_API_MODEL || process.env.ALEPH_OPENAI_MODEL || HOSTED_PRIMARY_MODEL
       : 'mock',

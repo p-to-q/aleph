@@ -60,6 +60,8 @@ const MLX_CAN_BE_REACHED_FROM_BROWSER =
   !IS_DEPLOYED_BROWSER || MLX_REMOTE_CONFIGURED
 const MLX_DEPLOY_GUIDE =
   'https://github.com/p-to-q/aleph/blob/main/apps/api/README.md'
+const PTOQ_WORK_URL = 'https://www.ptoq.io/work'
+const GITHUB_REPO_URL = 'https://github.com/p-to-q/aleph'
 
 type SearchMode = 'fixture' | 'local_mlx' | 'claude_api'
 type ModeNotice =
@@ -425,15 +427,40 @@ function mdInline(s: string, kb: string) {
       if (idx < parts.length - 1) out.push(<br key={`${kb}-br-${k++}`} />)
     })
   }
-  const re = /(\*\*([^*]+)\*\*|\*([^*]+)\*|`([^`]+)`|\[([^\]]+)\]\(([^)\s]+)\))/g
-  let m: RegExpExecArray | null
-  let last = 0
-  while ((m = re.exec(s))) {
-    if (m.index > last) pushText(s.slice(last, m.index))
-    if (m[2] != null)
-      out.push(<strong key={`${kb}-s-${k++}`}>{m[2]}</strong>)
-    else if (m[3] != null) out.push(<em key={`${kb}-e-${k++}`}>{m[3]}</em>)
-    else if (m[4] != null)
+  const findBoldEnd = (from: number) => {
+    for (let j = from; j < s.length - 1; j += 1) {
+      if (s[j] === '*' && s[j + 1] === '*') {
+        if (s[j + 2] === '*') continue
+        return j
+      }
+    }
+    return -1
+  }
+  let i = 0
+  while (i < s.length) {
+    const codeEnd = s[i] === '`' ? s.indexOf('`', i + 1) : -1
+    const linkMatch = s.slice(i).match(/^\[([^\]]+)\]\(([^)\s]+)\)/)
+    if (s.startsWith('**', i)) {
+      const end = findBoldEnd(i + 2)
+      if (end !== -1) {
+        out.push(
+          <strong key={`${kb}-s-${k++}`}>
+            {mdInline(s.slice(i + 2, end), `${kb}-si-${k}`)}
+          </strong>,
+        )
+        i = end + 2
+        continue
+      }
+    }
+    if (s[i] === '*' && s[i + 1] !== '*') {
+      const end = s.indexOf('*', i + 1)
+      if (end !== -1 && s[end + 1] !== '*') {
+        out.push(<em key={`${kb}-e-${k++}`}>{mdInline(s.slice(i + 1, end), `${kb}-ei-${k}`)}</em>)
+        i = end + 1
+        continue
+      }
+    }
+    if (codeEnd !== -1) {
       out.push(
         <code
           key={`${kb}-c-${k++}`}
@@ -446,24 +473,33 @@ function mdInline(s: string, kb: string) {
             fontSize: '0.9em',
           }}
         >
-          {m[4]}
+          {s.slice(i + 1, codeEnd)}
         </code>,
       )
-    else if (m[5] != null)
+      i = codeEnd + 1
+      continue
+    }
+    if (linkMatch)
       out.push(
         <a
           key={`${kb}-a-${k++}`}
-          href={m[6]}
+          href={linkMatch[2]}
           target="_blank"
           rel="noreferrer"
           style={{ color: 'var(--site-link)', textDecoration: 'underline' }}
         >
-          {m[5]}
+          {linkMatch[1]}
         </a>,
       )
-    last = re.lastIndex
+    if (linkMatch) {
+      i += linkMatch[0].length
+      continue
+    }
+    const next = s.slice(i + 1).search(/[*`[]/)
+    const end = next === -1 ? s.length : i + 1 + next
+    pushText(s.slice(i, end))
+    i = end
   }
-  if (last < s.length) pushText(s.slice(last))
   return out
 }
 
@@ -633,6 +669,11 @@ const STRINGS = {
   en: {
     backAria: 'aleph — back to input',
     backTitle: 'back to input',
+    workAria: 'open p to q work',
+    workTitle: 'p → q work',
+    githubAria: 'open aleph on github',
+    githubTitle: 'github',
+    newSearch: 'new search',
     dashboard: 'dashboard',
     promptLength: 'prompt length',
     words: 'words',
@@ -653,8 +694,16 @@ const STRINGS = {
       'long or short is fine\n' +
       '\n' +
       'aleph will test for the shortest prompt it can currently find to regenerate it\n' +
+      '(fixture = precomputed examples · local MLX = deployable local white-box model search · custom API = hosted black-box model)\n' +
       '\n' +
       '⌘/Ctrl↵',
+    placeholderLine1: 'paste any text here',
+    placeholderLine2: 'long or short is fine',
+    placeholderAction:
+      'aleph will test for the shortest prompt it can currently find to regenerate it',
+    placeholderModeNote:
+      'Modes: • fixture = precomputed examples • local MLX = deployable local white-box model search • custom API = hosted black-box model',
+    placeholderShortcut: '⌘/Ctrl↵',
     examples: 'examples:',
     modeLabel: 'mode:',
     modeFixture: 'fixture',
@@ -663,7 +712,7 @@ const STRINGS = {
     modeHelpFixture:
       'demo mode: precomputed runs for reviewing the interface, not fresh model evidence',
     modeHelpMlx:
-      'experiment mode: real local θ generates candidates and token evidence when the MLX search server is reachable',
+      'local MLX can expose token evidence when its search server is reachable',
     modeHelpCustom:
       'hosted black-box experiment: calls the server-side custom model adapter when configured; no token NLL/logits are exposed',
     compress: 'compress ↵',
@@ -676,6 +725,15 @@ const STRINGS = {
     tokenTraceUnavailable: 'token distribution unavailable',
     tokenTraceUnavailableNote:
       'no toktext/toknll trace for this candidate; showing candidate-level metrics only',
+    tokenTraceFixtureUnavailable: 'fixture evidence: candidate metrics',
+    tokenTraceFixtureUnavailableNote:
+      'precomputed fixture runs show token NLL when toktext/toknll are present; this selected candidate only carries candidate-level scores',
+    tokenTraceMlxUnavailable: 'local MLX token trace unavailable',
+    tokenTraceMlxUnavailableNote:
+      'local MLX can show token NLL only when the search adapter returns toktext/toknll for this candidate',
+    tokenTraceCustomUnavailable: 'black-box token trace unavailable',
+    tokenTraceCustomUnavailableNote:
+      'custom API returns real prompts and outputs, but external model calls do not expose logits or token NLL',
     mlxUnconfigured:
       'local mlx is local by default. On the hosted site it stays unavailable until NEXT_PUBLIC_SEARCH_API points at a deployed or tunneled Apple Silicon search server.',
     mlxChecking:
@@ -687,8 +745,14 @@ const STRINGS = {
     mlxDeploy: '→deploy guide',
     sliderAria: 'rate–distortion frontier (continuous)',
     wordsShown: 'words shown',
-    footLeft: 'extreme compression',
-    footRight: 'explicit',
+    footLeft: 'shortest found',
+    footRight: 'explicit reconstruction',
+    leftOobTitle: 'below current evidence',
+    leftOobNote:
+      'extreme compression · K(y|θ). A symbolic seed space: useful for asking what a stronger search might try next, not a verified candidate in this run',
+    rightOobTitle: 'beyond explicit reconstruction',
+    rightOobNote:
+      'explicit expansion · y itself. Redundant copy space: useful for explaining leakage or over-description, but no longer compression evidence',
     langSwitch: 'switch language · 切换语言',
     oob: 'out of bound',
     outputUnavailable: 'candidate output unavailable · showing prompt',
@@ -696,6 +760,11 @@ const STRINGS = {
   zh: {
     backAria: 'aleph —— 返回输入',
     backTitle: '返回输入',
+    workAria: '打开 p to q work',
+    workTitle: 'p → q work',
+    githubAria: '在 github 打开 aleph',
+    githubTitle: 'github',
+    newSearch: '再搜一次',
     dashboard: '仪表盘',
     promptLength: 'prompt 长度',
     words: '词',
@@ -716,8 +785,16 @@ const STRINGS = {
       '长一点、短一点都没关系\n' +
       '\n' +
       'aleph 会搜索目前能找到的最短 prompt，用来重新生成它\n' +
+      '（fixture = 预计算示例 · local MLX = 本地可部署的白盒模型搜索 · custom API = 服务端托管的黑盒大模型）\n' +
       '\n' +
       '⌘/Ctrl↵',
+    placeholderLine1: '在这里粘贴任意文本',
+    placeholderLine2: '长一点、短一点都没关系',
+    placeholderAction:
+      'aleph 会搜索目前能找到的最短 prompt，用来重新生成它',
+    placeholderModeNote:
+      '模式： • fixture = 预计算示例 • local MLX = 本地可部署的白盒模型搜索 • custom API = 服务端托管的黑盒大模型',
+    placeholderShortcut: '⌘/Ctrl↵',
     examples: '示例:',
     modeLabel: '模式:',
     modeFixture: 'fixture',
@@ -726,7 +803,7 @@ const STRINGS = {
     modeHelpFixture:
       '演示模式: 使用预先生成的 runs 来检查界面，不是新的模型证据',
     modeHelpMlx:
-      'experiment mode: local MLX 可用时，由真实本地 θ 生成候选和 token 证据',
+      'local MLX 可用时，可以显示真实本地 θ 的 token 证据',
     modeHelpCustom:
       'hosted black-box experiment: 配置后由服务端调用外部大模型；不会暴露 token NLL/logits',
     compress: '压缩 ↵',
@@ -738,6 +815,15 @@ const STRINGS = {
     tokenTraceUnavailable: 'token 分布不可用',
     tokenTraceUnavailableNote:
       '这个候选没有 toktext/toknll trace；这里只显示 candidate 级别指标',
+    tokenTraceFixtureUnavailable: 'fixture 证据: candidate 级指标',
+    tokenTraceFixtureUnavailableNote:
+      'fixture 是预计算证据；当 toktext/toknll 存在时会显示 token NLL。当前候选只带 candidate 级评分',
+    tokenTraceMlxUnavailable: 'local MLX token trace 不可用',
+    tokenTraceMlxUnavailableNote:
+      '只有本地搜索 adapter 为当前候选返回 toktext/toknll 时，local MLX 才会显示 token NLL',
+    tokenTraceCustomUnavailable: '黑盒 token trace 不可用',
+    tokenTraceCustomUnavailableNote:
+      'custom API 会返回真实 prompt 和 output，但外部大模型调用不会暴露 logits 或 token NLL',
     mlxUnconfigured:
       'local mlx 默认只在本地可用。线上页面会保持不可用，直到 NEXT_PUBLIC_SEARCH_API 指向已部署或已接入隧道的 Apple Silicon 搜索服务。',
     mlxChecking:
@@ -749,8 +835,14 @@ const STRINGS = {
     mlxDeploy: '→部署说明',
     sliderAria: 'rate–distortion frontier(连续)',
     wordsShown: '词已显示',
-    footLeft: '极限压缩',
-    footRight: '显式展开',
+    footLeft: '最短已找到',
+    footRight: '显式复现',
+    leftOobTitle: '低于当前证据',
+    leftOobNote:
+      '极限压缩 · K(y|θ)。这里是符号 seed 空间: 可以提示下一轮搜索往哪里压，但不是本次 run 已验证的 candidate',
+    rightOobTitle: '超过显式复现',
+    rightOobNote:
+      '显式展开 · y itself。这里是冗余复制空间: 可以解释泄漏或过度描述，但它不再是压缩证据',
     langSwitch: 'switch language · 切换语言',
     oob: '越界',
     outputUnavailable: '候选 output 不可用 · 当前显示 prompt',
@@ -784,6 +876,37 @@ function GlobeIcon() {
       <path d="M3 12h18" />
       <path d="M12 3c2.6 2.6 4 5.7 4 9s-1.4 6.4-4 9c-2.6-2.6-4-5.7-4-9s1.4-6.4 4-9z" />
     </svg>
+  )
+}
+
+function GithubIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      width="2.15em"
+      height="2.15em"
+      fill="currentColor"
+      aria-hidden
+      style={{ display: 'block' }}
+    >
+      <path d="M12 2C6.48 2 2 6.58 2 12.24c0 4.52 2.87 8.35 6.84 9.7.5.09.68-.22.68-.49 0-.24-.01-.88-.01-1.73-2.78.62-3.37-1.37-3.37-1.37-.45-1.18-1.11-1.49-1.11-1.49-.91-.64.07-.63.07-.63 1 .07 1.53 1.06 1.53 1.06.9 1.57 2.36 1.12 2.93.86.09-.67.35-1.12.64-1.38-2.22-.26-4.56-1.14-4.56-5.07 0-1.12.39-2.03 1.03-2.75-.1-.26-.45-1.31.1-2.71 0 0 .84-.28 2.75 1.05A9.33 9.33 0 0 1 12 6.95c.85 0 1.7.12 2.5.34 1.9-1.33 2.74-1.05 2.74-1.05.55 1.4.2 2.45.1 2.71.64.72 1.03 1.63 1.03 2.75 0 3.94-2.34 4.81-4.57 5.07.36.32.68.95.68 1.91 0 1.38-.01 2.49-.01 2.83 0 .27.18.59.69.49A10.06 10.06 0 0 0 22 12.24C22 6.58 17.52 2 12 2Z" />
+    </svg>
+  )
+}
+
+function ExternalMark() {
+  return (
+    <span
+      aria-hidden
+      style={{
+        fontSize: '0.62em',
+        lineHeight: 1,
+        opacity: 0.5,
+        transform: 'translateY(-0.08em)',
+      }}
+    >
+      ↗
+    </span>
   )
 }
 
@@ -1280,7 +1403,7 @@ export function AlephExplorer() {
   const [err, setErr] = useState('')
   const [view, setView] = useState<'input' | 'result'>('input')
   const [lang, setLang] = useState<Lang>('en')
-  const [searchMode, setSearchMode] = useState<SearchMode>('local_mlx')
+  const [searchMode, setSearchMode] = useState<SearchMode>('fixture')
   const [modeNotice, setModeNotice] = useState<ModeNotice>(null)
   const [dots, setDots] = useState(1)
   // Health status: null=unknown, true=online, false=offline
@@ -1289,6 +1412,8 @@ export function AlephExplorer() {
   const [busySince, setBusySince] = useState<number | null>(null)
   const [elapsed, setElapsed] = useState(0)
   const searchAbortRef = useRef<AbortController | null>(null)
+  const modeNoticeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const userSelectedModeRef = useRef(false)
   const trackRef = useRef<HTMLDivElement>(null)
   const headingId = useId()
   const tr = STRINGS[lang]
@@ -1330,8 +1455,8 @@ export function AlephExplorer() {
     }
   }, [])
 
-  // Preload: ping both backends the moment the page loads.
-  // Results drive status dots + auto-select the live mode.
+  // Preload: ping both backends for status dots. Keep fixture as the default
+  // so the first screen remains deterministic and evidence-labeled.
   useEffect(() => {
     let alive = true
     const ping = (url: string, canReach = true) => {
@@ -1355,9 +1480,6 @@ export function AlephExplorer() {
     Promise.all([ping(HEALTH_MLX, MLX_CAN_BE_REACHED_FROM_BROWSER), pingCustom()]).then(([mlx, custom]) => {
       if (!alive) return
       setHealth({ mlx, custom })
-      // Auto-switch to whichever backend is live (prefer mlx direct)
-      if (mlx) setSearchMode('local_mlx')
-      else if (custom) setSearchMode('claude_api')
     })
 
     return () => { alive = false }
@@ -1366,6 +1488,20 @@ export function AlephExplorer() {
   useEffect(() => {
     document.documentElement.lang = lang === 'zh' ? 'zh-Hans' : 'en'
   }, [lang])
+
+  useEffect(() => {
+    return () => {
+      if (modeNoticeTimerRef.current) clearTimeout(modeNoticeTimerRef.current)
+    }
+  }, [])
+
+  useEffect(() => {
+    if (text.trim().length === 0 && searchMode !== 'fixture') {
+      userSelectedModeRef.current = false
+      setSearchMode('fixture')
+      setModeNotice(null)
+    }
+  }, [searchMode, text])
 
   const reveal = pt.mode === 'reveal' && !!pt.script
   const segs = reveal
@@ -1395,6 +1531,26 @@ export function AlephExplorer() {
           }
   }
   const vv = oobView ? ({ ...v, ...oobView } as typeof v) : v
+  const chartPt = current.key === 'pitch' ? PITCH.en : pt
+  const chartBase = current.key === 'pitch' && !reveal ? sampleFrom(chartPt.points, pos) : v
+  const chartOobView =
+    current.key === 'pitch' && oob ? PITCH_OOB.en[oob] : current.key === 'pitch' ? null : oobView
+  const chartV = chartOobView ? ({ ...chartBase, ...chartOobView } as typeof chartBase) : chartBase
+  const tokenTraceCopy =
+    searchMode === 'fixture'
+      ? {
+          label: tr.tokenTraceFixtureUnavailable,
+          note: tr.tokenTraceFixtureUnavailableNote,
+        }
+      : searchMode === 'local_mlx'
+        ? {
+            label: tr.tokenTraceMlxUnavailable,
+            note: tr.tokenTraceMlxUnavailableNote,
+          }
+        : {
+            label: tr.tokenTraceCustomUnavailable,
+            note: tr.tokenTraceCustomUnavailableNote,
+          }
   const eps = vv.epsilon >= 0.1 ? vv.epsilon.toFixed(2) : vv.epsilon.toFixed(3)
   const hasTokenEvidence =
     !reveal &&
@@ -1434,27 +1590,57 @@ export function AlephExplorer() {
     setView('result')
   }
 
+  const showModeNotice = (notice: Exclude<ModeNotice, null>) => {
+    if (modeNoticeTimerRef.current) clearTimeout(modeNoticeTimerRef.current)
+    setModeNotice(notice)
+    modeNoticeTimerRef.current = setTimeout(() => {
+      setModeNotice(null)
+      modeNoticeTimerRef.current = null
+    }, 3200)
+  }
+
   const chooseMode = (mode: SearchMode) => {
+    userSelectedModeRef.current = true
     if (mode === 'local_mlx') {
+      setSearchMode(mode)
       if (!MLX_CAN_BE_REACHED_FROM_BROWSER) {
-        setModeNotice('mlx-unconfigured')
+        showModeNotice('mlx-unconfigured')
         return
       }
       if (health.mlx === null) {
-        setModeNotice('mlx-checking')
-        setSearchMode(mode)
+        showModeNotice('mlx-checking')
         return
       }
       if (health.mlx === false) {
-        setModeNotice('mlx-unavailable')
+        showModeNotice('mlx-unavailable')
         return
       }
-      setModeNotice('mlx-available')
-      setSearchMode(mode)
+      showModeNotice('mlx-available')
       return
     }
+    if (modeNoticeTimerRef.current) clearTimeout(modeNoticeTimerRef.current)
     setModeNotice(null)
     setSearchMode(mode)
+  }
+
+  const handleTextChange = (nextText: string) => {
+    const wasEmpty = text.trim().length === 0
+    const isEmpty = nextText.trim().length === 0
+    setText(nextText)
+    if (isEmpty) {
+      userSelectedModeRef.current = false
+      setModeNotice(null)
+      return
+    }
+    if (
+      wasEmpty &&
+      !isEmpty &&
+      searchMode === 'fixture' &&
+      !userSelectedModeRef.current
+    ) {
+      setSearchMode('claude_api')
+      setModeNotice(null)
+    }
   }
 
   const runSearch = useCallback(async () => {
@@ -1645,18 +1831,16 @@ export function AlephExplorer() {
         >
           {/* Logo + wordmark row */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 'clamp(0.75rem, 2vw, 1.25rem)' }}>
-            <button
-              type="button"
-              onClick={() => {
-                setView('input')
-                setOpen(false)
-              }}
+            <a
+              href={PTOQ_WORK_URL}
+              target="_blank"
+              rel="noreferrer"
               onMouseEnter={() => setHeaderLogoHover(true)}
               onMouseLeave={() => setHeaderLogoHover(false)}
               onFocus={() => setHeaderLogoHover(true)}
               onBlur={() => setHeaderLogoHover(false)}
-              aria-label={tr.backAria}
-              title={tr.backTitle}
+              aria-label={tr.workAria}
+              title={tr.workTitle}
               style={{
                 position: 'relative',
                 width: HEADER_LOGO_SIZE,
@@ -1667,6 +1851,8 @@ export function AlephExplorer() {
                 margin: 0,
                 cursor: 'pointer',
                 lineHeight: 0,
+                color: 'inherit',
+                textDecoration: 'none',
               }}
             >
               {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -1692,10 +1878,17 @@ export function AlephExplorer() {
                   opacity: headerLogoHover ? 1 : 0,
                 }}
               />
-            </button>
-            <span
-              aria-hidden
+            </a>
+            <a
+              href={PTOQ_WORK_URL}
+              target="_blank"
+              rel="noreferrer"
+              aria-label={tr.workAria}
+              title={tr.workTitle}
               style={{
+                display: 'inline-flex',
+                alignItems: 'flex-start',
+                gap: '0.2rem',
                 fontFamily: "'Avenir Next', 'Helvetica Neue', -apple-system, BlinkMacSystemFont, sans-serif",
                 fontWeight: 700,
                 letterSpacing: '-0.05em',
@@ -1705,23 +1898,25 @@ export function AlephExplorer() {
                 transform: 'translate(-1.18rem, -0.95rem)',
                 transformOrigin: 'left top',
                 color: 'var(--site-text)',
+                textDecoration: 'none',
               }}
             >
-              Aleph
-            </span>
+              <span>Aleph</span>
+              <ExternalMark />
+            </a>
           </div>
           {/* Mini charts — always visible; header is overlay so input stays centered */}
           <div className="aleph-mini-charts">
             <MiniCharts
-              pt={pt}
+              pt={chartPt}
               pos={pos}
-              epsilon={vv.epsilon}
-              similarity={vv.similarity}
-              length={vv.length}
-              toknll={vv.toknll}
-              toktext={vv.toktext}
-              tokenTraceUnavailable={tr.tokenTraceUnavailable}
-              tokenTraceUnavailableNote={tr.tokenTraceUnavailableNote}
+              epsilon={chartV.epsilon}
+              similarity={chartV.similarity}
+              length={chartV.length}
+              toknll={chartV.toknll}
+              toktext={chartV.toktext}
+              tokenTraceUnavailable={tokenTraceCopy.label}
+              tokenTraceUnavailableNote={tokenTraceCopy.note}
             />
           </div>
         </div>
@@ -1729,11 +1924,41 @@ export function AlephExplorer() {
         <div
           style={{
             display: 'flex',
-            alignItems: 'flex-start',
-            gap: '1.25rem',
+            alignItems: 'center',
+            gap: '1.35rem',
             pointerEvents: 'auto',
           }}
         >
+          <a
+            href={GITHUB_REPO_URL}
+            target="_blank"
+            rel="noreferrer"
+            aria-label={tr.githubAria}
+            title={tr.githubTitle}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              width: '2.2rem',
+              height: '1.45rem',
+              color: 'var(--site-text)',
+              textDecoration: 'none',
+              opacity: 0.82,
+              filter: 'drop-shadow(0 0 14px rgba(255,255,255,0.1))',
+              transition: 'opacity 150ms ease, transform 150ms ease, filter 150ms ease',
+            }}
+            onMouseEnter={(event) => {
+              event.currentTarget.style.opacity = '1'
+              event.currentTarget.style.filter = 'drop-shadow(0 0 22px rgba(255,255,255,0.22))'
+            }}
+            onMouseLeave={(event) => {
+              event.currentTarget.style.opacity = '0.82'
+              event.currentTarget.style.filter = 'drop-shadow(0 0 14px rgba(255,255,255,0.1))'
+            }}
+          >
+            <GithubIcon />
+          </a>
+
           <button
             type="button"
             onClick={() => setLang((l) => (l === 'en' ? 'zh' : 'en'))}
@@ -1871,32 +2096,60 @@ export function AlephExplorer() {
             color: muted,
           }}
         >
-          <textarea
-            className="aleph-target-input"
-            value={text}
-            onChange={(e) => setText(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) runSearch()
-            }}
-            placeholder={tr.placeholder}
-            spellCheck={false}
-            style={{
-              width: '100%',
-              minHeight: 'clamp(11rem, 40vh, 20rem)',
-              maxHeight: '52vh',
-              resize: 'none',
-              overflowY: 'auto',
-              boxSizing: 'border-box',
-              background: 'var(--site-card-bg)',
-              border: '1px solid var(--site-code-border)',
-              color: 'var(--site-text)',
-              font: 'inherit',
-              lineHeight: 1.6,
-              textAlign: 'left',
-              padding: '1rem 1.1rem',
-              outline: 'none',
-            }}
-          />
+          <div style={{ position: 'relative' }}>
+            {!text && (
+              <div
+                aria-hidden
+                style={{
+                  position: 'absolute',
+                  inset: '1rem 1.1rem',
+                  pointerEvents: 'none',
+                  color: 'var(--site-text)',
+                  opacity: 0.34,
+                  font: 'inherit',
+                  lineHeight: 1.6,
+                  textAlign: 'left',
+                  whiteSpace: 'pre-wrap',
+                }}
+              >
+                <div>{tr.placeholderLine1}</div>
+                <div>{tr.placeholderLine2}</div>
+                <div style={{ height: '1.6em' }} />
+                <div>{tr.placeholderAction}</div>
+                <div style={{ fontSize: '0.78em', opacity: 0.82 }}>
+                  {tr.placeholderModeNote}
+                </div>
+                <div style={{ height: '1.6em' }} />
+                <div>{tr.placeholderShortcut}</div>
+              </div>
+            )}
+            <textarea
+              className="aleph-target-input"
+              value={text}
+              onChange={(e) => handleTextChange(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) runSearch()
+              }}
+              placeholder=""
+              spellCheck={false}
+              style={{
+                width: '100%',
+                minHeight: 'clamp(11rem, 40vh, 20rem)',
+                maxHeight: '52vh',
+                resize: 'none',
+                overflowY: 'auto',
+                boxSizing: 'border-box',
+                background: 'var(--site-card-bg)',
+                border: '1px solid var(--site-code-border)',
+                color: 'var(--site-text)',
+                font: 'inherit',
+                lineHeight: 1.6,
+                textAlign: 'left',
+                padding: '1rem 1.1rem',
+                outline: 'none',
+              }}
+            />
+          </div>
           {/* Progress panel — visible while a live search is running */}
           {busy && searchMode !== 'fixture' && (() => {
             const words = text.trim().split(/\s+/).filter(Boolean).length
@@ -2016,23 +2269,7 @@ export function AlephExplorer() {
                 )
               })}
             </div>
-            <div
-              role="status"
-              style={{
-                gridColumn: '1 / 3',
-                color: muted,
-                fontSize: '0.72rem',
-                lineHeight: 1.25,
-                opacity: 0.72,
-              }}
-            >
-              {searchMode === 'fixture'
-                ? tr.modeHelpFixture
-                : searchMode === 'local_mlx'
-                  ? tr.modeHelpMlx
-                  : tr.modeHelpCustom}
-            </div>
-            {modeNotice && (
+            {searchMode === 'local_mlx' && modeNotice && (
               <div
                 role="status"
                 style={{
@@ -2042,8 +2279,9 @@ export function AlephExplorer() {
                   gap: '0.25rem',
                   flexWrap: 'wrap',
                   color: muted,
-                  fontSize: '0.72rem',
+                  fontSize: '0.66rem',
                   lineHeight: 1.25,
+                  opacity: 0.68,
                   marginBottom: '0.08rem',
                 }}
               >
@@ -2129,6 +2367,67 @@ export function AlephExplorer() {
         </div>
         ) : (
         <>
+        {view === 'result' && (
+          <div
+            style={{
+              maxWidth: '52rem',
+              width: '100%',
+              margin: 0,
+              display: 'flex',
+              justifyContent: 'flex-end',
+            }}
+          >
+            <button
+              type="button"
+              className="aleph-new-search"
+              onClick={() => {
+                setView('input')
+                setOpen(false)
+                setOob(null)
+              }}
+              style={{
+                position: 'relative',
+                display: 'inline-flex',
+                alignItems: 'center',
+                overflow: 'hidden',
+                gap: '0.8rem',
+                background: 'rgba(255,255,255,0.035)',
+                border: '1px solid rgba(255,255,255,0.42)',
+                borderRadius: 0,
+                padding: '0.72rem 1.24rem',
+                color: 'var(--site-text)',
+                cursor: 'pointer',
+                font: 'inherit',
+                fontSize: '1.08rem',
+                lineHeight: 1,
+                letterSpacing: '0.01em',
+                opacity: 1,
+                boxShadow: 'inset 0 0 0 1px rgba(255,255,255,0.035), 0 0 18px rgba(255,255,255,0.035)',
+                transition: 'background 150ms ease, border-color 150ms ease, box-shadow 150ms ease, color 150ms ease',
+              }}
+              onMouseEnter={(event) => {
+                event.currentTarget.style.background = 'rgba(255,255,255,0.065)'
+                event.currentTarget.style.borderColor = 'rgba(255,255,255,0.62)'
+                event.currentTarget.style.boxShadow = 'inset 0 0 0 1px rgba(255,255,255,0.055), 0 0 24px rgba(255,255,255,0.07)'
+              }}
+              onMouseLeave={(event) => {
+                event.currentTarget.style.background = 'rgba(255,255,255,0.035)'
+                event.currentTarget.style.borderColor = 'rgba(255,255,255,0.42)'
+                event.currentTarget.style.boxShadow = 'inset 0 0 0 1px rgba(255,255,255,0.035), 0 0 18px rgba(255,255,255,0.035)'
+              }}
+            >
+              {tr.newSearch}
+              <span
+                className="aleph-new-search-mark"
+                aria-hidden
+                style={{ opacity: 0.78, transform: 'translateY(-0.02em)' }}
+              >
+                ↺
+              </span>
+            </button>
+          </div>
+        )}
+
         {!reveal && !busy && vv.output && (
           <p
             style={{
@@ -2292,6 +2591,9 @@ export function AlephExplorer() {
           />
           <span
             aria-hidden
+            className="aleph-axis-oob aleph-axis-oob-left"
+            data-tip-title={tr.leftOobTitle}
+            data-tip-note={tr.leftOobNote}
             style={{
               position: 'absolute',
               top: '50%',
@@ -2306,7 +2608,7 @@ export function AlephExplorer() {
               fontSize: '0.7rem',
               letterSpacing: '0.04em',
               userSelect: 'none',
-              pointerEvents: 'none',
+              pointerEvents: 'auto',
               color: atLeft ? 'var(--site-text)' : muted,
               opacity: atLeft ? 1 : 0.4,
               transition: 'color 150ms ease, opacity 150ms ease',
@@ -2316,6 +2618,9 @@ export function AlephExplorer() {
           </span>
           <span
             aria-hidden
+            className="aleph-axis-oob aleph-axis-oob-right"
+            data-tip-title={tr.rightOobTitle}
+            data-tip-note={tr.rightOobNote}
             style={{
               position: 'absolute',
               top: '50%',
@@ -2330,7 +2635,7 @@ export function AlephExplorer() {
               fontSize: '0.7rem',
               letterSpacing: '0.04em',
               userSelect: 'none',
-              pointerEvents: 'none',
+              pointerEvents: 'auto',
               color: atRight ? 'var(--site-text)' : muted,
               opacity: atRight ? 1 : 0.4,
               transition: 'color 150ms ease, opacity 150ms ease',
@@ -2391,8 +2696,22 @@ export function AlephExplorer() {
             lineHeight: 1.25,
           }}
         >
-          <span>{tr.footLeft} · k(y|θ)</span>
-          <span>{tr.footRight} · y itself</span>
+          <span
+            className="aleph-axis-label aleph-axis-label-left"
+            tabIndex={0}
+            data-tip-title={tr.leftOobTitle}
+            data-tip-note={tr.leftOobNote}
+          >
+            {tr.footLeft} · k(y|θ)
+          </span>
+          <span
+            className="aleph-axis-label aleph-axis-label-right"
+            tabIndex={0}
+            data-tip-title={tr.rightOobTitle}
+            data-tip-note={tr.rightOobNote}
+          >
+            {tr.footRight} · y itself
+          </span>
         </div>
       </footer>
       )}
