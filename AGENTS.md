@@ -34,6 +34,13 @@ Read the smallest relevant set before editing:
 - Do not add dependencies, workflows, or routes unless the repository clearly needs them.
 - Run `npm run lint` after changes when the environment supports Node 20+.
 
+## GitHub discipline
+
+- For non-trivial user-visible, governance, architecture, path, deployment, permission, or research-claim changes, work through an issue or checked-in plan before implementation, then a small PR before merge.
+- Keep PRs reviewable: one acceptance gate, explicit validation, and clear out-of-scope notes.
+- If an emergency fix bypasses a prior issue, backfill the issue or PR notes so the repository remains the durable record.
+- Do not use chat history as the only roadmap or decision log.
+
 ## Creative mandate
 
 Be willing to propose stranger, better ideas, but do not smuggle them into the product as facts. Put unsettled ideas in `docs/open-questions.md`, a decision note, or a plan.
