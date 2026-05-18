@@ -65,6 +65,18 @@ body {
   opacity: 1;
 }
 
+.aleph-result-column {
+  margin-left: auto;
+  margin-right: auto;
+}
+
+@media (min-width: 70.001rem) {
+  .aleph-result-column {
+    margin-left: max(22rem, calc((100vw - 52rem) / 2));
+    margin-right: max(2rem, calc((100vw - 52rem) / 2));
+  }
+}
+
 @media (max-width: 70rem) {
   .aleph-mini-charts {
     display: none;

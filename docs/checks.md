@@ -39,11 +39,31 @@ scripts/check-repo.mjs
 ## What these checks do not prove
 
 - The React app builds; that requires `npm install` and `npm run build`.
-- Any real model search is implemented.
+- Hosted model credentials are present, external providers are reachable, or a live model returns good candidates.
 - Token loss, attribution, or waveform values are real model internals.
 - External URLs are still live.
 
 Record broader checks in `docs/verification.md`.
+
+## Release gate
+
+Before a formal release, run:
+
+```bash
+npm run lint
+npm run test
+npm --workspace web run build
+npm run api:smoke
+apps/api/.venv/bin/python -m pytest apps/api/tests -q
+search/.venv/bin/python search/preflight.py
+git diff --check
+```
+
+Also run a server-configured hosted smoke against `/health` and `/api/search`
+when the release depends on hosted black-box mode. A passing hosted smoke proves
+the adapter can return real prompt/output candidates as `black_box`
+observations; it does not prove token NLL, logits, or a globally shortest
+prompt.
 
 ## API smoke
 

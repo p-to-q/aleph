@@ -43,6 +43,15 @@ As of the post-Hackathon cleanup on 2026-05-18:
 - `origin/codex/demo-readiness-contracts` and `origin/feat/launch-page-and-extreme-states` are merged into `origin/main` and may be deleted once no one needs their branch names.
 - `codex/publish-aleph-explorer-update` contains the current Next.js launch update and should be merged or replaced by a mainline equivalent before the next product pass.
 
+## Iteration rule
+
+Repository governance now expects issue-led iteration:
+
+- Open or identify an issue before non-trivial work on product UI, API behavior, repository paths, deployment, permissions, architecture, or research claims.
+- Branch from the current base and keep each PR tied to one acceptance gate.
+- Validate locally before asking for review, and write the validation into the PR.
+- Merge only after review/acceptance. If an urgent fix bypasses the issue-first path, backfill the issue or PR notes afterward.
+
 ## Permission and claim rules
 
 - Do not claim white-box observations without logits or model internals.

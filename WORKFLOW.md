@@ -18,6 +18,20 @@ This file is a contract, not a daemon. It does not require an orchestration runt
 
 Chat transcripts are not durable unless summarized into one of those surfaces.
 
+## GitHub iteration rule
+
+Default all non-trivial work to:
+
+```text
+issue -> branch -> small PR -> validation -> merge
+```
+
+Use an issue or a checked-in plan before implementation when the work changes a user-visible surface, repository governance, paths, architecture, permissions, deployment behavior, or research claims. The issue should name the acceptance gate, expected validation, and known out-of-scope work.
+
+Use a direct commit only for tiny documentation typo fixes or emergency repair. If a hotfix lands without a prior issue, create or update an issue/PR note afterward so the durable record still exists.
+
+PRs should stay small enough to review in one sitting. Split cleanup, product behavior, and research claims unless they are tightly coupled by the acceptance gate.
+
 ## Dispatch rule
 
 A task is ready for an agent only when it has:

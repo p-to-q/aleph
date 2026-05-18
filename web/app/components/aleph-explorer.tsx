@@ -36,19 +36,38 @@ interface Target {
 // Backend search endpoints.
 // Local MLX server (search/server.py) returns Target format directly.
 // Claude API (apps/api) returns AlephRun format — converted below.
-const SEARCH_API_MLX =
-  process.env.NEXT_PUBLIC_SEARCH_API || 'http://localhost:8000/search'
+const RAW_SEARCH_API_MLX = (process.env.NEXT_PUBLIC_SEARCH_API ?? '').trim()
+const SEARCH_API_MLX = RAW_SEARCH_API_MLX || 'http://localhost:8000/search'
 const SEARCH_API_CLAUDE =
   process.env.NEXT_PUBLIC_CLAUDE_API || '/api/search'
 const IS_BROWSER = typeof window !== 'undefined'
+const CUSTOM_API_IS_SAME_ORIGIN = SEARCH_API_CLAUDE.startsWith('/')
 const IS_DEPLOYED_BROWSER =
   IS_BROWSER &&
   window.location.hostname !== 'localhost' &&
   window.location.hostname !== '127.0.0.1'
+const isLocalSearchUrl = (url: string) => {
+  try {
+    const host = new URL(url, 'http://localhost').hostname
+    return host === 'localhost' || host === '127.0.0.1' || host === '::1'
+  } catch {
+    return true
+  }
+}
+const MLX_REMOTE_CONFIGURED =
+  RAW_SEARCH_API_MLX.length > 0 && !isLocalSearchUrl(RAW_SEARCH_API_MLX)
+const MLX_CAN_BE_REACHED_FROM_BROWSER =
+  !IS_DEPLOYED_BROWSER || MLX_REMOTE_CONFIGURED
 const MLX_DEPLOY_GUIDE =
   'https://github.com/p-to-q/aleph/blob/main/apps/api/README.md'
 
 type SearchMode = 'fixture' | 'local_mlx' | 'claude_api'
+type ModeNotice =
+  | null
+  | 'mlx-unconfigured'
+  | 'mlx-checking'
+  | 'mlx-unavailable'
+  | 'mlx-available'
 
 /** Convert an AlephRun response (FastAPI /api/search) into the Target format. */
 function alephRunToTarget(run: Record<string, unknown>, text: string): Target {
@@ -589,7 +608,7 @@ const LOGO_IMG_STYLE: React.CSSProperties = {
   objectFit: 'contain',
   objectPosition: 'center',
   display: 'block',
-  transform: 'translate(-3%, -1.5%) scale(1.07)',
+  transform: 'translate(-4.4%, -3.6%)',
 }
 const LOGO_HORNS_STYLE: React.CSSProperties = {
   width: '100%',
@@ -598,6 +617,12 @@ const LOGO_HORNS_STYLE: React.CSSProperties = {
   objectPosition: 'center',
   display: 'block',
   transform: 'translate(0, 0)',
+}
+const LOGO_LAYER_STYLE: React.CSSProperties = {
+  position: 'absolute',
+  inset: 0,
+  transition: 'opacity 160ms ease',
+  willChange: 'opacity',
 }
 
 type Lang = 'en' | 'zh'
@@ -624,24 +649,49 @@ const STRINGS = {
     basinWireframe: 'x y z basin wireframe',
     basinHint: 'prompt search basin',
     placeholder:
-      'paste any text here — long or short is fine.\n' +
-      'aleph searches for the shortest prompt it can find to regenerate it.\n' +
-      '⌘/Ctrl↵ to compress',
+      'paste any text here\n' +
+      'long or short is fine\n' +
+      '\n' +
+      'aleph will test for the shortest prompt it can currently find to regenerate it\n' +
+      '\n' +
+      '⌘/Ctrl↵',
     examples: 'examples:',
+    modeLabel: 'mode:',
+    modeFixture: 'fixture',
+    modeMlx: 'local mlx',
+    modeCustom: 'custom api',
+    modeHelpFixture:
+      'demo mode: precomputed runs for reviewing the interface, not fresh model evidence',
+    modeHelpMlx:
+      'experiment mode: real local θ generates candidates and token evidence when the MLX search server is reachable',
+    modeHelpCustom:
+      'hosted black-box experiment: calls the server-side custom model adapter when configured; no token NLL/logits are exposed',
     compress: 'compress ↵',
     compressing: 'compressing …',
     compressingLocal: 'compressing — running θ locally',
+    liveSearchStatus:
+      'live search running — waiting for candidate outputs and scores',
     errNothing: 'search returned nothing',
     errOffline: 'live search offline — examples still work',
+    tokenTraceUnavailable: 'token distribution unavailable',
+    tokenTraceUnavailableNote:
+      'no toktext/toknll trace for this candidate; showing candidate-level metrics only',
+    mlxUnconfigured:
+      'local mlx is local by default. On the hosted site it stays unavailable until NEXT_PUBLIC_SEARCH_API points at a deployed or tunneled Apple Silicon search server.',
+    mlxChecking:
+      'checking the local mlx endpoint. If it turns green, this hosted page can run against that deployed search server.',
     mlxUnavailable:
-      'local mlx runs on a separate Apple Silicon search server. It is offline here unless you deploy or tunnel one.',
-    mlxDeploy: 'deploy guide',
+      'local mlx is configured but not reachable from this browser.',
+    mlxAvailable:
+      'local mlx is reachable. Searches in this mode will use the configured Apple Silicon search server.',
+    mlxDeploy: '→deploy guide',
     sliderAria: 'rate–distortion frontier (continuous)',
     wordsShown: 'words shown',
     footLeft: 'extreme compression',
     footRight: 'explicit',
     langSwitch: 'switch language · 切换语言',
     oob: 'out of bound',
+    outputUnavailable: 'candidate output unavailable · showing prompt',
   },
   zh: {
     backAria: 'aleph —— 返回输入',
@@ -662,32 +712,59 @@ const STRINGS = {
     basinWireframe: 'x y z 搜索盆地线框',
     basinHint: 'prompt 搜索盆地',
     placeholder:
-      '可以在这里粘贴任意文本，长一点、短一点都没关系。\n' +
-      'aleph 会搜索目前能找到的最短 prompt，用来重新生成它。\n' +
-      '⌘/Ctrl↵ 压缩',
+      '在这里粘贴任意文本\n' +
+      '长一点、短一点都没关系\n' +
+      '\n' +
+      'aleph 会搜索目前能找到的最短 prompt，用来重新生成它\n' +
+      '\n' +
+      '⌘/Ctrl↵',
     examples: '示例:',
+    modeLabel: '模式:',
+    modeFixture: 'fixture',
+    modeMlx: 'local mlx',
+    modeCustom: 'custom api',
+    modeHelpFixture:
+      '演示模式: 使用预先生成的 runs 来检查界面，不是新的模型证据',
+    modeHelpMlx:
+      'experiment mode: local MLX 可用时，由真实本地 θ 生成候选和 token 证据',
+    modeHelpCustom:
+      'hosted black-box experiment: 配置后由服务端调用外部大模型；不会暴露 token NLL/logits',
     compress: '压缩 ↵',
     compressing: '压缩中 …',
     compressingLocal: '压缩中 —— 正在本地运行 θ',
+    liveSearchStatus: '实时搜索运行中 —— 等待候选输出和评分返回',
     errNothing: '搜索没有返回结果',
     errOffline: '实时搜索离线 —— 示例仍可用',
+    tokenTraceUnavailable: 'token 分布不可用',
+    tokenTraceUnavailableNote:
+      '这个候选没有 toktext/toknll trace；这里只显示 candidate 级别指标',
+    mlxUnconfigured:
+      'local mlx 默认只在本地可用。线上页面会保持不可用，直到 NEXT_PUBLIC_SEARCH_API 指向已部署或已接入隧道的 Apple Silicon 搜索服务。',
+    mlxChecking:
+      '正在检查 local mlx endpoint。如果变成绿色，这个线上页面就会调用已部署的搜索服务。',
     mlxUnavailable:
-      'local mlx 需要单独的 Apple Silicon 搜索服务。这里默认不可用，除非你部署或接入隧道。',
-    mlxDeploy: '部署说明',
+      'local mlx 已配置，但当前浏览器访问不到。',
+    mlxAvailable:
+      'local mlx 可以访问。选择这个模式后，搜索会调用已配置的 Apple Silicon 搜索服务。',
+    mlxDeploy: '→部署说明',
     sliderAria: 'rate–distortion frontier(连续)',
     wordsShown: '词已显示',
     footLeft: '极限压缩',
     footRight: '显式展开',
     langSwitch: 'switch language · 切换语言',
     oob: '越界',
+    outputUnavailable: '候选 output 不可用 · 当前显示 prompt',
   },
 } as const
 
 const EX_LABELS_ZH: Record<string, string> = {
-  pitch: '宣讲',
+  pitch: '演示',
   haizi: '海子',
   borges: '博尔赫斯',
   spring: '春',
+  dickens: '狄更斯',
+  genesis: '创世记',
+  hamlet: '哈姆雷特',
   crush: '只因你太美',
 }
 
@@ -755,9 +832,21 @@ interface MiniChartsProps {
   length: number
   toknll?: number[]
   toktext?: string[]
+  tokenTraceUnavailable: string
+  tokenTraceUnavailableNote: string
 }
 
-function MiniCharts({ pt, pos, epsilon, similarity, length, toknll, toktext }: MiniChartsProps) {
+function MiniCharts({
+  pt,
+  pos,
+  epsilon,
+  similarity,
+  length,
+  toknll,
+  toktext,
+  tokenTraceUnavailable,
+  tokenTraceUnavailableNote,
+}: MiniChartsProps) {
   const pts = pt.points
   const hasPoints = pts.length >= 2
   const rawNlls = toknll ?? []
@@ -929,11 +1018,13 @@ function MiniCharts({ pt, pos, epsilon, similarity, length, toknll, toktext }: M
 
     stabilityEl = (
       <div>
-        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+        <div style={{ display: 'grid', gap: 3, marginBottom: 4 }}>
           <span style={LABEL}>stability</span>
-          <span style={VAL}>{sorted.map(p => Math.round(p.stability * 100) + '%').join(' · ')}</span>
+          <span style={{ ...VAL, lineHeight: 1.25, wordBreak: 'break-word' }}>
+            {sorted.map(p => Math.round(p.stability * 100) + '%').join(' · ')}
+          </span>
         </div>
-        <svg viewBox={`0 0 ${CW} 18`} style={{ width: '100%', display: 'block' }}>
+        <svg viewBox={`0 0 ${CW} 24`} style={{ width: '100%', display: 'block' }}>
           {sorted.map((p, i) => {
             const cx = startX + i * (DOT + GAP) + DOT / 2
             const alpha = 0.15 + 0.75 * p.stability
@@ -941,13 +1032,13 @@ function MiniCharts({ pt, pos, epsilon, similarity, length, toknll, toktext }: M
             return (
               <circle
                 key={i}
-                cx={f1(cx)} cy="9" r={f1(DOT / 2 + (isActive ? 1.5 : 0))}
+                cx={f1(cx)} cy="8" r={f1(DOT / 2 + (isActive ? 1.5 : 0))}
                 fill={isActive ? '#fff' : `rgba(255,255,255,${alpha.toFixed(2)})`}
               />
             )
           })}
-          <text x={CP.l} y="17" fontSize="5.5" fill="rgba(255,255,255,0.18)" fontFamily={FONT}>compressed</text>
-          <text x={CW - CP.r} y="17" textAnchor="end" fontSize="5.5" fill="rgba(255,255,255,0.18)" fontFamily={FONT}>explicit</text>
+          <text x={CP.l} y="23" fontSize="5.5" fill="rgba(255,255,255,0.18)" fontFamily={FONT}>shortest found</text>
+          <text x={CW - CP.r} y="23" textAnchor="end" fontSize="5.5" fill="rgba(255,255,255,0.18)" fontFamily={FONT}>explicit</text>
         </svg>
       </div>
     )
@@ -999,31 +1090,23 @@ function MiniCharts({ pt, pos, epsilon, similarity, length, toknll, toktext }: M
       </div>
     )
   } else if (hasPoints) {
-    // Fallback when no toknll: inter-candidate fit variability bars
-    const H = 36
-    const iH = H - CP.t - CP.b
-    const sorted = [...pts].sort((a, b) => b.epsilon - a.epsilon)
-    const fits = sorted.map(p => p.similarity)
-    const maxFit = Math.max(...fits, 1)
-    const bw = Math.max(2, CIW / fits.length - 1.5)
-
     waveformEl = (
       <div>
-        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
-          <span style={LABEL}>fit profile</span>
-          <span style={VAL}>{fits.length} pts</span>
+        <span style={LABEL}>{tokenTraceUnavailable}</span>
+        <div
+          style={{
+            marginTop: 6,
+            borderTop: `1px solid ${DIM}`,
+            paddingTop: 7,
+            color: 'rgba(255,255,255,0.32)',
+            fontFamily: FONT,
+            fontSize: '0.58rem',
+            lineHeight: 1.45,
+            letterSpacing: '0.05em',
+          }}
+        >
+          {tokenTraceUnavailableNote}
         </div>
-        <svg viewBox={`0 0 ${CW} ${H}`} style={{ width: '100%', display: 'block' }}>
-          <line x1={CP.l} y1={CP.t + iH} x2={CP.l + CIW} y2={CP.t + iH} stroke={DIM} strokeWidth="0.5" />
-          {fits.map((f, i) => {
-            const barH = (f / maxFit) * iH
-            const x = CP.l + (i / fits.length) * CIW
-            return (
-              <rect key={i} x={f1(x)} y={f1(CP.t + iH - barH)} width={f1(bw)} height={f1(Math.max(0.5, barH))}
-                fill={`rgba(255,255,255,${(0.25 + 0.55 * (f / maxFit)).toFixed(2)})`} rx="0.3" />
-            )
-          })}
-        </svg>
       </div>
     )
   }
@@ -1198,7 +1281,7 @@ export function AlephExplorer() {
   const [view, setView] = useState<'input' | 'result'>('input')
   const [lang, setLang] = useState<Lang>('en')
   const [searchMode, setSearchMode] = useState<SearchMode>('local_mlx')
-  const [modeNotice, setModeNotice] = useState<null | 'mlx-unavailable'>(null)
+  const [modeNotice, setModeNotice] = useState<ModeNotice>(null)
   const [dots, setDots] = useState(1)
   // Health status: null=unknown, true=online, false=offline
   const [health, setHealth] = useState<{ mlx: boolean | null; custom: boolean | null }>({ mlx: null, custom: null })
@@ -1251,14 +1334,25 @@ export function AlephExplorer() {
   // Results drive status dots + auto-select the live mode.
   useEffect(() => {
     let alive = true
-    const ping = (url: string, forceOffline = false) => {
-      if (forceOffline) return Promise.resolve(false)
+    const ping = (url: string, canReach = true) => {
+      if (!canReach) return Promise.resolve(false)
       return fetch(url, { signal: AbortSignal.timeout(3000) })
         .then((r) => r.ok)
         .catch(() => false)
     }
+    const pingCustom = () =>
+      fetch(HEALTH_CUSTOM, { signal: AbortSignal.timeout(3000) })
+        .then(async (r) => {
+          if (!r.ok) return false
+          if (!CUSTOM_API_IS_SAME_ORIGIN) return true
+          const body = (await r.json().catch(() => null)) as
+            | { hosted_black_box_configured?: unknown }
+            | null
+          return body?.hosted_black_box_configured === true
+        })
+        .catch(() => false)
 
-    Promise.all([ping(HEALTH_MLX, IS_DEPLOYED_BROWSER), ping(HEALTH_CUSTOM)]).then(([mlx, custom]) => {
+    Promise.all([ping(HEALTH_MLX, MLX_CAN_BE_REACHED_FROM_BROWSER), pingCustom()]).then(([mlx, custom]) => {
       if (!alive) return
       setHealth({ mlx, custom })
       // Auto-switch to whichever backend is live (prefer mlx direct)
@@ -1302,6 +1396,14 @@ export function AlephExplorer() {
   }
   const vv = oobView ? ({ ...v, ...oobView } as typeof v) : v
   const eps = vv.epsilon >= 0.1 ? vv.epsilon.toFixed(2) : vv.epsilon.toFixed(3)
+  const hasTokenEvidence =
+    !reveal &&
+    !busy &&
+    Array.isArray(vv.toknll) &&
+    Array.isArray(vv.toktext) &&
+    vv.toknll.length === vv.toktext.length &&
+    vv.toknll.length > 0
+  const outputUnavailable = !reveal && !busy && !vv.output
 
 
   // dashboard metrics
@@ -1333,8 +1435,22 @@ export function AlephExplorer() {
   }
 
   const chooseMode = (mode: SearchMode) => {
-    if (mode === 'local_mlx' && health.mlx === false) {
-      setModeNotice('mlx-unavailable')
+    if (mode === 'local_mlx') {
+      if (!MLX_CAN_BE_REACHED_FROM_BROWSER) {
+        setModeNotice('mlx-unconfigured')
+        return
+      }
+      if (health.mlx === null) {
+        setModeNotice('mlx-checking')
+        setSearchMode(mode)
+        return
+      }
+      if (health.mlx === false) {
+        setModeNotice('mlx-unavailable')
+        return
+      }
+      setModeNotice('mlx-available')
+      setSearchMode(mode)
       return
     }
     setModeNotice(null)
@@ -1367,11 +1483,8 @@ export function AlephExplorer() {
         return
       }
 
-      // ── Live search: fire both backends simultaneously ─────────
-      // Each helper resolves with a Target or rejects — never throws outside.
-      // We use Promise.any so the first success wins and we abort the slower one.
-
-      const tryMLX = (): Promise<Target> =>
+      // ── Selected live search backend ───────────────────────────
+      const runMLX = (): Promise<Target> =>
         fetch(SEARCH_API_MLX, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -1385,7 +1498,7 @@ export function AlephExplorer() {
           return j as unknown as Target
         })
 
-      const tryCustom = (): Promise<Target> =>
+      const runCustom = (): Promise<Target> =>
         fetch(SEARCH_API_CLAUDE, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -1399,10 +1512,7 @@ export function AlephExplorer() {
           return alephRunToTarget(j, q)
         })
 
-      // Both start simultaneously. Promise.any waits for the FIRST fulfillment.
-      // Rejected promises are silently swallowed by Promise.any (no unhandled rejection).
-      const target = await Promise.any([tryMLX(), tryCustom()])
-      abort.abort() // cancel the slower request
+      const target = await (searchMode === 'local_mlx' ? runMLX() : runCustom())
 
       setCurrent(target)
       setPos(0)
@@ -1548,6 +1658,7 @@ export function AlephExplorer() {
               aria-label={tr.backAria}
               title={tr.backTitle}
               style={{
+                position: 'relative',
                 width: HEADER_LOGO_SIZE,
                 height: HEADER_LOGO_SIZE,
                 background: 'none',
@@ -1561,11 +1672,24 @@ export function AlephExplorer() {
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 id={headingId}
-                src={headerLogoHover ? '/horns.png' : '/aleph-logo.png'}
+                src="/aleph-logo.png"
                 alt="aleph"
                 style={{
-                  ...(headerLogoHover ? LOGO_HORNS_STYLE : LOGO_IMG_STYLE),
-                  filter: headerLogoHover ? 'none' : 'brightness(0) invert(1)',
+                  ...LOGO_LAYER_STYLE,
+                  ...LOGO_IMG_STYLE,
+                  opacity: headerLogoHover ? 0 : 1,
+                  filter: 'brightness(0) invert(1)',
+                }}
+              />
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src="/horns.png"
+                alt=""
+                aria-hidden
+                style={{
+                  ...LOGO_LAYER_STYLE,
+                  ...LOGO_HORNS_STYLE,
+                  opacity: headerLogoHover ? 1 : 0,
                 }}
               />
             </button>
@@ -1596,6 +1720,8 @@ export function AlephExplorer() {
               length={vv.length}
               toknll={vv.toknll}
               toktext={vv.toktext}
+              tokenTraceUnavailable={tr.tokenTraceUnavailable}
+              tokenTraceUnavailableNote={tr.tokenTraceUnavailableNote}
             />
           </div>
         </div>
@@ -1778,11 +1904,6 @@ export function AlephExplorer() {
             const pct = Math.min(0.97, elapsed / estMs)
             const elapsedS = Math.floor(elapsed / 1000)
             const etaS = Math.max(0, Math.round((estMs - elapsed) / 1000))
-            const stage =
-              pct < 0.22 ? 'proposing candidate prompts' :
-              pct < 0.50 ? 'evaluating output fit' :
-              pct < 0.78 ? 'scoring & ranking' :
-              'finalizing frontier'
             const fmtS = (s: number) => s >= 60 ? `${Math.floor(s/60)}m ${s%60}s` : `${s}s`
             return (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
@@ -1799,7 +1920,7 @@ export function AlephExplorer() {
                 </div>
                 {/* Status row */}
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.72rem', color: muted }}>
-                  <span style={{ opacity: 0.7 }}>{stage}</span>
+                  <span style={{ opacity: 0.7 }}>{tr.liveSearchStatus}</span>
                   <span style={{ fontVariantNumeric: 'tabular-nums', opacity: 0.6 }}>
                     {fmtS(elapsedS)} elapsed · ~{fmtS(etaS)} left
                   </span>
@@ -1808,91 +1929,157 @@ export function AlephExplorer() {
             )
           })()}
 
-          {/* Search mode selector */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
-            <span style={{ opacity: 0.5, fontSize: '0.8rem' }}>mode:</span>
-            {([
-              { id: 'fixture'    as SearchMode, label: 'fixture',    status: true          },
-              { id: 'local_mlx'  as SearchMode, label: 'local mlx',  status: health.mlx    },
-              { id: 'claude_api' as SearchMode, label: 'custom api', status: health.custom },
-            ]).map(({ id, label, status }) => (
-              <button
-                key={id}
-                type="button"
-                onClick={() => chooseMode(id)}
-                title={
-                  status === null
-                    ? 'checking'
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'minmax(0, 1fr) auto',
+              columnGap: '0.75rem',
+              rowGap: '0.08rem',
+              alignItems: 'center',
+              textAlign: 'left',
+            }}
+          >
+            <div
+              style={{
+                gridColumn: 1,
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.65rem',
+                flexWrap: 'wrap',
+                fontSize: '0.74rem',
+                lineHeight: 1.25,
+              }}
+            >
+              <span style={{ opacity: 0.45, fontSize: '0.72rem' }}>{tr.modeLabel}</span>
+              {([
+                {
+                  id: 'fixture' as SearchMode,
+                  label: tr.modeFixture,
+                  status: true,
+                  help: tr.modeHelpFixture,
+                },
+                {
+                  id: 'local_mlx' as SearchMode,
+                  label: tr.modeMlx,
+                  status: health.mlx,
+                  help: tr.modeHelpMlx,
+                },
+                {
+                  id: 'claude_api' as SearchMode,
+                  label: tr.modeCustom,
+                  status: health.custom,
+                  help: tr.modeHelpCustom,
+                },
+              ]).map(({ id, label, status, help }) => {
+                const visibleStatus =
+                  id === 'local_mlx' && !MLX_CAN_BE_REACHED_FROM_BROWSER
+                    ? false
                     : status
-                      ? 'available'
-                      : 'unavailable'
-                }
-                style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '0.3rem',
-                  background: 'none',
-                  border: 'none',
-                  padding: 0,
-                  font: 'inherit',
-                  fontSize: '0.8rem',
-                  cursor: 'pointer',
-                  color: searchMode === id ? 'var(--site-text)' : muted,
-                  textDecoration: searchMode === id ? 'underline' : 'none',
-                  textUnderlineOffset: '3px',
-                }}
-              >
-                <span style={{
-                  width: '5px', height: '5px', borderRadius: '50%', flexShrink: 0,
-                  background: status === null
-                    ? 'rgba(255,255,255,0.28)'
-                    : status
-                      ? 'rgba(100,220,120,0.85)'
-                      : 'rgba(255,92,92,0.82)',
-                  boxShadow: status === true ? '0 0 8px rgba(100,220,120,0.28)' : 'none',
-                  display: 'inline-block',
-                }} />
-                {label}
-              </button>
-            ))}
-          </div>
-          {modeNotice === 'mlx-unavailable' && (
+                return (
+                  <button
+                    key={id}
+                    type="button"
+                    onClick={() => chooseMode(id)}
+                    title={
+                      `${help} · ${visibleStatus === null
+                        ? 'checking'
+                        : visibleStatus
+                          ? 'available'
+                          : 'unavailable'}`
+                    }
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '0.3rem',
+                      background: 'none',
+                      border: 'none',
+                      padding: 0,
+                      font: 'inherit',
+                      cursor: 'pointer',
+                      color: searchMode === id ? 'var(--site-text)' : muted,
+                      textDecoration: searchMode === id ? 'underline' : 'none',
+                      textUnderlineOffset: '3px',
+                    }}
+                  >
+                    <span style={{
+                      width: '5px', height: '5px', borderRadius: '50%', flexShrink: 0,
+                      background: visibleStatus === null
+                        ? 'rgba(255,255,255,0.28)'
+                        : visibleStatus
+                          ? 'rgba(100,220,120,0.85)'
+                          : 'rgba(255,92,92,0.82)',
+                      boxShadow: visibleStatus === true ? '0 0 8px rgba(100,220,120,0.28)' : 'none',
+                      display: 'inline-block',
+                    }} />
+                    {label}
+                  </button>
+                )
+              })}
+            </div>
             <div
               role="status"
               style={{
-                marginTop: '-0.35rem',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '0.55rem',
-                flexWrap: 'wrap',
+                gridColumn: '1 / 3',
                 color: muted,
                 fontSize: '0.72rem',
-                lineHeight: 1.35,
+                lineHeight: 1.25,
+                opacity: 0.72,
               }}
             >
-              <span>{tr.mlxUnavailable}</span>
-              <a
-                href={MLX_DEPLOY_GUIDE}
-                target="_blank"
-                rel="noreferrer"
-                style={{ color: 'var(--site-text)', textUnderlineOffset: '3px' }}
-              >
-                {tr.mlxDeploy}
-              </a>
+              {searchMode === 'fixture'
+                ? tr.modeHelpFixture
+                : searchMode === 'local_mlx'
+                  ? tr.modeHelpMlx
+                  : tr.modeHelpCustom}
             </div>
-          )}
-
-          <div
-            style={{
-              display: 'flex',
-              flexWrap: 'wrap',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              gap: '0.75rem',
-            }}
-          >
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.1rem' }}>
-              <span style={{ opacity: 0.7 }}>{tr.examples}&nbsp;</span>
+            {modeNotice && (
+              <div
+                role="status"
+                style={{
+                  gridColumn: '1 / 3',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.25rem',
+                  flexWrap: 'wrap',
+                  color: muted,
+                  fontSize: '0.72rem',
+                  lineHeight: 1.25,
+                  marginBottom: '0.08rem',
+                }}
+              >
+                <span>
+                  {modeNotice === 'mlx-unconfigured'
+                    ? tr.mlxUnconfigured
+                    : modeNotice === 'mlx-checking'
+                      ? tr.mlxChecking
+                      : modeNotice === 'mlx-available'
+                        ? tr.mlxAvailable
+                        : tr.mlxUnavailable}
+                </span>
+                <a
+                  href={MLX_DEPLOY_GUIDE}
+                  target="_blank"
+                  rel="noreferrer"
+                  style={{ color: 'var(--site-text)', textUnderlineOffset: '3px' }}
+                >
+                  {tr.mlxDeploy}
+                </a>
+              </div>
+            )}
+            <div
+              style={{
+                gridColumn: 1,
+                display: 'flex',
+                alignItems: 'center',
+                flexWrap: 'wrap',
+                columnGap: '0.2rem',
+                rowGap: '0.1rem',
+                minWidth: 0,
+                fontSize: '0.86rem',
+                lineHeight: 1.3,
+              }}
+            >
+              <span style={{ opacity: 0.62, fontSize: '0.78rem' }}>{tr.examples}</span>
               {examples.map((t, i) => (
                 <span key={t.key}>
                   {i > 0 && <span style={{ opacity: 0.4 }}> · </span>}
@@ -1961,74 +2148,104 @@ export function AlephExplorer() {
         )}
 
         <div
+          className="aleph-result-column"
           style={{
-            position: 'fixed',
-            top: '50%',
-            left: '50%',
-            transform: 'translate(-50%, -50%)',
             width: 'min(52rem, 90vw)',
-            maxHeight: '70vh',
+            maxHeight: 'min(70vh, calc(100vh - 15rem))',
             overflowY: 'auto',
             textAlign: 'left',
             fontFamily: FONT,
             fontSize: 'clamp(1.2rem, 1.8vw, 1.5rem)',
             lineHeight: 1.7,
             color: busy ? muted : 'var(--site-text)',
-            zIndex: 5,
+            marginTop: 'auto',
+            marginBottom: 'auto',
+            paddingBottom: '0.25rem',
           }}
         >
-          {busy ? (
-            `${tr.compressingLocal} ${'.'.repeat(dots)}`
-          ) : oob === 'left' ? (
-            <pre
+          {outputUnavailable && (
+            <div
               style={{
-                margin: 0,
-                fontFamily: FONT,
-                whiteSpace: 'pre',
-                overflowX: 'auto',
+                marginBottom: '0.55rem',
+                color: muted,
+                fontSize: '0.68rem',
+                lineHeight: 1.35,
+                letterSpacing: '0.08em',
+                textTransform: 'uppercase',
               }}
             >
-              {vv.output ?? vv.prompt}
-            </pre>
-          ) : (
-            <Markdown text={vv.output ?? vv.prompt} />
+              {tr.outputUnavailable}
+            </div>
           )}
-        </div>
-
-        {!reveal &&
-          !busy &&
-          vv.toknll &&
-          vv.toktext &&
-          vv.toknll.length === vv.toktext.length &&
-          vv.toknll.length > 0 &&
-          (() => {
-            const ns = vv.toknll
-            const lo = Math.min(...ns)
-            const span = Math.max(...ns) - lo || 1
-            return (
-              <p
+          <div>
+            {busy ? (
+              `${tr.compressingLocal} ${'.'.repeat(dots)}`
+            ) : oob === 'left' ? (
+              <pre
                 style={{
-                  maxWidth: '52rem',
                   margin: 0,
-                  fontSize: '0.85rem',
-                  lineHeight: 1.55,
-                  whiteSpace: 'pre-wrap',
-                  textAlign: 'left',
-                  overflowY: 'auto',
-                  maxHeight: '20vh',
+                  fontFamily: FONT,
+                  whiteSpace: 'pre',
+                  overflowX: 'auto',
                 }}
               >
-                {vv.toktext.map((tk, i) => (
-                  <span
-                    key={i}
-                    style={{ opacity: 0.22 + 0.78 * ((ns[i] - lo) / span) }}
+                {vv.output ?? vv.prompt}
+              </pre>
+            ) : (
+              <Markdown text={vv.output ?? vv.prompt} />
+            )}
+          </div>
+
+          {hasTokenEvidence &&
+            (() => {
+              const ns = vv.toknll as number[]
+              const toks = vv.toktext as string[]
+              const lo = Math.min(...ns)
+              const span = Math.max(...ns) - lo || 1
+              return (
+                <section
+                  aria-label="token nll evidence"
+                  style={{
+                    marginTop: '1.1rem',
+                    borderTop: '1px solid var(--site-hr)',
+                    paddingTop: '0.8rem',
+                  }}
+                >
+                  <div
+                    style={{
+                      marginBottom: '0.35rem',
+                      color: muted,
+                      fontSize: '0.62rem',
+                      lineHeight: 1.35,
+                      letterSpacing: '0.12em',
+                      textTransform: 'uppercase',
+                    }}
                   >
-                    {tk}
-                  </span>
-                ))}
-              </p>
-            )
-          })()}
+                    token nll evidence
+                  </div>
+                  <p
+                    style={{
+                      margin: 0,
+                      fontSize: '0.85rem',
+                      lineHeight: 1.55,
+                      whiteSpace: 'pre-wrap',
+                      textAlign: 'left',
+                      color: 'var(--site-text)',
+                    }}
+                  >
+                    {toks.map((tk, i) => (
+                      <span
+                        key={i}
+                        style={{ opacity: 0.22 + 0.78 * ((ns[i] - lo) / span) }}
+                      >
+                        {tk}
+                      </span>
+                    ))}
+                  </p>
+                </section>
+              )
+            })()}
+        </div>
         </>
         )}
       </main>
@@ -2181,47 +2398,59 @@ export function AlephExplorer() {
       )}
       </div>
 
-      <button
-        type="button"
-        onClick={() => setLaunched(true)}
-        onMouseEnter={() => setIntroLogoHover(true)}
-        onMouseLeave={() => setIntroLogoHover(false)}
-        onFocus={() => setIntroLogoHover(true)}
-        onBlur={() => setIntroLogoHover(false)}
-        aria-label={lang === 'zh' ? '进入 Aleph' : 'Enter Aleph'}
-        title={lang === 'zh' ? '进入 Aleph' : 'Enter Aleph'}
-        style={{
-          position: 'fixed',
-          top: launched ? 'clamp(1.25rem, 4vw, 2.5rem)' : '50%',
-          left: launched ? 'clamp(1.25rem, 4vw, 2.5rem)' : '50%',
-          transform: launched ? 'none' : 'translate(-50%, -50%)',
-          width: launched ? HEADER_LOGO_SIZE : INTRO_HORNS_SIZE,
-          height: launched ? HEADER_LOGO_SIZE : INTRO_HORNS_SIZE,
-          zIndex: 20,
-          background: 'none',
-          border: 'none',
-          padding: 0,
-          margin: 0,
-          lineHeight: 0,
-          cursor: launched ? 'default' : 'pointer',
-          opacity: launched ? 0 : 1,
-          pointerEvents: launched ? 'none' : 'auto',
-          transition:
-            'top 1000ms ease, left 1000ms ease, transform 1000ms ease, opacity 450ms ease 950ms',
-        }}
-      >
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src={launched || introLogoHover ? '/aleph-logo.png' : '/horns.png'}
-          alt="aleph"
+      {!launched && (
+        <button
+          type="button"
+          onClick={() => setLaunched(true)}
+          onMouseEnter={() => setIntroLogoHover(true)}
+          onMouseLeave={() => setIntroLogoHover(false)}
+          onFocus={() => setIntroLogoHover(true)}
+          onBlur={() => setIntroLogoHover(false)}
+          aria-label={lang === 'zh' ? '进入 Aleph' : 'Enter Aleph'}
+          title={lang === 'zh' ? '进入 Aleph' : 'Enter Aleph'}
           style={{
-            ...(launched || introLogoHover ? LOGO_IMG_STYLE : LOGO_HORNS_STYLE),
-            height: launched ? '100%' : 'auto',
-            filter:
-              launched || introLogoHover ? 'brightness(0) invert(1)' : 'none',
+            position: 'fixed',
+            top: '50%',
+            left: '50%',
+            transform: 'translate(-50%, -50%)',
+            width: INTRO_HORNS_SIZE,
+            height: INTRO_HORNS_SIZE,
+            zIndex: 20,
+            background: 'none',
+            border: 'none',
+            padding: 0,
+            margin: 0,
+            lineHeight: 0,
+            cursor: 'pointer',
+            opacity: 1,
+            pointerEvents: 'auto',
+            transition: 'opacity 450ms ease 950ms',
           }}
-        />
-      </button>
+        >
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/horns.png"
+            alt="aleph"
+            style={{
+              ...LOGO_LAYER_STYLE,
+              ...LOGO_HORNS_STYLE,
+              opacity: introLogoHover ? 0 : 1,
+            }}
+          />
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/aleph-logo.png"
+            alt=""
+            aria-hidden
+            style={{
+              ...LOGO_LAYER_STYLE,
+              ...LOGO_IMG_STYLE,
+              opacity: introLogoHover ? 1 : 0,
+              filter: 'brightness(0) invert(1)',
+            }}
+          />
+        </button>
+      )}
     </div>
   )
 }
