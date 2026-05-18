@@ -40,6 +40,13 @@ const SEARCH_API_MLX =
   process.env.NEXT_PUBLIC_SEARCH_API || 'http://localhost:8000/search'
 const SEARCH_API_CLAUDE =
   process.env.NEXT_PUBLIC_CLAUDE_API || '/api/search'
+const IS_BROWSER = typeof window !== 'undefined'
+const IS_DEPLOYED_BROWSER =
+  IS_BROWSER &&
+  window.location.hostname !== 'localhost' &&
+  window.location.hostname !== '127.0.0.1'
+const MLX_DEPLOY_GUIDE =
+  'https://github.com/p-to-q/aleph/blob/main/apps/api/README.md'
 
 type SearchMode = 'fixture' | 'local_mlx' | 'claude_api'
 
@@ -626,6 +633,9 @@ const STRINGS = {
     compressingLocal: 'compressing — running θ locally',
     errNothing: 'search returned nothing',
     errOffline: 'live search offline — examples still work',
+    mlxUnavailable:
+      'local mlx runs on a separate Apple Silicon search server. It is offline here unless you deploy or tunnel one.',
+    mlxDeploy: 'deploy guide',
     sliderAria: 'rate–distortion frontier (continuous)',
     wordsShown: 'words shown',
     footLeft: 'extreme compression',
@@ -661,6 +671,9 @@ const STRINGS = {
     compressingLocal: '压缩中 —— 正在本地运行 θ',
     errNothing: '搜索没有返回结果',
     errOffline: '实时搜索离线 —— 示例仍可用',
+    mlxUnavailable:
+      'local mlx 需要单独的 Apple Silicon 搜索服务。这里默认不可用，除非你部署或接入隧道。',
+    mlxDeploy: '部署说明',
     sliderAria: 'rate–distortion frontier(连续)',
     wordsShown: '词已显示',
     footLeft: '极限压缩',
@@ -1185,6 +1198,7 @@ export function AlephExplorer() {
   const [view, setView] = useState<'input' | 'result'>('input')
   const [lang, setLang] = useState<Lang>('en')
   const [searchMode, setSearchMode] = useState<SearchMode>('local_mlx')
+  const [modeNotice, setModeNotice] = useState<null | 'mlx-unavailable'>(null)
   const [dots, setDots] = useState(1)
   // Health status: null=unknown, true=online, false=offline
   const [health, setHealth] = useState<{ mlx: boolean | null; custom: boolean | null }>({ mlx: null, custom: null })
@@ -1237,12 +1251,14 @@ export function AlephExplorer() {
   // Results drive status dots + auto-select the live mode.
   useEffect(() => {
     let alive = true
-    const ping = (url: string) =>
-      fetch(url, { signal: AbortSignal.timeout(3000) })
+    const ping = (url: string, forceOffline = false) => {
+      if (forceOffline) return Promise.resolve(false)
+      return fetch(url, { signal: AbortSignal.timeout(3000) })
         .then((r) => r.ok)
         .catch(() => false)
+    }
 
-    Promise.all([ping(HEALTH_MLX), ping(HEALTH_CUSTOM)]).then(([mlx, custom]) => {
+    Promise.all([ping(HEALTH_MLX, IS_DEPLOYED_BROWSER), ping(HEALTH_CUSTOM)]).then(([mlx, custom]) => {
       if (!alive) return
       setHealth({ mlx, custom })
       // Auto-switch to whichever backend is live (prefer mlx direct)
@@ -1309,10 +1325,20 @@ export function AlephExplorer() {
 
   const pick = (t: Target) => {
     setErr('')
+    setModeNotice(null)
     setCurrent(t)
     setPos(0)
     setOob(null)
     setView('result')
+  }
+
+  const chooseMode = (mode: SearchMode) => {
+    if (mode === 'local_mlx' && health.mlx === false) {
+      setModeNotice('mlx-unavailable')
+      return
+    }
+    setModeNotice(null)
+    setSearchMode(mode)
   }
 
   const runSearch = useCallback(async () => {
@@ -1786,14 +1812,21 @@ export function AlephExplorer() {
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
             <span style={{ opacity: 0.5, fontSize: '0.8rem' }}>mode:</span>
             {([
-              { id: 'fixture'    as SearchMode, label: 'fixture',    dot: null            },
-              { id: 'local_mlx'  as SearchMode, label: 'local mlx',  dot: health.mlx      },
-              { id: 'claude_api' as SearchMode, label: 'custom api', dot: health.custom   },
-            ]).map(({ id, label, dot }) => (
+              { id: 'fixture'    as SearchMode, label: 'fixture',    status: true          },
+              { id: 'local_mlx'  as SearchMode, label: 'local mlx',  status: health.mlx    },
+              { id: 'claude_api' as SearchMode, label: 'custom api', status: health.custom },
+            ]).map(({ id, label, status }) => (
               <button
                 key={id}
                 type="button"
-                onClick={() => setSearchMode(id)}
+                onClick={() => chooseMode(id)}
+                title={
+                  status === null
+                    ? 'checking'
+                    : status
+                      ? 'available'
+                      : 'unavailable'
+                }
                 style={{
                   display: 'inline-flex',
                   alignItems: 'center',
@@ -1809,21 +1842,45 @@ export function AlephExplorer() {
                   textUnderlineOffset: '3px',
                 }}
               >
-                {dot !== null && (
-                  <span style={{
-                    width: '5px', height: '5px', borderRadius: '50%', flexShrink: 0,
-                    background: dot === null
-                      ? 'rgba(255,255,255,0.2)'    // unknown — grey
-                      : dot
-                        ? 'rgba(100,220,120,0.85)' // online — green
-                        : 'rgba(255,255,255,0.15)',  // offline — dim
-                    display: 'inline-block',
-                  }} />
-                )}
+                <span style={{
+                  width: '5px', height: '5px', borderRadius: '50%', flexShrink: 0,
+                  background: status === null
+                    ? 'rgba(255,255,255,0.28)'
+                    : status
+                      ? 'rgba(100,220,120,0.85)'
+                      : 'rgba(255,92,92,0.82)',
+                  boxShadow: status === true ? '0 0 8px rgba(100,220,120,0.28)' : 'none',
+                  display: 'inline-block',
+                }} />
                 {label}
               </button>
             ))}
           </div>
+          {modeNotice === 'mlx-unavailable' && (
+            <div
+              role="status"
+              style={{
+                marginTop: '-0.35rem',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.55rem',
+                flexWrap: 'wrap',
+                color: muted,
+                fontSize: '0.72rem',
+                lineHeight: 1.35,
+              }}
+            >
+              <span>{tr.mlxUnavailable}</span>
+              <a
+                href={MLX_DEPLOY_GUIDE}
+                target="_blank"
+                rel="noreferrer"
+                style={{ color: 'var(--site-text)', textUnderlineOffset: '3px' }}
+              >
+                {tr.mlxDeploy}
+              </a>
+            </div>
+          )}
 
           <div
             style={{
