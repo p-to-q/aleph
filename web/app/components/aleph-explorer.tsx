@@ -635,7 +635,9 @@ function Markdown({ text }: { text: string }) {
   }
   return <>{blocks}</>
 }
-const CHROME_FADE_DELAY_MS = 1250
+const CHROME_FADE_DELAY_MS = 780
+const INTRO_LOGO_TRAVEL_MS = 820
+const INTRO_LOGO_HANDOFF_MS = CHROME_FADE_DELAY_MS + 820
 const HEADER_LOGO_SIZE = 'clamp(3.35rem, 5vw, 4.9rem)'
 const INTRO_HORNS_SIZE = 'clamp(13.6rem, 48vmin, 30rem)'
 const LOGO_IMG_STYLE: React.CSSProperties = {
@@ -716,6 +718,11 @@ const STRINGS = {
     modeHelpCustom:
       'hosted black-box experiment: calls the server-side custom model adapter when configured; no token NLL/logits are exposed',
     compress: 'compress ↵',
+    promptLabel: 'prompt found',
+    outputLabel: 'model output',
+    expansionLabel: 'current expansion',
+    outputFitLabel: 'fit',
+    outputDeltaLabel: 'delta',
     compressing: 'compressing …',
     compressingLocal: 'compressing — running θ locally',
     liveSearchStatus:
@@ -746,7 +753,7 @@ const STRINGS = {
     sliderAria: 'rate–distortion frontier (continuous)',
     wordsShown: 'words shown',
     footLeft: 'shortest found',
-    footRight: 'explicit reconstruction',
+    footRight: 'explicit',
     leftOobTitle: 'below current evidence',
     leftOobNote:
       'extreme compression · K(y|θ). A symbolic seed space: useful for asking what a stronger search might try next, not a verified candidate in this run',
@@ -755,7 +762,7 @@ const STRINGS = {
       'explicit expansion · y itself. Redundant copy space: useful for explaining leakage or over-description, but no longer compression evidence',
     langSwitch: 'switch language · 切换语言',
     oob: 'out of bound',
-    outputUnavailable: 'candidate output unavailable · showing prompt',
+    outputUnavailable: 'candidate output unavailable · only prompt is available',
   },
   zh: {
     backAria: 'aleph —— 返回输入',
@@ -807,6 +814,11 @@ const STRINGS = {
     modeHelpCustom:
       'hosted black-box experiment: 配置后由服务端调用外部大模型；不会暴露 token NLL/logits',
     compress: '压缩 ↵',
+    promptLabel: '找到的 prompt',
+    outputLabel: '模型 output',
+    expansionLabel: '当前展开',
+    outputFitLabel: '拟合',
+    outputDeltaLabel: '差异',
     compressing: '压缩中 …',
     compressingLocal: '压缩中 —— 正在本地运行 θ',
     liveSearchStatus: '实时搜索运行中 —— 等待候选输出和评分返回',
@@ -845,7 +857,7 @@ const STRINGS = {
       '显式展开 · y itself。这里是冗余复制空间: 可以解释泄漏或过度描述，但它不再是压缩证据',
     langSwitch: 'switch language · 切换语言',
     oob: '越界',
-    outputUnavailable: '候选 output 不可用 · 当前显示 prompt',
+    outputUnavailable: '候选 output 不可用 · 仅有 prompt 可用',
   },
 } as const
 
@@ -891,22 +903,6 @@ function GithubIcon() {
     >
       <path d="M12 2C6.48 2 2 6.58 2 12.24c0 4.52 2.87 8.35 6.84 9.7.5.09.68-.22.68-.49 0-.24-.01-.88-.01-1.73-2.78.62-3.37-1.37-3.37-1.37-.45-1.18-1.11-1.49-1.11-1.49-.91-.64.07-.63.07-.63 1 .07 1.53 1.06 1.53 1.06.9 1.57 2.36 1.12 2.93.86.09-.67.35-1.12.64-1.38-2.22-.26-4.56-1.14-4.56-5.07 0-1.12.39-2.03 1.03-2.75-.1-.26-.45-1.31.1-2.71 0 0 .84-.28 2.75 1.05A9.33 9.33 0 0 1 12 6.95c.85 0 1.7.12 2.5.34 1.9-1.33 2.74-1.05 2.74-1.05.55 1.4.2 2.45.1 2.71.64.72 1.03 1.63 1.03 2.75 0 3.94-2.34 4.81-4.57 5.07.36.32.68.95.68 1.91 0 1.38-.01 2.49-.01 2.83 0 .27.18.59.69.49A10.06 10.06 0 0 0 22 12.24C22 6.58 17.52 2 12 2Z" />
     </svg>
-  )
-}
-
-function ExternalMark() {
-  return (
-    <span
-      aria-hidden
-      style={{
-        fontSize: '0.62em',
-        lineHeight: 1,
-        opacity: 0.5,
-        transform: 'translateY(-0.08em)',
-      }}
-    >
-      ↗
-    </span>
   )
 }
 
@@ -1395,6 +1391,8 @@ export function AlephExplorer() {
   const [pos, setPos] = useState(0)
   const [oob, setOob] = useState<null | 'left' | 'right'>(null)
   const [launched, setLaunched] = useState(false)
+  const [introExiting, setIntroExiting] = useState(false)
+  const [introHandoff, setIntroHandoff] = useState(false)
   const [introLogoHover, setIntroLogoHover] = useState(false)
   const [headerLogoHover, setHeaderLogoHover] = useState(false)
   const [open, setOpen] = useState(false)
@@ -1413,6 +1411,8 @@ export function AlephExplorer() {
   const [elapsed, setElapsed] = useState(0)
   const searchAbortRef = useRef<AbortController | null>(null)
   const modeNoticeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const introTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const introHideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const userSelectedModeRef = useRef(false)
   const trackRef = useRef<HTMLDivElement>(null)
   const headingId = useId()
@@ -1492,11 +1492,17 @@ export function AlephExplorer() {
   useEffect(() => {
     return () => {
       if (modeNoticeTimerRef.current) clearTimeout(modeNoticeTimerRef.current)
+      if (introTimerRef.current) clearTimeout(introTimerRef.current)
+      if (introHideTimerRef.current) clearTimeout(introHideTimerRef.current)
     }
   }, [])
 
   useEffect(() => {
-    if (text.trim().length === 0 && searchMode !== 'fixture') {
+    if (
+      text.trim().length === 0 &&
+      searchMode !== 'fixture' &&
+      !userSelectedModeRef.current
+    ) {
       userSelectedModeRef.current = false
       setSearchMode('fixture')
       setModeNotice(null)
@@ -1588,6 +1594,25 @@ export function AlephExplorer() {
     setPos(0)
     setOob(null)
     setView('result')
+  }
+
+  const launchIntro = () => {
+    if (introExiting || launched) return
+    setIntroExiting(true)
+    setIntroHandoff(false)
+    if (introTimerRef.current) clearTimeout(introTimerRef.current)
+    introTimerRef.current = setTimeout(() => {
+      setLaunched(true)
+      introTimerRef.current = null
+      introHideTimerRef.current = setTimeout(() => {
+        setIntroHandoff(true)
+        introHideTimerRef.current = setTimeout(() => {
+          setIntroExiting(false)
+          setIntroHandoff(false)
+          introHideTimerRef.current = null
+        }, 720)
+      }, INTRO_LOGO_HANDOFF_MS)
+    }, INTRO_LOGO_TRAVEL_MS)
   }
 
   const showModeNotice = (notice: Exclude<ModeNotice, null>) => {
@@ -1901,8 +1926,7 @@ export function AlephExplorer() {
                 textDecoration: 'none',
               }}
             >
-              <span>Aleph</span>
-              <ExternalMark />
+              Aleph
             </a>
           </div>
           {/* Mini charts — always visible; header is overlay so input stays centered */}
@@ -2367,105 +2391,83 @@ export function AlephExplorer() {
         </div>
         ) : (
         <>
-        {view === 'result' && (
-          <div
-            style={{
-              maxWidth: '52rem',
-              width: '100%',
-              margin: 0,
-              display: 'flex',
-              justifyContent: 'flex-end',
-            }}
-          >
-            <button
-              type="button"
-              className="aleph-new-search"
-              onClick={() => {
-                setView('input')
-                setOpen(false)
-                setOob(null)
-              }}
-              style={{
-                position: 'relative',
-                display: 'inline-flex',
-                alignItems: 'center',
-                overflow: 'hidden',
-                gap: '0.8rem',
-                background: 'rgba(255,255,255,0.035)',
-                border: '1px solid rgba(255,255,255,0.42)',
-                borderRadius: 0,
-                padding: '0.72rem 1.24rem',
-                color: 'var(--site-text)',
-                cursor: 'pointer',
-                font: 'inherit',
-                fontSize: '1.08rem',
-                lineHeight: 1,
-                letterSpacing: '0.01em',
-                opacity: 1,
-                boxShadow: 'inset 0 0 0 1px rgba(255,255,255,0.035), 0 0 18px rgba(255,255,255,0.035)',
-                transition: 'background 150ms ease, border-color 150ms ease, box-shadow 150ms ease, color 150ms ease',
-              }}
-              onMouseEnter={(event) => {
-                event.currentTarget.style.background = 'rgba(255,255,255,0.065)'
-                event.currentTarget.style.borderColor = 'rgba(255,255,255,0.62)'
-                event.currentTarget.style.boxShadow = 'inset 0 0 0 1px rgba(255,255,255,0.055), 0 0 24px rgba(255,255,255,0.07)'
-              }}
-              onMouseLeave={(event) => {
-                event.currentTarget.style.background = 'rgba(255,255,255,0.035)'
-                event.currentTarget.style.borderColor = 'rgba(255,255,255,0.42)'
-                event.currentTarget.style.boxShadow = 'inset 0 0 0 1px rgba(255,255,255,0.035), 0 0 18px rgba(255,255,255,0.035)'
-              }}
-            >
-              {tr.newSearch}
-              <span
-                className="aleph-new-search-mark"
-                aria-hidden
-                style={{ opacity: 0.78, transform: 'translateY(-0.02em)' }}
-              >
-                ↺
-              </span>
-            </button>
-          </div>
-        )}
-
-        {!reveal && !busy && vv.output && (
-          <p
-            style={{
-              maxWidth: '52rem',
-              width: '100%',
-              margin: 0,
-              color: muted,
-              fontSize: '0.75rem',
-              textAlign: 'left',
-              whiteSpace: 'nowrap',
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-            }}
-          >
-            p · {vv.prompt}
-          </p>
-        )}
-
         <div
           className="aleph-result-column"
           style={{
             width: 'min(52rem, 90vw)',
-            maxHeight: 'min(70vh, calc(100vh - 15rem))',
+            maxHeight: 'min(72vh, calc(100vh - 12.4rem))',
             overflowY: 'auto',
             textAlign: 'left',
             fontFamily: FONT,
-            fontSize: 'clamp(1.2rem, 1.8vw, 1.5rem)',
-            lineHeight: 1.7,
             color: busy ? muted : 'var(--site-text)',
-            marginTop: 'auto',
+            marginTop: 0,
             marginBottom: 'auto',
-            paddingBottom: '0.25rem',
+            paddingBottom: '0.8rem',
           }}
         >
+          {view === 'result' && (
+            <div
+              style={{
+                display: 'flex',
+                justifyContent: 'flex-end',
+                marginBottom: '0.95rem',
+              }}
+            >
+              <button
+                type="button"
+                className="aleph-new-search"
+                onClick={() => {
+                  setView('input')
+                  setOpen(false)
+                  setOob(null)
+                }}
+                style={{
+                  position: 'relative',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  overflow: 'hidden',
+                  gap: '0.8rem',
+                  background: 'rgba(255,255,255,0.035)',
+                  border: '1px solid rgba(255,255,255,0.42)',
+                  borderRadius: 0,
+                  padding: '0.72rem 1.24rem',
+                  color: 'var(--site-text)',
+                  cursor: 'pointer',
+                  font: 'inherit',
+                  fontSize: '1.08rem',
+                  lineHeight: 1,
+                  letterSpacing: '0.01em',
+                  opacity: 1,
+                  boxShadow: 'inset 0 0 0 1px rgba(255,255,255,0.035), 0 0 18px rgba(255,255,255,0.035)',
+                  transition: 'background 150ms ease, border-color 150ms ease, box-shadow 150ms ease, color 150ms ease',
+                }}
+                onMouseEnter={(event) => {
+                  event.currentTarget.style.background = 'rgba(255,255,255,0.065)'
+                  event.currentTarget.style.borderColor = 'rgba(255,255,255,0.62)'
+                  event.currentTarget.style.boxShadow = 'inset 0 0 0 1px rgba(255,255,255,0.055), 0 0 24px rgba(255,255,255,0.07)'
+                }}
+                onMouseLeave={(event) => {
+                  event.currentTarget.style.background = 'rgba(255,255,255,0.035)'
+                  event.currentTarget.style.borderColor = 'rgba(255,255,255,0.42)'
+                  event.currentTarget.style.boxShadow = 'inset 0 0 0 1px rgba(255,255,255,0.035), 0 0 18px rgba(255,255,255,0.035)'
+                }}
+              >
+                {tr.newSearch}
+                <span
+                  className="aleph-new-search-mark"
+                  aria-hidden
+                  style={{ opacity: 0.78, transform: 'translateY(-0.02em)' }}
+                >
+                  ↺
+                </span>
+              </button>
+            </div>
+          )}
+
           {outputUnavailable && (
             <div
               style={{
-                marginBottom: '0.55rem',
+                marginBottom: '0.85rem',
                 color: muted,
                 fontSize: '0.68rem',
                 lineHeight: 1.35,
@@ -2476,24 +2478,153 @@ export function AlephExplorer() {
               {tr.outputUnavailable}
             </div>
           )}
-          <div>
-            {busy ? (
-              `${tr.compressingLocal} ${'.'.repeat(dots)}`
-            ) : oob === 'left' ? (
-              <pre
-                style={{
-                  margin: 0,
-                  fontFamily: FONT,
-                  whiteSpace: 'pre',
-                  overflowX: 'auto',
-                }}
-              >
-                {vv.output ?? vv.prompt}
-              </pre>
-            ) : (
-              <Markdown text={vv.output ?? vv.prompt} />
-            )}
-          </div>
+          {busy ? (
+            <div
+              style={{
+                color: muted,
+                fontSize: 'clamp(1.2rem, 1.8vw, 1.5rem)',
+                lineHeight: 1.7,
+              }}
+            >
+              {tr.compressingLocal} {'.'.repeat(dots)}
+            </div>
+          ) : (
+            <>
+              {reveal ? (
+                <section
+                  className="aleph-result-section aleph-result-prompt"
+                  aria-label={tr.expansionLabel}
+                  style={{ minHeight: 0 }}
+                >
+                  <div
+                    className="aleph-result-label"
+                    style={{
+                      marginBottom: '0.45rem',
+                      color: muted,
+                      fontSize: '0.82rem',
+                      lineHeight: 1.35,
+                      letterSpacing: '0.12em',
+                      textTransform: 'uppercase',
+                    }}
+                  >
+                    {tr.expansionLabel}
+                  </div>
+                  <div
+                    style={{
+                      color: 'var(--site-text)',
+                      fontSize: 'clamp(1.28rem, 1.82vw, 1.64rem)',
+                      lineHeight: 1.5,
+                      whiteSpace: 'pre-wrap',
+                      overflowWrap: 'anywhere',
+                    }}
+                  >
+                    {vv.prompt}
+                  </div>
+                </section>
+              ) : (
+                <>
+                  <section
+                    className="aleph-result-section aleph-result-prompt"
+                    aria-label={tr.promptLabel}
+                    style={{
+                      marginBottom: '1.3rem',
+                      minHeight: 0,
+                    }}
+                  >
+                    <div
+                      className="aleph-result-label"
+                      style={{
+                        marginBottom: '0.45rem',
+                        color: muted,
+                        fontSize: '0.82rem',
+                        lineHeight: 1.35,
+                        letterSpacing: '0.12em',
+                        textTransform: 'uppercase',
+                      }}
+                    >
+                      {tr.promptLabel}
+                  </div>
+                  <div
+                    className="aleph-result-prompt-body"
+                    style={{
+                      color: 'var(--site-text)',
+                      fontSize: 'clamp(1.42rem, 2.08vw, 1.9rem)',
+                      lineHeight: 1.44,
+                      maxHeight: 'min(34vh, 21rem)',
+                      overflowY: 'auto',
+                      paddingRight: '0.25rem',
+                      whiteSpace: 'pre-wrap',
+                      overflowWrap: 'anywhere',
+                    }}
+                    >
+                      {vv.prompt}
+                    </div>
+                  </section>
+
+                  <section
+                    className="aleph-result-section aleph-result-output"
+                    aria-label={tr.outputLabel}
+                  >
+                    <div
+                      className="aleph-result-label"
+                      style={{
+                        display: 'flex',
+                        alignItems: 'baseline',
+                        justifyContent: 'space-between',
+                        gap: '1rem',
+                        marginBottom: '0.45rem',
+                        color: muted,
+                        fontSize: '0.82rem',
+                        lineHeight: 1.35,
+                        letterSpacing: '0.12em',
+                        textTransform: 'uppercase',
+                      }}
+                    >
+                      <span>{tr.outputLabel}</span>
+                      <span
+                        style={{
+                          letterSpacing: '0.08em',
+                          textTransform: 'none',
+                          fontVariantNumeric: 'tabular-nums',
+                        }}
+                      >
+                        {tr.outputFitLabel} {pct(vv.similarity)} · {tr.outputDeltaLabel} ε {eps}
+                      </span>
+                    </div>
+                    <div
+                      className="aleph-result-output-body"
+                      style={{
+                        color: outputUnavailable ? muted : 'var(--site-text)',
+                        fontSize: 'clamp(0.98rem, 1.32vw, 1.2rem)',
+                        lineHeight: 1.68,
+                        maxHeight: 'min(30vh, 18rem)',
+                        overflowY: 'auto',
+                        paddingRight: '0.25rem',
+                        whiteSpace: 'normal',
+                      }}
+                    >
+                      {outputUnavailable ? (
+                        tr.outputUnavailable
+                      ) : oob === 'left' ? (
+                        <pre
+                          style={{
+                            margin: 0,
+                            fontFamily: FONT,
+                            whiteSpace: 'pre',
+                            overflowX: 'auto',
+                          }}
+                        >
+                          {vv.output}
+                        </pre>
+                      ) : (
+                        <Markdown text={vv.output ?? ''} />
+                      )}
+                    </div>
+                  </section>
+                </>
+              )}
+            </>
+          )}
 
           {hasTokenEvidence &&
             (() => {
@@ -2717,10 +2848,10 @@ export function AlephExplorer() {
       )}
       </div>
 
-      {!launched && (
+      {(!launched || introExiting) && (
         <button
           type="button"
-          onClick={() => setLaunched(true)}
+          onClick={launchIntro}
           onMouseEnter={() => setIntroLogoHover(true)}
           onMouseLeave={() => setIntroLogoHover(false)}
           onFocus={() => setIntroLogoHover(true)}
@@ -2729,11 +2860,11 @@ export function AlephExplorer() {
           title={lang === 'zh' ? '进入 Aleph' : 'Enter Aleph'}
           style={{
             position: 'fixed',
-            top: '50%',
-            left: '50%',
-            transform: 'translate(-50%, -50%)',
-            width: INTRO_HORNS_SIZE,
-            height: INTRO_HORNS_SIZE,
+            top: introExiting ? 'clamp(1.25rem, 4vw, 2.5rem)' : '50%',
+            left: introExiting ? 'clamp(1.25rem, 4vw, 2.5rem)' : '50%',
+            transform: introExiting ? 'translate(0, 0)' : 'translate(-50%, -50%)',
+            width: introExiting ? HEADER_LOGO_SIZE : INTRO_HORNS_SIZE,
+            height: introExiting ? HEADER_LOGO_SIZE : INTRO_HORNS_SIZE,
             zIndex: 20,
             background: 'none',
             border: 'none',
@@ -2742,8 +2873,14 @@ export function AlephExplorer() {
             lineHeight: 0,
             cursor: 'pointer',
             opacity: 1,
-            pointerEvents: 'auto',
-            transition: 'opacity 450ms ease 950ms',
+            pointerEvents: introExiting ? 'none' : 'auto',
+            transition:
+              `top ${INTRO_LOGO_TRAVEL_MS}ms cubic-bezier(0.19, 1, 0.22, 1), ` +
+              `left ${INTRO_LOGO_TRAVEL_MS}ms cubic-bezier(0.19, 1, 0.22, 1), ` +
+              `width ${INTRO_LOGO_TRAVEL_MS}ms cubic-bezier(0.19, 1, 0.22, 1), ` +
+              `height ${INTRO_LOGO_TRAVEL_MS}ms cubic-bezier(0.19, 1, 0.22, 1), ` +
+              `transform ${INTRO_LOGO_TRAVEL_MS}ms cubic-bezier(0.19, 1, 0.22, 1), ` +
+              'opacity 180ms ease',
           }}
         >
           {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -2753,7 +2890,7 @@ export function AlephExplorer() {
             style={{
               ...LOGO_LAYER_STYLE,
               ...LOGO_HORNS_STYLE,
-              opacity: introLogoHover ? 0 : 1,
+              opacity: introExiting ? 0 : introLogoHover ? 0 : 1,
             }}
           />
           {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -2764,8 +2901,9 @@ export function AlephExplorer() {
             style={{
               ...LOGO_LAYER_STYLE,
               ...LOGO_IMG_STYLE,
-              opacity: introLogoHover ? 1 : 0,
+              opacity: introExiting ? 1 : introLogoHover ? 1 : 0,
               filter: 'brightness(0) invert(1)',
+              animation: introHandoff ? 'aleph-intro-logo-blink 720ms ease-in-out 1' : undefined,
             }}
           />
         </button>
