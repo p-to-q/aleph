@@ -1501,6 +1501,9 @@ export function AlephExplorer() {
   const [elapsed, setElapsed] = useState(0)
   const searchAbortRef = useRef<AbortController | null>(null)
   const modeNoticeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const frontierHelpDialogRef = useRef<HTMLElement | null>(null)
+  const frontierHelpCloseRef = useRef<HTMLButtonElement | null>(null)
+  const frontierHelpReturnFocusRef = useRef<HTMLElement | null>(null)
   const userSelectedModeRef = useRef(false)
   const trackRef = useRef<HTMLDivElement>(null)
   const headingId = useId()
@@ -1579,11 +1582,42 @@ export function AlephExplorer() {
 
   useEffect(() => {
     if (!frontierHelpOpen) return
+    frontierHelpReturnFocusRef.current = document.activeElement as HTMLElement | null
+    frontierHelpCloseRef.current?.focus()
+
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setFrontierHelpOpen(false)
+      if (event.key === 'Escape') {
+        setFrontierHelpOpen(false)
+        return
+      }
+      if (event.key !== 'Tab') return
+
+      const root = frontierHelpDialogRef.current
+      if (!root) return
+      const focusables = Array.from(
+        root.querySelectorAll<HTMLElement>(
+          'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
+        ),
+      ).filter((node) => !node.hasAttribute('disabled'))
+      if (focusables.length === 0) return
+
+      const first = focusables[0]
+      const last = focusables[focusables.length - 1]
+      const active = document.activeElement
+      if (event.shiftKey && active === first) {
+        event.preventDefault()
+        last.focus()
+      } else if (!event.shiftKey && active === last) {
+        event.preventDefault()
+        first.focus()
+      }
     }
     window.addEventListener('keydown', onKeyDown)
-    return () => window.removeEventListener('keydown', onKeyDown)
+    return () => {
+      window.removeEventListener('keydown', onKeyDown)
+      frontierHelpReturnFocusRef.current?.focus()
+      frontierHelpReturnFocusRef.current = null
+    }
   }, [frontierHelpOpen])
 
   useEffect(() => {
@@ -2994,6 +3028,7 @@ export function AlephExplorer() {
           }}
         >
           <section
+            ref={frontierHelpDialogRef}
             onClick={(event) => event.stopPropagation()}
             style={{
               width: 'min(28rem, 100%)',
@@ -3019,6 +3054,7 @@ export function AlephExplorer() {
                 {tr.frontierHelpTitle}
               </h2>
               <button
+                ref={frontierHelpCloseRef}
                 type="button"
                 onClick={() => setFrontierHelpOpen(false)}
                 aria-label={tr.frontierHelpClose}
