@@ -535,6 +535,9 @@ function tokenCount(text: string) {
 }
 
 function similarityScore(targetText: string, output: string) {
+  const targetTextNormalized = targetText.trim()
+  const outputNormalized = output.trim()
+  if (targetTextNormalized && targetTextNormalized === outputNormalized) return 1
   const target = lexicalUnits(targetText)
   const actual = lexicalUnits(output)
   if (!target.length || !actual.length) return 0
