@@ -906,7 +906,7 @@ const STRINGS = {
       'Aleph Limit · K(y|θ)。Shortest Found 左边是一个未知压缩区: 这次 run 还没有在这里找到更短的 prompt，但更强的搜索也许能继续往里推进。这里应该理解为理论下界附近，而不是已验证的 candidate。',
     rightOobTitle: '走向上下文边界',
     rightOobNote:
-      'Context Wall · 超过 Explicit Reconstruction。到了 y itself 右边，还可以继续往 prompt 里塞复制、约束、注释或噪声，一直塞到模型的 context window；但这些内容已经是冗余扩展，不再属于压缩证据。',
+      'Context Wall · 超过 Explicit Reconstruction。到了目标本身右边，还可以继续往 prompt 里塞复制、约束、注释或噪声，一直塞到模型的 context window；但这些内容已经是冗余扩展，不再属于压缩证据。',
     langSwitch: 'switch language · 切换语言',
     oob: '越界',
     outputUnavailable: '候选输出不可用 · 仅有提示词可用',
