@@ -748,6 +748,11 @@ const STRINGS = {
     compressingLocal: 'compressing — running θ locally',
     liveSearchStatus:
       'live search running — waiting for candidate outputs and scores',
+    elapsedLabel: 'elapsed',
+    remainingLabel: 'left',
+    statusChecking: 'checking',
+    statusAvailable: 'available',
+    statusUnavailable: 'unavailable',
     errNothing: 'search returned nothing',
     errOffline: 'live search offline — examples still work',
     tokenTraceUnavailable: 'token distribution unavailable',
@@ -775,10 +780,10 @@ const STRINGS = {
     wordsShown: 'words shown',
     footLeft: 'shortest found',
     footRight: 'explicit',
-    leftOobTitle: 'toward the aleph limit',
+    leftOobTitle: 'toward the compression limit',
     leftOobNote:
       'Aleph Limit · K(y|θ). Left of Shortest Found is an unknown compression zone: this run has not found prompts there, but a stronger search might. Treat it as a theoretical lower-bound region, not a verified candidate.',
-    rightOobTitle: 'toward the context wall',
+    rightOobTitle: 'toward the context boundary',
     rightOobNote:
       'Context Wall · beyond Explicit Reconstruction. To the right of y itself, you can keep adding copies, constraints, notes, or noise up to the model context window, but that extra text is redundant rather than compression evidence.',
     langSwitch: 'switch language · 切换语言',
@@ -865,6 +870,11 @@ const STRINGS = {
     compressing: '压缩中 …',
     compressingLocal: '压缩中 —— 正在本地运行 θ',
     liveSearchStatus: '实时搜索运行中 —— 等待候选输出和评分返回',
+    elapsedLabel: '已用时',
+    remainingLabel: '剩余',
+    statusChecking: '检查中',
+    statusAvailable: '可用',
+    statusUnavailable: '不可用',
     errNothing: '搜索没有返回结果',
     errOffline: '实时搜索离线 —— 示例仍可用',
     tokenTraceUnavailable: 'token 分布不可用',
@@ -892,10 +902,10 @@ const STRINGS = {
     wordsShown: '词已显示',
     footLeft: '最短已找到',
     footRight: '显式复现',
-    leftOobTitle: '走向 aleph limit',
+    leftOobTitle: '走向压缩极限',
     leftOobNote:
       'Aleph Limit · K(y|θ)。Shortest Found 左边是一个未知压缩区: 这次 run 还没有在这里找到更短的 prompt，但更强的搜索也许能继续往里推进。这里应该理解为理论下界附近，而不是已验证的 candidate。',
-    rightOobTitle: '走向 context wall',
+    rightOobTitle: '走向上下文边界',
     rightOobNote:
       'Context Wall · 超过 Explicit Reconstruction。到了 y itself 右边，还可以继续往 prompt 里塞复制、约束、注释或噪声，一直塞到模型的 context window；但这些内容已经是冗余扩展，不再属于压缩证据。',
     langSwitch: 'switch language · 切换语言',
@@ -1757,7 +1767,7 @@ export function AlephExplorer() {
         fetch(SEARCH_API_CLAUDE, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ target_text: q, mode: 'mock' }),
+          body: JSON.stringify({ target_text: q, mode: 'hosted_black_box' }),
           signal: abort.signal,
         }).then(async (r) => {
           if (!r.ok) throw new Error(`custom:${r.status}`)
@@ -2267,7 +2277,7 @@ export function AlephExplorer() {
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.72rem', color: muted }}>
                   <span style={{ opacity: 0.7 }}>{tr.liveSearchStatus}</span>
                   <span style={{ fontVariantNumeric: 'tabular-nums', opacity: 0.6 }}>
-                    {fmtS(elapsedS)} elapsed · ~{fmtS(etaS)} left
+                    {fmtS(elapsedS)} {tr.elapsedLabel} · ~{fmtS(etaS)} {tr.remainingLabel}
                   </span>
                 </div>
               </div>
@@ -2327,10 +2337,10 @@ export function AlephExplorer() {
                     onClick={() => chooseMode(id)}
                     title={
                       `${help} · ${visibleStatus === null
-                        ? 'checking'
+                        ? tr.statusChecking
                         : visibleStatus
-                          ? 'available'
-                          : 'unavailable'}`
+                          ? tr.statusAvailable
+                          : tr.statusUnavailable}`
                     }
                     style={{
                       display: 'inline-flex',
