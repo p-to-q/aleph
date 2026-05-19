@@ -230,6 +230,18 @@ body {
     align-items: flex-start !important;
     gap: 0.22rem !important;
   }
+
+  .aleph-result-column {
+    margin-left: auto;
+    margin-right: auto;
+  }
+
+  .aleph-axis-oob::after,
+  .aleph-axis-label::after {
+    width: min(20rem, 78vw);
+    font-size: 0.72rem;
+    line-height: 1.42;
+  }
 }
 
 @media (max-width: 70rem) {
