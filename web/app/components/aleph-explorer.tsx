@@ -635,9 +635,7 @@ function Markdown({ text }: { text: string }) {
   }
   return <>{blocks}</>
 }
-const CHROME_FADE_DELAY_MS = 780
-const INTRO_LOGO_TRAVEL_MS = 820
-const INTRO_LOGO_HANDOFF_MS = CHROME_FADE_DELAY_MS + 820
+const CHROME_FADE_DELAY_MS = 1250
 const HEADER_LOGO_SIZE = 'clamp(3.35rem, 5vw, 4.9rem)'
 const INTRO_HORNS_SIZE = 'clamp(13.6rem, 48vmin, 30rem)'
 const LOGO_IMG_STYLE: React.CSSProperties = {
@@ -1451,8 +1449,6 @@ export function AlephExplorer() {
   const [pos, setPos] = useState(0)
   const [oob, setOob] = useState<null | 'left' | 'right'>(null)
   const [launched, setLaunched] = useState(false)
-  const [introExiting, setIntroExiting] = useState(false)
-  const [introHandoff, setIntroHandoff] = useState(false)
   const [introLogoHover, setIntroLogoHover] = useState(false)
   const [headerLogoHover, setHeaderLogoHover] = useState(false)
   const [open, setOpen] = useState(false)
@@ -1471,8 +1467,6 @@ export function AlephExplorer() {
   const [elapsed, setElapsed] = useState(0)
   const searchAbortRef = useRef<AbortController | null>(null)
   const modeNoticeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const introTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const introHideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const userSelectedModeRef = useRef(false)
   const trackRef = useRef<HTMLDivElement>(null)
   const headingId = useId()
@@ -1552,8 +1546,6 @@ export function AlephExplorer() {
   useEffect(() => {
     return () => {
       if (modeNoticeTimerRef.current) clearTimeout(modeNoticeTimerRef.current)
-      if (introTimerRef.current) clearTimeout(introTimerRef.current)
-      if (introHideTimerRef.current) clearTimeout(introHideTimerRef.current)
     }
   }, [])
 
@@ -1654,25 +1646,6 @@ export function AlephExplorer() {
     setPos(0)
     setOob(null)
     setView('result')
-  }
-
-  const launchIntro = () => {
-    if (introExiting || launched) return
-    setIntroExiting(true)
-    setIntroHandoff(false)
-    if (introTimerRef.current) clearTimeout(introTimerRef.current)
-    introTimerRef.current = setTimeout(() => {
-      setLaunched(true)
-      introTimerRef.current = null
-      introHideTimerRef.current = setTimeout(() => {
-        setIntroHandoff(true)
-        introHideTimerRef.current = setTimeout(() => {
-          setIntroExiting(false)
-          setIntroHandoff(false)
-          introHideTimerRef.current = null
-        }, 720)
-      }, INTRO_LOGO_HANDOFF_MS)
-    }, INTRO_LOGO_TRAVEL_MS)
   }
 
   const showModeNotice = (notice: Exclude<ModeNotice, null>) => {
@@ -2916,66 +2889,65 @@ export function AlephExplorer() {
       )}
       </div>
 
-      {(!launched || introExiting) && (
-        <button
-          type="button"
-          onClick={launchIntro}
-          onMouseEnter={() => setIntroLogoHover(true)}
-          onMouseLeave={() => setIntroLogoHover(false)}
-          onFocus={() => setIntroLogoHover(true)}
-          onBlur={() => setIntroLogoHover(false)}
-          aria-label={lang === 'zh' ? '进入 Aleph' : 'Enter Aleph'}
-          title={lang === 'zh' ? '进入 Aleph' : 'Enter Aleph'}
+      <button
+        type="button"
+        onClick={() => setLaunched(true)}
+        onMouseEnter={() => setIntroLogoHover(true)}
+        onMouseLeave={() => setIntroLogoHover(false)}
+        onFocus={() => setIntroLogoHover(true)}
+        onBlur={() => setIntroLogoHover(false)}
+        aria-label={lang === 'zh' ? '进入 Aleph' : 'Enter Aleph'}
+        title={lang === 'zh' ? '进入 Aleph' : 'Enter Aleph'}
+        style={{
+          position: 'fixed',
+          // Single always-mounted logo: centered before launch, then it
+          // travels to the header slot on click. Driving the travel off
+          // `launched` (not a separate exit flag) keeps the element the
+          // same node so the CSS transition actually runs.
+          top: launched ? 'clamp(1.25rem, 4vw, 2.5rem)' : '50%',
+          left: launched ? 'clamp(1.25rem, 4vw, 2.5rem)' : '50%',
+          transform: launched ? 'none' : 'translate(-50%, -50%)',
+          width: launched ? HEADER_LOGO_SIZE : INTRO_HORNS_SIZE,
+          height: launched ? HEADER_LOGO_SIZE : INTRO_HORNS_SIZE,
+          zIndex: 20,
+          background: 'none',
+          border: 'none',
+          padding: 0,
+          margin: 0,
+          lineHeight: 0,
+          cursor: launched ? 'default' : 'pointer',
+          // Stay fully opaque through the 1000ms travel, then cross-fade
+          // out as the chrome header logo fades in (CHROME_FADE_DELAY_MS).
+          opacity: launched ? 0 : 1,
+          pointerEvents: launched ? 'none' : 'auto',
+          transition:
+            'top 1000ms ease, left 1000ms ease, width 1000ms ease, ' +
+            'height 1000ms ease, transform 1000ms ease, opacity 450ms ease 950ms',
+        }}
+      >
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src="/horns.png"
+          alt="aleph"
           style={{
-            position: 'fixed',
-            top: introExiting ? 'clamp(1.25rem, 4vw, 2.5rem)' : '50%',
-            left: introExiting ? 'clamp(1.25rem, 4vw, 2.5rem)' : '50%',
-            transform: introExiting ? 'translate(0, 0)' : 'translate(-50%, -50%)',
-            width: introExiting ? HEADER_LOGO_SIZE : INTRO_HORNS_SIZE,
-            height: introExiting ? HEADER_LOGO_SIZE : INTRO_HORNS_SIZE,
-            zIndex: 20,
-            background: 'none',
-            border: 'none',
-            padding: 0,
-            margin: 0,
-            lineHeight: 0,
-            cursor: 'pointer',
-            opacity: 1,
-            pointerEvents: introExiting ? 'none' : 'auto',
-            transition:
-              `top ${INTRO_LOGO_TRAVEL_MS}ms cubic-bezier(0.19, 1, 0.22, 1), ` +
-              `left ${INTRO_LOGO_TRAVEL_MS}ms cubic-bezier(0.19, 1, 0.22, 1), ` +
-              `width ${INTRO_LOGO_TRAVEL_MS}ms cubic-bezier(0.19, 1, 0.22, 1), ` +
-              `height ${INTRO_LOGO_TRAVEL_MS}ms cubic-bezier(0.19, 1, 0.22, 1), ` +
-              `transform ${INTRO_LOGO_TRAVEL_MS}ms cubic-bezier(0.19, 1, 0.22, 1), ` +
-              'opacity 180ms ease',
+            ...LOGO_LAYER_STYLE,
+            ...LOGO_HORNS_STYLE,
+            opacity: launched ? 0 : introLogoHover ? 0 : 1,
           }}
-        >
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src="/horns.png"
-            alt="aleph"
-            style={{
-              ...LOGO_LAYER_STYLE,
-              ...LOGO_HORNS_STYLE,
-              opacity: introExiting ? 0 : introLogoHover ? 0 : 1,
-            }}
-          />
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src="/aleph-logo.png"
-            alt=""
-            aria-hidden
-            style={{
-              ...LOGO_LAYER_STYLE,
-              ...LOGO_IMG_STYLE,
-              opacity: introExiting ? 1 : introLogoHover ? 1 : 0,
-              filter: 'brightness(0) invert(1)',
-              animation: introHandoff ? 'aleph-intro-logo-blink 720ms ease-in-out 1' : undefined,
-            }}
-          />
-        </button>
-      )}
+        />
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src="/aleph-logo.png"
+          alt=""
+          aria-hidden
+          style={{
+            ...LOGO_LAYER_STYLE,
+            ...LOGO_IMG_STYLE,
+            opacity: launched ? 1 : introLogoHover ? 1 : 0,
+            filter: 'brightness(0) invert(1)',
+          }}
+        />
+      </button>
     </div>
   )
 }
