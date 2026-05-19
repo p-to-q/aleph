@@ -70,4 +70,3 @@ distortion `0.0`.
   prompt/output.
 - Dashboard copy marks fixture/projection evidence clearly enough that a user
   does not read a projected basin as measured model parameters.
-
