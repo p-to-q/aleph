@@ -166,6 +166,9 @@ cd web && npm install && npm run dev   # → http://localhost:3000/
 zero config; `next build` verified clean, page is static-prerendered). The
 precomputed demo works fully with **no backend**.
 
+Production: [https://aleph.ptoq.io](https://aleph.ptoq.io) (canonical;
+`metadataBase` in `web/app/layout.tsx`).
+
 ### Backend deploy (`search/server.py`)
 
 The backend is **local-only by design**: it runs a fixed local Qwen3 via
