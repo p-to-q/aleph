@@ -1130,8 +1130,10 @@ function MiniCharts({
             cy="0"
             r="5.5"
             fill="#fff"
-            transform={`translate(${f1(activeCX)} ${f1(activeCY)})`}
-            style={{ transition: 'transform 260ms ease, r 180ms ease' }}
+            style={{
+              transform: `translate(${f1(activeCX)}px, ${f1(activeCY)}px)`,
+              transition: 'transform 260ms ease, r 180ms ease',
+            }}
           />
         </svg>
       </div>
