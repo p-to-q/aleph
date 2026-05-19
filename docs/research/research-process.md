@@ -22,6 +22,12 @@ This file records the research that currently shapes Aleph. It is a source ledge
 | GCG paper | https://arxiv.org/abs/2307.15043 | Greedy/gradient search can automatically produce token suffixes that steer outputs. | Keep GCG as future hard-prompt-search adapter; do not inherit the attack identity. |
 | `llm-attacks` repo | https://github.com/llm-attacks/llm-attacks | Official GCG repo; includes a demo and later `nanogcg` note. | Document integration risk and avoid premature adapter commitment. |
 | Probe Sampling paper | https://arxiv.org/abs/2403.01251 | GCG can be accelerated with draft-model filtering when draft and target predictions are similar. | Potential v2/v3 optimization path, not Hackathon scope. |
+| Automatic Prompt Engineer | https://github.com/keirp/automatic_prompt_engineer | Public prompt-optimization loop that generates and selects instructions with LLM help. | Useful black-box search shape; do not collapse Aleph into generic instruction optimization. |
+| PromptWizard | https://github.com/microsoft/PromptWizard | Task-aware prompt optimization framework with agent-style prompt improvement loops. | Reinforces generate/score/mutate route for hosted black-box work. |
+| TextGrad | https://arxiv.org/abs/2406.07496 and https://github.com/zou-group/textgrad | Treats optimization over textual variables as automatic "differentiation" via textual feedback over computation graphs. | Important metaphor and route shape for Aleph; useful for black-box/hybrid optimization framing, but broader than target-output compression. |
+| GEPA | https://github.com/CerebrasResearch/gepa | Reflective text evolution with Pareto-style optimization signals and DSPy integration. | Supports Aleph's multi-objective frontier framing; future adapter candidate, not current identity. |
+| Prompt Tuning / Prefix Tuning | https://aclanthology.org/2021.emnlp-main.243/ and https://aclanthology.org/2021.acl-long.353/ | Continuous prompt parameters can be optimized while model weights stay frozen. | Strongest technical reading of "prompt is a parameter"; future soft-prompt research route. |
+| Reverse Prompt Engineering | https://aclanthology.org/2025.emnlp-main.1333/ | Black-box reverse-prompt recovery from outputs is now an explicit neighboring research line. | Useful contrast: Aleph seeks a usable coordinate for a target output, not recovery of an original hidden prompt. |
 | vec2text / embedding inversion | https://github.com/vec2text/vec2text and https://arxiv.org/abs/2310.06816 | Embedding inversion reconstructs text from vector representations; related but solves a different inversion problem. | Keep as adjacent prior art; do not conflate with prompt-coordinate search. |
 | Aquin | https://www.aquin.app/ | Instrumentation language: Observe & Find, Simulate & Fix, Debug & Improve, token attribution, loss curves, exposure vectors, evals. | Use as UI/instrumentation inspiration; translate safety/model-debug panels into compression-specific panels. |
 
@@ -33,6 +39,10 @@ This file records the research that currently shapes Aleph. It is a source ledge
 - White-box claims require logits or model internals; otherwise panels must be black-box, fixture, or simulated.
 - Leakage scoring is mandatory because explicit reconstruction can otherwise masquerade as compression.
 - ARCA/GCG are implementation candidates, not product identity.
+- Black-box prompt optimization families are useful route shapes, not Aleph's final framing.
+- TextGrad is especially relevant as a metaphor for prompt-space optimization, but Aleph should keep its narrower target-output identity.
+- Pareto / reflective optimization is a stronger fit for Aleph than single-score prompt improvement.
+- Soft-prompt methods support the parameter analogy, but should remain future research until they can be related back to discrete prompt coordinates honestly.
 - The repository should be artifact-first, not template-first.
 - The current `search/` spike is real local-model evidence for the thesis: a fixed MLX Qwen model can propose prompts, generate outputs, score a frontier, and bake measured examples for the demo.
 - That spike should be treated as an experiment engine, not as the stable product API contract.
@@ -45,6 +55,7 @@ This file records the research that currently shapes Aleph. It is a source ledge
 - `apps/api` is the stable product API surface and should wrap model/search engines rather than exposing experimental backend shapes directly to the UI.
 - `search/` is the current local MLX live-search experiment and is wrapped behind `apps/api` through the `local_mlx_search` adapter. It remains optional until local setup and runtime evidence are available.
 - Future adapters should be pluggable: `mock`, `hosted_black_box`, `local_openai`, `local_white_box`, `arca`, `gcg`.
+- Future research-only or adapter candidates now explicitly include reflective/Pareto search and soft-prompt projection.
 - Open questions belong in `docs/open-questions.md`, not in hidden assumptions.
 
 ## Current gaps
@@ -54,5 +65,6 @@ This file records the research that currently shapes Aleph. It is a source ledge
 - `search/` computes token-level NLL for precomputed runs, but the product API does not yet expose a stable white-box observation contract.
 - No deletion ablation is implemented.
 - No persistence layer is chosen.
+- The post-Hackathon research mainline was previously implicit; it now needs to stay synchronized across README, research docs, and backlog.
 
 These gaps belong in roadmap or issues, not in hidden assumptions.

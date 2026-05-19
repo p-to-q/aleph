@@ -46,9 +46,93 @@ gently.
 - It does not claim white-box observations without logits or model internals.
 - It does not treat context window length as the right endpoint of the slider.
 
+## How we think about it
+
+We started from a simple discomfort: prompt engineering is usually discussed as craft, taste, or folklore. You try a phrase, the model drifts, you try another phrase, and whatever works gets remembered as a trick. That is useful, but it hides the more interesting question:
+
+If I already know the output I want, how little do I actually need to say to a fixed model before it can recover it?
+
+That question pushed us away from "how do I write a better prompt?" and toward "what is the shortest usable coordinate for this output inside this model?"
+
+Aleph starts from one stubborn intuition: for a fixed model, a prompt is not only an instruction. It is also a coordinate into the model's library of possible continuations.
+
+That flips the ordinary generation story:
+
+```text
+prompt p -> model M -> output y
+```
+
+into a search problem:
+
+```text
+given target y, fixed model theta, decoding d, metric m, and budget B
+search for the shortest known prompt p
+such that m(M_{theta,d}(p), y) is high enough
+```
+
+What we are trying to measure is not "the perfect prompt" in the abstract. It is a bounded, model-relative object: under fixed run conditions, how short can the prompt get before the output stops holding together?
+
+A compact way to write that down is:
+
+```text
+L*_{theta,d,m,B}(epsilon) = min |p|
+  over prompts searched within budget B
+  such that m(M_{theta,d}(p), y) >= 1 - epsilon
+```
+
+And the practical scoring view looks more like:
+
+```text
+score(p) = fit(p, y) - lambda * length(p) - gamma * instability(p) - eta * leakage(p, y)
+```
+
+In plain language: we want prompts that are shorter, still close to the target, stable when rerun, and not secretly cheating by copying the answer.
+
+That is also why the slider matters. We do not think Aleph is really about one magic prompt. We think it is about a **compression path**:
+
+```text
+Explicit Reconstruction
+  -> descriptive prompt
+  -> compressed concept prompt
+  -> shortest found so far
+```
+
+So the current working beliefs behind Aleph are:
+
+- We care more about the **path** than a single final prompt.
+- We expect the frontier to be **discrete and Pareto-shaped**, not smooth.
+- We treat **Shortest Found** as an honest left endpoint and **Explicit Reconstruction** as an honest right baseline.
+- We treat leakage as part of the science, not a footnote: a prompt that copies the answer is different from a prompt that compresses it.
+- We expect multiple implementation routes to matter: hosted black-box loops, local white-box scoring, and later deeper search adapters.
+
+We did not arrive at this in a vacuum. A few existing lines of work mattered a lot:
+
+- Reverse fixed-output search, especially [ARCA / auditing-llms](https://github.com/ejones313/auditing-llms), made it clear that this is not only a metaphor. Searching from output back to prompt is a real optimization problem.
+- [TextGrad](https://arxiv.org/abs/2406.07496) gave us a useful computational metaphor: even when the system is not differentiable end-to-end, you can still think in terms of gradient-like improvement over text.
+- [llm-attacks / GCG](https://github.com/llm-attacks/llm-attacks) showed a more aggressive route through hard-prompt search. We take that seriously, but we do not want Aleph to inherit an attack-first identity by default.
+
+That research pass led us to a practical decision: keep the product centered on a compression workbench, not on any single optimizer. Use the workbench to make the object legible first; then let different search routes compete behind the same run contract.
+
+What we have actually done so far:
+
+- We built the launch surface and slider-first interaction.
+- We stabilized `AlephRun` as the shared run contract.
+- We made fixtures, local MLX evidence traces, and hosted black-box runs coexist under one product language.
+- We got far enough to know this is not just a metaphor, but not far enough to pretend the search problem is solved.
+
+The next phase is to get more serious without getting more rigid.
+
+Near-term research tracks:
+
+- Clarify the workbench object: target output, candidate path, dashboard, evidence mode, and next action should read cleanly without docs.
+- Settle a first scoring story: metric composition, leakage, stability, and when target NLL is optional evidence versus required product truth.
+- Keep both real-run routes visible: hosted black-box behavior and local white-box/MLX evidence should coexist without being conflated.
+- Turn prior art into explicit route choices: ARCA, GCG, reflective/Pareto search, black-box prompt optimization, and soft-prompt routes should each end up as "now", "later", or "contrast only".
+- Keep the repository file-first: runs, research notes, and future decisions should survive without chat history.
+
 ## Current status
 
-Aleph is at `v1.0.1`: a small formal release of the active Next.js launch surface, shared `AlephRun` contract, fixture demos, local MLX evidence traces, a hosted black-box model adapter, and the first release polish pass on navigation, mode selection, and evidence copy.
+Aleph is at `v1.0.2`: a small formal release of the active Next.js launch surface, shared `AlephRun` contract, fixture demos, local MLX evidence traces, a hosted black-box model adapter, and a first pass of launch-surface polish.
 
 The release is intentionally honest about evidence:
 
@@ -131,20 +215,23 @@ apps/web/static/aleph-atlas-console.html
 
 The current maintainer strategy is file-first, UI-first, and adapter-honest. If model runtime fails, the fixture path must still communicate the thesis without pretending to be live evidence.
 
-
-[x] Ship a frontend-led console using fixtures and explicitly labeled observations.
-[x] Preserve the compression slider as the main interaction.
-[x] Make target input, current prompt, model output, Pareto frontier, token loss, search dial, waveform, attribution, exposure vectors, and eval suite work from one `AlephRun` contract.
-[x] Mark every mocked or simulated observation clearly.
-[x] Add a server-side hosted black-box API adapter for real prompt/output candidates.
-[x] Add real local MLX token traces for `spring` and `crush` fixtures.
+- [x] Ship a frontend-led console using fixtures and explicitly labeled observations.
+- [x] Preserve the compression slider as the main interaction.
+- [x] Make target input, current prompt, model output, Pareto frontier, token loss, search dial, waveform, attribution, exposure vectors, and eval suite work from one `AlephRun` contract.
+- [x] Mark every mocked or simulated observation clearly.
+- [x] Add a server-side hosted black-box API adapter for real prompt/output candidates.
+- [x] Add real local MLX token traces for `spring` and `crush` fixtures.
 
 ## Long-term plan
 
-[x] Add a model-adapter API with hosted black-box and local MLX routes.
-[ ] Support repeated sampling, leakage scoring, and Pareto reranking.
-[ ] Add teacher-forced likelihood and token-level loss when logits are available.
-[ ] Add deletion ablation, prompt-token attribution, non-leaking mode, saved runs, cross-model transfer, and research reports.
+- [x] Add a model-adapter API with hosted black-box and local MLX routes.
+- [ ] Support repeated sampling, leakage scoring, and Pareto reranking.
+- [ ] Add teacher-forced likelihood and token-level loss when logits are available.
+- [ ] Add deletion ablation, prompt-token attribution, non-leaking mode, saved runs, and research reports.
+- [ ] Clarify the workbench object so target, candidate path, dashboard, evidence mode, and next action read cleanly without docs.
+- [ ] Decide which deeper search routes deserve first-class adapters: ARCA, GCG, reflective/Pareto search, or soft-prompt projection.
+- [ ] Build a benchmark/report mode without letting Aleph collapse into just another leaderboard.
+- [ ] Get accused, at least once, of reinventing Kolmogorov complexity for prompts; answer with receipts, caveats, and a cleaner run contract.
 
 ## Release gate
 

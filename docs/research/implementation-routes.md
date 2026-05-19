@@ -19,6 +19,7 @@ Call a hosted model repeatedly and score candidate outputs with similarity, leak
 - Strength: easy to integrate; works without logits.
 - Weakness: token loss and attribution are behavioral estimates, not white-box observations.
 - Likely features: repeated sampling, best-of-n, semantic similarity, leakage score, eval suite.
+- Extension path: candidate generation and mutation loops inspired by APE / PromptAgent / PromptWizard without inheriting their product identity.
 
 ## Route C: Local white-box scoring
 
@@ -50,6 +51,15 @@ Search token prompts of fixed length using coordinate ascent or related discrete
 - Weakness: integration complexity; model/tokenizer-specific.
 - Likely role: adapter after the run contract stabilizes.
 
+## Route D1: Reflective / Pareto prompt search
+
+Use a reflective or evolutionary loop that mutates candidate prompts while ranking them on multiple dimensions.
+
+- Best for: medium-term search quality once the product metrics are stable.
+- Strength: aligns with Aleph's frontier object better than single-score optimization.
+- Weakness: easy to overfit to a custom score before the score itself is trusted.
+- Likely role: research adapter after leakage, stability, and metric semantics are clearer.
+
 ## Route E: GCG-style hard-prompt optimization
 
 Use gradient-informed token search for prompt suffixes or prompt coordinates.
@@ -68,11 +78,21 @@ Use embedding inversion methods as an adjacent comparison, not core Aleph behavi
 - Weakness: solves vector-to-text, not prompt-to-output compression.
 - Likely role: research note only.
 
+## Route G: Soft prompt to hard prompt projection
+
+Optimize a continuous prompt or prefix under frozen model weights, then project back into discrete prompts.
+
+- Best for: later research on whether Aleph can bridge continuous optimization and human-readable coordinates.
+- Strength: the most direct "backprop over prompt parameters" route.
+- Weakness: projected prompts may be unstable, unnatural, or hard to interpret.
+- Likely role: future research route, not early product path.
+
 ## Maintainer recommendation
 
 1. Ship Route A.
 2. Keep Route C1 as the Hackathon live-search engine, but wrap it behind `apps/api`.
 3. Add Route B for hosted black-box runs when local setup is too heavy.
 4. Promote Route C observations when `AlephRun` has stable white-box fields.
-5. Treat Routes D and E as optional adapters.
+5. Treat Routes D, D1, and E as optional adapters.
 6. Keep Route F as adjacent prior art.
+7. Park Route G until the discrete product and scoring story are stronger.

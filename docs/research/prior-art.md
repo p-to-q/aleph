@@ -17,6 +17,51 @@ Boundary:
 - ARCA is an optimization method. Aleph is a product workbench and data contract for viewing the compression path.
 - ARCA is not required for Hackathon v0.
 
+## Black-box prompt optimization families
+
+Automatic Prompt Engineer, PromptAgent, PromptWizard, and related search systems optimize prompts through generate-score-mutate loops rather than direct white-box likelihood search.
+
+Why this matters for Aleph:
+
+- It gives a practical route for hosted black-box runs.
+- It supports an iterative candidate loop before full white-box scoring is stable.
+- It reinforces that prompt search can be productively staged without claiming global optimality.
+
+Boundary:
+
+- These systems usually optimize task performance, not model-relative description length.
+- Aleph should borrow the loop shape, not inherit a generic prompt-engineering identity.
+
+## Textual-gradient optimization
+
+TextGrad treats optimization over prompts or other text variables as an automatic-differentiation-style loop, where LLMs provide textual feedback that acts like gradients over a computation graph.
+
+Why this matters for Aleph:
+
+- It gives a useful computational metaphor for prompt-space optimization without requiring literal numeric gradients everywhere.
+- It reinforces the idea that Aleph may eventually optimize not only prompts but other text-bearing parts of a run.
+- It strengthens the bridge between workbench UI language and deeper optimizer design.
+
+Boundary:
+
+- TextGrad is a general framework for textual optimization over compound AI systems.
+- Aleph still has a narrower object: shortest-known prompt coordinates for target outputs under fixed run conditions.
+
+## Reflective and Pareto optimizers
+
+GEPA and related reflective optimizers treat prompt optimization as a multi-objective search problem and use feedback to evolve candidates.
+
+Why this matters for Aleph:
+
+- Aleph's workbench is naturally Pareto-shaped.
+- Shortness, fit, stability, and leakage should remain visible tradeoffs rather than being collapsed too early into one number.
+- Reflective mutation is a plausible route for future search adapters.
+
+Boundary:
+
+- Aleph should not depend on a full optimization framework to justify its product shape.
+- This is a route for future search quality, not a requirement for v0/v1.
+
 ## GCG and hard-prompt optimization
 
 Greedy Coordinate Gradient searches over discrete token sequences using gradient-informed candidate selection. It is relevant to future hard-prompt search, especially for open-weight models.
@@ -44,6 +89,20 @@ Why this matters for Aleph:
 Boundary:
 
 - Not v0 scope.
+
+## Soft and continuous prompt methods
+
+Prompt tuning, prefix tuning, and related continuous-prompt methods optimize prompt-like parameters while keeping the model weights frozen.
+
+Why this matters for Aleph:
+
+- They give the strongest technical reading of "prompt is a parameter."
+- They offer a future path for continuous search followed by projection into discrete prompts.
+
+Boundary:
+
+- Aleph's user-facing object is still a discrete prompt coordinate and visible compression path.
+- Continuous prompt optimization should remain a future adapter until it can be related back to the product honestly.
 
 ## Reverse Prompt Engineering and Language Model Inversion
 
