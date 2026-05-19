@@ -18,3 +18,7 @@ PkgTTC-*/
 *.tsbuildinfo
 search/frontier.json
 search/frontier_rich.json
+
+# Claude Code: transient runtime state (keep .claude/launch.json tracked)
+.claude/scheduled_tasks.lock
+.claude/worktrees/
