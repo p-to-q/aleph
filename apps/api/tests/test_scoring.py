@@ -91,6 +91,10 @@ def test_similarity_score_exact_match_is_perfect():
     assert similarity_score(text, text) == pytest.approx(1.0, abs=1e-6)
 
 
+def test_similarity_score_empty_match_is_not_perfect():
+    assert similarity_score("", "  ") == pytest.approx(0.0, abs=1e-6)
+
+
 def test_local_mlx_adapter_exact_match_overrides_stale_similarity():
     from aleph_api.services.local_mlx_search import _candidate_from_point
 
