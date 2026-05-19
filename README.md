@@ -52,7 +52,7 @@ We started from a simple discomfort: prompt engineering is usually discussed as 
 
 If I already know the output I want, how little do I actually need to say to a fixed model before it can recover it?
 
-That question pushed us away from "how do I write a better prompt?" and toward "what is the shortest usable coordinate for this output inside this model?"
+That question pushed us away from "how do I write a better prompt?" and toward "what is the shortest usable prompt for this output inside this model?"
 
 Aleph starts from one stubborn intuition: for a fixed model, a prompt is not only an instruction. It is also a coordinate into the model's library of possible continuations.
 
