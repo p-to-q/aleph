@@ -2104,7 +2104,7 @@ export function AlephExplorer() {
             <dl
               style={{
                 position: 'absolute',
-                top: 'calc(100% + 0.75rem)',
+                top: 'calc(100% + 1.15rem)',
                 right: 0,
                 zIndex: 20,
                 width: isNarrow ? 'min(calc(100vw - 2rem), 24rem)' : 'clamp(18rem, 27vw, 26rem)',
