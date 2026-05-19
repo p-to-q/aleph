@@ -56,7 +56,18 @@ Options:
 
 Maintainer leaning: keep the current local MLX shallow-search spike for demo credibility, wrap it behind `apps/api`, then make ARCA/GCG external adapters once the run contract is stable.
 
-### 5. UI emphasis
+### 5. Research mainline after the first release
+
+Options:
+
+- Aleph as a product workbench first;
+- Aleph as a benchmark/reporting instrument first;
+- Aleph as a prompt-search engine first;
+- hybrid, with the workbench as the public face and deeper search routes as adapters.
+
+Maintainer leaning: keep the workbench as the public identity. Benchmarking and deeper search matter, but they should strengthen the workbench rather than replace it.
+
+### 6. UI emphasis
 
 Options:
 
@@ -66,7 +77,17 @@ Options:
 
 Maintainer leaning: build the console first. A landing page can narrate the console later.
 
-### 6. Persistence
+### 7. Human-readable prompt coordinates vs raw coordinates
+
+Options:
+
+- only human-readable prompts;
+- only raw shortest-found token strings;
+- dual modes with a clear distinction.
+
+Maintainer leaning: default to human-readable coordinates in the product. Keep raw-coordinate work as future research unless the distinction becomes product-relevant and can be explained honestly.
+
+### 8. Persistence
 
 Options:
 

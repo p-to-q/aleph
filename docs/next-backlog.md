@@ -111,6 +111,52 @@ Acceptance gate:
 
 - Each route ends as one of: implement next, keep as adapter candidate, reject for now, or needs more evidence.
 
+## P2: Research-Phase Mainline
+
+Goal: make the next phase legible now that the first short-term plan is mostly complete.
+
+Tasks:
+
+- Write down the repository's current research program in one place.
+- Separate workbench identity from benchmark-only or optimizer-only framings.
+- Decide which research families are "near-term route", "future adapter", or "contrast only".
+- Keep README, thesis, and backlog aligned with that distinction.
+
+Acceptance gate:
+
+- A new contributor can explain Aleph's next phase without reading chat transcripts.
+- The repo has one explicit research-direction document and linked backlog items.
+
+## P2: White-box / Black-box Evidence Split
+
+Goal: let both evidence modes grow without confusing users or contributors.
+
+Tasks:
+
+- Define which dashboard metrics are always behavioral and which require internals.
+- Keep target NLL, token loss, and deletion ablation behind explicit white-box requirements.
+- Keep black-box repeated sampling, judge variance, and cost/latency visible as behavioral evidence.
+- Record the split in docs before extending UI panels further.
+
+Acceptance gate:
+
+- A reader can tell which observations are measured from logits, which are inferred from outputs, and which are still fixture/simulated.
+
+## P2: Workbench Information Architecture
+
+Goal: make the product feel like an output-to-prompt workbench rather than a single slider demo.
+
+Tasks:
+
+- Clarify the role of the slider relative to candidate cards, dashboard metrics, and evidence panels.
+- Keep target output, current prompt, current output, and frontier position visible at a glance.
+- Define a simple/research split only if it reduces confusion rather than adding mode noise.
+- Verify that left/right endpoint explanations support the product thesis without overclaiming theoretical limits.
+
+Acceptance gate:
+
+- One screen answers what the target is, what the current candidate is, how good it is, and what the next exploration move should be.
+
 ## P2: UI Information Architecture Pass
 
 Goal: make the interface answer the next-step question without reading docs.

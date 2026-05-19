@@ -40,6 +40,7 @@ Read this file when you are new to the repository and need to know where work be
 - `docs/research/prior-art.md` — relationship to ARCA, GCG, inversion, and instrumentation references.
 - `docs/research/implementation-routes.md` — staged implementation options.
 - `docs/research/compression-definition.md` — model-relative description-length framing.
+- `docs/research/research-directions.md` — which research families matter now, later, or only as contrast.
 - `docs/claim-ledger.md` — claim-to-evidence map for convergence between accounts.
 
 ## Process

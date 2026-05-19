@@ -762,7 +762,7 @@ const STRINGS = {
     tokenTraceCustomUnavailableNote:
       'custom API returns real prompts and outputs, but external model calls do not expose logits or token NLL',
     mlxUnconfigured:
-      'local mlx is local by default. On the hosted site it stays unavailable until NEXT_PUBLIC_SEARCH_API points at a deployed or tunneled Apple Silicon search server.',
+      'local mlx runs on a separate Apple Silicon search server. It is offline here unless you deploy or tunnel one.',
     mlxChecking:
       'checking the local mlx endpoint. If it turns green, this hosted page can run against that deployed search server.',
     mlxUnavailable:
@@ -774,12 +774,12 @@ const STRINGS = {
     wordsShown: 'words shown',
     footLeft: 'shortest found',
     footRight: 'explicit',
-    leftOobTitle: 'below current evidence',
+    leftOobTitle: 'toward the aleph limit',
     leftOobNote:
-      'extreme compression · K(y|θ). A symbolic seed space: useful for asking what a stronger search might try next, not a verified candidate in this run',
-    rightOobTitle: 'beyond explicit reconstruction',
+      'Aleph Limit · K(y|θ). Left of Shortest Found is an unknown compression zone: this run has not found prompts there, but a stronger search might. Treat it as a theoretical lower-bound region, not a verified candidate.',
+    rightOobTitle: 'toward the context wall',
     rightOobNote:
-      'explicit expansion · y itself. Redundant copy space: useful for explaining leakage or over-description, but no longer compression evidence',
+      'Context Wall · beyond Explicit Reconstruction. To the right of y itself, you can keep adding copies, constraints, notes, or noise up to the model context window, but that extra text is redundant rather than compression evidence.',
     langSwitch: 'switch language · 切换语言',
     oob: 'out of bound',
     outputUnavailable: 'candidate output unavailable · only prompt is available',
@@ -879,7 +879,7 @@ const STRINGS = {
     tokenTraceCustomUnavailableNote:
       'custom API 会返回真实 prompt 和 output，但外部大模型调用不会暴露 logits 或 token NLL',
     mlxUnconfigured:
-      'local mlx 默认只在本地可用。线上页面会保持不可用，直到 NEXT_PUBLIC_SEARCH_API 指向已部署或已接入隧道的 Apple Silicon 搜索服务。',
+      'local mlx 需要单独的 Apple Silicon 搜索服务。这里默认不可用，除非你部署或接入隧道。',
     mlxChecking:
       '正在检查 local mlx endpoint。如果变成绿色，这个线上页面就会调用已部署的搜索服务。',
     mlxUnavailable:
@@ -891,12 +891,12 @@ const STRINGS = {
     wordsShown: '词已显示',
     footLeft: '最短已找到',
     footRight: '显式复现',
-    leftOobTitle: '低于当前证据',
+    leftOobTitle: '走向 aleph limit',
     leftOobNote:
-      '极限压缩 · K(y|θ)。这里是符号 seed 空间: 可以提示下一轮搜索往哪里压，但不是本次 run 已验证的 candidate',
-    rightOobTitle: '超过显式复现',
+      'Aleph Limit · K(y|θ)。Shortest Found 左边是一个未知压缩区: 这次 run 还没有在这里找到更短的 prompt，但更强的搜索也许能继续往里推进。这里应该理解为理论下界附近，而不是已验证的 candidate。',
+    rightOobTitle: '走向 context wall',
     rightOobNote:
-      '显式展开 · y itself。这里是冗余复制空间: 可以解释泄漏或过度描述，但它不再是压缩证据',
+      'Context Wall · 超过 Explicit Reconstruction。到了 y itself 右边，还可以继续往 prompt 里塞复制、约束、注释或噪声，一直塞到模型的 context window；但这些内容已经是冗余扩展，不再属于压缩证据。',
     langSwitch: 'switch language · 切换语言',
     oob: '越界',
     outputUnavailable: '候选 output 不可用 · 仅有 prompt 可用',
