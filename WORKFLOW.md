@@ -32,6 +32,22 @@ Use a direct commit only for tiny documentation typo fixes or emergency repair. 
 
 PRs should stay small enough to review in one sitting. Split cleanup, product behavior, and research claims unless they are tightly coupled by the acceptance gate.
 
+## Production surface (`https://aleph.ptoq.io`)
+
+The launch app is `web/`, deployed by Vercel with **root directory = `web/`**.
+Favicon, canonical URL, and Open Graph metadata live in `web/app/layout.tsx`
+and static assets in `web/public/`; they reach the live site after **merge to
+the connected branch + successful deploy**, not via one-off Vercel dashboard
+uploads.
+
+After a user-visible `web/` change merges, verify on the canonical site (hard
+refresh):
+
+- page source includes `<link rel="icon" href="...aleph-logo.png">` (or
+  equivalent from Next metadata)
+- shared-link preview image resolves when testing Open Graph
+- `/health` still returns `200`
+
 ## Dispatch rule
 
 A task is ready for an agent only when it has:

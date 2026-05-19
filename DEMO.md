@@ -167,7 +167,8 @@ zero config; `next build` verified clean, page is static-prerendered). The
 precomputed demo works fully with **no backend**.
 
 Production: [https://aleph.ptoq.io](https://aleph.ptoq.io) (canonical;
-`metadataBase` in `web/app/layout.tsx`).
+`metadataBase`, favicon, and Open Graph images in `web/app/layout.tsx`, served
+from `web/public/aleph-logo.png`).
 
 ### Backend deploy (`search/server.py`)
 
