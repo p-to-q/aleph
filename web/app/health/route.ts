@@ -11,7 +11,7 @@ export function GET() {
 
   return NextResponse.json({
     status: 'ok',
-    version: '1.0.2',
+    version: '1.0.3',
     modes: hostedConfigured ? ['fixture', 'hosted_black_box'] : ['fixture', 'mock'],
     search_modes: hostedConfigured ? ['fixture', 'hosted_black_box'] : ['fixture', 'mock'],
     default_model: hostedConfigured

@@ -30,6 +30,7 @@ Run an open-weight model where logits are available. Score target likelihood und
 - Weakness: local setup and model choice become heavy.
 - Likely features: teacher-forced likelihood, per-token target loss, top-k alternatives, entropy.
 - Current evidence: `search/aleph_search.py` already runs an MLX Qwen evaluator and computes teacher-forced token NLL for precomputed runs.
+- Runtime note: Apple Silicon remains the known maintainer route, while upstream MLX now also supports Linux CUDA backend deployments.
 - Integration requirement: expose the result through `apps/api` and `AlephRun` before treating it as a product surface.
 
 ## Route C1: Local live-search spike
@@ -40,6 +41,7 @@ Use the same local MLX model as proposer and evaluator for shallow prompt-fronti
 - Strength: very close to the Aleph thesis because the fixed local model is the decoder.
 - Weakness: expensive startup, serialized requests, heuristic proposer, and metric/runtime assumptions live in one script.
 - Current status: implemented in `search/server.py` and `search/aleph_search.py`.
+- Hardware scope: MLX-backed rather than Apple-Silicon-only; Apple Silicon is the present local path and Linux CUDA is the upstream expansion path.
 - Likely role: wrap behind `apps/api` as a `local_mlx_search` adapter.
 
 ## Route D: ARCA-style discrete optimization

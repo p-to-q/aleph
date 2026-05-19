@@ -45,6 +45,7 @@ This file records the research that currently shapes Aleph. It is a source ledge
 - Soft-prompt methods support the parameter analogy, but should remain future research until they can be related back to discrete prompt coordinates honestly.
 - The repository should be artifact-first, not template-first.
 - The current `search/` spike is real local-model evidence for the thesis: a fixed MLX Qwen model can propose prompts, generate outputs, score a frontier, and bake measured examples for the demo.
+- MLX's upstream runtime surface now includes Apple Silicon and Linux CUDA paths, so Aleph's local white-box route should be described as MLX-backed rather than Apple-Silicon-only.
 - That spike should be treated as an experiment engine, not as the stable product API contract.
 
 ## Implementation implications
@@ -53,7 +54,7 @@ This file records the research that currently shapes Aleph. It is a source ledge
 - `packages/fixtures` provides stable demo data.
 - `apps/web` consumes `AlephRun` and should not invent its own data model.
 - `apps/api` is the stable product API surface and should wrap model/search engines rather than exposing experimental backend shapes directly to the UI.
-- `search/` is the current local MLX live-search experiment and is wrapped behind `apps/api` through the `local_mlx_search` adapter. It remains optional until local setup and runtime evidence are available.
+- `search/` is the current local MLX live-search experiment and is wrapped behind `apps/api` through the `local_mlx_search` adapter. It remains optional until local setup and runtime evidence are available; Apple Silicon is the known maintainer path and Linux CUDA is now the upstream MLX expansion path.
 - Future adapters should be pluggable: `mock`, `hosted_black_box`, `local_openai`, `local_white_box`, `arca`, `gcg`.
 - Future research-only or adapter candidates now explicitly include reflective/Pareto search and soft-prompt projection.
 - Open questions belong in `docs/open-questions.md`, not in hidden assumptions.

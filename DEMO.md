@@ -53,7 +53,7 @@ Paste any text, select **mock** mode, click **Generate Compression Path**.
 The UI renders the compression path, Pareto frontier slider, token-loss panel,
 and candidate-ribbon in a single run.
 
-**With local MLX search (Apple Silicon, model required):**
+**With local MLX search (Apple Silicon or Linux CUDA host, model required):**
 
 ```bash
 # Terminal 1: MLX search engine
@@ -173,9 +173,11 @@ from `web/public/aleph-logo.png`).
 ### Backend deploy (`search/server.py`)
 
 The backend is **local-only by design**: it runs a fixed local Qwen3 via
-**MLX**, which only works on Apple Silicon. It does **not** run on Vercel /
-generic Linux x86. The deployed site's "compress your own text" degrades
-gracefully if it's unreachable ("live search offline — examples still work").
+**MLX**. Apple Silicon is the known maintainer route, and upstream MLX now
+includes Linux CUDA backend support. It does **not** run inside the Vercel web
+deployment; the deployed site's "compress your own text" degrades gracefully if
+the separate search service is unreachable ("live search offline — examples
+still work").
 
 **Recommended: run on the Mac + tunnel (no cloud GPU needed).**
 

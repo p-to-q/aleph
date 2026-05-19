@@ -1,5 +1,13 @@
 # Changelog
 
+## v1.0.3 - 2026-05-20
+
+Patch release: updates Aleph's local white-box runtime framing after MLX
+upstream added Linux CUDA backend support. The current local path remains
+MLX-backed and Apple Silicon is still the known-good maintainer route, while
+Linux CUDA is now part of the forward hardware story. See
+[docs/releases/1.0.3.md](docs/releases/1.0.3.md).
+
 ## v1.0.2 - 2026-05-19
 
 Patch release: production metadata, Vercel Web Analytics, and explorer i18n /

@@ -130,7 +130,7 @@ Near-term research tracks:
 
 ## Current status
 
-Aleph is at `v1.0.2`: a small formal release of the active Next.js launch surface, shared `AlephRun` contract, fixture demos, local MLX evidence traces, a hosted black-box model adapter, and a first pass of launch-surface polish.
+Aleph is at `v1.0.3`: a small formal release of the active Next.js launch surface, shared `AlephRun` contract, fixture demos, local MLX evidence traces, a hosted black-box model adapter, and updated MLX runtime framing.
 
 The release is intentionally honest about evidence:
 
@@ -146,7 +146,7 @@ THESIS.md             Product and research thesis
 web/                  Active Next.js launch surface
 apps/web              Archived legacy/reference React/Vite console
 apps/api              FastAPI orchestration layer (mock + local MLX search adapter)
-search/               Local MLX live-search engine (requires Apple Silicon)
+search/               Local MLX live-search engine (Apple Silicon now; Linux CUDA upstream path)
 packages/core         Shared AlephRun data contracts and scoring helpers
 packages/ui           UI component shells for console panels
 packages/fixtures     Sample runs used by the demo and checks
@@ -182,7 +182,7 @@ The active web app exposes `POST /api/search` as an `AlephRun`-compatible adapte
 
 - `fixture`: precomputed runs from `web/public/aleph-frontier.json`.
 - `hosted black-box`: server-side calls to an OpenAI-compatible `/chat/completions` endpoint.
-- `local MLX`: optional Apple Silicon search service through `search/server.py`.
+- `local MLX`: optional MLX search service through `search/server.py`; Apple Silicon is the current maintainer route and Linux CUDA is the upstream expansion path.
 
 Hosted API credentials must stay server-side. Do not use `NEXT_PUBLIC_` for API keys.
 

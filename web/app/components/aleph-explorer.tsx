@@ -32,7 +32,7 @@ interface Target {
   points: CurvePoint[]
 }
 
-// Backend is local-only (MLX needs Apple Silicon). Point this at a tunnel/host
+// Backend is local-only. Point this at an MLX search service tunnel/host
 // Backend search endpoints.
 // Local MLX server (search/server.py) returns Target format directly.
 // Claude API (apps/api) returns AlephRun format — converted below.
@@ -763,13 +763,13 @@ const STRINGS = {
     tokenTraceCustomUnavailableNote:
       'custom API returns real prompts and outputs, but external model calls do not expose logits or token NLL',
     mlxUnconfigured:
-      'local mlx runs on a separate Apple Silicon search server. It is offline here unless you deploy or tunnel one.',
+      'local mlx runs on a separate MLX search service. It is offline here unless you deploy or tunnel one.',
     mlxChecking:
       'checking the local mlx endpoint. If it turns green, this hosted page can run against that deployed search server.',
     mlxUnavailable:
       'local mlx is configured but not reachable from this browser.',
     mlxAvailable:
-      'local mlx is reachable. Searches in this mode will use the configured Apple Silicon search server.',
+      'local mlx is reachable. Searches in this mode will use the configured MLX search service.',
     mlxDeploy: '→deploy guide',
     sliderAria: 'rate–distortion frontier (continuous)',
     wordsShown: 'words shown',
@@ -880,13 +880,13 @@ const STRINGS = {
     tokenTraceCustomUnavailableNote:
       'custom API 会返回真实 prompt 和 output，但外部大模型调用不会暴露 logits 或 token NLL',
     mlxUnconfigured:
-      'local mlx 需要单独的 Apple Silicon 搜索服务。这里默认不可用，除非你部署或接入隧道。',
+      'local mlx 需要单独的 MLX 搜索服务。这里默认不可用，除非你部署或接入隧道。',
     mlxChecking:
       '正在检查 local mlx endpoint。如果变成绿色，这个线上页面就会调用已部署的搜索服务。',
     mlxUnavailable:
       'local mlx 已配置，但当前浏览器访问不到。',
     mlxAvailable:
-      'local mlx 可以访问。选择这个模式后，搜索会调用已配置的 Apple Silicon 搜索服务。',
+      'local mlx 可以访问。选择这个模式后，搜索会调用已配置的 MLX 搜索服务。',
     mlxDeploy: '→部署说明',
     sliderAria: 'rate–distortion frontier(连续)',
     wordsShown: '词已显示',

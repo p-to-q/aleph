@@ -36,7 +36,7 @@ This is a product/research hypothesis with enough evidence to build around, but 
 | Run contract | `AlephRun`, candidates, observations, metrics, leakage, frontier helpers. | `packages/core/src/types.ts`, `schemas/aleph-run.schema.json` |
 | Fixtures | Multiple demo runs with explicit fixture/simulated modes. | `packages/fixtures/src/` |
 | API boundary | FastAPI mock route and local MLX adapter wrapper. | `apps/api/` |
-| Local live search spike | MLX/Qwen route can produce AlephRun-compatible adapter output when local setup is running. | `search/`, `docs/verification.md` |
+| Local live search spike | MLX/Qwen route can produce AlephRun-compatible adapter output when a local MLX setup is running; Apple Silicon is the known maintainer path and Linux CUDA is now an upstream MLX backend path. | `search/`, `docs/verification.md` |
 | Repo checks | Lightweight lint/check suite protects claims, fixtures, links, language, and schema. | `npm run lint` |
 
 ## Research Converted Into Product Shape
@@ -48,7 +48,7 @@ This is a product/research hypothesis with enough evidence to build around, but 
 | GCG / nanoGCG direction | Parked as a future hard-prompt adapter, not product positioning. |
 | vec2text / embedding inversion | Recorded as adjacent inversion work, explicitly not Aleph's core task. |
 | Aquin-style instrumentation | Inspired token loss, attribution, exposure, eval, and observation panels, with mode labels. |
-| Local MLX spike | Wrapped behind `apps/api` as experimental adapter evidence rather than exposed as product architecture. |
+| Local MLX spike | Wrapped behind `apps/api` as experimental adapter evidence rather than exposed as product architecture; hardware scope follows MLX rather than a product-only Apple Silicon assumption. |
 
 ## Researched But Not Yet Converted
 
