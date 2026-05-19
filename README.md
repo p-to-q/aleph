@@ -27,8 +27,7 @@ Read the full project thesis in [THESIS.md](THESIS.md).
 
 Aleph adopts that image for model output space: the model contains a finite library of possible continuations, and a prompt is a coordinate that opens one region of that space.
 
-a small place for seeing too much,
-
+a small place for seeing too much,<br/>
 gently.
 
 ## What it is
