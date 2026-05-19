@@ -66,9 +66,12 @@ body {
 }
 
 .aleph-result-column {
+  display: flex;
+  flex-direction: column;
   margin-left: auto;
   margin-right: auto;
   scrollbar-gutter: stable;
+  min-height: 0;
 }
 
 .aleph-result-section {
@@ -76,16 +79,49 @@ body {
   padding-top: 0.78rem;
 }
 
+.aleph-result-toolbar {
+  flex-shrink: 0;
+}
+
 .aleph-result-prompt {
   border-top-color: rgba(255, 255, 255, 0.18);
+  flex: 1 1 auto;
+  min-height: 10rem;
 }
 
 .aleph-result-output {
   color: rgba(255, 255, 255, 0.9);
+  flex: 0 1 auto;
 }
 
-.aleph-result-prompt-body,
+.aleph-result-prompt-label {
+  font-size: 0.72rem;
+  letter-spacing: 0.14em;
+}
+
+.aleph-result-output-label {
+  font-size: 0.68rem;
+  letter-spacing: 0.12em;
+}
+
+.aleph-result-prompt-body {
+  font-size: clamp(1.55rem, 2.45vw, 2.12rem);
+  line-height: 1.4;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
 .aleph-result-output-body {
+  font-size: clamp(0.92rem, 1.14vw, 1.06rem);
+  line-height: 1.62;
+  max-height: min(28vh, 16rem);
+  overflow-y: auto;
+  scrollbar-gutter: stable;
+}
+
+.aleph-result-output-body,
+.aleph-result-prompt-body {
   scrollbar-gutter: stable;
 }
 

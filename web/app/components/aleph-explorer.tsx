@@ -688,9 +688,9 @@ const STRINGS = {
     frontierRank: 'frontier rank',
     modelTheta: 'model θ',
     localQwen: 'local Qwen3 (mlx)',
-    localMinimum: 'local minimum',
-    basinWireframe: 'x y z basin wireframe',
-    basinHint: 'prompt search basin',
+    frontierBasin: 'frontier basin',
+    basinWireframe: 'candidate-level frontier basin',
+    basinHint: 'candidate projection · not model parameters',
     placeholder:
       'paste any text here\n' +
       'long or short is fine\n' +
@@ -718,11 +718,33 @@ const STRINGS = {
     modeHelpCustom:
       'hosted black-box experiment: calls the server-side custom model adapter when configured; no token NLL/logits are exposed',
     compress: 'compress ↵',
-    promptLabel: 'prompt found',
-    outputLabel: 'model output',
+    promptLabel: 'prompt · p',
+    outputLabel: 'output · θ(p)',
+    outputVsTarget: 'vs target y',
     expansionLabel: 'current expansion',
     outputFitLabel: 'fit',
-    outputDeltaLabel: 'delta',
+    outputDeltaLabel: 'distortion',
+    chartLossCurve: 'loss curve',
+    chartFrontier: 'frontier',
+    chartPoints: 'pts',
+    chartFit: 'fit',
+    chartCompressionAxis: 'compr →',
+    chartFitAxis: 'fit ↑',
+    chartExplicitAxis: 'explicit →',
+    chartTokenNll: 'token nll',
+    chartAvg: 'avg',
+    chartMax: 'max',
+    chartTokenSurpriseHint: '↑ tokens the model found surprising',
+    chartStability: 'stability',
+    chartShortestFound: 'shortest found',
+    chartExplicitEnd: 'explicit',
+    chartSurpriseWave: 'surprise wave',
+    chartTokens: 'tokens',
+    chartNllAxis: 'nll →',
+    basinMinimum: 'min',
+    basinApproxLength: '≈ {n}t',
+    approxTokens: '≈ {n} tokens',
+    tokenNllEvidence: 'token nll evidence',
     compressing: 'compressing …',
     compressingLocal: 'compressing — running θ locally',
     liveSearchStatus:
@@ -784,9 +806,9 @@ const STRINGS = {
     frontierRank: 'frontier 排名',
     modelTheta: '模型 θ',
     localQwen: '本地 Qwen3 (mlx)',
-    localMinimum: '局部最小值',
-    basinWireframe: 'x y z 搜索盆地线框',
-    basinHint: 'prompt 搜索盆地',
+    frontierBasin: 'frontier 盆地',
+    basinWireframe: 'candidate 级 frontier 盆地',
+    basinHint: 'candidate 投影 · 非模型参数',
     placeholder:
       '在这里粘贴任意文本\n' +
       '长一点、短一点都没关系\n' +
@@ -814,11 +836,33 @@ const STRINGS = {
     modeHelpCustom:
       'hosted black-box experiment: 配置后由服务端调用外部大模型；不会暴露 token NLL/logits',
     compress: '压缩 ↵',
-    promptLabel: '找到的 prompt',
-    outputLabel: '模型 output',
+    promptLabel: 'prompt · p',
+    outputLabel: 'output · θ(p)',
+    outputVsTarget: '相对目标 y',
     expansionLabel: '当前展开',
     outputFitLabel: '拟合',
-    outputDeltaLabel: '差异',
+    outputDeltaLabel: '失真',
+    chartLossCurve: 'loss 曲线',
+    chartFrontier: 'frontier',
+    chartPoints: '点',
+    chartFit: '拟合',
+    chartCompressionAxis: '压缩 →',
+    chartFitAxis: '拟合 ↑',
+    chartExplicitAxis: '显式 →',
+    chartTokenNll: 'token nll',
+    chartAvg: '均值',
+    chartMax: '最大',
+    chartTokenSurpriseHint: '↑ 模型更意外的 token',
+    chartStability: '稳定性',
+    chartShortestFound: '最短已找到',
+    chartExplicitEnd: '显式',
+    chartSurpriseWave: 'NLL 波形',
+    chartTokens: '个 token',
+    chartNllAxis: 'nll →',
+    basinMinimum: '最小',
+    basinApproxLength: '≈ {n} token',
+    approxTokens: '≈ {n} 个 token',
+    tokenNllEvidence: 'token nll 证据',
     compressing: '压缩中 …',
     compressingLocal: '压缩中 —— 正在本地运行 θ',
     liveSearchStatus: '实时搜索运行中 —— 等待候选输出和评分返回',
@@ -944,6 +988,7 @@ const MED = 'rgba(255,255,255,0.28)'
 const BRIGHT = 'rgba(255,255,255,0.7)'
 
 interface MiniChartsProps {
+  lang: Lang
   pt: Target
   pos: number
   epsilon: number
@@ -956,6 +1001,7 @@ interface MiniChartsProps {
 }
 
 function MiniCharts({
+  lang,
   pt,
   pos,
   epsilon,
@@ -966,6 +1012,7 @@ function MiniCharts({
   tokenTraceUnavailable,
   tokenTraceUnavailableNote,
 }: MiniChartsProps) {
+  const tr = STRINGS[lang]
   const pts = pt.points
   const hasPoints = pts.length >= 2
   const rawNlls = toknll ?? []
@@ -993,7 +1040,7 @@ function MiniCharts({
     lossCurveEl = (
       <div>
         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
-          <span style={LABEL}>loss curve</span>
+          <span style={LABEL}>{tr.chartLossCurve}</span>
           <span style={VAL}>ε {epsStr}</span>
         </div>
         <svg viewBox={`0 0 ${CW} ${H}`} style={{ width: '100%', display: 'block', overflow: 'visible' }}>
@@ -1011,7 +1058,7 @@ function MiniCharts({
           {/* active dot */}
           <circle cx={f1(dotX)} cy={f1(dotY)} r="5" fill="#fff" />
           {/* right-end label: explicit */}
-          <text x={CP.l + CIW} y={H - 1} textAnchor="end" fontSize="5.5" fill="rgba(255,255,255,0.18)" fontFamily={FONT}>explicit →</text>
+          <text x={CP.l + CIW} y={H - 1} textAnchor="end" fontSize="5.5" fill="rgba(255,255,255,0.18)" fontFamily={FONT}>{tr.chartExplicitAxis}</text>
         </svg>
       </div>
     )
@@ -1033,16 +1080,16 @@ function MiniCharts({
     scatterEl = (
       <div>
         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
-          <span style={LABEL}>frontier · {pts.length} pts</span>
-          <span style={VAL}>fit {Math.round(similarity * 100)}% · #{rank}</span>
+          <span style={LABEL}>{tr.chartFrontier} · {pts.length} {tr.chartPoints}</span>
+          <span style={VAL}>{tr.chartFit} {Math.round(similarity * 100)}% · #{rank}</span>
         </div>
         <svg viewBox={`0 0 ${CW} ${H}`} style={{ width: '100%', display: 'block', overflow: 'visible' }}>
           {/* axes */}
           <line x1={CP.l} y1={CP.t + iH} x2={CP.l + CIW} y2={CP.t + iH} stroke={DIM} strokeWidth="0.75" />
           <line x1={CP.l} y1={CP.t} x2={CP.l} y2={CP.t + iH} stroke={DIM} strokeWidth="0.75" />
           {/* corner labels */}
-          <text x={CP.l + CIW} y={H - 1} textAnchor="end" fontSize="5.5" fill="rgba(255,255,255,0.2)" fontFamily={FONT}>compr →</text>
-          <text x={CP.l + 1} y={CP.t + 6} fontSize="5.5" fill="rgba(255,255,255,0.2)" fontFamily={FONT}>fit ↑</text>
+          <text x={CP.l + CIW} y={H - 1} textAnchor="end" fontSize="5.5" fill="rgba(255,255,255,0.2)" fontFamily={FONT}>{tr.chartCompressionAxis}</text>
+          <text x={CP.l + 1} y={CP.t + 6} fontSize="5.5" fill="rgba(255,255,255,0.2)" fontFamily={FONT}>{tr.chartFitAxis}</text>
           {/* axis value hints */}
           <text x={CP.l + CIW} y={CP.t + iH - 2} textAnchor="end" fontSize="5" fill="rgba(255,255,255,0.15)" fontFamily={FONT}>1.0</text>
           <text x={CP.l + 1} y={CP.t + iH - 2} fontSize="5" fill="rgba(255,255,255,0.15)" fontFamily={FONT}>0</text>
@@ -1084,8 +1131,8 @@ function MiniCharts({
     tokNllEl = (
       <div>
         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
-          <span style={LABEL}>token nll</span>
-          <span style={VAL}>avg {meanNll.toFixed(1)} · max {maxNll.toFixed(1)}</span>
+          <span style={LABEL}>{tr.chartTokenNll}</span>
+          <span style={VAL}>{tr.chartAvg} {meanNll.toFixed(1)} · {tr.chartMax} {maxNll.toFixed(1)}</span>
         </div>
         {/* heatmap strip */}
         <svg viewBox={`0 0 ${CW} ${HM_H}`} style={{ width: '100%', display: 'block', marginBottom: 6 }}>
@@ -1119,7 +1166,7 @@ function MiniCharts({
           })}
         </div>
         <span style={{ ...LABEL, letterSpacing: '0.08em', fontSize: '0.52rem' }}>
-          ↑ tokens the model found surprising
+          {tr.chartTokenSurpriseHint}
         </span>
       </div>
     )
@@ -1138,7 +1185,7 @@ function MiniCharts({
     stabilityEl = (
       <div>
         <div style={{ display: 'grid', gap: 3, marginBottom: 4 }}>
-          <span style={LABEL}>stability</span>
+          <span style={LABEL}>{tr.chartStability}</span>
           <span style={{ ...VAL, lineHeight: 1.25, wordBreak: 'break-word' }}>
             {sorted.map(p => Math.round(p.stability * 100) + '%').join(' · ')}
           </span>
@@ -1156,8 +1203,8 @@ function MiniCharts({
               />
             )
           })}
-          <text x={CP.l} y="23" fontSize="5.5" fill="rgba(255,255,255,0.18)" fontFamily={FONT}>shortest found</text>
-          <text x={CW - CP.r} y="23" textAnchor="end" fontSize="5.5" fill="rgba(255,255,255,0.18)" fontFamily={FONT}>explicit</text>
+          <text x={CP.l} y="23" fontSize="5.5" fill="rgba(255,255,255,0.18)" fontFamily={FONT}>{tr.chartShortestFound}</text>
+          <text x={CW - CP.r} y="23" textAnchor="end" fontSize="5.5" fill="rgba(255,255,255,0.18)" fontFamily={FONT}>{tr.chartExplicitEnd}</text>
         </svg>
       </div>
     )
@@ -1177,8 +1224,8 @@ function MiniCharts({
     waveformEl = (
       <div>
         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
-          <span style={LABEL}>surprise wave</span>
-          <span style={VAL}>{nlls.length} tokens</span>
+          <span style={LABEL}>{tr.chartSurpriseWave}</span>
+          <span style={VAL}>{nlls.length} {tr.chartTokens}</span>
         </div>
         <svg viewBox={`0 0 ${CW} ${H}`} style={{ width: '100%', display: 'block', overflow: 'visible' }}>
           {/* baseline */}
@@ -1204,7 +1251,7 @@ function MiniCharts({
           })}
           {/* y-axis labels */}
           <text x={CP.l} y={CP.t + 5} fontSize="5.5" fill="rgba(255,255,255,0.2)" fontFamily={FONT}>{maxNll.toFixed(1)}</text>
-          <text x={CP.l + CIW} y={H - 1} textAnchor="end" fontSize="5.5" fill="rgba(255,255,255,0.18)" fontFamily={FONT}>nll →</text>
+          <text x={CP.l + CIW} y={H - 1} textAnchor="end" fontSize="5.5" fill="rgba(255,255,255,0.18)" fontFamily={FONT}>{tr.chartNllAxis}</text>
         </svg>
       </div>
     )
@@ -1276,28 +1323,41 @@ function buildBasinRows(centerX: number, centerY: number, depth: number, tilt: n
   )
 }
 
-function LocalMinimumBasin({
+function FrontierBasin({
   ariaLabel,
+  basinLengthLabel,
+  basinMinLabel,
+  compression,
   epsilon,
+  fitLabel,
   hint,
   label,
   length,
+  leakage,
   pos,
   similarity,
+  stability,
 }: {
   ariaLabel: string
+  basinLengthLabel: string
+  basinMinLabel: string
+  compression: number
   epsilon: number
+  fitLabel: string
   hint: string
   label: string
   length: number
+  leakage: number | null
   pos: number
   similarity: number
+  stability: number
 }) {
   const basinPos = clamp01(pos)
-  const centerX = lerp(-0.18, 0.2, basinPos)
-  const centerY = lerp(0.2, -0.16, basinPos)
-  const depth = lerp(0.56, 1.08, similarity)
-  const tilt = lerp(0.16, 0.04, basinPos)
+  const leakageValue = leakage === null ? 0.18 : clamp01(leakage)
+  const centerX = lerp(-0.34, 0.28, compression)
+  const centerY = lerp(0.24, -0.24, stability)
+  const depth = lerp(0.5, 1.12, similarity)
+  const tilt = lerp(0.18, 0.03, compression) + leakageValue * 0.05
   const rows = buildBasinRows(centerX, centerY, depth, tilt)
   const center = projectBasinPoint(
     centerX,
@@ -1305,7 +1365,7 @@ function LocalMinimumBasin({
     basinZ(centerX, centerY, centerX, centerY, depth, tilt),
   )
   const sampleX = lerp(-0.72, centerX, basinPos)
-  const sampleY = lerp(0.62, centerY, basinPos)
+  const sampleY = lerp(0.62, centerY, 1 - Math.min(0.86, leakageValue + 0.14 * basinPos))
   const sample = projectBasinPoint(sampleX, sampleY, basinZ(sampleX, sampleY, centerX, centerY, depth, tilt))
   const ringR = lerp(14, 7, similarity)
   const confidence = Math.round(similarity * 100)
@@ -1332,7 +1392,7 @@ function LocalMinimumBasin({
         }}
       >
       <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '1rem', marginBottom: 4 }}>
-        <span style={VAL}>ε {epsStr} · {confidence}% fit</span>
+        <span style={VAL}>ε {epsStr} · {confidence}% {fitLabel}</span>
       </div>
         <svg
           viewBox="0 0 300 178"
@@ -1370,9 +1430,9 @@ function LocalMinimumBasin({
         <circle cx={f1(sample.sx)} cy={f1(sample.sy)} r="3.5" fill="rgba(255,255,255,0.5)" />
         <circle cx={f1(center.sx)} cy={f1(center.sy)} r="5" fill="#fff" />
         <circle cx={f1(center.sx)} cy={f1(center.sy)} r={f1(ringR)} fill="none" stroke="rgba(255,255,255,0.2)" />
-        <text x={f1(center.sx + 11)} y={f1(center.sy + 4)} fontSize="7" fill="rgba(255,255,255,0.42)" fontFamily={FONT}>min</text>
+        <text x={f1(center.sx + 11)} y={f1(center.sy + 4)} fontSize="7" fill="rgba(255,255,255,0.42)" fontFamily={FONT}>{basinMinLabel}</text>
         <text x="8" y="170" fontSize="6.5" fill="rgba(255,255,255,0.28)" fontFamily={FONT}>{hint}</text>
-        <text x="292" y="170" textAnchor="end" fontSize="6.5" fill="rgba(255,255,255,0.28)" fontFamily={FONT}>≈ {length}t</text>
+        <text x="292" y="170" textAnchor="end" fontSize="6.5" fill="rgba(255,255,255,0.28)" fontFamily={FONT}>{basinLengthLabel}</text>
       </svg>
       </dd>
     </>
@@ -1851,11 +1911,17 @@ export function AlephExplorer() {
             display: 'flex',
             flexDirection: 'column',
             gap: '1.5rem',
-            pointerEvents: 'auto',
           }}
         >
-          {/* Logo + wordmark row */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 'clamp(0.75rem, 2vw, 1.25rem)' }}>
+          {/* Logo + wordmark row — interactive; charts below must not block main */}
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 'clamp(0.75rem, 2vw, 1.25rem)',
+              pointerEvents: 'auto',
+            }}
+          >
             <a
               href={PTOQ_WORK_URL}
               target="_blank"
@@ -1929,9 +1995,10 @@ export function AlephExplorer() {
               Aleph
             </a>
           </div>
-          {/* Mini charts — always visible; header is overlay so input stays centered */}
-          <div className="aleph-mini-charts">
+          {/* Mini charts — always visible; pointer-events none so compress/input stay clickable */}
+          <div className="aleph-mini-charts" style={{ pointerEvents: 'none' }}>
             <MiniCharts
+              lang={lang}
               pt={chartPt}
               pos={pos}
               epsilon={chartV.epsilon}
@@ -2067,7 +2134,7 @@ export function AlephExplorer() {
               }}
             >
               <Row label={tr.promptLength}>
-                {reveal ? `${v.length} ${tr.words}` : `≈ ${v.length} tokens`}
+                {reveal ? `${v.length} ${tr.words}` : tr.approxTokens.replace('{n}', String(v.length))}
               </Row>
               <Row label={tr.targetFit}>{pct(v.similarity)}</Row>
               <Row label={tr.stability}>{reveal ? '—' : pct(v.stability)}</Row>
@@ -2079,14 +2146,20 @@ export function AlephExplorer() {
                 {rank} / {N}
               </Row>
               <Row label={tr.modelTheta}>{pt.evalModel ?? tr.localQwen}</Row>
-              <LocalMinimumBasin
+              <FrontierBasin
                 ariaLabel={tr.basinWireframe}
+                basinLengthLabel={tr.basinApproxLength.replace('{n}', String(vv.length))}
+                basinMinLabel={tr.basinMinimum}
+                compression={saved}
                 epsilon={vv.epsilon}
+                fitLabel={tr.chartFit}
                 hint={tr.basinHint}
-                label={tr.localMinimum}
+                label={tr.frontierBasin}
                 length={vv.length}
+                leakage={leak}
                 pos={pos}
                 similarity={vv.similarity}
+                stability={vv.stability}
               />
             </dl>
           )}
@@ -2391,6 +2464,71 @@ export function AlephExplorer() {
         </div>
         ) : (
         <>
+        {view === 'result' && (
+          <div
+            className="aleph-result-toolbar"
+            style={{
+              width: 'min(52rem, 90vw)',
+              display: 'flex',
+              justifyContent: 'flex-end',
+              flexShrink: 0,
+            }}
+          >
+            <button
+              type="button"
+              className="aleph-new-search"
+              onClick={() => {
+                setView('input')
+                setOpen(false)
+                setOob(null)
+              }}
+              style={{
+                position: 'relative',
+                display: 'inline-flex',
+                alignItems: 'center',
+                overflow: 'hidden',
+                gap: '0.8rem',
+                background: 'rgba(255,255,255,0.035)',
+                border: '1px solid rgba(255,255,255,0.42)',
+                borderRadius: 0,
+                padding: '0.72rem 1.24rem',
+                color: 'var(--site-text)',
+                cursor: 'pointer',
+                font: 'inherit',
+                fontSize: '1.08rem',
+                lineHeight: 1,
+                letterSpacing: '0.01em',
+                opacity: 1,
+                boxShadow:
+                  'inset 0 0 0 1px rgba(255,255,255,0.035), 0 0 18px rgba(255,255,255,0.035)',
+                transition:
+                  'background 150ms ease, border-color 150ms ease, box-shadow 150ms ease, color 150ms ease',
+              }}
+              onMouseEnter={(event) => {
+                event.currentTarget.style.background = 'rgba(255,255,255,0.065)'
+                event.currentTarget.style.borderColor = 'rgba(255,255,255,0.62)'
+                event.currentTarget.style.boxShadow =
+                  'inset 0 0 0 1px rgba(255,255,255,0.055), 0 0 24px rgba(255,255,255,0.07)'
+              }}
+              onMouseLeave={(event) => {
+                event.currentTarget.style.background = 'rgba(255,255,255,0.035)'
+                event.currentTarget.style.borderColor = 'rgba(255,255,255,0.42)'
+                event.currentTarget.style.boxShadow =
+                  'inset 0 0 0 1px rgba(255,255,255,0.035), 0 0 18px rgba(255,255,255,0.035)'
+              }}
+            >
+              {tr.newSearch}
+              <span
+                className="aleph-new-search-mark"
+                aria-hidden
+                style={{ opacity: 0.78, transform: 'translateY(-0.02em)' }}
+              >
+                ↺
+              </span>
+            </button>
+          </div>
+        )}
+
         <div
           className="aleph-result-column"
           style={{
@@ -2405,65 +2543,6 @@ export function AlephExplorer() {
             paddingBottom: '0.8rem',
           }}
         >
-          {view === 'result' && (
-            <div
-              style={{
-                display: 'flex',
-                justifyContent: 'flex-end',
-                marginBottom: '0.95rem',
-              }}
-            >
-              <button
-                type="button"
-                className="aleph-new-search"
-                onClick={() => {
-                  setView('input')
-                  setOpen(false)
-                  setOob(null)
-                }}
-                style={{
-                  position: 'relative',
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  overflow: 'hidden',
-                  gap: '0.8rem',
-                  background: 'rgba(255,255,255,0.035)',
-                  border: '1px solid rgba(255,255,255,0.42)',
-                  borderRadius: 0,
-                  padding: '0.72rem 1.24rem',
-                  color: 'var(--site-text)',
-                  cursor: 'pointer',
-                  font: 'inherit',
-                  fontSize: '1.08rem',
-                  lineHeight: 1,
-                  letterSpacing: '0.01em',
-                  opacity: 1,
-                  boxShadow: 'inset 0 0 0 1px rgba(255,255,255,0.035), 0 0 18px rgba(255,255,255,0.035)',
-                  transition: 'background 150ms ease, border-color 150ms ease, box-shadow 150ms ease, color 150ms ease',
-                }}
-                onMouseEnter={(event) => {
-                  event.currentTarget.style.background = 'rgba(255,255,255,0.065)'
-                  event.currentTarget.style.borderColor = 'rgba(255,255,255,0.62)'
-                  event.currentTarget.style.boxShadow = 'inset 0 0 0 1px rgba(255,255,255,0.055), 0 0 24px rgba(255,255,255,0.07)'
-                }}
-                onMouseLeave={(event) => {
-                  event.currentTarget.style.background = 'rgba(255,255,255,0.035)'
-                  event.currentTarget.style.borderColor = 'rgba(255,255,255,0.42)'
-                  event.currentTarget.style.boxShadow = 'inset 0 0 0 1px rgba(255,255,255,0.035), 0 0 18px rgba(255,255,255,0.035)'
-                }}
-              >
-                {tr.newSearch}
-                <span
-                  className="aleph-new-search-mark"
-                  aria-hidden
-                  style={{ opacity: 0.78, transform: 'translateY(-0.02em)' }}
-                >
-                  ↺
-                </span>
-              </button>
-            </div>
-          )}
-
           {outputUnavailable && (
             <div
               style={{
@@ -2548,16 +2627,10 @@ export function AlephExplorer() {
                     className="aleph-result-prompt-body"
                     style={{
                       color: 'var(--site-text)',
-                      fontSize: 'clamp(1.42rem, 2.08vw, 1.9rem)',
-                      lineHeight: 1.44,
-                      maxHeight: 'min(34vh, 21rem)',
-                      overflowY: 'auto',
                       paddingRight: '0.25rem',
-                      whiteSpace: 'pre-wrap',
-                      overflowWrap: 'anywhere',
                     }}
-                    >
-                      {vv.prompt}
+                  >
+                    {vv.prompt}
                     </div>
                   </section>
 
@@ -2588,19 +2661,14 @@ export function AlephExplorer() {
                           fontVariantNumeric: 'tabular-nums',
                         }}
                       >
-                        {tr.outputFitLabel} {pct(vv.similarity)} · {tr.outputDeltaLabel} ε {eps}
+                        {tr.outputVsTarget} · {tr.outputFitLabel} {pct(vv.similarity)} · {tr.outputDeltaLabel} ε {eps}
                       </span>
                     </div>
                     <div
                       className="aleph-result-output-body"
                       style={{
                         color: outputUnavailable ? muted : 'var(--site-text)',
-                        fontSize: 'clamp(0.98rem, 1.32vw, 1.2rem)',
-                        lineHeight: 1.68,
-                        maxHeight: 'min(30vh, 18rem)',
-                        overflowY: 'auto',
                         paddingRight: '0.25rem',
-                        whiteSpace: 'normal',
                       }}
                     >
                       {outputUnavailable ? (
@@ -2634,7 +2702,7 @@ export function AlephExplorer() {
               const span = Math.max(...ns) - lo || 1
               return (
                 <section
-                  aria-label="token nll evidence"
+                  aria-label={tr.tokenNllEvidence}
                   style={{
                     marginTop: '1.1rem',
                     borderTop: '1px solid var(--site-hr)',
@@ -2651,7 +2719,7 @@ export function AlephExplorer() {
                       textTransform: 'uppercase',
                     }}
                   >
-                    token nll evidence
+                    {tr.tokenNllEvidence}
                   </div>
                   <p
                     style={{
@@ -2694,10 +2762,10 @@ export function AlephExplorer() {
           }
           aria-valuetext={
             oob
-              ? `${tr.oob} · ≈ ${vv.length} tokens`
+              ? `${tr.oob} · ${tr.approxTokens.replace('{n}', String(vv.length))}`
               : reveal
                 ? `${vv.length} ${tr.wordsShown}`
-                : `ε ≈ ${eps}, ≈ ${vv.length} tokens`
+                : `ε ≈ ${eps}, ${tr.approxTokens.replace('{n}', String(vv.length))}`
           }
           onPointerDown={onPointerDown}
           onKeyDown={onKeyDown}

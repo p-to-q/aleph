@@ -6,6 +6,8 @@
 
 Read the full project thesis in [THESIS.md](THESIS.md).
 
+**Live site:** [https://aleph.ptoq.io](https://aleph.ptoq.io)
+
 ## The image
 
 > In Borges' image, the Aleph is a point in space that contains every other point.
