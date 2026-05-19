@@ -348,16 +348,12 @@ function sampleFrom(points: CurvePoint[], pos: number) {
   const n = Math.max(1, points.length)
   if (n === 1) return { ...points[0], between: false }
   const s = clamp01(pos) * (n - 1)
-  const i = Math.min(n - 2, Math.floor(s))
-  const f = s - i
-  const a = points[i]
-  const b = points[i + 1]
-  const nearest = points[Math.round(s)]
+  const nearest = points[Math.min(n - 1, Math.max(0, Math.round(s)))]
   return {
-    epsilon: lerp(a.epsilon, b.epsilon, f),
-    length: Math.round(lerp(a.length, b.length, f)),
-    similarity: lerp(a.similarity, b.similarity, f),
-    stability: lerp(a.stability, b.stability, f),
+    epsilon: nearest.epsilon,
+    length: nearest.length,
+    similarity: nearest.similarity,
+    stability: nearest.stability,
     prompt: nearest.prompt,
     output: nearest.output,
     toknll: nearest.toknll,
@@ -636,6 +632,7 @@ function Markdown({ text }: { text: string }) {
   return <>{blocks}</>
 }
 const CHROME_FADE_DELAY_MS = 1250
+const MOBILE_CHROME_FADE_DELAY_MS = 450
 const HEADER_LOGO_SIZE = 'clamp(3.35rem, 5vw, 4.9rem)'
 const INTRO_HORNS_SIZE = 'clamp(13.6rem, 48vmin, 30rem)'
 const MOBILE_BREAKPOINT_PX = 768
@@ -1661,6 +1658,7 @@ export function AlephExplorer() {
     ? Math.min(N, Math.max(1, Math.ceil(clamp01(pos) * N)))
     : Math.round(clamp01(pos) * (N - 1)) + 1
   const surfaceWidth = isNarrow ? 'min(100%, 34rem)' : 'min(52rem, 90vw)'
+  const chromeFadeDelay = isNarrow ? MOBILE_CHROME_FADE_DELAY_MS : CHROME_FADE_DELAY_MS
 
   const pick = (t: Target) => {
     setErr('')
@@ -1884,7 +1882,7 @@ export function AlephExplorer() {
           display: 'flex',
           flexDirection: 'column',
           opacity: launched ? 1 : 0,
-          transition: `opacity 1200ms ease ${CHROME_FADE_DELAY_MS}ms`,
+          transition: `opacity ${isNarrow ? 650 : 1200}ms ease ${chromeFadeDelay}ms`,
           pointerEvents: launched ? undefined : 'none',
         }}
       >
@@ -2961,8 +2959,8 @@ export function AlephExplorer() {
           opacity: launched ? 0 : 1,
           pointerEvents: launched ? 'none' : 'auto',
           transition:
-            'top 1000ms ease, left 1000ms ease, width 1000ms ease, ' +
-            'height 1000ms ease, transform 1000ms ease, opacity 450ms ease 950ms',
+            `top 1000ms ease, left 1000ms ease, width 1000ms ease, ` +
+            `height 1000ms ease, transform 1000ms ease, opacity 450ms ease ${isNarrow ? 380 : 950}ms`,
         }}
       >
         {/* eslint-disable-next-line @next/next/no-img-element */}

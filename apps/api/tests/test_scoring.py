@@ -86,6 +86,11 @@ def test_leakage_score_clamped():
 # overall_score
 # ---------------------------------------------------------------------------
 
+def test_similarity_score_exact_match_is_perfect():
+    text = "同一段文字 should score exactly when unchanged."
+    assert similarity_score(text, text) == pytest.approx(1.0, abs=1e-6)
+
+
 def test_overall_score_clamped():
     score = overall_score(similarity=1.0, compression=1.0, leakage=0.0, reliability=1.0)
     assert 0.0 <= score <= 1.0
