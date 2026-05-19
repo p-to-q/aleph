@@ -10,10 +10,8 @@ Read the full project thesis in [THESIS.md](THESIS.md).
 
 ## The image
 
-> In Borges' image, the Aleph is a point in space that contains every other point.
-> 
-> Seen from any angle, it reveals the universe at once: no overlap, no veil, no obstruction.
-> 
+> In Borges' image, the Aleph is a point in space that contains every other point.<br/>
+> Seen from any angle, it reveals the universe at once: no overlap, no veil, no obstruction.<br/>
 > In that tiny sphere, the narrator sees：
 
 - the sea, dawn and dusk, and the crowds of the Americas
