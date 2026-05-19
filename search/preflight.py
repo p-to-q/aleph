@@ -28,9 +28,13 @@ MODEL_CANDIDATES = [
 def main() -> None:
     errors: list[str] = []
     machine = platform.machine()
+    system = platform.system()
+    print(f"system: {system}")
     print(f"architecture: {machine}")
-    if machine != "arm64":
-        errors.append("MLX requires Apple Silicon arm64 for this local route.")
+    if system == "Darwin" and machine != "arm64":
+        errors.append("MLX on macOS requires Apple Silicon arm64 for this local route.")
+    elif system == "Linux":
+        print("hardware_note: MLX upstream supports Linux CUDA backends when CUDA requirements are met.")
 
     print(f"python: {platform.python_version()}")
     print(f"python_executable: {sys.executable}")

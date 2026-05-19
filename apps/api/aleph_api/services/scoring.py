@@ -20,7 +20,13 @@ def compression_ratio(candidate_prompt: str, explicit_prompt: str) -> float:
 
 
 def similarity_score(target_text: str, output: str) -> float:
-    return difflib.SequenceMatcher(a=target_text.strip(), b=output.strip()).ratio()
+    target = target_text.strip()
+    actual = output.strip()
+    if not target and not actual:
+        return 0.0
+    if target == actual and target:
+        return 1.0
+    return difflib.SequenceMatcher(a=target, b=actual).ratio()
 
 
 def leakage_score(prompt: str, target_text: str) -> float:

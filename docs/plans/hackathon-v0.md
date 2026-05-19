@@ -27,15 +27,19 @@ The v0 artifact must make these ideas obvious:
 
 - frontend: existing React/Vite app in `apps/web`
 - API: FastAPI in `apps/api`
-- local model route: `mlx-lm` on Apple Silicon
+- local model route: `mlx-lm`; Apple Silicon was the v0 maintainer machine path
 - default local model target: `Qwen/Qwen3-8B-MLX-4bit`
 
 ### Why this is the right local optimum
 
 - FastAPI + Pydantic is a strong fit for nested `AlephRun`-style request/response bodies and gives schema + docs for free.
-- `mlx-lm` is the Apple-Silicon-native runtime and already supports both a Python API and an OpenAI-compatible local server.
+- `mlx-lm` already supports both a Python API and an OpenAI-compatible local server; for v0, Apple Silicon was the fastest known maintainer route.
 - Qwen3 8B 4-bit is a realistic local model size for a Mac-based Hackathon while preserving enough quality to make the path meaningful.
 - The repo already has a React/Vite scaffold, so switching to a different frontend framework in v0 would slow the product line without clarifying the thesis.
+
+Current note: upstream MLX now also supports Linux CUDA backends, so this plan
+should be read as the original hackathon route, not as a current
+Apple-Silicon-only constraint on Aleph's local white-box path.
 
 ## Architecture decision
 

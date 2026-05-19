@@ -86,6 +86,37 @@ def test_leakage_score_clamped():
 # overall_score
 # ---------------------------------------------------------------------------
 
+def test_similarity_score_exact_match_is_perfect():
+    text = "同一段文字 should score exactly when unchanged."
+    assert similarity_score(text, text) == pytest.approx(1.0, abs=1e-6)
+
+
+def test_similarity_score_empty_match_is_not_perfect():
+    assert similarity_score("", "  ") == pytest.approx(0.0, abs=1e-6)
+
+
+def test_local_mlx_adapter_exact_match_overrides_stale_similarity():
+    from aleph_api.services.local_mlx_search import _candidate_from_point
+
+    target = "同一段文字 should score exactly when unchanged."
+    candidate = _candidate_from_point(
+        {
+            "prompt": f"Repeat exactly:\n\n{target}",
+            "output": target,
+            "length": 8,
+            "similarity": 0.42,
+            "stability": 1.0,
+            "label": "Explicit Reconstruction",
+        },
+        index=0,
+        explicit_tokens=8,
+        target_text=target,
+        adapter="local_mlx_search",
+    )
+
+    assert candidate.fit == pytest.approx(1.0, abs=1e-6)
+
+
 def test_overall_score_clamped():
     score = overall_score(similarity=1.0, compression=1.0, leakage=0.0, reliability=1.0)
     assert 0.0 <= score <= 1.0

@@ -32,7 +32,7 @@ interface Target {
   points: CurvePoint[]
 }
 
-// Backend is local-only (MLX needs Apple Silicon). Point this at a tunnel/host
+// Backend is local-only. Point this at an MLX search service tunnel/host
 // Backend search endpoints.
 // Local MLX server (search/server.py) returns Target format directly.
 // Claude API (apps/api) returns AlephRun format — converted below.
@@ -348,16 +348,12 @@ function sampleFrom(points: CurvePoint[], pos: number) {
   const n = Math.max(1, points.length)
   if (n === 1) return { ...points[0], between: false }
   const s = clamp01(pos) * (n - 1)
-  const i = Math.min(n - 2, Math.floor(s))
-  const f = s - i
-  const a = points[i]
-  const b = points[i + 1]
-  const nearest = points[Math.round(s)]
+  const nearest = points[Math.min(n - 1, Math.max(0, Math.round(s)))]
   return {
-    epsilon: lerp(a.epsilon, b.epsilon, f),
-    length: Math.round(lerp(a.length, b.length, f)),
-    similarity: lerp(a.similarity, b.similarity, f),
-    stability: lerp(a.stability, b.stability, f),
+    epsilon: nearest.epsilon,
+    length: nearest.length,
+    similarity: nearest.similarity,
+    stability: nearest.stability,
     prompt: nearest.prompt,
     output: nearest.output,
     toknll: nearest.toknll,
@@ -636,6 +632,7 @@ function Markdown({ text }: { text: string }) {
   return <>{blocks}</>
 }
 const CHROME_FADE_DELAY_MS = 1250
+const MOBILE_CHROME_FADE_DELAY_MS = 450
 const HEADER_LOGO_SIZE = 'clamp(3.35rem, 5vw, 4.9rem)'
 const INTRO_HORNS_SIZE = 'clamp(13.6rem, 48vmin, 30rem)'
 const MOBILE_BREAKPOINT_PX = 768
@@ -748,6 +745,11 @@ const STRINGS = {
     compressingLocal: 'compressing — running θ locally',
     liveSearchStatus:
       'live search running — waiting for candidate outputs and scores',
+    elapsedLabel: 'elapsed',
+    remainingLabel: 'left',
+    statusChecking: 'checking',
+    statusAvailable: 'available',
+    statusUnavailable: 'unavailable',
     errNothing: 'search returned nothing',
     errOffline: 'live search offline — examples still work',
     tokenTraceUnavailable: 'token distribution unavailable',
@@ -763,22 +765,23 @@ const STRINGS = {
     tokenTraceCustomUnavailableNote:
       'custom API returns real prompts and outputs, but external model calls do not expose logits or token NLL',
     mlxUnconfigured:
-      'local mlx runs on a separate Apple Silicon search server. It is offline here unless you deploy or tunnel one.',
+      'local mlx runs on a separate MLX search service. It is offline here unless you deploy or tunnel one.',
     mlxChecking:
       'checking the local mlx endpoint. If it turns green, this hosted page can run against that deployed search server.',
     mlxUnavailable:
       'local mlx is configured but not reachable from this browser.',
     mlxAvailable:
-      'local mlx is reachable. Searches in this mode will use the configured Apple Silicon search server.',
+      'local mlx is reachable. Searches in this mode will use the configured MLX search service.',
     mlxDeploy: '→deploy guide',
     sliderAria: 'rate–distortion frontier (continuous)',
     wordsShown: 'words shown',
     footLeft: 'shortest found',
     footRight: 'explicit',
-    leftOobTitle: 'toward the aleph limit',
+    sliderTargetSuffix: 'y itself',
+    leftOobTitle: 'toward the compression limit',
     leftOobNote:
       'Aleph Limit · K(y|θ). Left of Shortest Found is an unknown compression zone: this run has not found prompts there, but a stronger search might. Treat it as a theoretical lower-bound region, not a verified candidate.',
-    rightOobTitle: 'toward the context wall',
+    rightOobTitle: 'toward the context boundary',
     rightOobNote:
       'Context Wall · beyond Explicit Reconstruction. To the right of y itself, you can keep adding copies, constraints, notes, or noise up to the model context window, but that extra text is redundant rather than compression evidence.',
     langSwitch: 'switch language · 切换语言',
@@ -802,12 +805,12 @@ const STRINGS = {
     vsFullScript: '相对完整脚本',
     savedVsExplicit: '相对显式节省',
     leakage: '泄漏',
-    frontierRank: 'frontier 排名',
+    frontierRank: '前沿排名',
     modelTheta: '模型 θ',
     localQwen: '本地 Qwen3 (mlx)',
-    frontierBasin: 'frontier 盆地',
-    basinWireframe: 'candidate 级 frontier 盆地',
-    basinHint: 'candidate 投影 · 非模型参数',
+    frontierBasin: '前沿盆地',
+    basinWireframe: '候选级前沿盆地',
+    basinHint: '候选投影 · 非模型参数',
     placeholder:
       '在这里粘贴任意文本\n' +
       '长一点、短一点都没关系\n' +
@@ -859,12 +862,17 @@ const STRINGS = {
     chartTokens: '个 token',
     chartNllAxis: 'nll →',
     basinMinimum: '最小',
-    basinApproxLength: '≈ {n} token',
+    basinApproxLength: '≈ {n} 个 token',
     approxTokens: '≈ {n} 个 token',
     tokenNllEvidence: 'token nll 证据',
     compressing: '压缩中 …',
     compressingLocal: '压缩中 —— 正在本地运行 θ',
     liveSearchStatus: '实时搜索运行中 —— 等待候选输出和评分返回',
+    elapsedLabel: '已用时',
+    remainingLabel: '剩余',
+    statusChecking: '检查中',
+    statusAvailable: '可用',
+    statusUnavailable: '不可用',
     errNothing: '搜索没有返回结果',
     errOffline: '实时搜索离线 —— 示例仍可用',
     tokenTraceUnavailable: 'token 分布不可用',
@@ -880,27 +888,28 @@ const STRINGS = {
     tokenTraceCustomUnavailableNote:
       'custom API 会返回真实 prompt 和 output，但外部大模型调用不会暴露 logits 或 token NLL',
     mlxUnconfigured:
-      'local mlx 需要单独的 Apple Silicon 搜索服务。这里默认不可用，除非你部署或接入隧道。',
+      'local mlx 需要单独的 MLX 搜索服务。这里默认不可用，除非你部署或接入隧道。',
     mlxChecking:
       '正在检查 local mlx endpoint。如果变成绿色，这个线上页面就会调用已部署的搜索服务。',
     mlxUnavailable:
       'local mlx 已配置，但当前浏览器访问不到。',
     mlxAvailable:
-      'local mlx 可以访问。选择这个模式后，搜索会调用已配置的 Apple Silicon 搜索服务。',
+      'local mlx 可以访问。选择这个模式后，搜索会调用已配置的 MLX 搜索服务。',
     mlxDeploy: '→部署说明',
     sliderAria: 'rate–distortion frontier(连续)',
     wordsShown: '词已显示',
     footLeft: '最短已找到',
     footRight: '显式复现',
-    leftOobTitle: '走向 aleph limit',
+    sliderTargetSuffix: '目标本身',
+    leftOobTitle: '走向压缩极限',
     leftOobNote:
       'Aleph Limit · K(y|θ)。Shortest Found 左边是一个未知压缩区: 这次 run 还没有在这里找到更短的 prompt，但更强的搜索也许能继续往里推进。这里应该理解为理论下界附近，而不是已验证的 candidate。',
-    rightOobTitle: '走向 context wall',
+    rightOobTitle: '走向上下文边界',
     rightOobNote:
-      'Context Wall · 超过 Explicit Reconstruction。到了 y itself 右边，还可以继续往 prompt 里塞复制、约束、注释或噪声，一直塞到模型的 context window；但这些内容已经是冗余扩展，不再属于压缩证据。',
+      'Context Wall · 超过 Explicit Reconstruction。到了目标本身右边，还可以继续往 prompt 里塞复制、约束、注释或噪声，一直塞到模型的 context window；但这些内容已经是冗余扩展，不再属于压缩证据。',
     langSwitch: 'switch language · 切换语言',
     oob: '越界',
-    outputUnavailable: '候选 output 不可用 · 仅有 prompt 可用',
+    outputUnavailable: '候选输出不可用 · 仅有提示词可用',
   },
 } as const
 
@@ -1649,6 +1658,7 @@ export function AlephExplorer() {
     ? Math.min(N, Math.max(1, Math.ceil(clamp01(pos) * N)))
     : Math.round(clamp01(pos) * (N - 1)) + 1
   const surfaceWidth = isNarrow ? 'min(100%, 34rem)' : 'min(52rem, 90vw)'
+  const chromeFadeDelay = isNarrow ? MOBILE_CHROME_FADE_DELAY_MS : CHROME_FADE_DELAY_MS
 
   const pick = (t: Target) => {
     setErr('')
@@ -1757,7 +1767,7 @@ export function AlephExplorer() {
         fetch(SEARCH_API_CLAUDE, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ target_text: q, mode: 'mock' }),
+          body: JSON.stringify({ target_text: q, mode: 'hosted_black_box' }),
           signal: abort.signal,
         }).then(async (r) => {
           if (!r.ok) throw new Error(`custom:${r.status}`)
@@ -1872,7 +1882,7 @@ export function AlephExplorer() {
           display: 'flex',
           flexDirection: 'column',
           opacity: launched ? 1 : 0,
-          transition: `opacity 1200ms ease ${CHROME_FADE_DELAY_MS}ms`,
+          transition: `opacity ${isNarrow ? 650 : 1200}ms ease ${chromeFadeDelay}ms`,
           pointerEvents: launched ? undefined : 'none',
         }}
       >
@@ -2267,7 +2277,7 @@ export function AlephExplorer() {
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.72rem', color: muted }}>
                   <span style={{ opacity: 0.7 }}>{tr.liveSearchStatus}</span>
                   <span style={{ fontVariantNumeric: 'tabular-nums', opacity: 0.6 }}>
-                    {fmtS(elapsedS)} elapsed · ~{fmtS(etaS)} left
+                    {fmtS(elapsedS)} {tr.elapsedLabel} · ~{fmtS(etaS)} {tr.remainingLabel}
                   </span>
                 </div>
               </div>
@@ -2327,10 +2337,10 @@ export function AlephExplorer() {
                     onClick={() => chooseMode(id)}
                     title={
                       `${help} · ${visibleStatus === null
-                        ? 'checking'
+                        ? tr.statusChecking
                         : visibleStatus
-                          ? 'available'
-                          : 'unavailable'}`
+                          ? tr.statusAvailable
+                          : tr.statusUnavailable}`
                     }
                     style={{
                       display: 'inline-flex',
@@ -2910,7 +2920,7 @@ export function AlephExplorer() {
             data-tip-note={tr.rightOobNote}
             style={{ alignSelf: isNarrow ? 'flex-end' : undefined }}
           >
-            {tr.footRight} · y itself
+            {tr.footRight} · {tr.sliderTargetSuffix}
           </span>
         </div>
       </footer>
@@ -2949,8 +2959,8 @@ export function AlephExplorer() {
           opacity: launched ? 0 : 1,
           pointerEvents: launched ? 'none' : 'auto',
           transition:
-            'top 1000ms ease, left 1000ms ease, width 1000ms ease, ' +
-            'height 1000ms ease, transform 1000ms ease, opacity 450ms ease 950ms',
+            `top 1000ms ease, left 1000ms ease, width 1000ms ease, ` +
+            `height 1000ms ease, transform 1000ms ease, opacity 450ms ease ${isNarrow ? 380 : 950}ms`,
         }}
       >
         {/* eslint-disable-next-line @next/next/no-img-element */}
