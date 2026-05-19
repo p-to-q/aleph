@@ -780,6 +780,7 @@ const STRINGS = {
     wordsShown: 'words shown',
     footLeft: 'shortest found',
     footRight: 'explicit',
+    sliderTargetSuffix: 'y itself',
     leftOobTitle: 'toward the compression limit',
     leftOobNote:
       'Aleph Limit · K(y|θ). Left of Shortest Found is an unknown compression zone: this run has not found prompts there, but a stronger search might. Treat it as a theoretical lower-bound region, not a verified candidate.',
@@ -807,12 +808,12 @@ const STRINGS = {
     vsFullScript: '相对完整脚本',
     savedVsExplicit: '相对显式节省',
     leakage: '泄漏',
-    frontierRank: 'frontier 排名',
+    frontierRank: '前沿排名',
     modelTheta: '模型 θ',
     localQwen: '本地 Qwen3 (mlx)',
-    frontierBasin: 'frontier 盆地',
-    basinWireframe: 'candidate 级 frontier 盆地',
-    basinHint: 'candidate 投影 · 非模型参数',
+    frontierBasin: '前沿盆地',
+    basinWireframe: '候选级前沿盆地',
+    basinHint: '候选投影 · 非模型参数',
     placeholder:
       '在这里粘贴任意文本\n' +
       '长一点、短一点都没关系\n' +
@@ -864,7 +865,7 @@ const STRINGS = {
     chartTokens: '个 token',
     chartNllAxis: 'nll →',
     basinMinimum: '最小',
-    basinApproxLength: '≈ {n} token',
+    basinApproxLength: '≈ {n} 个 token',
     approxTokens: '≈ {n} 个 token',
     tokenNllEvidence: 'token nll 证据',
     compressing: '压缩中 …',
@@ -902,6 +903,7 @@ const STRINGS = {
     wordsShown: '词已显示',
     footLeft: '最短已找到',
     footRight: '显式复现',
+    sliderTargetSuffix: '目标本身',
     leftOobTitle: '走向压缩极限',
     leftOobNote:
       'Aleph Limit · K(y|θ)。Shortest Found 左边是一个未知压缩区: 这次 run 还没有在这里找到更短的 prompt，但更强的搜索也许能继续往里推进。这里应该理解为理论下界附近，而不是已验证的 candidate。',
@@ -910,7 +912,7 @@ const STRINGS = {
       'Context Wall · 超过 Explicit Reconstruction。到了 y itself 右边，还可以继续往 prompt 里塞复制、约束、注释或噪声，一直塞到模型的 context window；但这些内容已经是冗余扩展，不再属于压缩证据。',
     langSwitch: 'switch language · 切换语言',
     oob: '越界',
-    outputUnavailable: '候选 output 不可用 · 仅有 prompt 可用',
+    outputUnavailable: '候选输出不可用 · 仅有提示词可用',
   },
 } as const
 
@@ -2920,7 +2922,7 @@ export function AlephExplorer() {
             data-tip-note={tr.rightOobNote}
             style={{ alignSelf: isNarrow ? 'flex-end' : undefined }}
           >
-            {tr.footRight} · y itself
+            {tr.footRight} · {tr.sliderTargetSuffix}
           </span>
         </div>
       </footer>
