@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+- Clarified the explorer frontier as a discrete candidate frontier rather than
+  a continuous fitted curve.
+- Added a localized `frontier ?` / `前沿 ?` help dialog explaining that UI
+  easing does not imply a measured continuous loss surface.
+- Improved the frontier help dialog's keyboard focus handling.
+
 ## v1.0.3 - 2026-05-20
 
 Patch release: updates Aleph's local white-box runtime framing after MLX
