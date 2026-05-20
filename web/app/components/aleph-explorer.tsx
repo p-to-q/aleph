@@ -852,7 +852,7 @@ const STRINGS = {
     outputDeltaLabel: '失真',
     chartLossCurve: 'loss 曲线',
     chartFrontier: 'frontier',
-    frontierHelpTrigger: '前沿 ?',
+    frontierHelpTrigger: 'frontier ?',
     frontierHelpAria: '解释 frontier 过渡',
     frontierHelpTitle: '为什么 frontier 变化仍然是离散的',
     frontierHelpBody:
