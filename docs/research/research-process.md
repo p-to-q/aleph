@@ -28,6 +28,7 @@ This file records the research that currently shapes Aleph. It is a source ledge
 | GEPA | https://github.com/CerebrasResearch/gepa | Reflective text evolution with Pareto-style optimization signals and DSPy integration. | Supports Aleph's multi-objective frontier framing; future adapter candidate, not current identity. |
 | Prompt Tuning / Prefix Tuning | https://aclanthology.org/2021.emnlp-main.243/ and https://aclanthology.org/2021.acl-long.353/ | Continuous prompt parameters can be optimized while model weights stay frozen. | Strongest technical reading of "prompt is a parameter"; future soft-prompt research route. |
 | Reverse Prompt Engineering | https://aclanthology.org/2025.emnlp-main.1333/ | Black-box reverse-prompt recovery from outputs is now an explicit neighboring research line. | Useful contrast: Aleph seeks a usable coordinate for a target output, not recovery of an original hidden prompt. |
+| Garden path sentences and LLMs | https://aclanthology.org/2025.ccl-1.43.pdf | Garden path sentences have local or temporary ambiguity that can force reanalysis; Li, Ji, and Li (2025) find LLMs show garden-path effects in syntactic analysis, with cross-lingual differences between English and Chinese. | Adds a cautious lens for Custom API short prompts that appear strange but model-effective: call them garden-path-like prompt coordinates, not proven garden path sentences. See `docs/research/garden-path-prompts.md`. |
 | vec2text / embedding inversion | https://github.com/vec2text/vec2text and https://arxiv.org/abs/2310.06816 | Embedding inversion reconstructs text from vector representations; related but solves a different inversion problem. | Keep as adjacent prior art; do not conflate with prompt-coordinate search. |
 | Aquin | https://www.aquin.app/ | Instrumentation language: Observe & Find, Simulate & Fix, Debug & Improve, token attribution, loss curves, exposure vectors, evals. | Use as UI/instrumentation inspiration; translate safety/model-debug panels into compression-specific panels. |
 
@@ -43,6 +44,9 @@ This file records the research that currently shapes Aleph. It is a source ledge
 - TextGrad is especially relevant as a metaphor for prompt-space optimization, but Aleph should keep its narrower target-output identity.
 - Pareto / reflective optimization is a stronger fit for Aleph than single-score prompt improvement.
 - Soft-prompt methods support the parameter analogy, but should remain future research until they can be related back to discrete prompt coordinates honestly.
+- Garden-path-like prompt coordinates are a useful observation for the left side
+  of the slider, especially in Custom API search, but Aleph should not claim
+  formal garden path syntax without sentence-level ambiguity evidence.
 - The repository should be artifact-first, not template-first.
 - The current `search/` spike is real local-model evidence for the thesis: a fixed MLX Qwen model can propose prompts, generate outputs, score a frontier, and bake measured examples for the demo.
 - MLX's upstream runtime surface now includes Apple Silicon and Linux CUDA paths, so Aleph's local white-box route should be described as MLX-backed rather than Apple-Silicon-only.

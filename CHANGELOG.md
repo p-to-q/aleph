@@ -10,6 +10,9 @@
 - Improved the frontier help dialog's keyboard focus handling.
 - Updated the frontier slider's accessibility label to reference the discrete
   candidate frontier.
+- Added research notes on garden-path-like prompt coordinates and surfaced that
+  Custom API searches can sometimes find short, strange model-specific cues near
+  the compression edge.
 
 ## v1.0.3 - 2026-05-20
 

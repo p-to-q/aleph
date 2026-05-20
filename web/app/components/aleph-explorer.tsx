@@ -786,7 +786,7 @@ const STRINGS = {
     sliderTargetSuffix: 'y itself',
     leftOobTitle: 'toward the compression limit',
     leftOobNote:
-      'Aleph Limit · K(y|θ). Left of Shortest Found is an unknown compression zone: this run has not found prompts there, but a stronger search might. Treat it as a theoretical lower-bound region, not a verified candidate.',
+      'Aleph Limit · K(y|θ). Left of Shortest Found is an unknown compression zone: this run has not found prompts there, but a stronger search might. Custom API searches can sometimes surface garden-path-like prompts: short, strange cues that steer θ toward y. Treat them as model-specific coordinates, not proven linguistic garden path sentences.',
     rightOobTitle: 'toward the context boundary',
     rightOobNote:
       'Context Wall · beyond Explicit Reconstruction. To the right of y itself, you can keep adding copies, constraints, notes, or noise up to the model context window, but that extra text is redundant rather than compression evidence.',
@@ -915,7 +915,7 @@ const STRINGS = {
     sliderTargetSuffix: '目标本身',
     leftOobTitle: '走向压缩极限',
     leftOobNote:
-      'Aleph Limit · K(y|θ)。Shortest Found 左边是一个未知压缩区: 这次 run 还没有在这里找到更短的 prompt，但更强的搜索也许能继续往里推进。这里应该理解为理论下界附近，而不是已验证的 candidate。',
+      'Aleph Limit · K(y|θ)。Shortest Found 左边是一个未知压缩区: 这次 run 还没有在这里找到更短的 prompt，但更强的搜索也许能继续往里推进。Custom API 有时会找到 garden-path-like prompts: 很短、很怪，却能把 θ 引向 y 的提示线索。它们应理解为模型特定坐标，不是已证明的语言学花园幽径句。',
     rightOobTitle: '走向上下文边界',
     rightOobNote:
       'Context Wall · 超过 Explicit Reconstruction。到了目标本身右边，还可以继续往 prompt 里塞复制、约束、注释或噪声，一直塞到模型的 context window；但这些内容已经是冗余扩展，不再属于压缩证据。',

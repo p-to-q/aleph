@@ -118,6 +118,32 @@ Boundary:
 - Aleph does not promise to recover the original hidden prompt.
 - Aleph searches for a usable prompt coordinate for a target output under fixed model conditions.
 
+## Garden-path-like prompt coordinates
+
+Garden path sentences are locally or temporarily ambiguous sentences that can
+lead a reader or parser into an initial wrong analysis before later material
+forces reanalysis. Li, Ji, and Li (2025) study whether LLMs can analyze these
+sentences across English and Chinese, and report that LLMs show garden-path
+effects in syntactic analysis while differing across languages and between
+syntax and semantics.
+
+Why this matters for Aleph:
+
+- Custom API search sometimes surfaces very short, strange prompts that steer a
+  model toward the target output without reading like ordinary instructions.
+- These prompts may be useful model-relative coordinates because they exploit
+  learned associations, parsing priors, or temporary ambiguity-like cues.
+- They are especially relevant near the left side of the slider, where prompts
+  may stop looking like human summaries.
+
+Boundary:
+
+- Aleph should call this **garden-path-like prompt behavior**, not formal garden
+  path syntax, unless the prompt is itself a sentence with a clear ambiguity and
+  disambiguating region.
+- In black-box Custom API mode, Aleph can observe successful outputs but cannot
+  prove a model-internal reanalysis path.
+
 ## Aquin-style instrumentation
 
 Aquin's public site uses a strong instrumentation language: causal trace, circuit attribution, inherited signal, loss curves, exposure vectors, layer scans, and eval suites.
