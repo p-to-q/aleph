@@ -13,6 +13,8 @@
 - Added research notes on garden-path-like prompt coordinates and surfaced that
   Custom API searches can sometimes find short, strange model-specific cues near
   the compression edge.
+- Added dashboard source labeling so `model θ` can be read against the actual
+  run source: fixture, local MLX, custom API, or mock.
 
 ## v1.0.3 - 2026-05-20
 

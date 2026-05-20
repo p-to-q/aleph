@@ -27,6 +27,7 @@ interface Target {
   label: string
   targetTokens: number
   evalModel?: string
+  source?: 'fixture' | 'local_mlx' | 'custom_api' | 'mock'
   mode?: string
   script?: string
   points: CurvePoint[]
@@ -84,11 +85,14 @@ function alephRunToTarget(run: Record<string, unknown>, text: string): Target {
   }))
   points.sort((a, b) => b.epsilon - a.epsilon)
   const cfg = run.config as Record<string, unknown> | undefined
+  const observations = run.observations as Record<string, unknown> | undefined
+  const observationMode = observations?.mode
   return {
     key: `live-${Date.now()}`,
     label: text.slice(0, 50),
     targetTokens: 0,
     evalModel: (cfg?.model as string) ?? 'claude api',
+    source: observationMode === 'mock' ? 'mock' : 'custom_api',
     points,
   }
 }
@@ -683,6 +687,11 @@ const STRINGS = {
     leakage: 'leakage',
     frontierRank: 'frontier rank',
     modelTheta: 'model θ',
+    runSource: 'run source',
+    sourceFixture: 'fixture / precomputed',
+    sourceLocalMlx: 'local MLX / white-box',
+    sourceCustomApi: 'custom API / black-box',
+    sourceMock: 'mock / fallback',
     localQwen: 'local Qwen3 (mlx)',
     frontierBasin: 'frontier basin',
     basinWireframe: 'candidate-level frontier basin',
@@ -813,6 +822,11 @@ const STRINGS = {
     leakage: '泄漏',
     frontierRank: '前沿排名',
     modelTheta: '模型 θ',
+    runSource: '结果来源',
+    sourceFixture: 'fixture / 预计算',
+    sourceLocalMlx: 'local MLX / 白盒',
+    sourceCustomApi: 'custom API / 黑盒',
+    sourceMock: 'mock / fallback',
     localQwen: '本地 Qwen3 (mlx)',
     frontierBasin: '前沿盆地',
     basinWireframe: '候选级前沿盆地',
@@ -1740,6 +1754,15 @@ export function AlephExplorer() {
   const rank = reveal
     ? Math.min(N, Math.max(1, Math.ceil(clamp01(pos) * N)))
     : Math.round(clamp01(pos) * (N - 1)) + 1
+  const resultSource = pt.source ?? (pt.evalModel ? 'fixture' : searchMode === 'local_mlx' ? 'local_mlx' : 'fixture')
+  const resultSourceLabel =
+    resultSource === 'custom_api'
+      ? tr.sourceCustomApi
+      : resultSource === 'local_mlx'
+        ? tr.sourceLocalMlx
+        : resultSource === 'mock'
+          ? tr.sourceMock
+          : tr.sourceFixture
   const surfaceWidth = isNarrow ? 'min(100%, 34rem)' : 'min(52rem, 90vw)'
   const chromeFadeDelay = isNarrow ? MOBILE_CHROME_FADE_DELAY_MS : CHROME_FADE_DELAY_MS
 
@@ -1844,7 +1867,7 @@ export function AlephExplorer() {
           const j = await r.json() as Record<string, unknown>
           if (!Array.isArray(j.points) || !(j.points as unknown[]).length)
             throw new Error('mlx:empty')
-          return j as unknown as Target
+          return { ...(j as unknown as Target), source: 'local_mlx' }
         })
 
       const runCustom = (): Promise<Target> =>
@@ -2227,6 +2250,7 @@ export function AlephExplorer() {
               <Row label={tr.frontierRank}>
                 {rank} / {N}
               </Row>
+              <Row label={tr.runSource}>{resultSourceLabel}</Row>
               <Row label={tr.modelTheta}>{pt.evalModel ?? tr.localQwen}</Row>
               <FrontierBasin
                 ariaLabel={tr.basinWireframe}
