@@ -1361,6 +1361,7 @@ function FrontierBasin({
   label,
   length,
   leakage,
+  onExplain,
   pos,
   similarity,
   stability,
@@ -1375,6 +1376,7 @@ function FrontierBasin({
   label: string
   length: number
   leakage: number | null
+  onExplain: () => void
   pos: number
   similarity: number
   stability: number
@@ -1405,8 +1407,26 @@ function FrontierBasin({
 
   return (
     <>
-      <dt style={{ color: 'var(--site-link)', gridColumn: '1 / -1' }}>
-        {label}
+      <dt style={{ gridColumn: '1 / -1' }}>
+        <button
+          type="button"
+          aria-label={ariaLabel}
+          onClick={onExplain}
+          style={{
+            display: 'block',
+            width: '100%',
+            border: 0,
+            borderBottom: `1px dashed ${DIM}`,
+            background: 'none',
+            color: 'var(--site-link)',
+            cursor: 'help',
+            font: 'inherit',
+            padding: '0 0 0.22rem',
+            textAlign: 'left',
+          }}
+        >
+          {label}
+        </button>
       </dt>
       <dd
         style={{
@@ -2219,6 +2239,7 @@ export function AlephExplorer() {
                 label={tr.frontierBasin}
                 length={vv.length}
                 leakage={leak}
+                onExplain={() => setFrontierHelpOpen(true)}
                 pos={pos}
                 similarity={vv.similarity}
                 stability={vv.stability}
@@ -2977,24 +2998,6 @@ export function AlephExplorer() {
           >
             {tr.footLeft} · k(y|θ)
           </span>
-          <button
-            type="button"
-            aria-label={tr.frontierHelpAria}
-            onClick={() => setFrontierHelpOpen(true)}
-            style={{
-              alignSelf: isNarrow ? 'center' : undefined,
-              border: 'none',
-              borderBottom: `1px dotted ${muted}`,
-              background: 'none',
-              color: muted,
-              cursor: 'help',
-              font: 'inherit',
-              fontStyle: 'italic',
-              padding: 0,
-            }}
-          >
-            {tr.frontierHelpTrigger}
-          </button>
           <span
             className="aleph-axis-label aleph-axis-label-right"
             tabIndex={0}

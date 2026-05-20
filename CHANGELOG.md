@@ -4,7 +4,8 @@
 
 - Clarified the explorer frontier as a discrete candidate frontier rather than
   a continuous fitted curve.
-- Added a localized `frontier ?` help dialog explaining that UI
+- Made the dashboard's frontier basin label a localized explanation entrypoint;
+  its underline opens a note explaining that UI
   easing does not imply a measured continuous loss surface.
 - Improved the frontier help dialog's keyboard focus handling.
 - Updated the frontier slider's accessibility label to reference the discrete
