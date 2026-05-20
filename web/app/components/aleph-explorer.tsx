@@ -722,6 +722,12 @@ const STRINGS = {
     outputDeltaLabel: 'distortion',
     chartLossCurve: 'loss curve',
     chartFrontier: 'frontier',
+    frontierHelpTrigger: 'frontier ?',
+    frontierHelpAria: 'Explain frontier transitions',
+    frontierHelpTitle: 'why frontier movement is discrete',
+    frontierHelpBody:
+      'Aleph currently measures a finite set of candidate prompts. The UI eases between observed points so the transition is easier to follow, but it does not fit or claim a continuous loss surface. The active prompt, output, fit, and epsilon still snap to real candidate points. True continuity would require denser backend sampling, repeated prompt edits, or a search trace.',
+    frontierHelpClose: 'close',
     chartPoints: 'pts',
     chartFit: 'fit',
     chartCompressionAxis: 'compr →',
@@ -773,7 +779,7 @@ const STRINGS = {
     mlxAvailable:
       'local mlx is reachable. Searches in this mode will use the configured MLX search service.',
     mlxDeploy: '→deploy guide',
-    sliderAria: 'rate–distortion frontier (continuous)',
+    sliderAria: 'candidate rate-distortion frontier',
     wordsShown: 'words shown',
     footLeft: 'shortest found',
     footRight: 'explicit',
@@ -846,6 +852,12 @@ const STRINGS = {
     outputDeltaLabel: '失真',
     chartLossCurve: 'loss 曲线',
     chartFrontier: 'frontier',
+    frontierHelpTrigger: '前沿 ?',
+    frontierHelpAria: '解释 frontier 过渡',
+    frontierHelpTitle: '为什么 frontier 变化仍然是离散的',
+    frontierHelpBody:
+      'Aleph 目前测到的是有限个候选 prompt。界面会在已观测点之间做轻微缓动，让变化更容易跟上；但它没有拟合或声称存在连续 loss surface。当前 prompt、output、拟合度和 ε 仍然锁定真实候选点。要得到真正连续的曲线，需要后端提供更密集的采样、prompt 局部编辑重测，或者完整 search trace。',
+    frontierHelpClose: '关闭',
     chartPoints: '点',
     chartFit: '拟合',
     chartCompressionAxis: '压缩 →',
@@ -896,7 +908,7 @@ const STRINGS = {
     mlxAvailable:
       'local mlx 可以访问。选择这个模式后，搜索会调用已配置的 MLX 搜索服务。',
     mlxDeploy: '→部署说明',
-    sliderAria: 'rate–distortion frontier(连续)',
+    sliderAria: '候选 rate-distortion frontier',
     wordsShown: '词已显示',
     footLeft: '最短已找到',
     footRight: '显式复现',
@@ -1109,10 +1121,17 @@ function MiniCharts({
               cy={f1(CP.t + iH * (1 - p.similarity))}
               r="3"
               fill={MED}
+              style={{ transition: 'fill 180ms ease, opacity 180ms ease' }}
             />
           ))}
           {/* active */}
-          <circle cx={f1(activeCX)} cy={f1(activeCY)} r="5.5" fill="#fff" />
+          <circle
+            cx={f1(activeCX)}
+            cy={f1(activeCY)}
+            r="5.5"
+            fill="#fff"
+            style={{ transition: 'r 180ms ease' }}
+          />
         </svg>
       </div>
     )
@@ -1469,6 +1488,7 @@ export function AlephExplorer() {
   const [lang, setLang] = useState<Lang>('en')
   const [searchMode, setSearchMode] = useState<SearchMode>('fixture')
   const [modeNotice, setModeNotice] = useState<ModeNotice>(null)
+  const [frontierHelpOpen, setFrontierHelpOpen] = useState(false)
   const [isNarrow, setIsNarrow] = useState(false)
   const [dots, setDots] = useState(1)
   // Health status: null=unknown, true=online, false=offline
@@ -1478,6 +1498,9 @@ export function AlephExplorer() {
   const [elapsed, setElapsed] = useState(0)
   const searchAbortRef = useRef<AbortController | null>(null)
   const modeNoticeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const frontierHelpDialogRef = useRef<HTMLElement | null>(null)
+  const frontierHelpCloseRef = useRef<HTMLButtonElement | null>(null)
+  const frontierHelpReturnFocusRef = useRef<HTMLElement | null>(null)
   const userSelectedModeRef = useRef(false)
   const trackRef = useRef<HTMLDivElement>(null)
   const headingId = useId()
@@ -1553,6 +1576,46 @@ export function AlephExplorer() {
   useEffect(() => {
     document.documentElement.lang = lang === 'zh' ? 'zh-Hans' : 'en'
   }, [lang])
+
+  useEffect(() => {
+    if (!frontierHelpOpen) return
+    frontierHelpReturnFocusRef.current = document.activeElement as HTMLElement | null
+    frontierHelpCloseRef.current?.focus()
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setFrontierHelpOpen(false)
+        return
+      }
+      if (event.key !== 'Tab') return
+
+      const root = frontierHelpDialogRef.current
+      if (!root) return
+      const focusables = Array.from(
+        root.querySelectorAll<HTMLElement>(
+          'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
+        ),
+      ).filter((node) => !node.hasAttribute('disabled'))
+      if (focusables.length === 0) return
+
+      const first = focusables[0]
+      const last = focusables[focusables.length - 1]
+      const active = document.activeElement
+      if (event.shiftKey && active === first) {
+        event.preventDefault()
+        last.focus()
+      } else if (!event.shiftKey && active === last) {
+        event.preventDefault()
+        first.focus()
+      }
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => {
+      window.removeEventListener('keydown', onKeyDown)
+      frontierHelpReturnFocusRef.current?.focus()
+      frontierHelpReturnFocusRef.current = null
+    }
+  }, [frontierHelpOpen])
 
   useEffect(() => {
     if (typeof window === 'undefined') return
@@ -1663,6 +1726,7 @@ export function AlephExplorer() {
   const pick = (t: Target) => {
     setErr('')
     setModeNotice(null)
+    setFrontierHelpOpen(false)
     setCurrent(t)
     setPos(0)
     setOob(null)
@@ -2913,6 +2977,24 @@ export function AlephExplorer() {
           >
             {tr.footLeft} · k(y|θ)
           </span>
+          <button
+            type="button"
+            aria-label={tr.frontierHelpAria}
+            onClick={() => setFrontierHelpOpen(true)}
+            style={{
+              alignSelf: isNarrow ? 'center' : undefined,
+              border: 'none',
+              borderBottom: `1px dotted ${muted}`,
+              background: 'none',
+              color: muted,
+              cursor: 'help',
+              font: 'inherit',
+              fontStyle: 'italic',
+              padding: 0,
+            }}
+          >
+            {tr.frontierHelpTrigger}
+          </button>
           <span
             className="aleph-axis-label aleph-axis-label-right"
             tabIndex={0}
@@ -2924,6 +3006,72 @@ export function AlephExplorer() {
           </span>
         </div>
       </footer>
+      )}
+
+      {frontierHelpOpen && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby={`${headingId}-frontier-help`}
+          onClick={() => setFrontierHelpOpen(false)}
+          style={{
+            position: 'fixed',
+            inset: 0,
+            zIndex: 50,
+            display: 'grid',
+            placeItems: 'center',
+            padding: '1.25rem',
+            background: 'rgba(0,0,0,0.42)',
+          }}
+        >
+          <section
+            ref={frontierHelpDialogRef}
+            onClick={(event) => event.stopPropagation()}
+            style={{
+              width: 'min(28rem, 100%)',
+              border: '1px solid rgba(255,255,255,0.18)',
+              background: 'rgba(12,12,12,0.96)',
+              boxShadow: '0 24px 72px rgba(0,0,0,0.5)',
+              padding: '1rem',
+              color: 'var(--site-text)',
+            }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', gap: '1rem', marginBottom: '0.75rem' }}>
+              <h2
+                id={`${headingId}-frontier-help`}
+                style={{
+                  margin: 0,
+                  fontFamily: FONT,
+                  fontSize: '0.88rem',
+                  fontWeight: 400,
+                  letterSpacing: '0.04em',
+                  textTransform: 'uppercase',
+                }}
+              >
+                {tr.frontierHelpTitle}
+              </h2>
+              <button
+                ref={frontierHelpCloseRef}
+                type="button"
+                onClick={() => setFrontierHelpOpen(false)}
+                aria-label={tr.frontierHelpClose}
+                style={{
+                  border: 'none',
+                  background: 'none',
+                  color: muted,
+                  cursor: 'pointer',
+                  font: 'inherit',
+                  padding: 0,
+                }}
+              >
+                ×
+              </button>
+            </div>
+            <p style={{ margin: 0, color: 'rgba(255,255,255,0.72)', fontSize: '0.86rem', lineHeight: 1.62 }}>
+              {tr.frontierHelpBody}
+            </p>
+          </section>
+        </div>
       )}
       </div>
 
