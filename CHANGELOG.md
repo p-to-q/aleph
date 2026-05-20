@@ -7,6 +7,8 @@
 - Added a localized `frontier ?` / `前沿 ?` help dialog explaining that UI
   easing does not imply a measured continuous loss surface.
 - Improved the frontier help dialog's keyboard focus handling.
+- Updated the frontier slider's accessibility label to reference the discrete
+  candidate frontier.
 
 ## v1.0.3 - 2026-05-20
 

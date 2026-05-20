@@ -1126,14 +1126,11 @@ function MiniCharts({
           ))}
           {/* active */}
           <circle
-            cx="0"
-            cy="0"
+            cx={f1(activeCX)}
+            cy={f1(activeCY)}
             r="5.5"
             fill="#fff"
-            style={{
-              transform: `translate(${f1(activeCX)}px, ${f1(activeCY)}px)`,
-              transition: 'transform 260ms ease, r 180ms ease',
-            }}
+            style={{ transition: 'r 180ms ease' }}
           />
         </svg>
       </div>
