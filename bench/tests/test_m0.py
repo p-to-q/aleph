@@ -745,7 +745,13 @@ class M0BenchTests(unittest.TestCase):
             )
             submission_rows = []
             for run in engine_result["itemRuns"]:
+                disqualified_by_prompt = {
+                    measurement["promptId"]: measurement["disqualified"]
+                    for measurement in run["measurements"]
+                }
                 for candidate in run["alephRun"]["candidates"]:
+                    if disqualified_by_prompt.get(candidate["id"]):
+                        continue
                     submission_rows.append(
                         {
                             "row_id": f"{run['itemId']}:{candidate['id']}",
@@ -792,6 +798,64 @@ class M0BenchTests(unittest.TestCase):
                     places=5,
                     msg=f"{item_id}: engine vs vendored scorer AURC mismatch",
                 )
+
+    def test_kaggle_scorer_rejects_duplicate_or_unknown_rows(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            out_dir = Path(tmp) / "platform"
+            write_platform_package(out_dir)
+
+            sys.path.insert(0, str(out_dir / "kaggle"))
+            try:
+                import importlib
+
+                for name in ("_scoring", "score_outputs"):
+                    sys.modules.pop(name, None)
+                score_outputs = importlib.import_module("score_outputs")
+
+                duplicate_rows = [
+                    {
+                        "row_id": "s2-001:s2-001-r1-p0",
+                        "model_id": "stub/model",
+                        "item_id": "s2-001",
+                        "prompt_id": "s2-001-r1-p0",
+                        "output_text": "a",
+                    },
+                    {
+                        "row_id": "s2-001:s2-001-r1-p0",
+                        "model_id": "stub/model",
+                        "item_id": "s2-001",
+                        "prompt_id": "s2-001-r1-p0",
+                        "output_text": "b",
+                    },
+                ]
+                with self.assertRaisesRegex(ValueError, "duplicate submission row"):
+                    score_outputs.score_submission(
+                        items_path=out_dir / "data/public_s2_items.jsonl",
+                        prompts_path=out_dir / "data/public_s2_prompts.jsonl",
+                        submission_rows=duplicate_rows,
+                        model_id="stub/model",
+                    )
+
+                unknown_rows = [
+                    {
+                        "row_id": "s2-001:s2-001-r0-p0",
+                        "model_id": "stub/model",
+                        "item_id": "s2-001",
+                        "prompt_id": "s2-001-r0-p0",
+                        "output_text": "x",
+                    }
+                ]
+                with self.assertRaisesRegex(ValueError, "unknown or gated prompt"):
+                    score_outputs.score_submission(
+                        items_path=out_dir / "data/public_s2_items.jsonl",
+                        prompts_path=out_dir / "data/public_s2_prompts.jsonl",
+                        submission_rows=unknown_rows,
+                        model_id="stub/model",
+                    )
+            finally:
+                sys.path.remove(str(out_dir / "kaggle"))
+                for name in ("_scoring", "score_outputs"):
+                    sys.modules.pop(name, None)
 
 
 if __name__ == "__main__":

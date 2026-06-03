@@ -1556,15 +1556,34 @@ def _load_submission_rows(path: Path) -> list[dict[str, str]]:
         return list(csv.DictReader(handle))
 
 
-def _index_outputs(submission_rows: Iterable[dict[str, Any]]) -> dict[tuple[str, str], str]:
+def _index_outputs(
+    submission_rows: Iterable[dict[str, Any]],
+    *,
+    valid_prompt_keys: set[tuple[str, str]],
+    expected_model_id: str,
+) -> dict[tuple[str, str], str]:
     outputs: dict[tuple[str, str], str] = {}
     for row in submission_rows:
         item_id = str(row["item_id"]) if "item_id" in row else None
         prompt_id = str(row["prompt_id"]) if "prompt_id" in row else None
+        row_id = str(row.get("row_id") or "")
+        row_model_id = str(row.get("model_id") or "")
         text = str(row.get("output_text") or "")
         if item_id is None or prompt_id is None:
             raise ValueError(f"submission row missing item_id/prompt_id: {row!r}")
-        outputs[(item_id, prompt_id)] = text
+        key = (item_id, prompt_id)
+        expected_row_id = f"{item_id}:{prompt_id}"
+        if row_id and row_id != expected_row_id:
+            raise ValueError(f"submission row_id mismatch: expected {expected_row_id!r}, found {row_id!r}")
+        if row_model_id and row_model_id != expected_model_id:
+            raise ValueError(
+                f"submission model_id mismatch: expected {expected_model_id!r}, found {row_model_id!r}"
+            )
+        if key not in valid_prompt_keys:
+            raise ValueError(f"submission row references unknown or gated prompt: {expected_row_id}")
+        if key in outputs:
+            raise ValueError(f"duplicate submission row: {expected_row_id}")
+        outputs[key] = text
     return outputs
 
 
@@ -1590,8 +1609,15 @@ def score_submission(
     prompt_rows = _load_jsonl(prompts_path)
     if isinstance(submission_rows, (str, Path)):
         submission_rows = _load_submission_rows(Path(submission_rows))
-    outputs = _index_outputs(submission_rows)
     prompt_index = _index_prompts(prompt_rows)
+    valid_prompt_keys = {
+        key for key, row in prompt_index.items() if not bool(row.get("disqualified"))
+    }
+    outputs = _index_outputs(
+        submission_rows,
+        valid_prompt_keys=valid_prompt_keys,
+        expected_model_id=model_id,
+    )
     thresholds = dict(_scoring.DEFAULT_LEAKAGE_THRESHOLDS if leakage_thresholds is None else leakage_thresholds)
 
     item_runs: list[dict[str, Any]] = []
