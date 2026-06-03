@@ -37,6 +37,7 @@ This is a product/research hypothesis with enough evidence to build around, but 
 | Fixtures | Multiple demo runs with explicit fixture/simulated modes. | `packages/fixtures/src/` |
 | API boundary | FastAPI mock route and local MLX adapter wrapper. | `apps/api/` |
 | Local live search spike | MLX/Qwen route can produce AlephRun-compatible adapter output when a local MLX setup is running; Apple Silicon is the known maintainer path and Linux CUDA is now an upstream MLX backend path. | `search/`, `docs/verification.md` |
+| Aleph-Bench M0 | Frozen-ladder benchmark pipeline, S2 seed data, schemas, deterministic mock result, and checked-in mock evidence bundle. | `bench/`, `schemas/aleph-bench-*.schema.json`, `docs/benchmark/m0-evidence.md` |
 | Repo checks | Lightweight lint/check suite protects claims, fixtures, links, language, and schema. | `npm run lint` |
 
 ## Research Converted Into Product Shape
@@ -55,7 +56,7 @@ This is a product/research hypothesis with enough evidence to build around, but 
 | Topic | Current status | Acceptance gate |
 |---|---|---|
 | Default metric | Researched and discussed, not settled. | Choose composite/exact/embedding/judge strategy and record the decision. |
-| Non-leaking mode | Concept settled, enforcement not stable. | Define copy-ratio/ngram/entity thresholds and test them. |
+| Non-leaking mode | Concept settled; Aleph-Bench M0 has a tested frozen-ladder leakage gate, while product-wide enforcement is not yet stable. | Decide whether the M0 gate should migrate into the product run path or remain benchmark-local. |
 | Hosted black-box adapter | Implemented through the Next.js `/api/search` route with server-side OpenAI-compatible credentials and fallback configuration. | Keep returned candidates as `AlephRun` and mark observations `black_box`. |
 | Stable model-internal evidence contract | Partially evidenced by local NLL, not product-stable. | Expose token NLL and related fields through a documented `ObservationSet` migration. |
 | Deletion ablation / prompt-token attribution | UI-shaped, not real. | Compute from model internals or repeated behavioral probes and label source mode. |
@@ -89,8 +90,9 @@ The next phase should start from release hardening rather than more surface area
 2. Configure Preview environment variables after the release branch exists in the connected Vercel project.
 3. Add JSON import for `AlephRun` so the repo becomes file-first in the product, not only in docs.
 4. Unify the Python API and Next.js hosted adapter story so contributors know which path owns production calls.
-5. Turn remaining researched-but-not-converted items into issues or small plans.
+5. Run Aleph-Bench M0 against three real black-box models once server-side credentials are available.
+6. Turn remaining researched-but-not-converted items into issues or small plans.
 
 ## One-Sentence Status
 
-Aleph has a stable thesis, a credible run contract, fixture evidence, local MLX token traces, a hosted black-box real-run loop, and a clear honesty layer; the main unresolved work is hardening metrics, persistence, non-leaking mode, and model-internal evidence contracts.
+Aleph has a stable thesis, a credible run contract, fixture evidence, local MLX token traces, a hosted black-box real-run loop, an experimental benchmark pipeline, and a clear honesty layer; the main unresolved work is hardening metrics, persistence, product-wide non-leaking mode, real benchmark model evidence, and model-internal evidence contracts.

@@ -92,6 +92,21 @@ rate–distortion *curve*, not a single compression ratio. See
 | [`12-platform-feasibility.md`](12-platform-feasibility.md) | **What is actually measurable on Kaggle and against closed APIs.** Per-vendor logprob reality (Claude exposes none; OpenAI/Gemini only generated-token, not teacher-forced; open weights full); the measurability matrix; why Track F is 100% capturable cross-vendor and Track W is open-weights-only; and the "behavioral shadow" (resampling) that estimates likelihood without logprobs. |
 | [`launch-kit/`](launch-kit/) | Staged front matter for the future extracted public repo: a polished public [`README`](launch-kit/README.md), [`DATASHEET`](launch-kit/DATASHEET.md), [`CONTRIBUTING`](launch-kit/CONTRIBUTING.md), [`CITATION.cff`](launch-kit/CITATION.cff), and a [Kaggle grant application draft](launch-kit/kaggle-grant-application.md). |
 
+## Implementation (the built artifact)
+
+The design above is realized in code. M0 (Track F, Frozen Ladder) is implemented and passing:
+
+- [`bench/`](../../bench/README.md) — the engine (frozen ladder, leakage gate, metrics, audit, bundle,
+  manifest, verify, adapters), 30 S2 seed items, schemas, CLI (`./aleph-bench`), and a deterministic
+  **mock** M0 result with audit/bundle receipts. All M0 acceptance gates pass; 27 unit tests pass.
+- [`m0-evidence.md`](m0-evidence.md) — the first-run evidence note (mock model summary, per-item table,
+  the resolved open-question choices, and the honest "this is mock pipeline evidence, not a real
+  leaderboard" framing).
+- [`hosted-m0-runbook.md`](hosted-m0-runbook.md) — how to run real black-box models once
+  `ALEPH_CUSTOM_API_*` credentials exist.
+- Platform export (`aleph-bench package`) produces the HF / Kaggle / Croissant delivery package — see
+  [`12-platform-feasibility.md`](12-platform-feasibility.md) and `bench/platform/`.
+
 ## Claims posture (read before quoting any number)
 
 ALEPH-Bench introduces new public claims. Per [`docs/claim-ledger.md`](../claim-ledger.md), none are
