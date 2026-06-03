@@ -1,0 +1,44 @@
+# STAGED TEMPLATE for the future `aleph-bench` repo. Fill <PLACEHOLDERS> at release.
+# Citation File Format (https://citation-file-format.github.io/)
+cff-version: 1.2.0
+title: "ALEPH-Bench: A Rate–Distortion Benchmark for Prompt Elicitation Efficiency"
+message: "If you use ALEPH-Bench, please cite both the software and the paper."
+type: software
+authors:
+  - given-names: <FIRST>
+    family-names: <LAST>
+    affiliation: <ORG>
+    # orcid: "https://orcid.org/0000-0000-0000-0000"
+repository-code: "<REPO_URL>"
+url: "<LEADERBOARD_URL>"
+abstract: >-
+  ALEPH-Bench measures elicitation efficiency: for a fixed target output, the shortest prompt a model
+  needs to reproduce it at a required fidelity, reported as a per-model rate–distortion frontier
+  (area-under-curve AURC, with interpretable duals ECL@tau and Elicit@k). It evaluates models
+  output-first and black-box, with a hard leakage gate, meta-evaluated fidelity metrics, contamination-
+  controlled splits, and an information-theoretic white-box track. Scores are honest upper bounds on
+  the model-relative description length and predict production prompt cost.
+keywords:
+  - large language models
+  - benchmark
+  - prompt compression
+  - rate-distortion
+  - description length
+  - elicitation efficiency
+license: Apache-2.0
+version: <VERSION>
+date-released: <YYYY-MM-DD>
+identifiers:
+  - type: doi
+    value: <ZENODO_DOI>
+    description: "Frozen dataset + harness release"
+preferred-citation:
+  type: conference-paper        # or article (arXiv) before acceptance
+  title: "ALEPH-Bench: Measuring How Little You Need to Say"
+  authors:
+    - given-names: <FIRST>
+      family-names: <LAST>
+      affiliation: <ORG>
+  collection-title: "<VENUE — e.g., NeurIPS Datasets & Benchmarks Track>"
+  year: <YEAR>
+  # doi: <PAPER_DOI>
