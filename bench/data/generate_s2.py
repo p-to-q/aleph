@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 from __future__ import annotations
 
+import argparse
 import json
+import sys
 from pathlib import Path
 
 
@@ -187,17 +189,68 @@ def make_item(index: int) -> dict[str, object]:
     }
 
 
-def main() -> None:
+def _expected_payload(index: int) -> str:
+    return json.dumps(make_item(index), indent=2, sort_keys=True) + "\n"
+
+
+def write_items() -> None:
     OUT_DIR.mkdir(parents=True, exist_ok=True)
     for old in OUT_DIR.glob("*.json"):
         old.unlink()
     for index in range(1, 31):
-        item = make_item(index)
-        path = OUT_DIR / f"{item['id']}.json"
-        path.write_text(json.dumps(item, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+        path = OUT_DIR / f"s2-{index:03d}.json"
+        path.write_text(_expected_payload(index), encoding="utf-8")
     print(f"wrote 30 S2 items to {OUT_DIR}")
 
 
+def check_items() -> int:
+    """Verify that every checked-in S2 JSON file is byte-identical to what the
+    generator would produce. Lets CI guard against accidental hand-edits that
+    would silently drift the bundle digests and platform package checksums.
+    """
+
+    if not OUT_DIR.exists():
+        print(f"missing data directory: {OUT_DIR}", file=sys.stderr)
+        return 1
+    expected_paths = {f"s2-{index:03d}.json" for index in range(1, 31)}
+    actual_paths = {path.name for path in OUT_DIR.glob("*.json")}
+    errors: list[str] = []
+    for missing in sorted(expected_paths - actual_paths):
+        errors.append(f"missing item file: {missing}")
+    for extra in sorted(actual_paths - expected_paths):
+        errors.append(f"unexpected item file: {extra}")
+    for index in range(1, 31):
+        path = OUT_DIR / f"s2-{index:03d}.json"
+        if not path.exists():
+            continue
+        on_disk = path.read_text(encoding="utf-8")
+        expected = _expected_payload(index)
+        if on_disk != expected:
+            errors.append(
+                f"{path.name} differs from generator output (regenerate with `python3 bench/data/generate_s2.py`)"
+            )
+    if errors:
+        for error in errors:
+            print(f"error: {error}", file=sys.stderr)
+        return 1
+    print(f"check ok: 30 S2 items in {OUT_DIR} match the generator")
+    return 0
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(description="Generate or check the S2 seed dataset.")
+    parser.add_argument(
+        "--check",
+        action="store_true",
+        help="Compare on-disk S2 JSON files against generator output without writing anything.",
+    )
+    args = parser.parse_args(argv)
+    if args.check:
+        return check_items()
+    write_items()
+    return 0
+
+
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())
 

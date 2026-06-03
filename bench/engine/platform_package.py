@@ -91,69 +91,136 @@ size_categories:
 - n<1K
 task_categories:
 - text-generation
+- text2text-generation
 tags:
 - benchmark
 - prompt-compression
 - reverse-prompt-search
+- elicitation-efficiency
+- rate-distortion
 - synthetic
 - aleph-bench
+version: 0.1.0
+milestone: m0
 configs:
-- config_name: public-s2
+- config_name: public-s2-items
   data_files:
   - split: test
     path: data/public_s2_items.jsonl
+- config_name: public-s2-prompts
+  data_files:
+  - split: test
+    path: data/public_s2_prompts.jsonl
 ---
 
 # Aleph-Bench M0
 
-Aleph-Bench M0 is a small frozen-ladder benchmark seed set for comparing how much non-leaking prompt coordinate length a model needs to reproduce synthetic target outputs.
+> [!WARNING]
+> The model rows under `evidence/` are **deterministic mock pipeline outputs**, not real model
+> evaluations. This release distributes the benchmark **dataset and procedure** (M0 = milestone 0).
+> Real cross-vendor model rows are gated on Kaggle Benchmarks Resource Grant model access; do not
+> cite numbers from `evidence/mock_*.csv` as a model leaderboard.
 
-This package is platform-ready seed data and mock pipeline evidence. It is not a real model leaderboard. The checked-in model rows are deterministic mock adapters used to prove the evaluation pipeline, schemas, leakage gate, metrics, bootstrap confidence intervals, reproducibility checks, and evidence packaging.
+Aleph-Bench M0 is a small frozen-ladder benchmark seed set for comparing how much non-leaking prompt coordinate length a model needs to reproduce synthetic target outputs. **Version**: `m0`. **Evidence mode**: `mock` (no real model rows yet).
+
+The construct is **elicitation efficiency**: fix the target output, then search for the shortest non-leaking prompt that regenerates it. Lower AURC means the model reaches the target with fewer prompt tokens.
 
 ## Contents
 
-- `data/public_s2_items.jsonl`: 30 S2 compositional BenchItems.
-- `data/public_s2_prompts.jsonl`: 240 frozen-ladder prompt rows, including gated explicit reconstruction anchors.
-- `data/public_s2_items.csv` and `data/public_s2_prompts.csv`: flat tables for Kaggle Dataset preview.
-- `data/submission_format.csv`: community benchmark submission shape for prompt outputs.
-- `evidence/m0-first-run.json`: deterministic three-model mock BenchResult.
-- `evidence/m0-report.md`: generated tables from the mock result JSON.
-- `evidence/m0-audit.json`: M0 acceptance-gate receipt.
-- `schemas/`: JSON schemas for validating benchmark artifacts.
-- `croissant.json`: cross-platform ML dataset metadata.
-- `dataset-metadata.json`: Kaggle Dataset metadata.
-- `huggingface/upload_dataset.py`: dry-run and optional upload helper for the Hugging Face Dataset repo.
-- `kaggle/aleph_bench_m0_task.py`: Kaggle Community Benchmark scaffold using the `llm.prompt(...)` task shape.
-- `kaggle/api_test_smoke.py`: local stub harness for the Kaggle API-test I/O contract.
-- `PLATFORM_LAUNCH_CHECKLIST.md`: staged launch checklist separating prepared, blocked, and not-yet-run work.
+### Dataset (`data/`)
 
-## Evaluation
+- `public_s2_items.jsonl` (30 rows): S2 compositional BenchItems with target text, frozen ladder, canary GUID, provenance.
+- `public_s2_prompts.jsonl` (240 rows): every frozen-ladder prompt, with leakage-gate measurements and a `disqualified` flag.
+- `public_s2_items.csv` / `public_s2_prompts.csv`: flat preview tables for the Kaggle Dataset page.
+- `submission_format.csv` (180 rows): the public output shape (`row_id,model_id,item_id,prompt_id,output_text`) restricted to non-leaking prompts.
 
-Leakage is a gate, not a penalty. Explicit reconstruction prompts are retained as right-endpoint anchors and excluded from compression metrics when gated. The headline score is AURC, the area under the monotone non-leaking rate-distortion staircase; lower is better. ECL@tau and Elicit@k are reported as secondary metrics.
+### Mock evidence (`evidence/`)
 
-Run validation from the Aleph repository root:
+- `mock_model_summary.csv` / `mock_item_metrics.csv`: deterministic mock-adapter rows. **Pipeline evidence only**, never to be cited as model rankings.
+- `m0-first-run.json`: the full mock `BenchResult` (3 mock models, 30 items).
+- `m0-report.md`: pre-rendered tables for the mock result.
+- `m0-audit.json` / `m0-bundle.json` / `m0-call-manifest.json` / `m0-evidence.md`: acceptance-gate receipt, bundle digest manifest, no-call prompt manifest, and evidence note.
+
+### Metadata, schemas, and platform scaffolding
+
+- `schemas/`: JSON Schemas validating items, prompts, results, audit, bundle, manifest, and the platform package itself.
+- `croissant.json`: MLCommons Croissant 1.1 metadata with `RecordSet` for items and prompts.
+- `dataset-metadata.json`: Kaggle Dataset metadata with per-CSV field schemas.
+- `huggingface/`: Hugging Face upload preparation (dry-run + optional `--execute`).
+- `kaggle/`: Kaggle Community Benchmark task scaffold, vendored scorer, output-scoring helper, and I/O smoke test.
+- `PLATFORM_LAUNCH_CHECKLIST.md`: staged launch gates separating prepared, blocked, and not-yet-run work.
+
+## How to evaluate
+
+A Kaggle notebook (or any local runner) can score outputs against the frozen ladder **without cloning the Aleph repository** — the scorer is vendored in `kaggle/`:
+
+```python
+import csv, json
+from pathlib import Path
+
+# 1) Load the non-leaking prompts (180 of 240).
+prompts = [json.loads(line) for line in Path("data/public_s2_prompts.jsonl").read_text().splitlines()]
+non_leaking = [row for row in prompts if not row["disqualified"]]
+
+# 2) Generate outputs (replace with your model call). Submission shape is documented in
+#    data/submission_format.csv and must contain row_id, model_id, item_id, prompt_id, output_text.
+submission = [{"row_id": f"{r['item_id']}:{r['prompt_id']}",
+               "model_id": "my-model",
+               "item_id": r["item_id"],
+               "prompt_id": r["prompt_id"],
+               "output_text": my_model(r["prompt"])} for r in non_leaking]
+
+# 3) Score with the vendored AURC / ECL@tau / Elicit@k implementation.
+import sys; sys.path.insert(0, "kaggle")
+from score_outputs import score_submission
+result = score_submission(items_path="data/public_s2_items.jsonl",
+                          prompts_path="data/public_s2_prompts.jsonl",
+                          submission_rows=submission,
+                          model_id="my-model")
+print(result["aggregate"])
+```
+
+Leakage is a gate, not a penalty. Explicit reconstruction prompts (rung 0) are excluded from compression metrics. AURC is the area under the monotone non-leaking rate-distortion staircase; lower is better. ECL@tau and Elicit@k are interpretable duals.
+
+For deeper validation (schema check + bundle digest + acceptance audit) clone the Aleph repository and run:
 
 ```bash
 ./aleph-bench verify --audit bench/results/m0-audit.json --bundle bench/results/m0-bundle.json
 ./aleph-bench package --check bench/results/platform/m0-mock/package-manifest.json
 ```
 
-Hosted black-box results require server-side OpenAI-compatible credentials and should produce their own result, manifest, report, and evidence note. Black-box rows report generated text behavior only; they do not report logits, token NLL, or white-box observations.
+Hosted black-box results require server-side OpenAI-compatible credentials and should produce their own result, manifest, report, and evidence note. Black-box rows report generated text behavior only; they do not report logits, token NLL, or white-box observations. Native Anthropic / Gemini adapters are M1 scope; M0 cross-vendor coverage requires an OpenAI-compatible proxy (OpenRouter, LiteLLM, ...).
+
+## Citation
+
+A versioned citation (with author list, DOI, and venue) will accompany the first hosted-evidence release. For now, please cite as:
+
+```bibtex
+@misc{alephbench_m0_2026,
+  title  = {Aleph-Bench M0: A Frozen-Ladder Prompt-Compression Benchmark (Procedure Release)},
+  author = {Aleph-Bench Maintainers},
+  year   = {2026},
+  note   = {Procedure release, mock pipeline evidence; cross-vendor model rows pending Kaggle Benchmarks Resource Grant},
+  url    = {https://huggingface.co/datasets/p-to-q/aleph-bench-m0}
+}
+```
+
+The canonical CITATION template lives at `docs/benchmark/launch-kit/CITATION.cff` in the upstream repository; it will be finalized with the first real evidence release.
 
 ## Responsible Use
 
-The targets are rule-generated synthetic English strings with a shared canary GUID stored as metadata, not as target text. The package is meant for benchmark procedure review and community reproduction, not for claims about globally shortest prompts or real model ranking until hosted black-box rows are produced.
+The targets are rule-generated synthetic English strings with a shared canary GUID stored as metadata, not as target text. The package is meant for benchmark procedure review and community reproduction, not for claims about globally shortest prompts or real model ranking until hosted black-box rows exist. Any `aurc / eclAtTau / elicitAtK` number sourced from `evidence/` is mock pipeline evidence with `evidenceMode = mock`, and downstream summaries (blog posts, slides, leaderboards) must preserve that label.
 """
 
 
 def _evaluation_protocol() -> str:
     return """# Aleph-Bench M0 Platform Evaluation Protocol
 
-This package is ready to publish as a Hugging Face Dataset or Kaggle Dataset. It is also ready for a community benchmark dry run because it includes the seed data, prompt rows, schemas, mock evidence, and verification commands.
+This package is ready to publish as a Hugging Face Dataset or Kaggle Dataset. It is also ready for a community benchmark dry run because it includes the seed data, prompt rows, schemas, mock evidence, a vendored scorer, and verification commands.
 
 ## Evidence Boundary
 
-- The included model rows are deterministic mock evidence.
+- The included model rows are deterministic mock evidence and live under `evidence/mock_*.csv` (not under `data/`). Hugging Face and Kaggle dataset previews therefore do not render them as a leaderboard.
 - They prove the benchmark pipeline, not model quality.
 - Hosted black-box rows must use the same S2 items, frozen ladder, leakage thresholds, tau, k, and AURC/ECL/Elicit definitions.
 - Do not report logits, token NLL, bits, or white-box claims for hosted black-box rows.
@@ -168,11 +235,19 @@ row_id,model_id,item_id,prompt_id,output_text
 
 `prompt_id` must refer to a non-leaking prompt from `data/public_s2_prompts.jsonl`. Gated explicit reconstruction prompts are present for auditability but should not be submitted as compression candidates.
 
-## Local Verification
+## Where the scorer lives
 
-From the Aleph repository root:
+This package is **self-contained for scoring**. You do not need to clone the Aleph repository to compute AURC / ECL@tau / Elicit@k on a `submission_format.csv` of outputs:
+
+- `kaggle/_scoring.py` is a vendored copy of the pure-function metric helpers from `bench/engine/metrics.py` and `bench/engine/leakage_gate.py`. It has no third-party dependencies (standard library only).
+- `kaggle/score_outputs.py` reads the items JSONL, prompts JSONL, and a submission row sequence (CSV path or in-memory list) and emits a `BenchResult`-compatible JSON.
+- `kaggle/api_test_smoke.py` exercises both the I/O contract and the scorer end-to-end against a stub LLM; passing the smoke test means a Kaggle notebook will be able to call `score_submission(...)` against real outputs without further glue.
+
+A full repository-side verification (schema, bundle, audit, manifest) still requires the Aleph repo:
 
 ```bash
+git clone https://github.com/p-to-q/aleph
+cd aleph
 ./aleph-bench verify --audit bench/results/m0-audit.json --bundle bench/results/m0-bundle.json
 ./aleph-bench package --check bench/results/platform/m0-mock/package-manifest.json
 python3 bench/results/platform/m0-mock/kaggle/api_test_smoke.py
@@ -192,6 +267,8 @@ Before replacing the mock evidence note with real black-box rows:
 ./aleph-bench verify --result bench/results/m0-hosted-run.json --manifest bench/results/m0-hosted-manifest.json
 ./aleph-bench report --result bench/results/m0-hosted-run.json --out bench/results/m0-hosted-report.md
 ```
+
+`ALEPH_CUSTOM_API_BASE_URL` expects an OpenAI-compatible `/chat/completions` endpoint. For cross-vendor coverage (Anthropic, Gemini), point it at an OpenAI-compatible proxy such as OpenRouter or LiteLLM; native Anthropic / Gemini adapters are M1 scope.
 """
 
 
@@ -205,8 +282,17 @@ This checklist is the durable boundary between prepared package work and actual 
 | Stage | Status | Gate |
 | --- | --- | --- |
 | Local M0 evidence package | ready | `./aleph-bench package --check bench/results/platform/m0-mock/package-manifest.json` |
-| Kaggle API-test preparation | ready | `python3 bench/results/platform/m0-mock/kaggle/api_test_smoke.py` reports 180 sendable prompts and 180 prompt calls |
-| Hugging Face Dataset upload preparation | ready | `python3 bench/results/platform/m0-mock/huggingface/upload_dataset.py --dry-run` validates card, manifest, checksums, and upload shape |
+| Kaggle API-test preparation | ready | `python3 bench/results/platform/m0-mock/kaggle/api_test_smoke.py` reports 180 sendable prompts, 180 prompt calls, end-to-end scoring within bounds |
+| Hugging Face Dataset upload preparation | ready | `python3 bench/results/platform/m0-mock/huggingface/upload_dataset.py --dry-run` validates card, manifest, checksums, mock-csv location, and upload shape |
+| Vendored scorer self-test | ready | `python3 bench/results/platform/m0-mock/kaggle/api_test_smoke.py` exits 0 with `aurc` in `[0, 1]` and a monotone frontier |
+| Croissant 1.1 metadata validation | ready | `pip install mlcroissant && python3 bench/run.py validate-croissant bench/results/platform/m0-mock/croissant.json` reports `status: ok` with both record sets streaming |
+| Mock-CSV layout audit | ready | mock evaluation rows live under `evidence/` (not `data/`), so HF / Kaggle previews do not render them as a leaderboard |
+| HF / Kaggle account ownership decision | pending | confirm owner of `p-to-q/aleph-bench-m0` on both platforms (personal account vs org) before any `--execute` upload |
+| Kaggle Benchmarks Resource Grant submission | pending | submit `docs/benchmark/launch-kit/kaggle-grant-application.md` to Kaggle; track approval id |
+| Fresh-clone reproducibility check | pending | on a clean machine: `git clone … && ./aleph-bench package --check …` reproduces every checksum |
+| HF dataset card render check | blocked-after-upload | after upload, confirm mock-evidence callout is above the fold and `evidence/mock_*.csv` is not shown as a data preview |
+| Kaggle dataset render check | blocked-after-upload | after upload, confirm Data tab shows only `data/*` and treats `evidence/*` as supplementary files |
+| Announcement copy boundary | pending | blog / tweet / slide deck frames the release as "procedure release, model rows pending Grant" — never as a leaderboard |
 | Hugging Face Dataset upload | blocked | requires `HF_TOKEN` and ownership/write access for `p-to-q/aleph-bench-m0` |
 | Hugging Face benchmark or leaderboard surface | blocked | requires hosted black-box evidence or an explicit Space/Leaderboard app wired to real result rows |
 | Kaggle Dataset upload | blocked | requires Kaggle account ownership for `p-to-q/aleph-bench-m0` |
@@ -231,17 +317,36 @@ HF_TOKEN=... python3 bench/results/platform/m0-mock/huggingface/upload_dataset.p
 
 4. Post-upload checks:
 
-- root `README.md` renders as a dataset card;
+- root `README.md` renders as a dataset card with the mock-evidence callout above the fold;
 - `data/public_s2_items.jsonl` and `data/public_s2_prompts.jsonl` are visible as dataset files;
+- `evidence/mock_*.csv` are visible as supplementary files (not as a data preview / leaderboard);
 - `package-manifest.json` and `checksums.sha256` match this checked-in package;
 - the page copy does not present deterministic mock rows as real model ranking.
 
 ## Kaggle Path
 
 1. Upload or attach the package as a Kaggle Dataset using `dataset-metadata.json`.
-2. Run `python3 kaggle/api_test_smoke.py` inside the attached package path.
+2. Run `python3 kaggle/api_test_smoke.py` inside the attached package path (verifies I/O contract and the vendored scorer end-to-end).
 3. In the approved Kaggle Benchmarks notebook, wire `aleph_bench_m0_task.py` to `kaggle-benchmarks` with `@kbench.task`, `llm.prompt(...)`, `.evaluate(llm=[...], evaluation_data=df)`, and final `%choose`.
-4. Save the notebook version and attach generated task/run files before claiming a Kaggle benchmark launch.
+4. After collecting outputs, score them with `kaggle/score_outputs.py` (which uses the vendored `kaggle/_scoring.py`) to produce a `BenchResult` JSON.
+5. Save the notebook version and attach generated task/run files before claiming a Kaggle benchmark launch.
+
+## Kaggle Benchmarks Resource Grant
+
+The grant application draft lives at `docs/benchmark/launch-kit/kaggle-grant-application.md` in the upstream repository. Before a public Kaggle Community Benchmark launch:
+
+1. Finalize the application draft (replace any placeholder fields).
+2. Submit through the Kaggle Benchmarks Resource Grant program.
+3. Track the approval id; record it in the next iteration of this checklist.
+4. Until the grant is approved, the Kaggle Community Benchmark stage stays `blocked`.
+
+## Announcement boundary
+
+When announcing this release publicly:
+
+- frame it as a **procedure release**, not a leaderboard;
+- never use language like "we ranked GPT vs Claude vs Gemini" — no real model rows exist yet;
+- always pair any `aurc / eclAtTau / elicitAtK` number with the `evidenceMode = mock` label.
 
 ## Evidence Upgrade Gate
 
@@ -328,10 +433,18 @@ REQUIRED_FILES = [
     "schemas/aleph-bench-result.schema.json",
     "evidence/m0-first-run.json",
     "evidence/m0-evidence.md",
+    "evidence/mock_model_summary.csv",
+    "evidence/mock_item_metrics.csv",
     "kaggle/aleph_bench_m0_task.py",
     "kaggle/api_test_smoke.py",
+    "kaggle/_scoring.py",
+    "kaggle/score_outputs.py",
     "huggingface/README.md",
     "huggingface/upload_dataset.py",
+]
+FORBIDDEN_FILES = [
+    "data/mock_model_summary.csv",
+    "data/mock_item_metrics.csv",
 ]
 
 
@@ -360,14 +473,28 @@ def validate_package(root: Path) -> dict[str, Any]:
     for relative in REQUIRED_FILES:
         if not (root / relative).exists():
             errors.append(f"missing required file: {relative}")
+    for relative in FORBIDDEN_FILES:
+        if (root / relative).exists():
+            errors.append(
+                f"forbidden file present: {relative} (mock evidence must live under evidence/, "
+                "not data/, so HF / Kaggle previews don't render it as a leaderboard)"
+            )
 
     readme_path = root / "README.md"
     if readme_path.exists():
         readme = readme_path.read_text(encoding="utf-8")
         if not readme.startswith("---\\n"):
             errors.append("README.md is missing dataset-card YAML front matter")
-        if "configs:" not in readme or "data/public_s2_items.jsonl" not in readme:
-            errors.append("README.md does not declare the public-s2 data file")
+        if "configs:" not in readme:
+            errors.append("README.md does not declare dataset configs")
+        if "data/public_s2_items.jsonl" not in readme:
+            errors.append("README.md does not declare the public-s2 item file")
+        if "data/public_s2_prompts.jsonl" not in readme:
+            errors.append("README.md does not declare the public-s2 prompt file")
+        if "deterministic mock pipeline outputs" not in readme:
+            errors.append(
+                "README.md is missing the mock-evidence boundary banner ('deterministic mock pipeline outputs')"
+            )
 
     if "huggingface_dataset" not in manifest.get("targetPlatforms", []):
         errors.append("package manifest does not target huggingface_dataset")
@@ -507,7 +634,63 @@ def _resource_fields(fields: list[tuple[str, str, str]]) -> list[dict[str, str]]
     return [{"name": name, "title": title, "type": kind} for name, title, kind in fields]
 
 
-def _croissant_metadata(artifact_names: list[str]) -> dict[str, Any]:
+def _croissant_field(
+    record_id: str,
+    name: str,
+    description: str,
+    data_type: str,
+    file_object: str,
+    column: str,
+) -> dict[str, Any]:
+    return {
+        "@type": "cr:Field",
+        "@id": f"{record_id}/{name}",
+        "name": name,
+        "description": description,
+        "dataType": data_type,
+        "source": {
+            "fileObject": {"@id": file_object},
+            "extract": {"column": column},
+        },
+    }
+
+
+def _items_record_set_fields() -> list[dict[str, Any]]:
+    record_id = "public_s2_items"
+    file_object = "data/public_s2_items.csv"
+    return [
+        _croissant_field(record_id, "item_id", "Bench item id.", "sc:Text", file_object, "item_id"),
+        _croissant_field(record_id, "stratum", "Benchmark stratum (S1..S5).", "sc:Text", file_object, "stratum"),
+        _croissant_field(record_id, "language", "ISO 639-1 language code.", "sc:Text", file_object, "language"),
+        _croissant_field(record_id, "metric_class", "Primary fidelity metric class.", "sc:Text", file_object, "metric_class"),
+        _croissant_field(record_id, "target_label", "Short target label for cold reading.", "sc:Text", file_object, "target_label"),
+        _croissant_field(record_id, "target_text", "Target output text.", "sc:Text", file_object, "target_text"),
+        _croissant_field(record_id, "family", "Synthetic family (alpha/beta/gamma).", "sc:Text", file_object, "family"),
+        _croissant_field(record_id, "canary_guid", "Dataset-level contamination canary GUID.", "sc:Text", file_object, "canary_guid"),
+        _croissant_field(record_id, "license", "Item license.", "sc:Text", file_object, "license"),
+    ]
+
+
+def _prompts_record_set_fields() -> list[dict[str, Any]]:
+    record_id = "public_s2_prompts"
+    file_object = "data/public_s2_prompts.csv"
+    return [
+        _croissant_field(record_id, "item_id", "Bench item id.", "sc:Text", file_object, "item_id"),
+        _croissant_field(record_id, "prompt_id", "Frozen ladder prompt id.", "sc:Text", file_object, "prompt_id"),
+        _croissant_field(record_id, "rung", "Frozen ladder rung (0..3).", "sc:Integer", file_object, "rung"),
+        _croissant_field(record_id, "paraphrase", "Paraphrase index within rung.", "sc:Integer", file_object, "paraphrase"),
+        _croissant_field(record_id, "label", "Human-readable rung label.", "sc:Text", file_object, "label"),
+        _croissant_field(record_id, "expected_leakage", "Expected leakage class.", "sc:Text", file_object, "expected_leakage"),
+        _croissant_field(record_id, "tokens", "Regex token count of the prompt.", "sc:Integer", file_object, "tokens"),
+        _croissant_field(record_id, "disqualified", "Whether the leakage gate disqualifies the prompt.", "sc:Boolean", file_object, "disqualified"),
+        _croissant_field(record_id, "lcs_ratio", "Prompt-target LCS ratio.", "sc:Float", file_object, "lcs_ratio"),
+        _croissant_field(record_id, "trigram_overlap", "Target trigram overlap.", "sc:Float", file_object, "trigram_overlap"),
+        _croissant_field(record_id, "verbatim_span_tokens", "Longest verbatim token span.", "sc:Integer", file_object, "verbatim_span_tokens"),
+        _croissant_field(record_id, "prompt", "Prompt text.", "sc:Text", file_object, "prompt"),
+    ]
+
+
+def _croissant_metadata(artifact_hashes: dict[str, str]) -> dict[str, Any]:
     distributions = [
         {
             "@type": "cr:FileObject",
@@ -515,19 +698,54 @@ def _croissant_metadata(artifact_names: list[str]) -> dict[str, Any]:
             "name": name,
             "contentUrl": name,
             "encodingFormat": _encoding_for(name),
+            "sha256": artifact_hashes[name],
         }
-        for name in artifact_names
+        for name in sorted(artifact_hashes)
         if name.startswith("data/") or name.startswith("schemas/") or name.startswith("evidence/")
     ]
+    cite_as = (
+        "Aleph-Bench Maintainers (2026). Aleph-Bench M0: A Frozen-Ladder Prompt-Compression "
+        "Benchmark (Procedure Release). https://huggingface.co/datasets/" + HF_ID
+    )
     return {
         "@context": {
             "@language": "en",
-            "sc": "https://schema.org/",
+            "@vocab": "https://schema.org/",
+            "citeAs": "cr:citeAs",
+            "column": "cr:column",
+            "conformsTo": "dct:conformsTo",
             "cr": "http://mlcommons.org/croissant/",
+            "data": {"@id": "cr:data", "@type": "@json"},
+            "dataType": {"@id": "cr:dataType", "@type": "@vocab"},
             "dct": "http://purl.org/dc/terms/",
+            "examples": {"@id": "cr:examples", "@type": "@json"},
+            "extract": "cr:extract",
+            "field": "cr:field",
+            "fileObject": "cr:fileObject",
+            "fileProperty": "cr:fileProperty",
+            "fileSet": "cr:fileSet",
+            "format": "cr:format",
+            "includes": "cr:includes",
+            "isLiveDataset": "cr:isLiveDataset",
+            "jsonPath": "cr:jsonPath",
+            "key": "cr:key",
+            "md5": "cr:md5",
+            "parentField": "cr:parentField",
+            "path": "cr:path",
+            "rai": "http://mlcommons.org/croissant/RAI/",
+            "recordSet": "cr:recordSet",
+            "references": "cr:references",
+            "regex": "cr:regex",
+            "repeated": "cr:repeated",
+            "replace": "cr:replace",
+            "sc": "https://schema.org/",
+            "separator": "cr:separator",
+            "source": "cr:source",
+            "subField": "cr:subField",
+            "transform": "cr:transform",
         },
         "@type": "sc:Dataset",
-        "dct:conformsTo": "http://mlcommons.org/croissant/1.1",
+        "conformsTo": "http://mlcommons.org/croissant/1.1",
         "name": "Aleph-Bench M0",
         "description": (
             "A frozen-ladder prompt-compression benchmark seed package with 30 S2 "
@@ -535,13 +753,14 @@ def _croissant_metadata(artifact_names: list[str]) -> dict[str, Any]:
         ),
         "url": f"https://huggingface.co/datasets/{HF_ID}",
         "sameAs": [f"https://www.kaggle.com/datasets/{KAGGLE_ID}"],
-        "version": "m0",
+        "version": "0.1.0",
         "dateCreated": "2026-06-03",
         "datePublished": "2026-06-03",
         "creator": {"@type": "sc:Organization", "name": "p-to-q"},
         "publisher": {"@type": "sc:Organization", "name": "p-to-q"},
         "license": "https://spdx.org/licenses/CC0-1.0.html",
         "sdLicense": "https://spdx.org/licenses/CC0-1.0.html",
+        "citeAs": cite_as,
         "inLanguage": ["en"],
         "keywords": [
             "benchmark",
@@ -558,14 +777,14 @@ def _croissant_metadata(artifact_names: list[str]) -> dict[str, Any]:
                 "@id": "public_s2_items",
                 "name": "public_s2_items",
                 "description": "Thirty public S2 compositional BenchItems.",
-                "data": [{"source": {"fileObject": "data/public_s2_items.jsonl"}}],
+                "field": _items_record_set_fields(),
             },
             {
                 "@type": "cr:RecordSet",
                 "@id": "public_s2_prompts",
                 "name": "public_s2_prompts",
                 "description": "Frozen-ladder prompt rows and leakage-gate measurements.",
-                "data": [{"source": {"fileObject": "data/public_s2_prompts.jsonl"}}],
+                "field": _prompts_record_set_fields(),
             },
         ],
     }
@@ -573,7 +792,7 @@ def _croissant_metadata(artifact_names: list[str]) -> dict[str, Any]:
 
 def _encoding_for(name: str) -> str:
     if name.endswith(".jsonl"):
-        return "application/jsonl"
+        return "application/jsonlines"
     if name.endswith(".json"):
         return "application/json"
     if name.endswith(".csv"):
@@ -688,40 +907,74 @@ def _item_metric_rows(result: dict[str, Any]) -> list[dict[str, Any]]:
 def _kaggle_task_readme() -> str:
     return """# Kaggle Community Benchmark Scaffold
 
-This directory is a launch scaffold, not checked-in hosted evidence. Kaggle Community Benchmarks run through a notebook/task interface with model access supplied by Kaggle's benchmark program. The M0 task should call each model on the non-leaking frozen-ladder prompts, then score outputs with the same local AURC/ECL/Elicit/leakage code used by `./aleph-bench`.
+This directory is a launch scaffold, not checked-in hosted evidence. Kaggle Community Benchmarks run through a notebook/task interface with model access supplied by Kaggle's benchmark program. The M0 task should call each model on the non-leaking frozen-ladder prompts, then score outputs with the vendored AURC/ECL/Elicit/leakage code shipped here so a Kaggle notebook does **not** need to clone the Aleph repository.
 
-The included `aleph_bench_m0_task.py` is intentionally minimal and defensive. Kaggle Community Benchmarks use executable Python tasks built around the `kaggle-benchmarks` SDK's `@kbench.task(...)` decorator and `llm.prompt(...)`; this scaffold keeps that shape visible while leaving exact model-access wiring to the approved Kaggle notebook.
+## Files
+
+- `aleph_bench_m0_task.py` — scaffold/template. `import`-safe (no third-party deps) and prints a friendly notebook-only message when executed as `__main__` rather than crashing. The `@kbench.task` wiring is documented inline; uncomment it in the approved Kaggle notebook.
+- `_scoring.py` — vendored copy of the pure metric functions from `bench/engine/metrics.py` and `bench/engine/leakage_gate.py` (standard library only). This is the *source of truth* for scoring inside Kaggle; do not edit it by hand — regenerate the package from the Aleph repo.
+- `score_outputs.py` — given a submission row sequence (CSV path or list of dicts) plus the items/prompts JSONL files, produces a `BenchResult`-compatible JSON. Use this in the Kaggle notebook after `.evaluate(...)` returns.
+- `api_test_smoke.py` — local end-to-end smoke test. Verifies I/O shape (one `prompt(...)` call per non-leaking row, correct submission CSV), then runs the vendored scorer against the stub outputs and asserts `aurc ∈ [0, 1]`, a monotone non-leaking frontier, and that rung-0 prompts are gated.
+
+## Boundary
 
 - it keeps explicit reconstruction anchors out of submissions;
 - it treats model outputs as `black_box` behavioral evidence;
 - it does not request or report logits, token NLL, or bits;
 - it points maintainers back to the repository verifier before publishing rows.
 
-For the API-test preparation step, run `python3 kaggle/api_test_smoke.py` from this package or from the repository path where it is checked in. The smoke test uses a stub LLM to verify that the task wrapper calls `prompt(...)` once per non-leaking row and emits the exact public submission shape. Passing the smoke test is not hosted model evidence; it only proves the package is ready to be wired into Kaggle's approved notebook.
+## How it slots into a Kaggle notebook
 
-Before a public Kaggle benchmark launch, replace the placeholder model loop with the exact Kaggle `kaggle-benchmarks` SDK calls used by the approved Resource Grant notebook, save the notebook version, and attach the resulting hosted `BenchResult` plus manifest/report as separate evidence artifacts.
+```python
+import kaggle_benchmarks as kbench
+from aleph_bench_m0_task import aleph_bench_m0_prompt, prompt_dataframe
+from score_outputs import score_submission
+
+results = aleph_bench_m0_prompt.evaluate(llm=[kbench.llm], evaluation_data=prompt_dataframe())
+submission = [row for row in results]  # adapt to the SDK's return shape
+bench_result = score_submission(
+    items_path="../data/public_s2_items.jsonl",
+    prompts_path="../data/public_s2_prompts.jsonl",
+    submission_rows=submission,
+    model_id="kaggle/<model>",
+)
+```
+
+## Local smoke
+
+Run `python3 kaggle/api_test_smoke.py` from this directory. The smoke test uses a stub LLM to verify the I/O contract and the vendored scorer. Passing the smoke test is not hosted model evidence; it only proves the package is ready to be wired into Kaggle's approved notebook.
+
+Before a public Kaggle benchmark launch, finalize the Resource Grant application (`docs/benchmark/launch-kit/kaggle-grant-application.md`), replace the placeholder model loop with the exact Kaggle `kaggle-benchmarks` SDK calls used by the approved notebook, save the notebook version, and attach the resulting hosted `BenchResult` plus manifest/report as separate evidence artifacts.
 """
 
 
 def _kaggle_task_py() -> str:
-    return '''"""Aleph-Bench M0 Kaggle Community Benchmark scaffold.
+    return '''"""Aleph-Bench M0 Kaggle Community Benchmark scaffold / template.
 
-This file is packaged for reviewer inspection. It is not executed by the local
-test suite because Kaggle model access is granted inside Kaggle notebooks.
+This file is a *template*. It is `import`-safe and uses only the standard
+library so the package smoke test can load it; the `@kbench.task` wiring is
+documented inline and meant to be uncommented inside an approved Kaggle
+Benchmarks notebook where the `kaggle-benchmarks` SDK and model access are
+available. Running this file directly (`python3 aleph_bench_m0_task.py`)
+prints a friendly notebook-only message and exits 0 rather than crashing.
 """
 
 from __future__ import annotations
 
 import json
+import sys
 from pathlib import Path
+from typing import Any, Callable
 
 
 PACKAGE_ROOT = Path(__file__).resolve().parents[1]
 PROMPTS_PATH = PACKAGE_ROOT / "data/public_s2_prompts.jsonl"
 
 
-# Kaggle notebook wiring sketch (uncomment only inside the approved benchmark
+# ---------------------------------------------------------------------------
+# Kaggle notebook wiring sketch (uncomment INSIDE the approved benchmark
 # notebook, where kaggle-benchmarks is installed and model access is available):
+# ---------------------------------------------------------------------------
 #
 # import kaggle_benchmarks as kbench
 #
@@ -731,11 +984,16 @@ PROMPTS_PATH = PACKAGE_ROOT / "data/public_s2_prompts.jsonl"
 #         output = llm.prompt(prompt)
 #     return {"item_id": item_id, "prompt_id": prompt_id, "output_text": str(output)}
 #
-# results = aleph_bench_m0_prompt.evaluate(llm=[kbench.llm], evaluation_data=prompt_dataframe)
+# results = aleph_bench_m0_prompt.evaluate(llm=[kbench.llm], evaluation_data=prompt_dataframe())
+#
+# After collecting `results`, score them with score_outputs.score_submission(...)
+# (the vendored AURC / ECL@tau / Elicit@k pipeline lives in `_scoring.py`).
 
 
-def load_sendable_prompts() -> list[dict[str, object]]:
-    rows = []
+def load_sendable_prompts() -> list[dict[str, Any]]:
+    """Return the 180 non-leaking ladder prompts from the packaged JSONL."""
+
+    rows: list[dict[str, Any]] = []
     for line in PROMPTS_PATH.read_text(encoding="utf-8").splitlines():
         row = json.loads(line)
         if not row["disqualified"]:
@@ -743,17 +1001,39 @@ def load_sendable_prompts() -> list[dict[str, object]]:
     return rows
 
 
-def run_black_box_model(model_id: str, llm: object) -> list[dict[str, str]]:
+def prompt_dataframe() -> list[dict[str, Any]]:
+    """Minimal row-oriented evaluation data suitable for `kbench.task.evaluate`.
+
+    Kaggle Benchmarks accepts any dataframe-like iterable; for local notebooks
+    without pandas, the list-of-dicts shape works as drop-in input.
+    """
+
+    return [
+        {
+            "item_id": str(row["item_id"]),
+            "prompt_id": str(row["prompt_id"]),
+            "prompt": str(row["prompt"]),
+        }
+        for row in load_sendable_prompts()
+    ]
+
+
+def run_black_box_model(model_id: str, llm: Any) -> list[dict[str, str]]:
     """Run one Kaggle-provided model over all non-leaking M0 prompts.
 
     `llm` is expected to be the model object provided by the Kaggle Community
-    Benchmarks notebook environment. It should expose a generation method such
-    as `prompt(...)`; exact SDK wiring belongs in the submitted Kaggle notebook.
+    Benchmarks notebook environment. It must expose a `prompt(...)` method
+    (string in, string out); exact SDK wiring belongs in the submitted Kaggle
+    notebook.
     """
 
-    outputs = []
+    if not hasattr(llm, "prompt") or not callable(getattr(llm, "prompt")):
+        raise TypeError("llm must expose a callable `prompt(str) -> str`")
+
+    outputs: list[dict[str, str]] = []
+    prompt_fn: Callable[[str], Any] = llm.prompt
     for row in load_sendable_prompts():
-        output = llm.prompt(str(row["prompt"]))
+        output = prompt_fn(str(row["prompt"]))
         outputs.append(
             {
                 "row_id": f"{row['item_id']}:{row['prompt_id']}",
@@ -766,24 +1046,38 @@ def run_black_box_model(model_id: str, llm: object) -> list[dict[str, str]]:
     return outputs
 
 
-def main() -> None:
-    raise SystemExit(
-        "This scaffold must run inside a Kaggle Community Benchmarks notebook "
-        "with approved model access. Locally, use ./aleph-bench package --check."
+def main() -> int:
+    sendable = load_sendable_prompts()
+    print(
+        f"Aleph-Bench M0 task scaffold. {len(sendable)} non-leaking prompts ready. "
+        "This file is a template: wire it into an approved Kaggle Community Benchmarks "
+        "notebook (see the commented @kbench.task block at the top), then score outputs "
+        "with score_outputs.score_submission(...).",
+        file=sys.stderr,
     )
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())
 '''
 
 
 def _kaggle_api_test_smoke_py() -> str:
     return '''"""Local smoke test for the Aleph-Bench M0 Kaggle API-test wrapper.
 
-This script deliberately uses a stub LLM. It proves the package-level task I/O
-contract before Kaggle-hosted model access exists; it does not produce model
-evidence or leaderboard rows.
+This script deliberately uses a stub LLM. It proves two contracts before any
+hosted Kaggle model access exists:
+
+  1. The I/O contract: aleph_bench_m0_task.run_black_box_model produces one
+     submission row per non-leaking ladder prompt, with the exact public
+     submission shape.
+  2. The vendored scorer contract: score_outputs.score_submission consumes
+     those rows, returns a schema-shaped BenchResult, and emits well-formed
+     metric values (aurc in [0, 1], monotone non-leaking frontier, rung-0
+     prompts gated by the leakage gate).
+
+Neither contract produces model evidence or leaderboard rows.
 """
 
 from __future__ import annotations
@@ -791,15 +1085,27 @@ from __future__ import annotations
 import csv
 import json
 from pathlib import Path
+import shutil
 import sys
 
 
 KAGGLE_DIR = Path(__file__).resolve().parent
 PACKAGE_ROOT = KAGGLE_DIR.parent
 SUBMISSION_PATH = PACKAGE_ROOT / "data/submission_format.csv"
+ITEMS_PATH = PACKAGE_ROOT / "data/public_s2_items.jsonl"
+PROMPTS_PATH = PACKAGE_ROOT / "data/public_s2_prompts.jsonl"
+
+
+def cleanup_runtime_cache() -> None:
+    shutil.rmtree(KAGGLE_DIR / "__pycache__", ignore_errors=True)
+
+
+cleanup_runtime_cache()
+sys.dont_write_bytecode = True
 sys.path.insert(0, str(KAGGLE_DIR))
 
 import aleph_bench_m0_task  # noqa: E402
+import score_outputs  # noqa: E402
 
 
 class StubLLM:
@@ -818,6 +1124,41 @@ def load_submission_rows() -> list[dict[str, str]]:
 
 def row_key(row: dict[str, object]) -> tuple[str, str, str]:
     return (str(row["row_id"]), str(row["item_id"]), str(row["prompt_id"]))
+
+
+def _check_metric_invariants(bench_result: dict, errors: list[str]) -> None:
+    aggregate = bench_result.get("aggregate") or {}
+    aurc = aggregate.get("aurc")
+    if aurc is None or not (0.0 <= float(aurc) <= 1.0):
+        errors.append(f"aggregate.aurc out of [0,1]: {aurc!r}")
+
+    item_runs = bench_result.get("itemRuns") or []
+    if not item_runs:
+        errors.append("score_submission returned no itemRuns")
+        return
+
+    for run in item_runs:
+        item_id = run.get("itemId")
+        frontier = run.get("frontier") or []
+        previous_distortion: float | None = None
+        previous_tokens: int | None = None
+        for point in frontier:
+            tokens = int(point["tokens"])
+            distortion = float(point["distortion"])
+            if previous_tokens is not None and tokens < previous_tokens:
+                errors.append(f"{item_id}: frontier tokens not monotone non-decreasing")
+                break
+            if previous_distortion is not None and distortion > previous_distortion + 1e-9:
+                errors.append(f"{item_id}: frontier distortion not monotone non-increasing")
+                break
+            previous_tokens = tokens
+            previous_distortion = distortion
+
+        leakage_hit_rate = run.get("metrics", {}).get("leakageHitRate")
+        if leakage_hit_rate is None or float(leakage_hit_rate) < 0.25 - 1e-9:
+            errors.append(
+                f"{item_id}: leakage hit rate {leakage_hit_rate!r} below 0.25 — rung-0 anchors should be gated"
+            )
 
 
 def main() -> None:
@@ -855,12 +1196,23 @@ def main() -> None:
             errors.append(f"row {index} has empty output_text")
             break
 
+    bench_result = score_outputs.score_submission(
+        items_path=str(ITEMS_PATH),
+        prompts_path=str(PROMPTS_PATH),
+        submission_rows=observed_rows,
+        model_id="stub/model",
+    )
+    _check_metric_invariants(bench_result, errors)
+    aggregate_aurc = bench_result.get("aggregate", {}).get("aurc")
+
     report = {
         "status": "failed" if errors else "ok",
         "packageRoot": str(PACKAGE_ROOT),
         "sendablePrompts": len(prompts),
         "submissionRows": len(expected_rows),
         "promptCalls": len(llm.prompts),
+        "scoredItems": len(bench_result.get("itemRuns") or []),
+        "aggregateAurc": aggregate_aurc,
         "firstRow": observed_rows[0] if observed_rows else None,
         "errors": errors,
     }
@@ -870,7 +1222,533 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    finally:
+        cleanup_runtime_cache()
+'''
+
+
+def _kaggle_scoring_py() -> str:
+    return '''"""Vendored scoring helpers for Aleph-Bench M0.
+
+This module is a self-contained copy of the pure functions in
+`bench/engine/metrics.py` and `bench/engine/leakage_gate.py`. It uses only the
+Python standard library so a Kaggle notebook can compute AURC / ECL@tau /
+Elicit@k without cloning the upstream Aleph repository.
+
+Do not edit this file by hand — regenerate the package from the Aleph repo
+with `./aleph-bench package --out-dir bench/results/platform/m0-mock`.
+"""
+
+from __future__ import annotations
+
+import random
+import re
+from dataclasses import dataclass
+from statistics import mean
+from typing import Any, Iterable
+
+
+TOKEN_RE = re.compile(r"[A-Za-z0-9]+")
+
+DEFAULT_LEAKAGE_THRESHOLDS: dict[str, float | int] = {
+    "lcsRatio": 0.65,
+    "trigramOverlap": 0.5,
+    "verbatimSpanTokens": 16,
+}
+
+
+# ---------------------------------------------------------------------------
+# Fidelity / distortion / frontier
+# ---------------------------------------------------------------------------
+
+
+def token_count(text: str) -> int:
+    return len(TOKEN_RE.findall(text))
+
+
+def normalized_text(text: str) -> str:
+    return " ".join(TOKEN_RE.findall(text.lower()))
+
+
+def levenshtein(a: str, b: str) -> int:
+    if a == b:
+        return 0
+    if not a:
+        return len(b)
+    if not b:
+        return len(a)
+    previous = list(range(len(b) + 1))
+    for i, char_a in enumerate(a, start=1):
+        current = [i]
+        for j, char_b in enumerate(b, start=1):
+            insert = current[j - 1] + 1
+            delete = previous[j] + 1
+            replace = previous[j - 1] + (0 if char_a == char_b else 1)
+            current.append(min(insert, delete, replace))
+        previous = current
+    return previous[-1]
+
+
+def exact_fidelity(target: str, output: str) -> float:
+    """Exact-class fidelity: 1.0 on exact equality; normalized edit distance otherwise."""
+
+    if target == output:
+        return 1.0
+    target_norm = normalized_text(target)
+    output_norm = normalized_text(output)
+    if not target_norm and not output_norm:
+        return 1.0
+    if not target_norm or not output_norm:
+        return 0.0
+    distance = levenshtein(target_norm, output_norm)
+    scale = max(len(target_norm), len(output_norm))
+    return round(max(0.0, 1.0 - distance / scale), 6)
+
+
+def char_ngram_fidelity(target: str, output: str, n: int = 3) -> float:
+    def grams(value: str) -> set[str]:
+        clean = normalized_text(value)
+        if len(clean) < n:
+            return {clean} if clean else set()
+        return {clean[i : i + n] for i in range(len(clean) - n + 1)}
+
+    target_grams = grams(target)
+    output_grams = grams(output)
+    if not target_grams and not output_grams:
+        return 1.0
+    if not target_grams or not output_grams:
+        return 0.0
+    return round(len(target_grams & output_grams) / len(target_grams | output_grams), 6)
+
+
+def fidelity(target: str, output: str, metric_class: str) -> float:
+    if metric_class == "exact":
+        return exact_fidelity(target, output)
+    if metric_class == "lexical":
+        return char_ngram_fidelity(target, output)
+    return exact_fidelity(target, output)
+
+
+def distortion(target: str, output: str, metric_class: str) -> float:
+    return round(1.0 - fidelity(target, output, metric_class), 6)
+
+
+def monotone_lower_envelope(points: Iterable[dict[str, Any]]) -> list[dict[str, Any]]:
+    by_length: dict[int, dict[str, Any]] = {}
+    for point in points:
+        if point.get("disqualified"):
+            continue
+        length = int(point["tokens"])
+        current = by_length.get(length)
+        if current is None or point["distortion"] < current["distortion"]:
+            by_length[length] = point
+
+    envelope: list[dict[str, Any]] = []
+    best_distortion: float | None = None
+    for point in sorted(by_length.values(), key=lambda item: (item["tokens"], item["distortion"])):
+        if best_distortion is None or point["distortion"] < best_distortion:
+            best_distortion = point["distortion"]
+            frontier_point = dict(point)
+            frontier_point["frontierRank"] = len(envelope) + 1
+            envelope.append(frontier_point)
+    return envelope
+
+
+def aurc(frontier: list[dict[str, Any]], normalizer_tokens: int) -> float:
+    """Area under the rate-distortion staircase; lower is better.
+
+    `normalizer_tokens` is the right-hand budget anchor (the explicit
+    reconstruction prompt length, or the target text length if it is larger;
+    matches `frozen_ladder.py:evaluate_item`'s `explicit_tokens`).
+    """
+
+    if not frontier:
+        return 1.0
+    normalizer = max(1, normalizer_tokens)
+    area = 0.0
+    previous_x = 0.0
+    current_distortion = frontier[0]["distortion"]
+    for point in sorted(frontier, key=lambda item: item["tokens"]):
+        x = max(previous_x, min(1.0, point["tokens"] / normalizer))
+        area += (x - previous_x) * current_distortion
+        current_distortion = point["distortion"]
+        previous_x = x
+    area += max(0.0, 1.0 - previous_x) * current_distortion
+    return round(max(0.0, min(1.0, area)), 6)
+
+
+def ecl_at_tau(frontier: list[dict[str, Any]], tau: float) -> int | None:
+    hits = [point["tokens"] for point in frontier if point["fidelity"] >= tau]
+    return min(hits) if hits else None
+
+
+def elicit_at_k(frontier: list[dict[str, Any]], tau: float, k: int) -> bool:
+    shortest = sorted(frontier, key=lambda item: item["tokens"])[:k]
+    return any(point["fidelity"] >= tau for point in shortest)
+
+
+def ci95(values: list[float], *, seed: int, samples: int) -> dict[str, float] | None:
+    if not values:
+        return None
+    if len(values) == 1:
+        value = round(values[0], 6)
+        return {"low": value, "high": value}
+    rng = random.Random(seed)
+    boot = []
+    for _ in range(samples):
+        draw = [values[rng.randrange(len(values))] for _ in values]
+        boot.append(mean(draw))
+    boot.sort()
+    low_index = int(0.025 * (len(boot) - 1))
+    high_index = int(0.975 * (len(boot) - 1))
+    return {"low": round(boot[low_index], 6), "high": round(boot[high_index], 6)}
+
+
+def summarize(values: list[float], *, seed: int, samples: int) -> tuple[float | None, dict[str, float] | None]:
+    if not values:
+        return None, None
+    return round(mean(values), 6), ci95(values, seed=seed, samples=samples)
+
+
+# ---------------------------------------------------------------------------
+# Leakage gate (diagnostics + gate)
+# ---------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class LeakageGateResult:
+    disqualified: bool
+    lcsRatio: float
+    trigramOverlap: float
+    verbatimSpanTokens: int
+    thresholds: dict[str, float | int]
+
+    def as_dict(self) -> dict[str, object]:
+        return {
+            "disqualified": self.disqualified,
+            "lcsRatio": self.lcsRatio,
+            "trigramOverlap": self.trigramOverlap,
+            "verbatimSpanTokens": self.verbatimSpanTokens,
+            "thresholds": dict(self.thresholds),
+        }
+
+
+def leakage_tokens(text: str) -> list[str]:
+    return TOKEN_RE.findall(text.lower())
+
+
+def _lcs_length(a: list[str], b: list[str]) -> int:
+    if not a or not b:
+        return 0
+    previous = [0] * (len(b) + 1)
+    for token_a in a:
+        current = [0]
+        for j, token_b in enumerate(b, start=1):
+            if token_a == token_b:
+                current.append(previous[j - 1] + 1)
+            else:
+                current.append(max(previous[j], current[j - 1]))
+        previous = current
+    return previous[-1]
+
+
+def _longest_common_span(a: list[str], b: list[str]) -> int:
+    best = 0
+    previous = [0] * (len(b) + 1)
+    for token_a in a:
+        current = [0]
+        for j, token_b in enumerate(b, start=1):
+            value = previous[j - 1] + 1 if token_a == token_b else 0
+            current.append(value)
+            best = max(best, value)
+        previous = current
+    return best
+
+
+def _ngrams(values: list[str], n: int) -> set[tuple[str, ...]]:
+    return {tuple(values[i : i + n]) for i in range(max(0, len(values) - n + 1))}
+
+
+def evaluate_leakage(
+    prompt: str,
+    target: str,
+    thresholds: dict[str, float | int] | None = None,
+) -> LeakageGateResult:
+    active = dict(DEFAULT_LEAKAGE_THRESHOLDS if thresholds is None else thresholds)
+    prompt_tokens = leakage_tokens(prompt)
+    target_tokens = leakage_tokens(target)
+    if not prompt_tokens or not target_tokens:
+        return LeakageGateResult(False, 0.0, 0.0, 0, active)
+
+    lcs_ratio = _lcs_length(prompt_tokens, target_tokens) / len(target_tokens)
+    target_trigrams = _ngrams(target_tokens, 3)
+    prompt_trigrams = _ngrams(prompt_tokens, 3)
+    trigram_overlap = (
+        len(target_trigrams & prompt_trigrams) / len(target_trigrams) if target_trigrams else 0.0
+    )
+    span = _longest_common_span(prompt_tokens, target_tokens)
+    disqualified = (
+        lcs_ratio >= float(active["lcsRatio"])
+        or trigram_overlap >= float(active["trigramOverlap"])
+        or span >= int(active["verbatimSpanTokens"])
+    )
+    return LeakageGateResult(
+        disqualified=disqualified,
+        lcsRatio=round(lcs_ratio, 6),
+        trigramOverlap=round(trigram_overlap, 6),
+        verbatimSpanTokens=span,
+        thresholds=active,
+    )
+
+
+def leakage_score(result: LeakageGateResult) -> float:
+    """Diagnostic-only score in [0, 1]. Never folded into AURC; the gate
+    (`result.disqualified`) is the only thing that affects scoring."""
+
+    span_score = min(1.0, result.verbatimSpanTokens / int(result.thresholds["verbatimSpanTokens"]))
+    return round(max(result.lcsRatio, result.trigramOverlap, span_score), 6)
+'''
+
+
+def _kaggle_score_outputs_py() -> str:
+    return '''"""Score a Kaggle / local submission against the M0 frozen ladder.
+
+Inputs:
+- items JSONL (`data/public_s2_items.jsonl`)
+- prompts JSONL (`data/public_s2_prompts.jsonl`)
+- submission rows (CSV path or list of dicts with row_id, model_id, item_id, prompt_id, output_text)
+
+Output: a `BenchResult`-compatible dict (subset of the strict schema; intended
+for community use, not as a substitute for `./aleph-bench verify`).
+"""
+
+from __future__ import annotations
+
+import argparse
+import csv
+import json
+import sys
+from pathlib import Path
+from statistics import mean
+from typing import Any, Iterable
+
+KAGGLE_DIR = Path(__file__).resolve().parent
+if str(KAGGLE_DIR) not in sys.path:
+    sys.path.insert(0, str(KAGGLE_DIR))
+
+import _scoring  # noqa: E402
+
+
+DEFAULT_TAU = 0.9
+DEFAULT_K = 3
+DEFAULT_BOOTSTRAP_SAMPLES = 500
+DEFAULT_SEED = 0
+
+
+def _load_jsonl(path: Path) -> list[dict[str, Any]]:
+    return [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines() if line.strip()]
+
+
+def _load_submission_rows(path: Path) -> list[dict[str, str]]:
+    with path.open(encoding="utf-8", newline="") as handle:
+        return list(csv.DictReader(handle))
+
+
+def _index_outputs(submission_rows: Iterable[dict[str, Any]]) -> dict[tuple[str, str], str]:
+    outputs: dict[tuple[str, str], str] = {}
+    for row in submission_rows:
+        item_id = str(row["item_id"]) if "item_id" in row else None
+        prompt_id = str(row["prompt_id"]) if "prompt_id" in row else None
+        text = str(row.get("output_text") or "")
+        if item_id is None or prompt_id is None:
+            raise ValueError(f"submission row missing item_id/prompt_id: {row!r}")
+        outputs[(item_id, prompt_id)] = text
+    return outputs
+
+
+def _index_prompts(prompt_rows: list[dict[str, Any]]) -> dict[tuple[str, str], dict[str, Any]]:
+    return {(str(row["item_id"]), str(row["prompt_id"])): row for row in prompt_rows}
+
+
+def score_submission(
+    *,
+    items_path: str | Path,
+    prompts_path: str | Path,
+    submission_rows: Iterable[dict[str, Any]] | str | Path,
+    model_id: str,
+    tau: float = DEFAULT_TAU,
+    k: int = DEFAULT_K,
+    bootstrap_samples: int = DEFAULT_BOOTSTRAP_SAMPLES,
+    seed: int = DEFAULT_SEED,
+    leakage_thresholds: dict[str, float | int] | None = None,
+) -> dict[str, Any]:
+    items_path = Path(items_path)
+    prompts_path = Path(prompts_path)
+    items = _load_jsonl(items_path)
+    prompt_rows = _load_jsonl(prompts_path)
+    if isinstance(submission_rows, (str, Path)):
+        submission_rows = _load_submission_rows(Path(submission_rows))
+    outputs = _index_outputs(submission_rows)
+    prompt_index = _index_prompts(prompt_rows)
+    thresholds = dict(_scoring.DEFAULT_LEAKAGE_THRESHOLDS if leakage_thresholds is None else leakage_thresholds)
+
+    item_runs: list[dict[str, Any]] = []
+    aurc_values: list[float] = []
+    ecl_values: list[float] = []
+    elicit_values: list[float] = []
+    leakage_values: list[float] = []
+    metric_classes: set[str] = set()
+
+    for item in items:
+        target = item["target"]["text"]
+        metric_class = item["metricClass"]
+        metric_classes.add(metric_class)
+        explicit_prompt = item["frozenLadder"][0]["prompt"]
+        explicit_tokens = max(
+            _scoring.token_count(explicit_prompt), _scoring.token_count(target), 1
+        )
+        scored_points: list[dict[str, Any]] = []
+        leakage_hits = 0
+        for ladder in item["frozenLadder"]:
+            prompt_text = ladder["prompt"]
+            key = (str(item["id"]), str(ladder["id"]))
+            packed_prompt = prompt_index.get(key)
+            gate = _scoring.evaluate_leakage(prompt_text, target, thresholds)
+            disqualified = bool((packed_prompt or {}).get("disqualified", gate.disqualified))
+            if disqualified:
+                leakage_hits += 1
+                fid = 0.0
+            elif key not in outputs:
+                fid = 0.0
+            else:
+                fid = _scoring.fidelity(target, outputs[key], metric_class)
+            tokens = _scoring.token_count(prompt_text)
+            scored_points.append(
+                {
+                    "id": ladder["id"],
+                    "tokens": tokens,
+                    "fidelity": fid,
+                    "distortion": round(1.0 - fid, 6),
+                    "disqualified": disqualified,
+                    "rung": ladder["rung"],
+                    "paraphrase": ladder["paraphrase"],
+                }
+            )
+        frontier = _scoring.monotone_lower_envelope(scored_points)
+        item_aurc = _scoring.aurc(frontier, explicit_tokens)
+        item_ecl = _scoring.ecl_at_tau(frontier, tau)
+        non_leaking = [point for point in scored_points if not point["disqualified"]]
+        item_elicit = _scoring.elicit_at_k(non_leaking, tau, k)
+        leakage_hit_rate = round(leakage_hits / max(1, len(scored_points)), 6)
+        aurc_values.append(item_aurc)
+        if item_ecl is not None:
+            ecl_values.append(float(item_ecl))
+        elicit_values.append(1.0 if item_elicit else 0.0)
+        leakage_values.append(leakage_hit_rate)
+        item_runs.append(
+            {
+                "itemId": item["id"],
+                "model": model_id,
+                "frontier": frontier,
+                "metrics": {
+                    "aurc": item_aurc,
+                    "eclAtTau": item_ecl,
+                    "elicitAtK": item_elicit,
+                    "leakageHitRate": leakage_hit_rate,
+                },
+            }
+        )
+
+    aurc_mean, aurc_ci = _scoring.summarize(aurc_values, seed=seed + 1000, samples=bootstrap_samples)
+    ecl_mean, ecl_ci = _scoring.summarize(ecl_values, seed=seed + 2000, samples=bootstrap_samples)
+    elicit_mean, elicit_ci = _scoring.summarize(
+        elicit_values, seed=seed + 3000, samples=bootstrap_samples
+    )
+
+    return {
+        "id": f"aleph-bench-m0-{model_id}",
+        "track": "F",
+        "split": "public",
+        "seed": seed,
+        "stratum": "S2",
+        "metricClasses": sorted(metric_classes),
+        "tau": tau,
+        "k": k,
+        "canaryGuid": items[0]["canaryGuid"] if items else None,
+        "config": {
+            "datasetPath": str(items_path),
+            "decoding": "user-supplied; this scorer consumes pre-generated outputs",
+            "evidenceModes": ["black_box"],
+            "leakageThresholds": thresholds,
+            "bootstrapSamples": bootstrap_samples,
+            "reruns": 1,
+        },
+        "models": [
+            {
+                "model": model_id,
+                "evidenceMode": "black_box",
+                "itemCount": len(item_runs),
+                "aurc": aurc_mean,
+                "aurcCi95": aurc_ci,
+                "eclAtTau": ecl_mean,
+                "eclAtTauCi95": ecl_ci,
+                "coverageAtTau": round(len(ecl_values) / max(1, len(item_runs)), 6),
+                "elicitAtK": elicit_mean,
+                "elicitAtKCi95": elicit_ci,
+                "leakageHitRate": round(mean(leakage_values) if leakage_values else 0.0, 6),
+            }
+        ],
+        "aggregate": {
+            "aurc": aurc_mean,
+            "aurcCi95": aurc_ci,
+            "eclAtTau": ecl_mean,
+            "elicitAtK": elicit_mean,
+        },
+        "itemRuns": item_runs,
+        "notes": [
+            "Computed by the vendored kaggle/score_outputs.py scorer.",
+            "For full schema validation and audit, re-run ./aleph-bench verify in the upstream Aleph repository.",
+        ],
+    }
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--items-path", default=str(KAGGLE_DIR.parent / "data/public_s2_items.jsonl"))
+    parser.add_argument("--prompts-path", default=str(KAGGLE_DIR.parent / "data/public_s2_prompts.jsonl"))
+    parser.add_argument("--submission-csv", required=True)
+    parser.add_argument("--model-id", required=True)
+    parser.add_argument("--out", default=None)
+    parser.add_argument("--tau", type=float, default=DEFAULT_TAU)
+    parser.add_argument("--k", type=int, default=DEFAULT_K)
+    parser.add_argument("--bootstrap-samples", type=int, default=DEFAULT_BOOTSTRAP_SAMPLES)
+    parser.add_argument("--seed", type=int, default=DEFAULT_SEED)
+    args = parser.parse_args()
+
+    result = score_submission(
+        items_path=args.items_path,
+        prompts_path=args.prompts_path,
+        submission_rows=args.submission_csv,
+        model_id=args.model_id,
+        tau=args.tau,
+        k=args.k,
+        bootstrap_samples=args.bootstrap_samples,
+        seed=args.seed,
+    )
+    payload = json.dumps(result, indent=2, sort_keys=True) + "\\n"
+    if args.out:
+        Path(args.out).parent.mkdir(parents=True, exist_ok=True)
+        Path(args.out).write_text(payload, encoding="utf-8")
+        print(f"wrote {args.out}")
+    else:
+        print(payload)
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
 '''
 
 
@@ -891,6 +1769,9 @@ def _package_markdown(source_path: Path, *, kind: str) -> bytes:
         replacements = {
             "../../bench/results/m0-first-run.json": "../evidence/m0-first-run.json",
             "m0-evidence.md": "../evidence/m0-evidence.md",
+            "../../bench/engine/adapters/hosted_black_box.py": (
+                "https://github.com/p-to-q/aleph/blob/main/bench/engine/adapters/hosted_black_box.py"
+            ),
         }
     else:
         replacements = {}
@@ -920,9 +1801,11 @@ def _build_artifact_bytes() -> dict[str, bytes]:
         "huggingface/README.md": _text_bytes(_hf_upload_readme()),
         "huggingface/upload_dataset.py": _text_bytes(_hf_upload_py()),
         "kaggle/README.md": _text_bytes(_kaggle_task_readme()),
+        "kaggle/_scoring.py": _text_bytes(_kaggle_scoring_py()),
+        "kaggle/score_outputs.py": _text_bytes(_kaggle_score_outputs_py()),
         "kaggle/api_test_smoke.py": _text_bytes(_kaggle_api_test_smoke_py()),
         "kaggle/aleph_bench_m0_task.py": _text_bytes(_kaggle_task_py()),
-        "data/mock_model_summary.csv": _csv_bytes(
+        "evidence/mock_model_summary.csv": _csv_bytes(
             _model_rows(result),
             [
                 "model",
@@ -937,7 +1820,7 @@ def _build_artifact_bytes() -> dict[str, bytes]:
                 "leakage_hit_rate",
             ],
         ),
-        "data/mock_item_metrics.csv": _csv_bytes(
+        "evidence/mock_item_metrics.csv": _csv_bytes(
             _item_metric_rows(result),
             ["item_id", "model", "aurc", "ecl_at_tau", "elicit_at_k", "leakage_hit_rate"],
         ),
@@ -964,7 +1847,8 @@ def _build_artifact_bytes() -> dict[str, bytes]:
         REPO_ROOT / "docs/benchmark/hosted-m0-runbook.md",
         kind="hosted-runbook",
     )
-    artifact_bytes["croissant.json"] = _json_bytes(_croissant_metadata(sorted(artifact_bytes)))
+    artifact_hashes = {name: _sha256(data) for name, data in artifact_bytes.items()}
+    artifact_bytes["croissant.json"] = _json_bytes(_croissant_metadata(artifact_hashes))
     return artifact_bytes
 
 
@@ -1081,6 +1965,14 @@ def check_platform_package(manifest_path: Path) -> dict[str, Any]:
         errors.append("missing checksums.sha256")
     elif checksums_path.read_bytes() != expected_checksums:
         errors.append("checksums.sha256 does not match current package artifacts")
+    allowed_files = {artifact["path"] for artifact in expected["artifacts"]}
+    allowed_files.update({"checksums.sha256", "package-manifest.json"})
+    for path in sorted(out_dir.rglob("*")):
+        if not path.is_file():
+            continue
+        relative = path.relative_to(out_dir).as_posix()
+        if relative not in allowed_files:
+            errors.append(f"unexpected package file: {relative}")
     return {
         "status": "ok" if not errors else "failed",
         "packageManifest": stable_dataset_path(manifest_path),

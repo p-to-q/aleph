@@ -25,6 +25,15 @@ export ALEPH_CUSTOM_API_BASE_URL=...
 export ALEPH_CUSTOM_API_KEY=...
 ```
 
+> **Adapter scope (M0).** `ALEPH_CUSTOM_API_BASE_URL` expects an OpenAI-compatible
+> `/chat/completions` endpoint
+> ([`bench/engine/adapters/hosted_black_box.py`](../../bench/engine/adapters/hosted_black_box.py)).
+> For cross-vendor coverage (Anthropic, Gemini, Grok), point it at an OpenAI-compatible proxy
+> such as OpenRouter or LiteLLM, and record the proxy + upstream model id in the manifest and
+> evidence note. **Native Anthropic / Gemini / Vertex adapters are M1 scope** — M0 deliberately
+> ships a single OpenAI-compatible adapter to keep the surface small and the leaderboard
+> contract reviewable.
+
 Optional retry controls:
 
 ```bash

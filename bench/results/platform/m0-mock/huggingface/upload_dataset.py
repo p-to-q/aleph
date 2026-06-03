@@ -31,10 +31,18 @@ REQUIRED_FILES = [
     "schemas/aleph-bench-result.schema.json",
     "evidence/m0-first-run.json",
     "evidence/m0-evidence.md",
+    "evidence/mock_model_summary.csv",
+    "evidence/mock_item_metrics.csv",
     "kaggle/aleph_bench_m0_task.py",
     "kaggle/api_test_smoke.py",
+    "kaggle/_scoring.py",
+    "kaggle/score_outputs.py",
     "huggingface/README.md",
     "huggingface/upload_dataset.py",
+]
+FORBIDDEN_FILES = [
+    "data/mock_model_summary.csv",
+    "data/mock_item_metrics.csv",
 ]
 
 
@@ -63,14 +71,28 @@ def validate_package(root: Path) -> dict[str, Any]:
     for relative in REQUIRED_FILES:
         if not (root / relative).exists():
             errors.append(f"missing required file: {relative}")
+    for relative in FORBIDDEN_FILES:
+        if (root / relative).exists():
+            errors.append(
+                f"forbidden file present: {relative} (mock evidence must live under evidence/, "
+                "not data/, so HF / Kaggle previews don't render it as a leaderboard)"
+            )
 
     readme_path = root / "README.md"
     if readme_path.exists():
         readme = readme_path.read_text(encoding="utf-8")
         if not readme.startswith("---\n"):
             errors.append("README.md is missing dataset-card YAML front matter")
-        if "configs:" not in readme or "data/public_s2_items.jsonl" not in readme:
-            errors.append("README.md does not declare the public-s2 data file")
+        if "configs:" not in readme:
+            errors.append("README.md does not declare dataset configs")
+        if "data/public_s2_items.jsonl" not in readme:
+            errors.append("README.md does not declare the public-s2 item file")
+        if "data/public_s2_prompts.jsonl" not in readme:
+            errors.append("README.md does not declare the public-s2 prompt file")
+        if "deterministic mock pipeline outputs" not in readme:
+            errors.append(
+                "README.md is missing the mock-evidence boundary banner ('deterministic mock pipeline outputs')"
+            )
 
     if "huggingface_dataset" not in manifest.get("targetPlatforms", []):
         errors.append("package manifest does not target huggingface_dataset")

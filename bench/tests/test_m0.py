@@ -591,13 +591,28 @@ class M0BenchTests(unittest.TestCase):
                 set(manifest["targetPlatforms"]),
                 {"huggingface_dataset", "kaggle_dataset", "kaggle_community_benchmark", "croissant"},
             )
-            self.assertIn("README.md", {artifact["path"] for artifact in manifest["artifacts"]})
-            self.assertIn("dataset-metadata.json", {artifact["path"] for artifact in manifest["artifacts"]})
-            self.assertIn("croissant.json", {artifact["path"] for artifact in manifest["artifacts"]})
-            self.assertIn("PLATFORM_LAUNCH_CHECKLIST.md", {artifact["path"] for artifact in manifest["artifacts"]})
-            self.assertIn("huggingface/upload_dataset.py", {artifact["path"] for artifact in manifest["artifacts"]})
-            self.assertIn("kaggle/aleph_bench_m0_task.py", {artifact["path"] for artifact in manifest["artifacts"]})
-            self.assertIn("kaggle/api_test_smoke.py", {artifact["path"] for artifact in manifest["artifacts"]})
+            artifact_paths = {artifact["path"] for artifact in manifest["artifacts"]}
+            self.assertIn("README.md", artifact_paths)
+            self.assertIn("dataset-metadata.json", artifact_paths)
+            self.assertIn("croissant.json", artifact_paths)
+            self.assertIn("PLATFORM_LAUNCH_CHECKLIST.md", artifact_paths)
+            self.assertIn("huggingface/upload_dataset.py", artifact_paths)
+            self.assertIn("kaggle/aleph_bench_m0_task.py", artifact_paths)
+            self.assertIn("kaggle/api_test_smoke.py", artifact_paths)
+            self.assertIn("kaggle/_scoring.py", artifact_paths)
+            self.assertIn("kaggle/score_outputs.py", artifact_paths)
+            self.assertIn("evidence/mock_model_summary.csv", artifact_paths)
+            self.assertIn("evidence/mock_item_metrics.csv", artifact_paths)
+            self.assertNotIn(
+                "data/mock_model_summary.csv",
+                artifact_paths,
+                msg="mock evaluation rows must live under evidence/, not data/",
+            )
+            self.assertNotIn(
+                "data/mock_item_metrics.csv",
+                artifact_paths,
+                msg="mock evaluation rows must live under evidence/, not data/",
+            )
 
             readme = (out_dir / "README.md").read_text(encoding="utf-8")
             kaggle = json.loads((out_dir / "dataset-metadata.json").read_text(encoding="utf-8"))
@@ -615,22 +630,41 @@ class M0BenchTests(unittest.TestCase):
             submission = (out_dir / "data/submission_format.csv").read_text(encoding="utf-8").splitlines()
 
             self.assertTrue(readme.startswith("---\npretty_name: Aleph-Bench M0"))
-            self.assertIn("not a real model leaderboard", readme)
+            self.assertIn("data/public_s2_prompts.jsonl", readme)
+            self.assertIn("deterministic mock pipeline outputs", readme)
+            self.assertIn("evidence/mock_", readme)
             self.assertEqual(kaggle["id"], "p-to-q/aleph-bench-m0")
             self.assertEqual(kaggle["licenses"], [{"name": "CC0-1.0"}])
             self.assertEqual(len(kaggle["resources"]), 3)
             self.assertIn("Hugging Face Dataset upload preparation", launch_checklist)
+            self.assertIn("Kaggle Benchmarks Resource Grant submission", launch_checklist)
             self.assertIn("upload_folder", hf_upload)
             self.assertIn("@kbench.task", kaggle_task)
             self.assertIn("run_black_box_model", kaggle_task)
             self.assertIn("llm.prompt", kaggle_task)
+            self.assertIn("prompt_dataframe", kaggle_task)
             self.assertIn("StubLLM", kaggle_smoke)
-            self.assertEqual(croissant["dct:conformsTo"], "http://mlcommons.org/croissant/1.1")
+            self.assertIn("score_outputs", kaggle_smoke)
+            self.assertEqual(croissant["conformsTo"], "http://mlcommons.org/croissant/1.1")
+            self.assertEqual(croissant["version"], "0.1.0")
+            self.assertIn("citeAs", croissant)
+            self.assertEqual(len(croissant["recordSet"]), 2)
+            for record_set in croissant["recordSet"]:
+                self.assertIn("field", record_set)
+                self.assertGreater(len(record_set["field"]), 0)
             self.assertEqual(len(items), 30)
             self.assertEqual(len(prompts), 240)
             self.assertEqual(len(items_csv), 30)
             self.assertEqual(len(prompts_csv), 240)
             self.assertEqual(submission[0], "row_id,model_id,item_id,prompt_id,output_text")
+
+            scoring_path = out_dir / "kaggle/_scoring.py"
+            score_outputs_path = out_dir / "kaggle/score_outputs.py"
+            self.assertTrue(scoring_path.exists())
+            self.assertTrue(score_outputs_path.exists())
+            self.assertIn("def aurc(", scoring_path.read_text(encoding="utf-8"))
+            self.assertIn("def score_submission(", score_outputs_path.read_text(encoding="utf-8"))
+
             smoke = subprocess.run(
                 [sys.executable, str(out_dir / "kaggle/api_test_smoke.py")],
                 check=True,
@@ -641,6 +675,11 @@ class M0BenchTests(unittest.TestCase):
             self.assertEqual(smoke_report["status"], "ok")
             self.assertEqual(smoke_report["sendablePrompts"], 180)
             self.assertEqual(smoke_report["promptCalls"], 180)
+            self.assertEqual(smoke_report["scoredItems"], 30)
+            self.assertIsNotNone(smoke_report["aggregateAurc"])
+            self.assertGreaterEqual(float(smoke_report["aggregateAurc"]), 0.0)
+            self.assertLessEqual(float(smoke_report["aggregateAurc"]), 1.0)
+
             hf_dry_run = subprocess.run(
                 [sys.executable, str(out_dir / "huggingface/upload_dataset.py"), "--dry-run"],
                 check=True,
@@ -652,14 +691,107 @@ class M0BenchTests(unittest.TestCase):
             self.assertEqual(hf_report["repoType"], "dataset")
             self.assertEqual(hf_report["repoId"], "p-to-q/aleph-bench-m0")
 
+            forbidden_mock = out_dir / "data/mock_model_summary.csv"
+            forbidden_mock.write_text("model,evidence_mode\nstub,mock\n", encoding="utf-8")
+            forbidden_run = subprocess.run(
+                [sys.executable, str(out_dir / "huggingface/upload_dataset.py"), "--dry-run"],
+                capture_output=True,
+                text=True,
+            )
+            self.assertEqual(forbidden_run.returncode, 1)
+            forbidden_report = json.loads(forbidden_run.stdout)
+            self.assertEqual(forbidden_report["status"], "failed")
+            self.assertTrue(
+                any("forbidden file present" in error for error in forbidden_report["errors"]),
+                forbidden_report,
+            )
+            forbidden_mock.unlink()
+
+            (out_dir / "stale.txt").write_text("stale\n", encoding="utf-8")
+            stale_report = check_platform_package(out_dir / "package-manifest.json")
+            self.assertEqual(stale_report["status"], "failed")
+            self.assertIn("unexpected package file: stale.txt", stale_report["errors"])
+
     def test_checked_in_platform_package_validates(self) -> None:
         report = check_platform_package(ROOT / "bench/results/platform/m0-mock/package-manifest.json")
-        self.assertEqual(report["status"], "ok")
-        self.assertEqual(report["artifactCount"], 30)
+        self.assertEqual(report["status"], "ok", msg=report)
+        self.assertEqual(report["artifactCount"], 32)
         self.assertEqual(
             set(report["targetPlatforms"]),
             {"huggingface_dataset", "kaggle_dataset", "kaggle_community_benchmark", "croissant"},
         )
+
+    def test_generate_s2_check_matches_disk(self) -> None:
+        result = subprocess.run(
+            [sys.executable, str(ROOT / "bench/data/generate_s2.py"), "--check"],
+            capture_output=True,
+            text=True,
+        )
+        self.assertEqual(result.returncode, 0, msg=result.stderr)
+        self.assertIn("check ok", result.stdout)
+
+    def test_kaggle_scorer_matches_engine(self) -> None:
+        from bench.engine.frozen_ladder import DEFAULT_BOOTSTRAP_SAMPLES, run_benchmark
+
+        with tempfile.TemporaryDirectory() as tmp:
+            out_dir = Path(tmp) / "platform"
+            write_platform_package(out_dir)
+
+            engine_result = run_benchmark(
+                data_dir=ROOT / "bench/data/public/s2",
+                models=["mock-frontier"],
+                seed=0,
+                bootstrap_samples=DEFAULT_BOOTSTRAP_SAMPLES,
+            )
+            submission_rows = []
+            for run in engine_result["itemRuns"]:
+                for candidate in run["alephRun"]["candidates"]:
+                    submission_rows.append(
+                        {
+                            "row_id": f"{run['itemId']}:{candidate['id']}",
+                            "model_id": "mock-frontier",
+                            "item_id": run["itemId"],
+                            "prompt_id": candidate["id"],
+                            "output_text": candidate["output"],
+                        }
+                    )
+
+            sys.path.insert(0, str(out_dir / "kaggle"))
+            try:
+                import importlib
+
+                if "_scoring" in sys.modules:
+                    del sys.modules["_scoring"]
+                if "score_outputs" in sys.modules:
+                    del sys.modules["score_outputs"]
+                score_outputs = importlib.import_module("score_outputs")
+                scorer_result = score_outputs.score_submission(
+                    items_path=out_dir / "data/public_s2_items.jsonl",
+                    prompts_path=out_dir / "data/public_s2_prompts.jsonl",
+                    submission_rows=submission_rows,
+                    model_id="mock-frontier",
+                )
+            finally:
+                sys.path.remove(str(out_dir / "kaggle"))
+                for name in ("_scoring", "score_outputs"):
+                    sys.modules.pop(name, None)
+
+            engine_aurcs = {
+                run["itemId"]: run["metrics"]["aurc"]
+                for run in engine_result["itemRuns"]
+                if run["model"] == "mock-frontier"
+            }
+            scorer_aurcs = {
+                run["itemId"]: run["metrics"]["aurc"] for run in scorer_result["itemRuns"]
+            }
+            self.assertEqual(set(engine_aurcs), set(scorer_aurcs))
+            for item_id, expected in engine_aurcs.items():
+                self.assertAlmostEqual(
+                    expected,
+                    scorer_aurcs[item_id],
+                    places=5,
+                    msg=f"{item_id}: engine vs vendored scorer AURC mismatch",
+                )
 
 
 if __name__ == "__main__":

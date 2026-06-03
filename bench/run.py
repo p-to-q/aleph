@@ -96,6 +96,17 @@ def build_parser() -> argparse.ArgumentParser:
     package.add_argument("--out-dir", default=str(DEFAULT_PACKAGE_DIR))
     package.add_argument("--check", default=None, help="Check an existing package-manifest.json")
     package.add_argument("--json", action="store_true", help="Emit machine-readable package report")
+    validate_croissant = subparsers.add_parser(
+        "validate-croissant",
+        help="Validate a Croissant JSON-LD file with mlcroissant (must be installed)",
+    )
+    validate_croissant.add_argument("path", help="Path to croissant.json")
+    validate_croissant.add_argument(
+        "--records",
+        action="append",
+        default=[],
+        help="Optional record set ids to stream end-to-end (repeat or comma-separate)",
+    )
     return parser
 
 
@@ -196,6 +207,33 @@ def main(argv: list[str] | None = None) -> int:
             print(f"wrote {out}")
         else:
             print(markdown)
+        return 0
+    if args.command == "validate-croissant":
+        try:
+            import mlcroissant as mlc  # type: ignore[import-untyped]
+        except ImportError as exc:
+            print(
+                "error: mlcroissant is not installed. "
+                "Install with `pip install mlcroissant` to run this check.",
+                file=sys.stderr,
+            )
+            raise SystemExit(2) from exc
+        path = Path(args.path)
+        ds = mlc.Dataset(jsonld=str(path))
+        record_ids = parse_models(args.records) if args.records else [
+            rs.id for rs in ds.metadata.record_sets
+        ]
+        summary: dict[str, int] = {}
+        for record_id in record_ids:
+            rows = list(ds.records(record_id))
+            summary[record_id] = len(rows)
+        print(json.dumps({
+            "status": "ok",
+            "path": str(path),
+            "name": ds.metadata.name,
+            "version": getattr(ds.metadata, "version", None),
+            "recordSets": summary,
+        }, indent=2, sort_keys=True))
         return 0
     if args.command == "package":
         if args.check:

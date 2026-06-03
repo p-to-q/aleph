@@ -168,6 +168,21 @@ sanctioned exception (it is *defined* as leaking and is excluded from compressio
 gate rather than a penalty means a leaking prompt cannot quietly buy headline score — it simply does
 not count, which is far easier to defend to reviewers.
 
+> **Implementation note.** [`bench/engine/leakage_gate.py`](../../bench/engine/leakage_gate.py) keeps a
+> ``leakage_score`` helper that returns a 0–1 proximity-to-leakage value per candidate. This is a
+> *diagnostic field surfaced on each candidate* (so the per-item table can show "how close was this
+> prompt to the gate?"). It is never folded into AURC, ECL@τ, Elicit@k, or any aggregate metric — the
+> only thing that affects scoring is the hard ``disqualified`` boolean. The docstring on
+> ``leakage_score`` repeats this constraint so future contributors do not accidentally promote it back
+> to a penalty.
+
+> **AURC normalizer.** The ``aurc(frontier, normalizer_tokens)`` function in
+> [`bench/engine/metrics.py`](../../bench/engine/metrics.py) rescales token budgets into ``[0, 1]``
+> using the explicit-reconstruction prompt length (or the target text length if it is larger):
+> ``max(token_count(rung0_prompt), token_count(target), 1)``. This matches the ``L_max`` anchor in §2
+> above. Beyond that anchor the curve is held at its last distortion value so a model that never
+> reaches the target within budget degrades smoothly rather than disappearing.
+
 ## 5. Dataset taxonomy (recommendations 2, 3, 4)
 
 Coverage is a **declared stratified taxonomy**, each stratum probing a different decompression
@@ -190,7 +205,12 @@ existing [`docs/source-ledger.md`](../source-ledger.md) habit.
 MiniLM metric) is too fragile and gameable for a benchmark. Each item *declares* its metric class:
 
 - **Exact / normalized-exact** for S1/S2 reproduction (exact equality ⇒ fidelity 1.0, distortion 0.0
-  — a property the repo's metric plan already demands).
+  — a property the repo's metric plan already demands). The M0 implementation
+  ([`bench/engine/metrics.py::exact_fidelity`](../../bench/engine/metrics.py)) refines the binary
+  reading: exact equality still yields 1.0, but on any mismatch the score falls back to
+  `1 − normalized_edit_distance` instead of a hard 0.0, so a one-character drift is not collapsed to
+  the same value as an empty output. Audit gates assert the exact equality property; the gradient is
+  only the near-miss signal.
 - **Lexical** (ROUGE-L / char-n-gram / edit distance) — transparent, cheap.
 - **Semantic** — a *named, frozen, open* embedding model, version pinned, with results reported under
   **≥2 embedders** so no single model's geometry is load-bearing.

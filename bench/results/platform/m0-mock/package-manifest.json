@@ -1,52 +1,36 @@
 {
   "artifacts": [
     {
-      "bytes": 2096,
+      "bytes": 3427,
       "encodingFormat": "text/markdown",
       "note": "Platform package documentation.",
       "path": "EVALUATION.md",
       "role": "metadata",
-      "sha256": "775da10c3b0d64d9ed2030568ea659cd5a4f29edfe57a5bead47351ace4da53d"
+      "sha256": "aa3f181f2ecf0380f46ff5b406c8333a33f395735a715d09f5bef442789479e8"
     },
     {
-      "bytes": 3495,
+      "bytes": 6219,
       "encodingFormat": "text/markdown",
       "note": "Platform package documentation.",
       "path": "PLATFORM_LAUNCH_CHECKLIST.md",
       "role": "metadata",
-      "sha256": "6cd2a10deeae0b576e551eafac90a7c173c30596e3b62095072af1b3bc8157d2"
+      "sha256": "b1805fc0c9d6b3feea91c59c14c85ac22b30d53f66322f110a0526976d0eee67"
     },
     {
-      "bytes": 3174,
+      "bytes": 6568,
       "encodingFormat": "text/markdown",
       "note": "Hugging Face dataset card with YAML metadata.",
       "path": "README.md",
       "role": "metadata",
-      "sha256": "8b1fa6dfc7e6b66421d72c7241764bbb1f212d8595aaad37e5fe435f5fd16e53"
+      "sha256": "94d6bc82717de9d688a61defb97fc45fb9a88e757139bdc760cbfe670c0404af"
     },
     {
-      "bytes": 6243,
+      "bytes": 17755,
       "encodingFormat": "application/json",
       "note": "Croissant JSON-LD metadata for cross-platform discovery.",
       "path": "croissant.json",
       "role": "metadata",
-      "sha256": "2da9b76683be28c9546162307ce1a4e4e13cf5631d31c1518b2f7c99565a1fd1"
-    },
-    {
-      "bytes": 3708,
-      "encodingFormat": "text/csv",
-      "note": "Platform-facing benchmark data table.",
-      "path": "data/mock_item_metrics.csv",
-      "role": "data",
-      "sha256": "4d2f51b93e97d5a8be998a67880ff179b619cafdec58b66b6ade3beacfc0b4e8"
-    },
-    {
-      "bytes": 328,
-      "encodingFormat": "text/csv",
-      "note": "Platform-facing benchmark data table.",
-      "path": "data/mock_model_summary.csv",
-      "role": "data",
-      "sha256": "9d23ddbe9d06b012741b9185352a8aac6175d45bd7169422a0ab73e847025ba4"
+      "sha256": "5394d440b7a54acebe692fcb06fdb07099df4d51143d748628f3cba4b489cedf"
     },
     {
       "bytes": 8731,
@@ -58,7 +42,7 @@
     },
     {
       "bytes": 92015,
-      "encodingFormat": "application/jsonl",
+      "encodingFormat": "application/jsonlines",
       "note": "Platform-facing benchmark data table.",
       "path": "data/public_s2_items.jsonl",
       "role": "data",
@@ -74,7 +58,7 @@
     },
     {
       "bytes": 133353,
-      "encodingFormat": "application/jsonl",
+      "encodingFormat": "application/jsonlines",
       "note": "Platform-facing benchmark data table.",
       "path": "data/public_s2_prompts.jsonl",
       "role": "data",
@@ -97,12 +81,12 @@
       "sha256": "fcf5187ea11c6fc8d907d213c1dc343ecb4559040909349699aa6ba2fe88e077"
     },
     {
-      "bytes": 4373,
+      "bytes": 5022,
       "encodingFormat": "text/markdown",
       "note": "Platform package documentation.",
       "path": "docs/hosted-m0-runbook.md",
       "role": "docs",
-      "sha256": "d17fe8e20cf8385dce875137dd5baded38ac7175eecd2854f0b5d3f62b16e344"
+      "sha256": "13796b957eb8418b731648f8e61638c05c727bd547a22c48cfc940fe40791758"
     },
     {
       "bytes": 2191,
@@ -153,6 +137,22 @@
       "sha256": "b8f0bd43f283d4648232431923bc46c25f7213e1a52f858ab176c9e26564b5ce"
     },
     {
+      "bytes": 3708,
+      "encodingFormat": "text/csv",
+      "note": "Mock evidence artifact or generated evidence note.",
+      "path": "evidence/mock_item_metrics.csv",
+      "role": "evidence",
+      "sha256": "4d2f51b93e97d5a8be998a67880ff179b619cafdec58b66b6ade3beacfc0b4e8"
+    },
+    {
+      "bytes": 328,
+      "encodingFormat": "text/csv",
+      "note": "Mock evidence artifact or generated evidence note.",
+      "path": "evidence/mock_model_summary.csv",
+      "role": "evidence",
+      "sha256": "9d23ddbe9d06b012741b9185352a8aac6175d45bd7169422a0ab73e847025ba4"
+    },
+    {
       "bytes": 1362,
       "encodingFormat": "text/markdown",
       "note": "Hugging Face upload preparation artifact.",
@@ -161,36 +161,52 @@
       "sha256": "c06a70f5acf0ebf837eddbf2b8d8e531b0473efab0a50f7ceca9535c1606877a"
     },
     {
-      "bytes": 5495,
+      "bytes": 6459,
       "encodingFormat": "text/plain",
       "note": "Hugging Face upload preparation artifact.",
       "path": "huggingface/upload_dataset.py",
       "role": "huggingface",
-      "sha256": "f7fa1bc9abcf86f032ff11dfc9a0563d36e67fdd4a758368650bd238d2255dc0"
+      "sha256": "167195754a69c612a1e81b8fc98d1dac753edc79fd15b984c630960e4965fbd6"
     },
     {
-      "bytes": 1744,
+      "bytes": 3080,
       "encodingFormat": "text/markdown",
       "note": "Kaggle Community Benchmark preparation artifact.",
       "path": "kaggle/README.md",
       "role": "kaggle",
-      "sha256": "acaa2be484d4d610716893cd53c60343fa44d029df8483fc13b036a4aafeaa9a"
+      "sha256": "10fe7e32318812377e069e13d926bdf57f4cfdeb9ea64921d4bea9e621a28ea1"
     },
     {
-      "bytes": 2376,
+      "bytes": 9633,
+      "encodingFormat": "text/plain",
+      "note": "Kaggle Community Benchmark preparation artifact.",
+      "path": "kaggle/_scoring.py",
+      "role": "kaggle",
+      "sha256": "411d33844252a327f8f95c92131387632e0fb1e145e5898ef213bd060f634874"
+    },
+    {
+      "bytes": 4098,
       "encodingFormat": "text/plain",
       "note": "Kaggle Community Benchmark preparation artifact.",
       "path": "kaggle/aleph_bench_m0_task.py",
       "role": "kaggle",
-      "sha256": "a8fef74e08dd59391fd0f3defb48c4e07488324d64b22faf1e833056e2028e9c"
+      "sha256": "6c15bb221d69822209aff2f14518fb1efa9dc823fdf1a34f640527a92164e4fc"
     },
     {
-      "bytes": 3290,
+      "bytes": 6072,
       "encodingFormat": "text/plain",
       "note": "Kaggle Community Benchmark preparation artifact.",
       "path": "kaggle/api_test_smoke.py",
       "role": "kaggle",
-      "sha256": "f39ed14b183a34f8908adbd460ad659a0c3d70b47e6dcc4fb12cd2fbfdb62ad4"
+      "sha256": "0fa4d1912f87a8861c93c978a87c8e9da2173ec6d1cbe2846e93b7aaa80b6afb"
+    },
+    {
+      "bytes": 8879,
+      "encodingFormat": "text/plain",
+      "note": "Kaggle Community Benchmark preparation artifact.",
+      "path": "kaggle/score_outputs.py",
+      "role": "kaggle",
+      "sha256": "169de2423b296ed302d28a3a01c0b13e09f89538ec66f7be903d01cefa1d054a"
     },
     {
       "bytes": 1170,

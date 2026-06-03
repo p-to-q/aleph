@@ -99,5 +99,12 @@ def evaluate_leakage(
 
 
 def leakage_score(result: LeakageGateResult) -> float:
+    """Diagnostic-only score in ``[0, 1]``. Surfaced on each candidate as a
+    human-readable proximity-to-leakage signal; never folded into AURC,
+    ECL@tau, Elicit@k, or any aggregate metric. The hard gate
+    (``result.disqualified``) is what excludes a prompt from scoring;
+    ``docs/benchmark/02-design-spec.md`` §4 deliberately makes leakage a
+    gate, not a penalty."""
+
     span_score = min(1.0, result.verbatimSpanTokens / int(result.thresholds["verbatimSpanTokens"]))
     return round(max(result.lcsRatio, result.trigramOverlap, span_score), 6)

@@ -14,3 +14,27 @@ jobs:
         with:
           node-version: 22
       - run: npm run lint
+
+  bench-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+      - name: Verify S2 seed dataset byte-stability
+        run: python3 bench/data/generate_s2.py --check
+      - name: Run bench unit tests
+        run: python3 -m unittest discover bench/tests
+      - name: Verify checked-in platform package
+        run: python3 bench/run.py package --check bench/results/platform/m0-mock/package-manifest.json
+      - name: Replay M0 acceptance audit
+        run: python3 bench/run.py audit
+      - name: Smoke-test Kaggle scaffold
+        run: python3 bench/results/platform/m0-mock/kaggle/api_test_smoke.py
+      - name: Dry-run HF upload helper
+        run: python3 bench/results/platform/m0-mock/huggingface/upload_dataset.py --dry-run
+      - name: Validate Croissant metadata with mlcroissant
+        run: |
+          python3 -m pip install --quiet "mlcroissant>=1.0,<2.0"
+          python3 bench/run.py validate-croissant bench/results/platform/m0-mock/croissant.json

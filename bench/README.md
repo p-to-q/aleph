@@ -37,6 +37,8 @@ Hosted runs can use `--cache-dir` to save per-call responses and resume after in
 
 Hosted retries default to two retries with a one-second delay. Override with `ALEPH_CUSTOM_API_MAX_RETRIES` and `ALEPH_CUSTOM_API_RETRY_DELAY_SECONDS` when a provider needs a different policy.
 
+`ALEPH_CUSTOM_API_BASE_URL` expects an OpenAI-compatible `/chat/completions` endpoint. The M0 hosted adapter speaks one wire format; for cross-vendor coverage (Anthropic, Gemini, Grok) point it at an OpenAI-compatible proxy such as OpenRouter or LiteLLM. Native Anthropic / Gemini / Vertex adapters are M1 scope.
+
 ## Metrics
 
 - **AURC** is the area under the monotone rate-distortion staircase. Lower is better.
