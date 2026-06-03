@@ -116,6 +116,7 @@ What we have actually done so far:
 - We built the launch surface and slider-first interaction.
 - We stabilized `AlephRun` as the shared run contract.
 - We made fixtures, local MLX evidence traces, and hosted black-box runs coexist under one product language.
+- We added an experimental Aleph-Bench M0 pipeline with a deterministic mock evidence bundle for Track F.
 - We got far enough to know this is not just a metaphor, but not far enough to pretend the search problem is solved.
 
 The next phase is to get more serious without getting more rigid.
@@ -138,6 +139,7 @@ The release is intentionally honest about evidence:
 - `spring` and `crush` now include real local MLX token text / token NLL traces, but they are low-fit exploratory runs, not polished success demos.
 - Hosted custom API runs call an external OpenAI-compatible model from the server side and return real candidate prompts and outputs as black-box observations.
 - Hosted black-box runs do not expose logits or token NLL; token-loss panels only claim model-internal evidence when those fields are present.
+- Aleph-Bench M0 has a checked-in deterministic mock evidence bundle for the benchmark pipeline; it is not a real model leaderboard.
 
 ## Repository map
 
@@ -147,6 +149,7 @@ web/                  Active Next.js launch surface
 apps/web              Archived legacy/reference React/Vite console
 apps/api              FastAPI orchestration layer (mock + local MLX search adapter)
 search/               Local MLX live-search engine (Apple Silicon now; Linux CUDA upstream path)
+bench/                Aleph-Bench M0 seed data, frozen-ladder engine, adapters, results, and audit bundle
 packages/core         Shared AlephRun data contracts and scoring helpers
 packages/ui           UI component shells for console panels
 packages/fixtures     Sample runs used by the demo and checks
@@ -165,6 +168,7 @@ The repository is intentionally usable without private model credentials.
 ```bash
 npm run lint
 npm run test
+npm run bench:verify
 npm --workspace web run build
 ```
 
@@ -238,6 +242,7 @@ Before tagging a release, run:
 ```bash
 npm run lint
 npm run test
+npm run bench:verify
 npm --workspace web run build
 npm run api:smoke
 apps/api/.venv/bin/python -m pytest apps/api/tests -q

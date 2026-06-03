@@ -25,6 +25,7 @@ Use this file to prevent accidental overpromising.
 | Token loss / waveform / attribution panels | simulated fixture | UI/research owner | fixture observations | Useful UI behavior; not real model internals. |
 | Local MLX search wrapper | experimental | Backend/research owner | `apps/api/aleph_api/services/local_mlx_search.py`, `search/server.py`, `npm run api:live-smoke` | Adapter boundary exists; real runs depend on local MLX setup and model availability. |
 | White-box mode | experimental adapter output | Research owner | `search/aleph_search.py`, `search/server.py`, `apps/api/aleph_api/services/local_mlx_search.py` | Live local search can return token NLL for the explicit/right-end point and the API can label that response `white_box`; product panels are not integrated end-to-end. |
+| Aleph-Bench M0 | experimental benchmark pipeline | Research owner | `bench/`, `schemas/aleph-bench-*.schema.json`, `docs/benchmark/m0-evidence.md` | Frozen-ladder benchmark pipeline exists with deterministic mock evidence; real black-box model rows are the next evidence step. |
 | ARCA/GCG adapters | future | Research owner | docs only | Not implemented. |
 | Research prior art | stable notes | Maintainer | `docs/research/` | Framing and route selection, not implementation lock-in. |
 | Archive | archived | Maintainer | `docs/archive/` | Receipts only; not product contract. |

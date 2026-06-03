@@ -65,6 +65,47 @@ Acceptance gate:
 - Candidate ranking can be explained from visible sub-scores.
 - Non-leaking mode has a testable rule, even if it remains conservative.
 
+## P1: Aleph-Bench Real Black-Box M0
+
+Goal: replace the checked-in deterministic mock benchmark receipt with a real black-box receipt while preserving the same benchmark schema.
+
+Tasks:
+
+- Choose three hosted models expected to separate on S2 compositional targets.
+- Run `./aleph-bench doctor` and require hosted credentials to be ready before the full run.
+- Generate and inspect `./aleph-bench manifest` so reviewers can see the exact non-leaking prompts before spending calls.
+- Run Track F through `bench/run.py` with server-side OpenAI-compatible credentials and `--cache-dir .cache/aleph-bench/m0-hosted`; the hosted request shape, bounded retry, one-item `black_box` pipeline, and cache reuse are covered by offline local `/chat/completions` tests.
+- Run `./aleph-bench verify --result bench/results/m0-hosted-run.json --manifest bench/results/m0-hosted-manifest.json` before updating evidence notes.
+- Run `./aleph-bench report --result bench/results/m0-hosted-run.json --out bench/results/m0-hosted-report.md` so evidence tables are generated from the result JSON.
+- Keep leakage as a gate and keep AURC as the headline metric.
+- Record latency, empty-output failures, and any adapter deviations in `docs/benchmark/m0-evidence.md`.
+
+Acceptance gate:
+
+- `bench/results/m0-first-run.json` or a successor result contains three `black_box` model summaries.
+- The result validates against `schemas/aleph-bench-result.schema.json`.
+- The evidence note distinguishes real black-box behavior from the existing mock pipeline receipt.
+
+## P1: Clear Next PostCSS Audit Finding
+
+Goal: remove the moderate PostCSS advisory from the Next.js dependency tree without forcing a regressive dependency change.
+
+As of 2026-06-03, npm reports `next@latest` as `16.2.7`, and both `next@16.2.6` and `next@16.2.7` still declare `postcss@8.4.31`. A patch upgrade alone does not clear this advisory.
+
+Tasks:
+
+- Track npm advisory `GHSA-qx2v-qp2m-jg93` for `postcss <8.5.10`.
+- Keep the current `next@16.2.6` install valid; it currently pins `postcss@8.4.31`.
+- Do not use `npm audit fix --force` unless a checked plan shows it preserves the active `web/` app behavior.
+- Recheck after each Next.js upgrade or dependency refresh.
+- Record the exact validation commands in release notes once the advisory clears.
+
+Acceptance gate:
+
+- `npm ls postcss` exits cleanly.
+- `npm audit --json` no longer reports the PostCSS advisory through Next's dependency tree.
+- `npm --workspace web run build` and `npm run lint` pass without a forced downgrade or invalid override.
+
 ## P1: File-First Run Import/Export
 
 Goal: make the product match the repository thesis.
