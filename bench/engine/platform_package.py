@@ -122,8 +122,10 @@ This package is platform-ready seed data and mock pipeline evidence. It is not a
 - `schemas/`: JSON schemas for validating benchmark artifacts.
 - `croissant.json`: cross-platform ML dataset metadata.
 - `dataset-metadata.json`: Kaggle Dataset metadata.
+- `huggingface/upload_dataset.py`: dry-run and optional upload helper for the Hugging Face Dataset repo.
 - `kaggle/aleph_bench_m0_task.py`: Kaggle Community Benchmark scaffold using the `llm.prompt(...)` task shape.
 - `kaggle/api_test_smoke.py`: local stub harness for the Kaggle API-test I/O contract.
+- `PLATFORM_LAUNCH_CHECKLIST.md`: staged launch checklist separating prepared, blocked, and not-yet-run work.
 
 ## Evaluation
 
@@ -174,6 +176,7 @@ From the Aleph repository root:
 ./aleph-bench verify --audit bench/results/m0-audit.json --bundle bench/results/m0-bundle.json
 ./aleph-bench package --check bench/results/platform/m0-mock/package-manifest.json
 python3 bench/results/platform/m0-mock/kaggle/api_test_smoke.py
+python3 bench/results/platform/m0-mock/huggingface/upload_dataset.py --dry-run
 npm run lint
 npm run test
 ```
@@ -190,6 +193,265 @@ Before replacing the mock evidence note with real black-box rows:
 ./aleph-bench report --result bench/results/m0-hosted-run.json --out bench/results/m0-hosted-report.md
 ```
 """
+
+
+def _platform_launch_checklist() -> str:
+    return """# Aleph-Bench M0 Platform Launch Checklist
+
+This checklist is the durable boundary between prepared package work and actual public platform launch. The checked-in M0 package is deterministic mock evidence plus launch scaffolding. It is not a hosted benchmark result.
+
+## Current Status
+
+| Stage | Status | Gate |
+| --- | --- | --- |
+| Local M0 evidence package | ready | `./aleph-bench package --check bench/results/platform/m0-mock/package-manifest.json` |
+| Kaggle API-test preparation | ready | `python3 bench/results/platform/m0-mock/kaggle/api_test_smoke.py` reports 180 sendable prompts and 180 prompt calls |
+| Hugging Face Dataset upload preparation | ready | `python3 bench/results/platform/m0-mock/huggingface/upload_dataset.py --dry-run` validates card, manifest, checksums, and upload shape |
+| Hugging Face Dataset upload | blocked | requires `HF_TOKEN` and ownership/write access for `p-to-q/aleph-bench-m0` |
+| Hugging Face benchmark or leaderboard surface | blocked | requires hosted black-box evidence or an explicit Space/Leaderboard app wired to real result rows |
+| Kaggle Dataset upload | blocked | requires Kaggle account ownership for `p-to-q/aleph-bench-m0` |
+| Kaggle Community Benchmark notebook run | blocked | requires approved Kaggle Benchmarks notebook/model access and final `%choose` selection |
+| Hosted black-box leaderboard evidence | blocked | requires real model access plus new result, manifest, report, and evidence note |
+
+## Hugging Face Path
+
+1. Run local gates:
+
+```bash
+./aleph-bench package --check bench/results/platform/m0-mock/package-manifest.json
+python3 bench/results/platform/m0-mock/huggingface/upload_dataset.py --dry-run
+```
+
+2. Confirm the target repo owner and visibility. The package is configured for `p-to-q/aleph-bench-m0` as a dataset repo.
+3. Upload only after tokened access exists:
+
+```bash
+HF_TOKEN=... python3 bench/results/platform/m0-mock/huggingface/upload_dataset.py --execute --repo-id p-to-q/aleph-bench-m0
+```
+
+4. Post-upload checks:
+
+- root `README.md` renders as a dataset card;
+- `data/public_s2_items.jsonl` and `data/public_s2_prompts.jsonl` are visible as dataset files;
+- `package-manifest.json` and `checksums.sha256` match this checked-in package;
+- the page copy does not present deterministic mock rows as real model ranking.
+
+## Kaggle Path
+
+1. Upload or attach the package as a Kaggle Dataset using `dataset-metadata.json`.
+2. Run `python3 kaggle/api_test_smoke.py` inside the attached package path.
+3. In the approved Kaggle Benchmarks notebook, wire `aleph_bench_m0_task.py` to `kaggle-benchmarks` with `@kbench.task`, `llm.prompt(...)`, `.evaluate(llm=[...], evaluation_data=df)`, and final `%choose`.
+4. Save the notebook version and attach generated task/run files before claiming a Kaggle benchmark launch.
+
+## Evidence Upgrade Gate
+
+Replace the mock evidence only after real hosted rows exist:
+
+```bash
+./aleph-bench doctor --model hosted:model-a,hosted:model-b,hosted:model-c
+./aleph-bench manifest --model hosted:model-a,hosted:model-b,hosted:model-c --out bench/results/m0-hosted-manifest.json
+./aleph-bench run --track F --model hosted:model-a,hosted:model-b,hosted:model-c --split public --seed 0 --cache-dir .cache/aleph-bench/m0-hosted --out bench/results/m0-hosted-run.json
+./aleph-bench verify --result bench/results/m0-hosted-run.json --manifest bench/results/m0-hosted-manifest.json
+./aleph-bench report --result bench/results/m0-hosted-run.json --out bench/results/m0-hosted-report.md
+```
+"""
+
+
+def _hf_upload_readme() -> str:
+    return """# Hugging Face Upload Preparation
+
+This directory prepares the M0 package for a Hugging Face Dataset upload. It does not upload anything unless `upload_dataset.py --execute` is used with `HF_TOKEN`.
+
+## Local Dry Run
+
+From the Aleph repository root:
+
+```bash
+python3 bench/results/platform/m0-mock/huggingface/upload_dataset.py --dry-run
+```
+
+The dry run validates:
+
+- root `README.md` has dataset-card front matter;
+- `package-manifest.json` declares the Hugging Face Dataset target;
+- every manifest artifact exists and matches its sha256/byte count;
+- `checksums.sha256` matches the manifest artifact list;
+- required data, schema, evidence, Kaggle, and Hugging Face preparation files are present.
+
+## Actual Upload
+
+After confirming repo ownership and token scope:
+
+```bash
+HF_TOKEN=... python3 bench/results/platform/m0-mock/huggingface/upload_dataset.py --execute --repo-id p-to-q/aleph-bench-m0
+```
+
+The script creates the dataset repo if needed, then uploads the package folder with `huggingface_hub.upload_folder`.
+
+## Benchmark Boundary
+
+The Hugging Face Dataset upload is a platform distribution step, not a real model leaderboard. A Hugging Face benchmark or leaderboard surface should be created only after hosted black-box rows exist, or as an explicitly labeled mock/demo Space that reads this dataset and refuses to rank models as real evidence.
+"""
+
+
+def _hf_upload_py() -> str:
+    return '''"""Hugging Face Dataset upload preparation for Aleph-Bench M0.
+
+Default mode is a local dry run. Real upload requires --execute and HF_TOKEN.
+"""
+
+from __future__ import annotations
+
+import argparse
+import hashlib
+import json
+import os
+from pathlib import Path
+from typing import Any
+
+
+PACKAGE_ROOT = Path(__file__).resolve().parents[1]
+DEFAULT_REPO_ID = "p-to-q/aleph-bench-m0"
+REQUIRED_FILES = [
+    "README.md",
+    "EVALUATION.md",
+    "PLATFORM_LAUNCH_CHECKLIST.md",
+    "package-manifest.json",
+    "checksums.sha256",
+    "croissant.json",
+    "dataset-metadata.json",
+    "data/public_s2_items.jsonl",
+    "data/public_s2_prompts.jsonl",
+    "data/public_s2_items.csv",
+    "data/public_s2_prompts.csv",
+    "data/submission_format.csv",
+    "schemas/aleph-bench-result.schema.json",
+    "evidence/m0-first-run.json",
+    "evidence/m0-evidence.md",
+    "kaggle/aleph_bench_m0_task.py",
+    "kaggle/api_test_smoke.py",
+    "huggingface/README.md",
+    "huggingface/upload_dataset.py",
+]
+
+
+def sha256(data: bytes) -> str:
+    return hashlib.sha256(data).hexdigest()
+
+
+def load_json(path: Path) -> Any:
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
+def expected_checksums(manifest: dict[str, Any]) -> str:
+    lines = [f"{artifact['sha256']}  {artifact['path']}" for artifact in manifest["artifacts"]]
+    return "\\n".join(lines) + "\\n"
+
+
+def validate_package(root: Path) -> dict[str, Any]:
+    errors: list[str] = []
+    manifest_path = root / "package-manifest.json"
+    if not manifest_path.exists():
+        errors.append("missing package-manifest.json")
+        manifest: dict[str, Any] = {"artifacts": [], "targetPlatforms": []}
+    else:
+        manifest = load_json(manifest_path)
+
+    for relative in REQUIRED_FILES:
+        if not (root / relative).exists():
+            errors.append(f"missing required file: {relative}")
+
+    readme_path = root / "README.md"
+    if readme_path.exists():
+        readme = readme_path.read_text(encoding="utf-8")
+        if not readme.startswith("---\\n"):
+            errors.append("README.md is missing dataset-card YAML front matter")
+        if "configs:" not in readme or "data/public_s2_items.jsonl" not in readme:
+            errors.append("README.md does not declare the public-s2 data file")
+
+    if "huggingface_dataset" not in manifest.get("targetPlatforms", []):
+        errors.append("package manifest does not target huggingface_dataset")
+    if manifest.get("evidenceMode") != "mock":
+        errors.append("package manifest evidenceMode should remain mock until hosted rows exist")
+
+    for artifact in manifest.get("artifacts", []):
+        path = root / artifact["path"]
+        if not path.exists():
+            errors.append(f"manifest artifact missing: {artifact['path']}")
+            continue
+        data = path.read_bytes()
+        if sha256(data) != artifact["sha256"]:
+            errors.append(f"sha256 mismatch: {artifact['path']}")
+        if len(data) != artifact["bytes"]:
+            errors.append(f"byte count mismatch: {artifact['path']}")
+
+    checksums_path = root / "checksums.sha256"
+    if checksums_path.exists() and checksums_path.read_text(encoding="utf-8") != expected_checksums(manifest):
+        errors.append("checksums.sha256 does not match manifest artifact list")
+
+    return {
+        "status": "failed" if errors else "ok",
+        "packageRoot": str(root),
+        "repoType": "dataset",
+        "repoId": manifest.get("huggingFaceDatasetId", DEFAULT_REPO_ID),
+        "artifactCount": len(manifest.get("artifacts", [])),
+        "requiredFileCount": len(REQUIRED_FILES),
+        "errors": errors,
+    }
+
+
+def upload(root: Path, repo_id: str, private: bool, commit_message: str) -> str:
+    token = os.environ.get("HF_TOKEN")
+    if not token:
+        raise SystemExit("HF_TOKEN is required for --execute")
+    try:
+        from huggingface_hub import HfApi, upload_folder
+    except ImportError as exc:
+        raise SystemExit("Install huggingface_hub before --execute") from exc
+
+    api = HfApi(token=token)
+    api.create_repo(repo_id=repo_id, repo_type="dataset", private=private, exist_ok=True)
+    upload_folder(
+        folder_path=str(root),
+        repo_id=repo_id,
+        repo_type="dataset",
+        token=token,
+        commit_message=commit_message,
+    )
+    return f"https://huggingface.co/datasets/{repo_id}"
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--dry-run", action="store_true", help="Validate upload readiness without uploading.")
+    parser.add_argument("--execute", action="store_true", help="Create/update the Hugging Face Dataset repo.")
+    parser.add_argument("--repo-id", default=DEFAULT_REPO_ID)
+    parser.add_argument("--private", action="store_true")
+    parser.add_argument("--commit-message", default="Add Aleph-Bench M0 platform package")
+    args = parser.parse_args()
+
+    if args.dry_run and args.execute:
+        raise SystemExit("Use either --dry-run or --execute, not both")
+
+    report = validate_package(PACKAGE_ROOT)
+    report["requestedRepoId"] = args.repo_id
+    report["mode"] = "execute" if args.execute else "dry-run"
+
+    if report["errors"]:
+        print(json.dumps(report, indent=2, sort_keys=True))
+        raise SystemExit(1)
+
+    if args.execute:
+        report["url"] = upload(PACKAGE_ROOT, args.repo_id, args.private, args.commit_message)
+    else:
+        report["url"] = None
+
+    print(json.dumps(report, indent=2, sort_keys=True))
+
+
+if __name__ == "__main__":
+    main()
+'''
 
 
 def _kaggle_metadata() -> dict[str, Any]:
@@ -645,6 +907,7 @@ def _build_artifact_bytes() -> dict[str, bytes]:
     artifact_bytes: dict[str, bytes] = {
         "README.md": _text_bytes(_hf_readme()),
         "EVALUATION.md": _text_bytes(_evaluation_protocol()),
+        "PLATFORM_LAUNCH_CHECKLIST.md": _text_bytes(_platform_launch_checklist()),
         "dataset-metadata.json": _json_bytes(_kaggle_metadata()),
         "data/public_s2_items.jsonl": _jsonl_bytes(items),
         "data/public_s2_prompts.jsonl": _jsonl_bytes(_prompt_rows(items)),
@@ -654,6 +917,8 @@ def _build_artifact_bytes() -> dict[str, bytes]:
             _submission_rows(items),
             ["row_id", "model_id", "item_id", "prompt_id", "output_text"],
         ),
+        "huggingface/README.md": _text_bytes(_hf_upload_readme()),
+        "huggingface/upload_dataset.py": _text_bytes(_hf_upload_py()),
         "kaggle/README.md": _text_bytes(_kaggle_task_readme()),
         "kaggle/api_test_smoke.py": _text_bytes(_kaggle_api_test_smoke_py()),
         "kaggle/aleph_bench_m0_task.py": _text_bytes(_kaggle_task_py()),
@@ -733,6 +998,10 @@ def _note_for(path: str) -> str:
         return "JSON Schema validation artifact."
     if path.startswith("evidence/"):
         return "Mock evidence artifact or generated evidence note."
+    if path.startswith("huggingface/"):
+        return "Hugging Face upload preparation artifact."
+    if path.startswith("kaggle/"):
+        return "Kaggle Community Benchmark preparation artifact."
     return "Platform package documentation."
 
 
@@ -758,6 +1027,7 @@ def expected_platform_manifest(out_dir: Path) -> tuple[dict[str, Any], dict[str,
             "./aleph-bench verify --audit bench/results/m0-audit.json --bundle bench/results/m0-bundle.json",
             f"./aleph-bench package --check {stable_dataset_path(out_dir / 'package-manifest.json')}",
             f"python3 {stable_dataset_path(out_dir / 'kaggle/api_test_smoke.py')}",
+            f"python3 {stable_dataset_path(out_dir / 'huggingface/upload_dataset.py')} --dry-run",
             "npm run lint",
             "npm run test",
         ],

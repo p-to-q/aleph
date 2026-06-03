@@ -49,7 +49,7 @@
       "additionalProperties": false,
       "required": ["role", "path", "sha256", "bytes", "encodingFormat", "note"],
       "properties": {
-        "role": { "enum": ["data", "docs", "evidence", "kaggle", "metadata", "schemas"] },
+        "role": { "enum": ["data", "docs", "evidence", "huggingface", "kaggle", "metadata", "schemas"] },
         "path": { "type": "string" },
         "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
         "bytes": { "type": "integer", "minimum": 0 },

@@ -129,6 +129,7 @@ Build the platform release package for Hugging Face Dataset, Kaggle Dataset, Kag
 ./aleph-bench package --out-dir bench/results/platform/m0-mock
 ./aleph-bench package --check bench/results/platform/m0-mock/package-manifest.json
 python3 bench/results/platform/m0-mock/kaggle/api_test_smoke.py
+python3 bench/results/platform/m0-mock/huggingface/upload_dataset.py --dry-run
 ```
 
-The checked package includes JSONL and CSV tables, a Hugging Face dataset card, Kaggle `dataset-metadata.json` with resource schemas, Croissant JSON-LD, mock evidence receipts, JSON schemas, checksums, a Kaggle Community Benchmark scaffold in `kaggle/`, and a stubbed API-test smoke harness that verifies the 180-row non-leaking prompt/output contract before hosted Kaggle model access exists.
+The checked package includes JSONL and CSV tables, a Hugging Face dataset card, Kaggle `dataset-metadata.json` with resource schemas, Croissant JSON-LD, mock evidence receipts, JSON schemas, checksums, a launch checklist, a Kaggle Community Benchmark scaffold in `kaggle/`, a stubbed Kaggle API-test smoke harness that verifies the 180-row non-leaking prompt/output contract before hosted Kaggle model access exists, and a Hugging Face dry-run/upload helper in `huggingface/`.

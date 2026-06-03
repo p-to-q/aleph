@@ -594,11 +594,15 @@ class M0BenchTests(unittest.TestCase):
             self.assertIn("README.md", {artifact["path"] for artifact in manifest["artifacts"]})
             self.assertIn("dataset-metadata.json", {artifact["path"] for artifact in manifest["artifacts"]})
             self.assertIn("croissant.json", {artifact["path"] for artifact in manifest["artifacts"]})
+            self.assertIn("PLATFORM_LAUNCH_CHECKLIST.md", {artifact["path"] for artifact in manifest["artifacts"]})
+            self.assertIn("huggingface/upload_dataset.py", {artifact["path"] for artifact in manifest["artifacts"]})
             self.assertIn("kaggle/aleph_bench_m0_task.py", {artifact["path"] for artifact in manifest["artifacts"]})
             self.assertIn("kaggle/api_test_smoke.py", {artifact["path"] for artifact in manifest["artifacts"]})
 
             readme = (out_dir / "README.md").read_text(encoding="utf-8")
             kaggle = json.loads((out_dir / "dataset-metadata.json").read_text(encoding="utf-8"))
+            launch_checklist = (out_dir / "PLATFORM_LAUNCH_CHECKLIST.md").read_text(encoding="utf-8")
+            hf_upload = (out_dir / "huggingface/upload_dataset.py").read_text(encoding="utf-8")
             kaggle_task = (out_dir / "kaggle/aleph_bench_m0_task.py").read_text(encoding="utf-8")
             kaggle_smoke = (out_dir / "kaggle/api_test_smoke.py").read_text(encoding="utf-8")
             croissant = json.loads((out_dir / "croissant.json").read_text(encoding="utf-8"))
@@ -615,6 +619,8 @@ class M0BenchTests(unittest.TestCase):
             self.assertEqual(kaggle["id"], "p-to-q/aleph-bench-m0")
             self.assertEqual(kaggle["licenses"], [{"name": "CC0-1.0"}])
             self.assertEqual(len(kaggle["resources"]), 3)
+            self.assertIn("Hugging Face Dataset upload preparation", launch_checklist)
+            self.assertIn("upload_folder", hf_upload)
             self.assertIn("@kbench.task", kaggle_task)
             self.assertIn("run_black_box_model", kaggle_task)
             self.assertIn("llm.prompt", kaggle_task)
@@ -635,11 +641,21 @@ class M0BenchTests(unittest.TestCase):
             self.assertEqual(smoke_report["status"], "ok")
             self.assertEqual(smoke_report["sendablePrompts"], 180)
             self.assertEqual(smoke_report["promptCalls"], 180)
+            hf_dry_run = subprocess.run(
+                [sys.executable, str(out_dir / "huggingface/upload_dataset.py"), "--dry-run"],
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+            hf_report = json.loads(hf_dry_run.stdout)
+            self.assertEqual(hf_report["status"], "ok")
+            self.assertEqual(hf_report["repoType"], "dataset")
+            self.assertEqual(hf_report["repoId"], "p-to-q/aleph-bench-m0")
 
     def test_checked_in_platform_package_validates(self) -> None:
         report = check_platform_package(ROOT / "bench/results/platform/m0-mock/package-manifest.json")
         self.assertEqual(report["status"], "ok")
-        self.assertEqual(report["artifactCount"], 27)
+        self.assertEqual(report["artifactCount"], 30)
         self.assertEqual(
             set(report["targetPlatforms"]),
             {"huggingface_dataset", "kaggle_dataset", "kaggle_community_benchmark", "croissant"},

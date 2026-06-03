@@ -38,8 +38,10 @@ This package is platform-ready seed data and mock pipeline evidence. It is not a
 - `schemas/`: JSON schemas for validating benchmark artifacts.
 - `croissant.json`: cross-platform ML dataset metadata.
 - `dataset-metadata.json`: Kaggle Dataset metadata.
+- `huggingface/upload_dataset.py`: dry-run and optional upload helper for the Hugging Face Dataset repo.
 - `kaggle/aleph_bench_m0_task.py`: Kaggle Community Benchmark scaffold using the `llm.prompt(...)` task shape.
 - `kaggle/api_test_smoke.py`: local stub harness for the Kaggle API-test I/O contract.
+- `PLATFORM_LAUNCH_CHECKLIST.md`: staged launch checklist separating prepared, blocked, and not-yet-run work.
 
 ## Evaluation
 

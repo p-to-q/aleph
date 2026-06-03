@@ -27,6 +27,7 @@ From the Aleph repository root:
 ./aleph-bench verify --audit bench/results/m0-audit.json --bundle bench/results/m0-bundle.json
 ./aleph-bench package --check bench/results/platform/m0-mock/package-manifest.json
 python3 bench/results/platform/m0-mock/kaggle/api_test_smoke.py
+python3 bench/results/platform/m0-mock/huggingface/upload_dataset.py --dry-run
 npm run lint
 npm run test
 ```
