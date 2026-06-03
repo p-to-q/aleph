@@ -122,3 +122,13 @@ Run hosted black-box rows after setting `ALEPH_CUSTOM_API_BASE_URL` and `ALEPH_C
 ```bash
 ./aleph-bench run --track F --model hosted:model-a,hosted:model-b,hosted:model-c --split public --seed 0 --cache-dir .cache/aleph-bench/m0-hosted --out bench/results/m0-hosted-run.json
 ```
+
+Build the platform release package for Hugging Face Dataset, Kaggle Dataset, Kaggle Community Benchmark review, and Croissant metadata:
+
+```bash
+./aleph-bench package --out-dir bench/results/platform/m0-mock
+./aleph-bench package --check bench/results/platform/m0-mock/package-manifest.json
+python3 bench/results/platform/m0-mock/kaggle/api_test_smoke.py
+```
+
+The checked package includes JSONL and CSV tables, a Hugging Face dataset card, Kaggle `dataset-metadata.json` with resource schemas, Croissant JSON-LD, mock evidence receipts, JSON schemas, checksums, a Kaggle Community Benchmark scaffold in `kaggle/`, and a stubbed API-test smoke harness that verifies the 180-row non-leaking prompt/output contract before hosted Kaggle model access exists.

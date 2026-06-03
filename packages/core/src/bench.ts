@@ -7,8 +7,8 @@ export type BenchArtifactStatus = "ready" | "blocked";
 export type BenchManifestEvidenceMode = ObservationMode | "unknown";
 export type BenchBundleEvidenceMode = ObservationMode | "none";
 export type BenchBundleArtifactRole = "result" | "manifest" | "audit" | "report" | "evidence_note";
-export type BenchPlatformTarget = "huggingface_dataset" | "kaggle_dataset" | "croissant";
-export type BenchPlatformArtifactRole = "data" | "docs" | "evidence" | "metadata" | "schemas";
+export type BenchPlatformTarget = "huggingface_dataset" | "kaggle_dataset" | "kaggle_community_benchmark" | "croissant";
+export type BenchPlatformArtifactRole = "data" | "docs" | "evidence" | "kaggle" | "metadata" | "schemas";
 export type BenchAuditStatus = "ok" | "failed";
 export type BenchAuditCheckId =
   | "schema-valid"

@@ -104,8 +104,10 @@ The design above is realized in code. M0 (Track F, Frozen Ladder) is implemented
   leaderboard" framing).
 - [`hosted-m0-runbook.md`](hosted-m0-runbook.md) — how to run real black-box models once
   `ALEPH_CUSTOM_API_*` credentials exist.
-- Platform export (`aleph-bench package`) produces the HF / Kaggle / Croissant delivery package — see
-  [`12-platform-feasibility.md`](12-platform-feasibility.md) and `bench/platform/`.
+- Platform export (`aleph-bench package`) produces the HF Dataset / Kaggle Dataset / Croissant delivery
+  package, plus a Kaggle Community Benchmark scaffold and stubbed API-test smoke gate — see
+  [`12-platform-feasibility.md`](12-platform-feasibility.md) and
+  [`bench/results/platform/m0-mock/package-manifest.json`](../../bench/results/platform/m0-mock/package-manifest.json).
 
 ## Claims posture (read before quoting any number)
 

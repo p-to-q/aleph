@@ -1,0 +1,203 @@
+{
+  "@context": {
+    "@language": "en",
+    "cr": "http://mlcommons.org/croissant/",
+    "dct": "http://purl.org/dc/terms/",
+    "sc": "https://schema.org/"
+  },
+  "@type": "sc:Dataset",
+  "creator": {
+    "@type": "sc:Organization",
+    "name": "p-to-q"
+  },
+  "dateCreated": "2026-06-03",
+  "datePublished": "2026-06-03",
+  "dct:conformsTo": "http://mlcommons.org/croissant/1.1",
+  "description": "A frozen-ladder prompt-compression benchmark seed package with 30 S2 synthetic targets, schemas, and deterministic mock pipeline evidence.",
+  "distribution": [
+    {
+      "@id": "data/mock_item_metrics.csv",
+      "@type": "cr:FileObject",
+      "contentUrl": "data/mock_item_metrics.csv",
+      "encodingFormat": "text/csv",
+      "name": "data/mock_item_metrics.csv"
+    },
+    {
+      "@id": "data/mock_model_summary.csv",
+      "@type": "cr:FileObject",
+      "contentUrl": "data/mock_model_summary.csv",
+      "encodingFormat": "text/csv",
+      "name": "data/mock_model_summary.csv"
+    },
+    {
+      "@id": "data/public_s2_items.csv",
+      "@type": "cr:FileObject",
+      "contentUrl": "data/public_s2_items.csv",
+      "encodingFormat": "text/csv",
+      "name": "data/public_s2_items.csv"
+    },
+    {
+      "@id": "data/public_s2_items.jsonl",
+      "@type": "cr:FileObject",
+      "contentUrl": "data/public_s2_items.jsonl",
+      "encodingFormat": "application/jsonl",
+      "name": "data/public_s2_items.jsonl"
+    },
+    {
+      "@id": "data/public_s2_prompts.csv",
+      "@type": "cr:FileObject",
+      "contentUrl": "data/public_s2_prompts.csv",
+      "encodingFormat": "text/csv",
+      "name": "data/public_s2_prompts.csv"
+    },
+    {
+      "@id": "data/public_s2_prompts.jsonl",
+      "@type": "cr:FileObject",
+      "contentUrl": "data/public_s2_prompts.jsonl",
+      "encodingFormat": "application/jsonl",
+      "name": "data/public_s2_prompts.jsonl"
+    },
+    {
+      "@id": "data/submission_format.csv",
+      "@type": "cr:FileObject",
+      "contentUrl": "data/submission_format.csv",
+      "encodingFormat": "text/csv",
+      "name": "data/submission_format.csv"
+    },
+    {
+      "@id": "evidence/m0-audit.json",
+      "@type": "cr:FileObject",
+      "contentUrl": "evidence/m0-audit.json",
+      "encodingFormat": "application/json",
+      "name": "evidence/m0-audit.json"
+    },
+    {
+      "@id": "evidence/m0-bundle.json",
+      "@type": "cr:FileObject",
+      "contentUrl": "evidence/m0-bundle.json",
+      "encodingFormat": "application/json",
+      "name": "evidence/m0-bundle.json"
+    },
+    {
+      "@id": "evidence/m0-call-manifest.json",
+      "@type": "cr:FileObject",
+      "contentUrl": "evidence/m0-call-manifest.json",
+      "encodingFormat": "application/json",
+      "name": "evidence/m0-call-manifest.json"
+    },
+    {
+      "@id": "evidence/m0-evidence.md",
+      "@type": "cr:FileObject",
+      "contentUrl": "evidence/m0-evidence.md",
+      "encodingFormat": "text/markdown",
+      "name": "evidence/m0-evidence.md"
+    },
+    {
+      "@id": "evidence/m0-first-run.json",
+      "@type": "cr:FileObject",
+      "contentUrl": "evidence/m0-first-run.json",
+      "encodingFormat": "application/json",
+      "name": "evidence/m0-first-run.json"
+    },
+    {
+      "@id": "evidence/m0-report.md",
+      "@type": "cr:FileObject",
+      "contentUrl": "evidence/m0-report.md",
+      "encodingFormat": "text/markdown",
+      "name": "evidence/m0-report.md"
+    },
+    {
+      "@id": "schemas/aleph-bench-audit.schema.json",
+      "@type": "cr:FileObject",
+      "contentUrl": "schemas/aleph-bench-audit.schema.json",
+      "encodingFormat": "application/json",
+      "name": "schemas/aleph-bench-audit.schema.json"
+    },
+    {
+      "@id": "schemas/aleph-bench-bundle.schema.json",
+      "@type": "cr:FileObject",
+      "contentUrl": "schemas/aleph-bench-bundle.schema.json",
+      "encodingFormat": "application/json",
+      "name": "schemas/aleph-bench-bundle.schema.json"
+    },
+    {
+      "@id": "schemas/aleph-bench-item.schema.json",
+      "@type": "cr:FileObject",
+      "contentUrl": "schemas/aleph-bench-item.schema.json",
+      "encodingFormat": "application/json",
+      "name": "schemas/aleph-bench-item.schema.json"
+    },
+    {
+      "@id": "schemas/aleph-bench-manifest.schema.json",
+      "@type": "cr:FileObject",
+      "contentUrl": "schemas/aleph-bench-manifest.schema.json",
+      "encodingFormat": "application/json",
+      "name": "schemas/aleph-bench-manifest.schema.json"
+    },
+    {
+      "@id": "schemas/aleph-bench-platform-package.schema.json",
+      "@type": "cr:FileObject",
+      "contentUrl": "schemas/aleph-bench-platform-package.schema.json",
+      "encodingFormat": "application/json",
+      "name": "schemas/aleph-bench-platform-package.schema.json"
+    },
+    {
+      "@id": "schemas/aleph-bench-result.schema.json",
+      "@type": "cr:FileObject",
+      "contentUrl": "schemas/aleph-bench-result.schema.json",
+      "encodingFormat": "application/json",
+      "name": "schemas/aleph-bench-result.schema.json"
+    }
+  ],
+  "inLanguage": [
+    "en"
+  ],
+  "isLiveDataset": false,
+  "keywords": [
+    "benchmark",
+    "prompt compression",
+    "reverse prompt search",
+    "synthetic data",
+    "LLM evaluation"
+  ],
+  "license": "https://spdx.org/licenses/CC0-1.0.html",
+  "name": "Aleph-Bench M0",
+  "publisher": {
+    "@type": "sc:Organization",
+    "name": "p-to-q"
+  },
+  "recordSet": [
+    {
+      "@id": "public_s2_items",
+      "@type": "cr:RecordSet",
+      "data": [
+        {
+          "source": {
+            "fileObject": "data/public_s2_items.jsonl"
+          }
+        }
+      ],
+      "description": "Thirty public S2 compositional BenchItems.",
+      "name": "public_s2_items"
+    },
+    {
+      "@id": "public_s2_prompts",
+      "@type": "cr:RecordSet",
+      "data": [
+        {
+          "source": {
+            "fileObject": "data/public_s2_prompts.jsonl"
+          }
+        }
+      ],
+      "description": "Frozen-ladder prompt rows and leakage-gate measurements.",
+      "name": "public_s2_prompts"
+    }
+  ],
+  "sameAs": [
+    "https://www.kaggle.com/datasets/p-to-q/aleph-bench-m0"
+  ],
+  "sdLicense": "https://spdx.org/licenses/CC0-1.0.html",
+  "url": "https://huggingface.co/datasets/p-to-q/aleph-bench-m0",
+  "version": "m0"
+}

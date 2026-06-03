@@ -1,34 +1,14 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "title": "BenchPlatformPackage",
+  "title": "BenchBundle",
   "type": "object",
   "additionalProperties": false,
-  "required": [
-    "id",
-    "createdAt",
-    "packageKind",
-    "evidenceMode",
-    "root",
-    "targetPlatforms",
-    "kaggleDatasetId",
-    "huggingFaceDatasetId",
-    "artifacts",
-    "validationCommands",
-    "notes"
-  ],
+  "required": ["id", "createdAt", "status", "evidenceMode", "artifacts", "validationCommands", "notes"],
   "properties": {
     "id": { "type": "string" },
     "createdAt": { "type": "string" },
-    "packageKind": { "enum": ["platform_release"] },
+    "status": { "enum": ["ok", "failed"] },
     "evidenceMode": { "enum": ["fixture", "mock", "black_box", "white_box", "simulated", "none"] },
-    "root": { "type": "string" },
-    "targetPlatforms": {
-      "type": "array",
-      "minItems": 1,
-      "items": { "enum": ["huggingface_dataset", "kaggle_dataset", "kaggle_community_benchmark", "croissant"] }
-    },
-    "kaggleDatasetId": { "type": "string" },
-    "huggingFaceDatasetId": { "type": "string" },
     "artifacts": {
       "type": "array",
       "minItems": 1,
@@ -47,13 +27,19 @@
     "artifact": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["role", "path", "sha256", "bytes", "encodingFormat", "note"],
+      "required": ["role", "path", "sha256", "bytes", "evidenceMode", "schemaPath", "note"],
       "properties": {
-        "role": { "enum": ["data", "docs", "evidence", "kaggle", "metadata", "schemas"] },
+        "role": { "enum": ["result", "manifest", "audit", "report", "evidence_note"] },
         "path": { "type": "string" },
         "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
         "bytes": { "type": "integer", "minimum": 0 },
-        "encodingFormat": { "type": "string" },
+        "evidenceMode": { "enum": ["fixture", "mock", "black_box", "white_box", "simulated", "none"] },
+        "schemaPath": {
+          "anyOf": [
+            { "type": "string" },
+            { "type": "null" }
+          ]
+        },
         "note": { "type": "string" }
       }
     }

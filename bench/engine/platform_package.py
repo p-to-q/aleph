@@ -20,6 +20,33 @@ DEFAULT_PACKAGE_DIR = REPO_ROOT / "bench/results/platform/m0-mock"
 KAGGLE_ID = "p-to-q/aleph-bench-m0"
 HF_ID = "p-to-q/aleph-bench-m0"
 
+ITEM_FIELDS = [
+    ("item_id", "Bench item id.", "string"),
+    ("stratum", "Benchmark stratum.", "string"),
+    ("language", "Language code.", "string"),
+    ("metric_class", "Primary metric class.", "string"),
+    ("target_label", "Human-readable target label.", "string"),
+    ("target_text", "Target output text.", "string"),
+    ("family", "S2 generator family.", "string"),
+    ("canary_guid", "Dataset-level contamination canary, kept out of target and prompt text.", "string"),
+    ("license", "Item license.", "string"),
+]
+
+PROMPT_FIELDS = [
+    ("item_id", "Bench item id.", "string"),
+    ("prompt_id", "Frozen ladder prompt id.", "string"),
+    ("rung", "Frozen ladder rung.", "integer"),
+    ("paraphrase", "Paraphrase index within rung.", "integer"),
+    ("label", "Rung label.", "string"),
+    ("expected_leakage", "Expected leakage class.", "string"),
+    ("tokens", "Regex token count.", "integer"),
+    ("disqualified", "Whether the leakage gate disqualifies the prompt.", "boolean"),
+    ("lcs_ratio", "Prompt-target LCS ratio.", "number"),
+    ("trigram_overlap", "Target trigram overlap.", "number"),
+    ("verbatim_span_tokens", "Longest verbatim token span.", "integer"),
+    ("prompt", "Prompt text.", "string"),
+]
+
 
 def _json_bytes(value: Any) -> bytes:
     return (json.dumps(value, indent=2, sort_keys=True) + "\n").encode("utf-8")
@@ -87,6 +114,7 @@ This package is platform-ready seed data and mock pipeline evidence. It is not a
 
 - `data/public_s2_items.jsonl`: 30 S2 compositional BenchItems.
 - `data/public_s2_prompts.jsonl`: 240 frozen-ladder prompt rows, including gated explicit reconstruction anchors.
+- `data/public_s2_items.csv` and `data/public_s2_prompts.csv`: flat tables for Kaggle Dataset preview.
 - `data/submission_format.csv`: community benchmark submission shape for prompt outputs.
 - `evidence/m0-first-run.json`: deterministic three-model mock BenchResult.
 - `evidence/m0-report.md`: generated tables from the mock result JSON.
@@ -94,6 +122,8 @@ This package is platform-ready seed data and mock pipeline evidence. It is not a
 - `schemas/`: JSON schemas for validating benchmark artifacts.
 - `croissant.json`: cross-platform ML dataset metadata.
 - `dataset-metadata.json`: Kaggle Dataset metadata.
+- `kaggle/aleph_bench_m0_task.py`: Kaggle Community Benchmark scaffold using the `llm.prompt(...)` task shape.
+- `kaggle/api_test_smoke.py`: local stub harness for the Kaggle API-test I/O contract.
 
 ## Evaluation
 
@@ -143,6 +173,7 @@ From the Aleph repository root:
 ```bash
 ./aleph-bench verify --audit bench/results/m0-audit.json --bundle bench/results/m0-bundle.json
 ./aleph-bench package --check bench/results/platform/m0-mock/package-manifest.json
+python3 bench/results/platform/m0-mock/kaggle/api_test_smoke.py
 npm run lint
 npm run test
 ```
@@ -180,7 +211,38 @@ def _kaggle_metadata() -> dict[str, Any]:
             "synthetic-data",
             "llm-evaluation",
         ],
+        "resources": [
+            {
+                "path": "data/public_s2_items.csv",
+                "description": "Flat public S2 item table for Kaggle Dataset preview.",
+                "schema": {"fields": _resource_fields(ITEM_FIELDS)},
+            },
+            {
+                "path": "data/public_s2_prompts.csv",
+                "description": "Flat frozen-ladder prompt table with leakage-gate measurements.",
+                "schema": {"fields": _resource_fields(PROMPT_FIELDS)},
+            },
+            {
+                "path": "data/submission_format.csv",
+                "description": "Community benchmark output submission shape.",
+                "schema": {
+                    "fields": _resource_fields(
+                        [
+                            ("row_id", "Submission row id.", "string"),
+                            ("model_id", "Provider-facing model id.", "string"),
+                            ("item_id", "Bench item id.", "string"),
+                            ("prompt_id", "Frozen ladder prompt id.", "string"),
+                            ("output_text", "Generated model output.", "string"),
+                        ]
+                    )
+                },
+            },
+        ],
     }
+
+
+def _resource_fields(fields: list[tuple[str, str, str]]) -> list[dict[str, str]]:
+    return [{"name": name, "title": title, "type": kind} for name, title, kind in fields]
 
 
 def _croissant_metadata(artifact_names: list[str]) -> dict[str, Any]:
@@ -308,6 +370,25 @@ def _submission_rows(items: list[dict[str, Any]]) -> list[dict[str, str]]:
     return rows
 
 
+def _item_rows(items: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    rows = []
+    for item in items:
+        rows.append(
+            {
+                "item_id": item["id"],
+                "stratum": item["stratum"],
+                "language": item["language"],
+                "metric_class": item["metricClass"],
+                "target_label": item["target"].get("label"),
+                "target_text": item["target"]["text"],
+                "family": item["provenance"]["parameters"]["family"],
+                "canary_guid": item["canaryGuid"],
+                "license": item["license"],
+            }
+        )
+    return rows
+
+
 def _model_rows(result: dict[str, Any]) -> list[dict[str, Any]]:
     return [
         {
@@ -342,6 +423,220 @@ def _item_metric_rows(result: dict[str, Any]) -> list[dict[str, Any]]:
     return rows
 
 
+def _kaggle_task_readme() -> str:
+    return """# Kaggle Community Benchmark Scaffold
+
+This directory is a launch scaffold, not checked-in hosted evidence. Kaggle Community Benchmarks run through a notebook/task interface with model access supplied by Kaggle's benchmark program. The M0 task should call each model on the non-leaking frozen-ladder prompts, then score outputs with the same local AURC/ECL/Elicit/leakage code used by `./aleph-bench`.
+
+The included `aleph_bench_m0_task.py` is intentionally minimal and defensive. Kaggle Community Benchmarks use executable Python tasks built around the `kaggle-benchmarks` SDK's `@kbench.task(...)` decorator and `llm.prompt(...)`; this scaffold keeps that shape visible while leaving exact model-access wiring to the approved Kaggle notebook.
+
+- it keeps explicit reconstruction anchors out of submissions;
+- it treats model outputs as `black_box` behavioral evidence;
+- it does not request or report logits, token NLL, or bits;
+- it points maintainers back to the repository verifier before publishing rows.
+
+For the API-test preparation step, run `python3 kaggle/api_test_smoke.py` from this package or from the repository path where it is checked in. The smoke test uses a stub LLM to verify that the task wrapper calls `prompt(...)` once per non-leaking row and emits the exact public submission shape. Passing the smoke test is not hosted model evidence; it only proves the package is ready to be wired into Kaggle's approved notebook.
+
+Before a public Kaggle benchmark launch, replace the placeholder model loop with the exact Kaggle `kaggle-benchmarks` SDK calls used by the approved Resource Grant notebook, save the notebook version, and attach the resulting hosted `BenchResult` plus manifest/report as separate evidence artifacts.
+"""
+
+
+def _kaggle_task_py() -> str:
+    return '''"""Aleph-Bench M0 Kaggle Community Benchmark scaffold.
+
+This file is packaged for reviewer inspection. It is not executed by the local
+test suite because Kaggle model access is granted inside Kaggle notebooks.
+"""
+
+from __future__ import annotations
+
+import json
+from pathlib import Path
+
+
+PACKAGE_ROOT = Path(__file__).resolve().parents[1]
+PROMPTS_PATH = PACKAGE_ROOT / "data/public_s2_prompts.jsonl"
+
+
+# Kaggle notebook wiring sketch (uncomment only inside the approved benchmark
+# notebook, where kaggle-benchmarks is installed and model access is available):
+#
+# import kaggle_benchmarks as kbench
+#
+# @kbench.task(name="aleph_bench_m0_prompt", store_task=False)
+# def aleph_bench_m0_prompt(llm, item_id: str, prompt_id: str, prompt: str) -> dict[str, str]:
+#     with kbench.chats.new(f"{item_id}:{prompt_id}"):
+#         output = llm.prompt(prompt)
+#     return {"item_id": item_id, "prompt_id": prompt_id, "output_text": str(output)}
+#
+# results = aleph_bench_m0_prompt.evaluate(llm=[kbench.llm], evaluation_data=prompt_dataframe)
+
+
+def load_sendable_prompts() -> list[dict[str, object]]:
+    rows = []
+    for line in PROMPTS_PATH.read_text(encoding="utf-8").splitlines():
+        row = json.loads(line)
+        if not row["disqualified"]:
+            rows.append(row)
+    return rows
+
+
+def run_black_box_model(model_id: str, llm: object) -> list[dict[str, str]]:
+    """Run one Kaggle-provided model over all non-leaking M0 prompts.
+
+    `llm` is expected to be the model object provided by the Kaggle Community
+    Benchmarks notebook environment. It should expose a generation method such
+    as `prompt(...)`; exact SDK wiring belongs in the submitted Kaggle notebook.
+    """
+
+    outputs = []
+    for row in load_sendable_prompts():
+        output = llm.prompt(str(row["prompt"]))
+        outputs.append(
+            {
+                "row_id": f"{row['item_id']}:{row['prompt_id']}",
+                "model_id": model_id,
+                "item_id": str(row["item_id"]),
+                "prompt_id": str(row["prompt_id"]),
+                "output_text": str(output),
+            }
+        )
+    return outputs
+
+
+def main() -> None:
+    raise SystemExit(
+        "This scaffold must run inside a Kaggle Community Benchmarks notebook "
+        "with approved model access. Locally, use ./aleph-bench package --check."
+    )
+
+
+if __name__ == "__main__":
+    main()
+'''
+
+
+def _kaggle_api_test_smoke_py() -> str:
+    return '''"""Local smoke test for the Aleph-Bench M0 Kaggle API-test wrapper.
+
+This script deliberately uses a stub LLM. It proves the package-level task I/O
+contract before Kaggle-hosted model access exists; it does not produce model
+evidence or leaderboard rows.
+"""
+
+from __future__ import annotations
+
+import csv
+import json
+from pathlib import Path
+import sys
+
+
+KAGGLE_DIR = Path(__file__).resolve().parent
+PACKAGE_ROOT = KAGGLE_DIR.parent
+SUBMISSION_PATH = PACKAGE_ROOT / "data/submission_format.csv"
+sys.path.insert(0, str(KAGGLE_DIR))
+
+import aleph_bench_m0_task  # noqa: E402
+
+
+class StubLLM:
+    def __init__(self) -> None:
+        self.prompts: list[str] = []
+
+    def prompt(self, prompt: str) -> str:
+        self.prompts.append(prompt)
+        return f"stub-output-{len(self.prompts):03d}"
+
+
+def load_submission_rows() -> list[dict[str, str]]:
+    with SUBMISSION_PATH.open(encoding="utf-8", newline="") as handle:
+        return list(csv.DictReader(handle))
+
+
+def row_key(row: dict[str, object]) -> tuple[str, str, str]:
+    return (str(row["row_id"]), str(row["item_id"]), str(row["prompt_id"]))
+
+
+def main() -> None:
+    expected_rows = load_submission_rows()
+    prompts = aleph_bench_m0_task.load_sendable_prompts()
+    llm = StubLLM()
+    observed_rows = aleph_bench_m0_task.run_black_box_model("stub/model", llm)
+
+    errors: list[str] = []
+    if len(prompts) != 180:
+        errors.append(f"expected 180 non-leaking prompts, found {len(prompts)}")
+    if len(expected_rows) != 180:
+        errors.append(f"expected 180 submission rows, found {len(expected_rows)}")
+    if len(observed_rows) != len(expected_rows):
+        errors.append(f"expected {len(expected_rows)} outputs, found {len(observed_rows)}")
+    if len(llm.prompts) != len(expected_rows):
+        errors.append(f"expected {len(expected_rows)} prompt() calls, found {len(llm.prompts)}")
+    if any(row.get("disqualified") for row in prompts):
+        errors.append("load_sendable_prompts returned at least one disqualified prompt")
+
+    expected_keys = [row_key(row) for row in expected_rows]
+    observed_keys = [row_key(row) for row in observed_rows]
+    if observed_keys != expected_keys:
+        errors.append("observed output row order or ids do not match submission_format.csv")
+
+    required_fields = {"row_id", "model_id", "item_id", "prompt_id", "output_text"}
+    for index, row in enumerate(observed_rows):
+        if set(row) != required_fields:
+            errors.append(f"row {index} has fields {sorted(row)}, expected {sorted(required_fields)}")
+            break
+        if row["model_id"] != "stub/model":
+            errors.append(f"row {index} has unexpected model_id {row['model_id']!r}")
+            break
+        if not row["output_text"]:
+            errors.append(f"row {index} has empty output_text")
+            break
+
+    report = {
+        "status": "failed" if errors else "ok",
+        "packageRoot": str(PACKAGE_ROOT),
+        "sendablePrompts": len(prompts),
+        "submissionRows": len(expected_rows),
+        "promptCalls": len(llm.prompts),
+        "firstRow": observed_rows[0] if observed_rows else None,
+        "errors": errors,
+    }
+    print(json.dumps(report, indent=2, sort_keys=True))
+    if errors:
+        raise SystemExit(1)
+
+
+if __name__ == "__main__":
+    main()
+'''
+
+
+def _package_markdown(source_path: Path, *, kind: str) -> bytes:
+    text = source_path.read_text(encoding="utf-8")
+    if kind == "m0-evidence":
+        replacements = {
+            "../../bench/results/m0-call-manifest.json": "m0-call-manifest.json",
+            "../../bench/results/m0-audit.json": "m0-audit.json",
+            "../../bench/results/m0-bundle.json": "m0-bundle.json",
+            "../../bench/results/m0-report.md": "m0-report.md",
+            "../../bench/results/m0-first-run.json": "m0-first-run.json",
+            "../../schemas/aleph-bench-manifest.schema.json": "../schemas/aleph-bench-manifest.schema.json",
+            "../../schemas/aleph-bench-audit.schema.json": "../schemas/aleph-bench-audit.schema.json",
+            "../../schemas/aleph-bench-bundle.schema.json": "../schemas/aleph-bench-bundle.schema.json",
+        }
+    elif kind == "hosted-runbook":
+        replacements = {
+            "../../bench/results/m0-first-run.json": "../evidence/m0-first-run.json",
+            "m0-evidence.md": "../evidence/m0-evidence.md",
+        }
+    else:
+        replacements = {}
+    for old, new in replacements.items():
+        text = text.replace(old, new)
+    return _text_bytes(text)
+
+
 def _build_artifact_bytes() -> dict[str, bytes]:
     data_dir = REPO_ROOT / "bench/data/public/s2"
     result_path = REPO_ROOT / "bench/results/m0-first-run.json"
@@ -353,10 +648,15 @@ def _build_artifact_bytes() -> dict[str, bytes]:
         "dataset-metadata.json": _json_bytes(_kaggle_metadata()),
         "data/public_s2_items.jsonl": _jsonl_bytes(items),
         "data/public_s2_prompts.jsonl": _jsonl_bytes(_prompt_rows(items)),
+        "data/public_s2_items.csv": _csv_bytes(_item_rows(items), [field[0] for field in ITEM_FIELDS]),
+        "data/public_s2_prompts.csv": _csv_bytes(_prompt_rows(items), [field[0] for field in PROMPT_FIELDS]),
         "data/submission_format.csv": _csv_bytes(
             _submission_rows(items),
             ["row_id", "model_id", "item_id", "prompt_id", "output_text"],
         ),
+        "kaggle/README.md": _text_bytes(_kaggle_task_readme()),
+        "kaggle/api_test_smoke.py": _text_bytes(_kaggle_api_test_smoke_py()),
+        "kaggle/aleph_bench_m0_task.py": _text_bytes(_kaggle_task_py()),
         "data/mock_model_summary.csv": _csv_bytes(
             _model_rows(result),
             [
@@ -389,10 +689,16 @@ def _build_artifact_bytes() -> dict[str, bytes]:
         ("bench/results/m0-audit.json", "evidence/m0-audit.json"),
         ("bench/results/m0-bundle.json", "evidence/m0-bundle.json"),
         ("bench/results/m0-report.md", "evidence/m0-report.md"),
-        ("docs/benchmark/m0-evidence.md", "evidence/m0-evidence.md"),
-        ("docs/benchmark/hosted-m0-runbook.md", "docs/hosted-m0-runbook.md"),
     ]:
         artifact_bytes[dest] = (REPO_ROOT / source).read_bytes()
+    artifact_bytes["evidence/m0-evidence.md"] = _package_markdown(
+        REPO_ROOT / "docs/benchmark/m0-evidence.md",
+        kind="m0-evidence",
+    )
+    artifact_bytes["docs/hosted-m0-runbook.md"] = _package_markdown(
+        REPO_ROOT / "docs/benchmark/hosted-m0-runbook.md",
+        kind="hosted-runbook",
+    )
     artifact_bytes["croissant.json"] = _json_bytes(_croissant_metadata(sorted(artifact_bytes)))
     return artifact_bytes
 
@@ -444,13 +750,14 @@ def expected_platform_manifest(out_dir: Path) -> tuple[dict[str, Any], dict[str,
         "packageKind": "platform_release",
         "evidenceMode": "mock",
         "root": stable_dataset_path(out_dir),
-        "targetPlatforms": ["huggingface_dataset", "kaggle_dataset", "croissant"],
+        "targetPlatforms": ["huggingface_dataset", "kaggle_dataset", "kaggle_community_benchmark", "croissant"],
         "kaggleDatasetId": KAGGLE_ID,
         "huggingFaceDatasetId": HF_ID,
         "artifacts": artifacts,
         "validationCommands": [
             "./aleph-bench verify --audit bench/results/m0-audit.json --bundle bench/results/m0-bundle.json",
             f"./aleph-bench package --check {stable_dataset_path(out_dir / 'package-manifest.json')}",
+            f"python3 {stable_dataset_path(out_dir / 'kaggle/api_test_smoke.py')}",
             "npm run lint",
             "npm run test",
         ],

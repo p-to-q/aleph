@@ -1,9 +1,12 @@
 from __future__ import annotations
 
 import copy
+import csv
 from http.server import BaseHTTPRequestHandler, HTTPServer
 import json
 import os
+import subprocess
+import sys
 import tempfile
 import threading
 import unittest
@@ -584,26 +587,63 @@ class M0BenchTests(unittest.TestCase):
             report = check_platform_package(out_dir / "package-manifest.json")
 
             self.assertEqual(report["status"], "ok")
-            self.assertEqual(set(manifest["targetPlatforms"]), {"huggingface_dataset", "kaggle_dataset", "croissant"})
+            self.assertEqual(
+                set(manifest["targetPlatforms"]),
+                {"huggingface_dataset", "kaggle_dataset", "kaggle_community_benchmark", "croissant"},
+            )
             self.assertIn("README.md", {artifact["path"] for artifact in manifest["artifacts"]})
             self.assertIn("dataset-metadata.json", {artifact["path"] for artifact in manifest["artifacts"]})
             self.assertIn("croissant.json", {artifact["path"] for artifact in manifest["artifacts"]})
+            self.assertIn("kaggle/aleph_bench_m0_task.py", {artifact["path"] for artifact in manifest["artifacts"]})
+            self.assertIn("kaggle/api_test_smoke.py", {artifact["path"] for artifact in manifest["artifacts"]})
 
             readme = (out_dir / "README.md").read_text(encoding="utf-8")
             kaggle = json.loads((out_dir / "dataset-metadata.json").read_text(encoding="utf-8"))
+            kaggle_task = (out_dir / "kaggle/aleph_bench_m0_task.py").read_text(encoding="utf-8")
+            kaggle_smoke = (out_dir / "kaggle/api_test_smoke.py").read_text(encoding="utf-8")
             croissant = json.loads((out_dir / "croissant.json").read_text(encoding="utf-8"))
             items = (out_dir / "data/public_s2_items.jsonl").read_text(encoding="utf-8").strip().splitlines()
             prompts = (out_dir / "data/public_s2_prompts.jsonl").read_text(encoding="utf-8").strip().splitlines()
+            with (out_dir / "data/public_s2_items.csv").open(encoding="utf-8", newline="") as handle:
+                items_csv = list(csv.DictReader(handle))
+            with (out_dir / "data/public_s2_prompts.csv").open(encoding="utf-8", newline="") as handle:
+                prompts_csv = list(csv.DictReader(handle))
             submission = (out_dir / "data/submission_format.csv").read_text(encoding="utf-8").splitlines()
 
             self.assertTrue(readme.startswith("---\npretty_name: Aleph-Bench M0"))
             self.assertIn("not a real model leaderboard", readme)
             self.assertEqual(kaggle["id"], "p-to-q/aleph-bench-m0")
             self.assertEqual(kaggle["licenses"], [{"name": "CC0-1.0"}])
+            self.assertEqual(len(kaggle["resources"]), 3)
+            self.assertIn("@kbench.task", kaggle_task)
+            self.assertIn("run_black_box_model", kaggle_task)
+            self.assertIn("llm.prompt", kaggle_task)
+            self.assertIn("StubLLM", kaggle_smoke)
             self.assertEqual(croissant["dct:conformsTo"], "http://mlcommons.org/croissant/1.1")
             self.assertEqual(len(items), 30)
             self.assertEqual(len(prompts), 240)
+            self.assertEqual(len(items_csv), 30)
+            self.assertEqual(len(prompts_csv), 240)
             self.assertEqual(submission[0], "row_id,model_id,item_id,prompt_id,output_text")
+            smoke = subprocess.run(
+                [sys.executable, str(out_dir / "kaggle/api_test_smoke.py")],
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+            smoke_report = json.loads(smoke.stdout)
+            self.assertEqual(smoke_report["status"], "ok")
+            self.assertEqual(smoke_report["sendablePrompts"], 180)
+            self.assertEqual(smoke_report["promptCalls"], 180)
+
+    def test_checked_in_platform_package_validates(self) -> None:
+        report = check_platform_package(ROOT / "bench/results/platform/m0-mock/package-manifest.json")
+        self.assertEqual(report["status"], "ok")
+        self.assertEqual(report["artifactCount"], 27)
+        self.assertEqual(
+            set(report["targetPlatforms"]),
+            {"huggingface_dataset", "kaggle_dataset", "kaggle_community_benchmark", "croissant"},
+        )
 
 
 if __name__ == "__main__":
