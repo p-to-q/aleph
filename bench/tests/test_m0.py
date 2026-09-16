@@ -17,14 +17,29 @@ from bench.engine.audit import audit_m0_acceptance, format_audit_report
 from bench.engine.adapters.base import ModelAdapter
 from bench.engine.adapters.hosted_black_box import HostedBlackBoxAdapter, HostedBlackBoxError
 from bench.engine.bundle import build_m0_bundle, compare_bundle
-from bench.engine.frozen_ladder import evaluate_item, run_benchmark
+from bench.engine.frozen_ladder import (
+    DEFAULT_BOOTSTRAP_SAMPLES,
+    DEFAULT_K,
+    DEFAULT_RERUNS,
+    DEFAULT_TAU,
+    PROTOCOL_CONFIG_PATH,
+    evaluate_item,
+    load_protocol_config,
+    run_benchmark,
+)
 from bench.engine.leakage_gate import evaluate_leakage
 from bench.engine.manifest import build_manifest
 from bench.engine.platform_package import (
     check_platform_package,
     write_platform_package,
 )
-from bench.engine.metrics import aurc, exact_fidelity, monotone_lower_envelope, rank_by_metric
+from bench.engine.metrics import (
+    aurc,
+    elicit_at_k,
+    exact_fidelity,
+    monotone_lower_envelope,
+    rank_by_metric,
+)
 from bench.engine.preflight import preflight
 from bench.engine.report import model_summary_table, per_item_table, render_report_file
 from bench.engine.schema_validation import SchemaValidationError, load_schema, validate
@@ -166,10 +181,36 @@ class M0BenchTests(unittest.TestCase):
             {"id": "a", "tokens": 4, "distortion": 0.6, "fidelity": 0.4, "disqualified": False},
             {"id": "b", "tokens": 6, "distortion": 0.7, "fidelity": 0.3, "disqualified": False},
             {"id": "c", "tokens": 8, "distortion": 0.2, "fidelity": 0.8, "disqualified": False},
+            {"id": "d", "tokens": 4, "distortion": 0.5, "fidelity": 0.5, "disqualified": False},
         ]
         frontier = monotone_lower_envelope(points)
-        self.assertEqual([point["id"] for point in frontier], ["a", "c"])
-        self.assertEqual(aurc(frontier, 10), 0.52)
+        self.assertEqual([point["id"] for point in frontier], ["d", "c"])
+        self.assertEqual(aurc(frontier, 10), 0.64)
+
+    def test_aurc_starts_at_empty_budget_baseline(self) -> None:
+        self.assertEqual(aurc([], 10), 1.0)
+        point = {"id": "a", "tokens": 4, "distortion": 0.6, "fidelity": 0.4}
+        self.assertEqual(aurc([point], 10), 0.76)
+        zero_length = {"id": "z", "tokens": 0, "distortion": 0.25, "fidelity": 0.75}
+        self.assertEqual(aurc([zero_length], 10), 0.25)
+
+    def test_elicit_at_k_uses_length_budget_not_point_count(self) -> None:
+        points = [
+            {"id": "long", "tokens": 16, "fidelity": 0.95},
+            {"id": "short", "tokens": 2, "fidelity": 0.2},
+            {"id": "over", "tokens": 17, "fidelity": 1.0},
+        ]
+        self.assertFalse(elicit_at_k(points, tau=0.9, k=15))
+        self.assertTrue(elicit_at_k(points, tau=0.9, k=16))
+        self.assertFalse(elicit_at_k(list(reversed(points)), tau=0.9, k=15))
+
+    def test_protocol_defaults_come_from_checked_in_config(self) -> None:
+        config = load_protocol_config(PROTOCOL_CONFIG_PATH)
+        self.assertEqual(DEFAULT_TAU, config["tau"])
+        self.assertEqual(DEFAULT_K, config["k"])
+        self.assertEqual(DEFAULT_RERUNS, config["reruns"])
+        self.assertEqual(DEFAULT_BOOTSTRAP_SAMPLES, config["bootstrapSamples"])
+        self.assertEqual(DEFAULT_K, 16)
 
     def test_schema(self) -> None:
         result = run_benchmark(
@@ -500,8 +541,8 @@ class M0BenchTests(unittest.TestCase):
         model_table = model_summary_table(result)
         item_table = per_item_table(result)
         report = render_report_file(ROOT / "bench/results/m0-first-run.json")
-        self.assertIn("| mock-frontier | mock | 0.047515 | 0.043485-0.051577 |", model_table)
-        self.assertIn("| s2-001 | 0.039 / 6 | 0.168 / 34 | 0.348 / 34 |", item_table)
+        self.assertIn("| mock-frontier | mock | 0.155604 | 0.150746-0.16024 |", model_table)
+        self.assertIn("| s2-001 | 0.158 / 6 | 0.256 / 34 | 0.403 / 34 |", item_table)
         self.assertIn("Evidence modes: `mock`", report)
         self.assertIn("This report is generated from the result JSON", report)
 
@@ -731,8 +772,6 @@ class M0BenchTests(unittest.TestCase):
         self.assertIn("check ok", result.stdout)
 
     def test_kaggle_scorer_matches_engine(self) -> None:
-        from bench.engine.frozen_ladder import DEFAULT_BOOTSTRAP_SAMPLES, run_benchmark
-
         with tempfile.TemporaryDirectory() as tmp:
             out_dir = Path(tmp) / "platform"
             write_platform_package(out_dir)
@@ -771,6 +810,12 @@ class M0BenchTests(unittest.TestCase):
                 if "score_outputs" in sys.modules:
                     del sys.modules["score_outputs"]
                 score_outputs = importlib.import_module("score_outputs")
+                self.assertEqual(score_outputs.DEFAULT_TAU, DEFAULT_TAU)
+                self.assertEqual(score_outputs.DEFAULT_K, DEFAULT_K)
+                self.assertEqual(
+                    score_outputs.DEFAULT_BOOTSTRAP_SAMPLES,
+                    DEFAULT_BOOTSTRAP_SAMPLES,
+                )
                 scorer_result = score_outputs.score_submission(
                     items_path=out_dir / "data/public_s2_items.jsonl",
                     prompts_path=out_dir / "data/public_s2_prompts.jsonl",
@@ -790,6 +835,15 @@ class M0BenchTests(unittest.TestCase):
             scorer_aurcs = {
                 run["itemId"]: run["metrics"]["aurc"] for run in scorer_result["itemRuns"]
             }
+            engine_elicit = {
+                run["itemId"]: run["metrics"]["elicitAtK"]
+                for run in engine_result["itemRuns"]
+                if run["model"] == "mock-frontier"
+            }
+            scorer_elicit = {
+                run["itemId"]: run["metrics"]["elicitAtK"]
+                for run in scorer_result["itemRuns"]
+            }
             self.assertEqual(set(engine_aurcs), set(scorer_aurcs))
             for item_id, expected in engine_aurcs.items():
                 self.assertAlmostEqual(
@@ -798,6 +852,7 @@ class M0BenchTests(unittest.TestCase):
                     places=5,
                     msg=f"{item_id}: engine vs vendored scorer AURC mismatch",
                 )
+            self.assertEqual(engine_elicit, scorer_elicit)
 
     def test_kaggle_scorer_rejects_duplicate_or_unknown_rows(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

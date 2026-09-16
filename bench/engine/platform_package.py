@@ -7,7 +7,13 @@ import json
 from pathlib import Path
 from typing import Any
 
-from .frozen_ladder import load_items, stable_dataset_path
+from .frozen_ladder import (
+    DEFAULT_BOOTSTRAP_SAMPLES,
+    DEFAULT_K,
+    DEFAULT_TAU,
+    load_items,
+    stable_dataset_path,
+)
 from .leakage_gate import DEFAULT_THRESHOLDS, evaluate_leakage
 from .metrics import token_count
 from .schema_validation import load_schema, validate
@@ -1369,7 +1375,7 @@ def aurc(frontier: list[dict[str, Any]], normalizer_tokens: int) -> float:
     normalizer = max(1, normalizer_tokens)
     area = 0.0
     previous_x = 0.0
-    current_distortion = frontier[0]["distortion"]
+    current_distortion = 1.0
     for point in sorted(frontier, key=lambda item: item["tokens"]):
         x = max(previous_x, min(1.0, point["tokens"] / normalizer))
         area += (x - previous_x) * current_distortion
@@ -1384,9 +1390,8 @@ def ecl_at_tau(frontier: list[dict[str, Any]], tau: float) -> int | None:
     return min(hits) if hits else None
 
 
-def elicit_at_k(frontier: list[dict[str, Any]], tau: float, k: int) -> bool:
-    shortest = sorted(frontier, key=lambda item: item["tokens"])[:k]
-    return any(point["fidelity"] >= tau for point in shortest)
+def elicit_at_k(points: list[dict[str, Any]], tau: float, k: int) -> bool:
+    return any(point["tokens"] <= k and point["fidelity"] >= tau for point in points)
 
 
 def ci95(values: list[float], *, seed: int, samples: int) -> dict[str, float] | None:
@@ -1513,7 +1518,7 @@ def leakage_score(result: LeakageGateResult) -> float:
 
 
 def _kaggle_score_outputs_py() -> str:
-    return '''"""Score a Kaggle / local submission against the M0 frozen ladder.
+    source = '''"""Score a Kaggle / local submission against the M0 frozen ladder.
 
 Inputs:
 - items JSONL (`data/public_s2_items.jsonl`)
@@ -1541,9 +1546,9 @@ if str(KAGGLE_DIR) not in sys.path:
 import _scoring  # noqa: E402
 
 
-DEFAULT_TAU = 0.9
-DEFAULT_K = 3
-DEFAULT_BOOTSTRAP_SAMPLES = 500
+DEFAULT_TAU = __ALEPH_DEFAULT_TAU__
+DEFAULT_K = __ALEPH_DEFAULT_K__
+DEFAULT_BOOTSTRAP_SAMPLES = __ALEPH_DEFAULT_BOOTSTRAP_SAMPLES__
 DEFAULT_SEED = 0
 
 
@@ -1776,6 +1781,11 @@ def main() -> int:
 if __name__ == "__main__":
     raise SystemExit(main())
 '''
+    return (
+        source.replace("__ALEPH_DEFAULT_TAU__", repr(DEFAULT_TAU))
+        .replace("__ALEPH_DEFAULT_K__", repr(DEFAULT_K))
+        .replace("__ALEPH_DEFAULT_BOOTSTRAP_SAMPLES__", repr(DEFAULT_BOOTSTRAP_SAMPLES))
+    )
 
 
 def _package_markdown(source_path: Path, *, kind: str) -> bytes:

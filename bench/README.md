@@ -43,7 +43,9 @@ Hosted retries default to two retries with a one-second delay. Override with `AL
 
 - **AURC** is the area under the monotone rate-distortion staircase. Lower is better.
 - **ECL@tau** is the shortest non-leaking coordinate length that reaches the fidelity threshold.
-- **Elicit@k** is the share of items where one of the `k` shortest non-leaking prompts reaches the fidelity threshold.
+- **Elicit@k** is the share of items where a non-leaking prompt with measured length at most `k`
+  reaches the fidelity threshold. The M0 default is a 16-unit budget, loaded from
+  `bench/config/frozen_ladder.json`.
 - **Leakage** is a gate, not a penalty. Disqualified prompts are excluded from compression metrics.
 
 The default M0 threshold is `tau = 0.9`, with exact-match fidelity using normalized edit distance for near misses.

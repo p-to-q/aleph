@@ -128,9 +128,11 @@ def aurc(frontier: list[dict[str, Any]], normalizer_tokens: int) -> float:
             1,
         )
 
-    Beyond that anchor the curve is held at its last distortion value, so
-    AURC degrades smoothly when a model never reaches the target within the
-    budget. The choice matches ``docs/benchmark/02-design-spec.md`` §2's
+    The curve starts at the empty-budget baseline ``distortion = 1.0`` and
+    drops only when the first eligible prompt becomes available. Beyond the
+    right-hand anchor, the curve is held at its last distortion value, so AURC
+    degrades smoothly when a model never reaches the target within the budget.
+    The choice matches ``docs/benchmark/02-design-spec.md`` §2's
     ``L_max = |explicit reconstruction prompt|``.
     """
 
@@ -139,7 +141,7 @@ def aurc(frontier: list[dict[str, Any]], normalizer_tokens: int) -> float:
     normalizer = max(1, normalizer_tokens)
     area = 0.0
     previous_x = 0.0
-    current_distortion = frontier[0]["distortion"]
+    current_distortion = 1.0
     for point in sorted(frontier, key=lambda item: item["tokens"]):
         x = max(previous_x, min(1.0, point["tokens"] / normalizer))
         area += (x - previous_x) * current_distortion
@@ -154,9 +156,10 @@ def ecl_at_tau(frontier: list[dict[str, Any]], tau: float) -> int | None:
     return min(hits) if hits else None
 
 
-def elicit_at_k(frontier: list[dict[str, Any]], tau: float, k: int) -> bool:
-    shortest = sorted(frontier, key=lambda item: item["tokens"])[:k]
-    return any(point["fidelity"] >= tau for point in shortest)
+def elicit_at_k(points: list[dict[str, Any]], tau: float, k: int) -> bool:
+    """Return whether an eligible prompt within the k-unit budget reaches tau."""
+
+    return any(point["tokens"] <= k and point["fidelity"] >= tau for point in points)
 
 
 def ci95(values: list[float], *, seed: int, samples: int) -> dict[str, float] | None:
