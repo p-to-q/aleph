@@ -1,13 +1,13 @@
 {
   "artifacts": [
     {
-      "bytes": 1495191,
+      "bytes": 1495378,
       "evidenceMode": "mock",
       "note": "Deterministic three-model mock BenchResult.",
       "path": "bench/results/m0-first-run.json",
       "role": "result",
       "schemaPath": "schemas/aleph-bench-result.schema.json",
-      "sha256": "af2869f7c3da70c1484fd583905f4a119c8f4bddba6341801cb73e07525cf985"
+      "sha256": "fcaa626530a4d35beac09cb2fec4c28f4760f1ae6dfd75a7ea015c2e1a238136"
     },
     {
       "bytes": 148252,
@@ -34,16 +34,16 @@
       "path": "bench/results/m0-report.md",
       "role": "report",
       "schemaPath": null,
-      "sha256": "b8f0bd43f283d4648232431923bc46c25f7213e1a52f858ab176c9e26564b5ce"
+      "sha256": "a8694b64633aa2521b661a171929bb160ea97b3532228cd9900c5518b4cfbbde"
     },
     {
-      "bytes": 9281,
+      "bytes": 9295,
       "evidenceMode": "none",
       "note": "Interpretive evidence note; not model evidence by itself.",
       "path": "docs/benchmark/m0-evidence.md",
       "role": "evidence_note",
       "schemaPath": null,
-      "sha256": "b4d9b20cbfc35316fc987edcf05dd3c956ea9881cde03ca90a2df190b0b9d5a4"
+      "sha256": "6c574fc5317b69400cdac0bb94d18c3588a7132b4288fdd88b55e6dad107f341"
     }
   ],
   "createdAt": "2026-06-03T00:00:00Z",

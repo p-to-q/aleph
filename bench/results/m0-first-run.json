@@ -142,7 +142,7 @@
               "score": 0.25
             },
             {
-              "name": "Elicit@3",
+              "name": "Elicit@16",
               "note": "Threshold tau=0.9.",
               "passed": true,
               "score": 1.0
@@ -443,7 +443,7 @@
         }
       ],
       "metrics": {
-        "aurc": 0.039401,
+        "aurc": 0.157604,
         "eclAtTau": 6,
         "elicitAtK": true,
         "leakageHitRate": 0.25
@@ -575,7 +575,7 @@
               "score": 0.25
             },
             {
-              "name": "Elicit@3",
+              "name": "Elicit@16",
               "note": "Threshold tau=0.9.",
               "passed": true,
               "score": 1.0
@@ -876,7 +876,7 @@
         }
       ],
       "metrics": {
-        "aurc": 0.067505,
+        "aurc": 0.174356,
         "eclAtTau": 5,
         "elicitAtK": true,
         "leakageHitRate": 0.25
@@ -1008,7 +1008,7 @@
               "score": 0.25
             },
             {
-              "name": "Elicit@3",
+              "name": "Elicit@16",
               "note": "Threshold tau=0.9.",
               "passed": true,
               "score": 1.0
@@ -1309,7 +1309,7 @@
         }
       ],
       "metrics": {
-        "aurc": 0.041034,
+        "aurc": 0.139818,
         "eclAtTau": 5,
         "elicitAtK": true,
         "leakageHitRate": 0.25
@@ -1442,7 +1442,7 @@
               "score": 0.25
             },
             {
-              "name": "Elicit@3",
+              "name": "Elicit@16",
               "note": "Threshold tau=0.9.",
               "passed": true,
               "score": 1.0
@@ -1778,7 +1778,7 @@
         }
       ],
       "metrics": {
-        "aurc": 0.038423,
+        "aurc": 0.15632,
         "eclAtTau": 6,
         "elicitAtK": true,
         "leakageHitRate": 0.25
@@ -1911,7 +1911,7 @@
               "score": 0.25
             },
             {
-              "name": "Elicit@3",
+              "name": "Elicit@16",
               "note": "Threshold tau=0.9.",
               "passed": true,
               "score": 1.0
@@ -2247,7 +2247,7 @@
         }
       ],
       "metrics": {
-        "aurc": 0.063343,
+        "aurc": 0.169986,
         "eclAtTau": 5,
         "elicitAtK": true,
         "leakageHitRate": 0.25
@@ -2380,7 +2380,7 @@
               "score": 0.25
             },
             {
-              "name": "Elicit@3",
+              "name": "Elicit@16",
               "note": "Threshold tau=0.9.",
               "passed": true,
               "score": 1.0
@@ -2716,7 +2716,7 @@
         }
       ],
       "metrics": {
-        "aurc": 0.03975,
+        "aurc": 0.138489,
         "eclAtTau": 5,
         "elicitAtK": true,
         "leakageHitRate": 0.25
@@ -2849,7 +2849,7 @@
               "score": 0.25
             },
             {
-              "name": "Elicit@3",
+              "name": "Elicit@16",
               "note": "Threshold tau=0.9.",
               "passed": true,
               "score": 1.0
@@ -3185,7 +3185,7 @@
         }
       ],
       "metrics": {
-        "aurc": 0.039587,
+        "aurc": 0.157189,
         "eclAtTau": 6,
         "elicitAtK": true,
         "leakageHitRate": 0.25
@@ -3317,7 +3317,7 @@
               "score": 0.25
             },
             {
-              "name": "Elicit@3",
+              "name": "Elicit@16",
               "note": "Threshold tau=0.9.",
               "passed": true,
               "score": 1.0
@@ -3618,7 +3618,7 @@
         }
       ],
       "metrics": {
-        "aurc": 0.06938,
+        "aurc": 0.175969,
         "eclAtTau": 5,
         "elicitAtK": true,
         "leakageHitRate": 0.25
@@ -3750,7 +3750,7 @@
               "score": 0.25
             },
             {
-              "name": "Elicit@3",
+              "name": "Elicit@16",
               "note": "Threshold tau=0.9.",
               "passed": true,
               "score": 1.0
@@ -4051,7 +4051,7 @@
         }
       ],
       "metrics": {
-        "aurc": 0.038173,
+        "aurc": 0.137672,
         "eclAtTau": 5,
         "elicitAtK": true,
         "leakageHitRate": 0.25
@@ -4183,7 +4183,7 @@
               "score": 0.25
             },
             {
-              "name": "Elicit@3",
+              "name": "Elicit@16",
               "note": "Threshold tau=0.9.",
               "passed": true,
               "score": 1.0
@@ -4484,7 +4484,7 @@
         }
       ],
       "metrics": {
-        "aurc": 0.038221,
+        "aurc": 0.156708,
         "eclAtTau": 6,
         "elicitAtK": true,
         "leakageHitRate": 0.25
@@ -4616,7 +4616,7 @@
               "score": 0.25
             },
             {
-              "name": "Elicit@3",
+              "name": "Elicit@16",
               "note": "Threshold tau=0.9.",
               "passed": true,
               "score": 1.0
@@ -4917,7 +4917,7 @@
         }
       ],
       "metrics": {
-        "aurc": 0.060035,
+        "aurc": 0.168099,
         "eclAtTau": 5,
         "elicitAtK": true,
         "leakageHitRate": 0.25
@@ -5049,7 +5049,7 @@
               "score": 0.25
             },
             {
-              "name": "Elicit@3",
+              "name": "Elicit@16",
               "note": "Threshold tau=0.9.",
               "passed": true,
               "score": 1.0
@@ -5350,7 +5350,7 @@
         }
       ],
       "metrics": {
-        "aurc": 0.041034,
+        "aurc": 0.139818,
         "eclAtTau": 5,
         "elicitAtK": true,
         "leakageHitRate": 0.25
@@ -5482,7 +5482,7 @@
               "score": 0.25
             },
             {
-              "name": "Elicit@3",
+              "name": "Elicit@16",
               "note": "Threshold tau=0.9.",
               "passed": true,
               "score": 1.0
@@ -5783,7 +5783,7 @@
         }
       ],
       "metrics": {
-        "aurc": 0.037327,
+        "aurc": 0.156028,
         "eclAtTau": 6,
         "elicitAtK": true,
         "leakageHitRate": 0.25
@@ -5915,7 +5915,7 @@
               "score": 0.25
             },
             {
-              "name": "Elicit@3",
+              "name": "Elicit@16",
               "note": "Threshold tau=0.9.",
               "passed": true,
               "score": 1.0
@@ -6216,7 +6216,7 @@
         }
       ],
       "metrics": {
-        "aurc": 0.06938,
+        "aurc": 0.175969,
         "eclAtTau": 5,
         "elicitAtK": true,
         "leakageHitRate": 0.25
@@ -6348,7 +6348,7 @@
               "score": 0.25
             },
             {
-              "name": "Elicit@3",
+              "name": "Elicit@16",
               "note": "Threshold tau=0.9.",
               "passed": true,
               "score": 1.0
@@ -6649,7 +6649,7 @@
         }
       ],
       "metrics": {
-        "aurc": 0.041279,
+        "aurc": 0.140018,
         "eclAtTau": 5,
         "elicitAtK": true,
         "leakageHitRate": 0.25
@@ -6781,7 +6781,7 @@
               "score": 0.25
             },
             {
-              "name": "Elicit@3",
+              "name": "Elicit@16",
               "note": "Threshold tau=0.9.",
               "passed": true,
               "score": 1.0
@@ -7082,7 +7082,7 @@
         }
       ],
       "metrics": {
-        "aurc": 0.040503,
+        "aurc": 0.158165,
         "eclAtTau": 6,
         "elicitAtK": true,
         "leakageHitRate": 0.25
@@ -7215,7 +7215,7 @@
               "score": 0.25
             },
             {
-              "name": "Elicit@3",
+              "name": "Elicit@16",
               "note": "Threshold tau=0.9.",
               "passed": true,
               "score": 1.0
@@ -7551,7 +7551,7 @@
         }
       ],
       "metrics": {
-        "aurc": 0.06231,
+        "aurc": 0.16911,
         "eclAtTau": 5,
         "elicitAtK": true,
         "leakageHitRate": 0.25
@@ -7684,7 +7684,7 @@
               "score": 0.25
             },
             {
-              "name": "Elicit@3",
+              "name": "Elicit@16",
               "note": "Threshold tau=0.9.",
               "passed": true,
               "score": 1.0
@@ -8020,7 +8020,7 @@
         }
       ],
       "metrics": {
-        "aurc": 0.03999,
+        "aurc": 0.138683,
         "eclAtTau": 5,
         "elicitAtK": true,
         "leakageHitRate": 0.25
@@ -8152,7 +8152,7 @@
               "score": 0.25
             },
             {
-              "name": "Elicit@3",
+              "name": "Elicit@16",
               "note": "Threshold tau=0.9.",
               "passed": true,
               "score": 1.0
@@ -8453,7 +8453,7 @@
         }
       ],
       "metrics": {
-        "aurc": 0.037547,
+        "aurc": 0.156195,
         "eclAtTau": 6,
         "elicitAtK": true,
         "leakageHitRate": 0.25
@@ -8585,7 +8585,7 @@
               "score": 0.25
             },
             {
-              "name": "Elicit@3",
+              "name": "Elicit@16",
               "note": "Threshold tau=0.9.",
               "passed": true,
               "score": 1.0
@@ -8886,7 +8886,7 @@
         }
       ],
       "metrics": {
-        "aurc": 0.059711,
+        "aurc": 0.167819,
         "eclAtTau": 5,
         "elicitAtK": true,
         "leakageHitRate": 0.25
@@ -9019,7 +9019,7 @@
               "score": 0.25
             },
             {
-              "name": "Elicit@3",
+              "name": "Elicit@16",
               "note": "Threshold tau=0.9.",
               "passed": true,
               "score": 1.0
@@ -9355,7 +9355,7 @@
         }
       ],
       "metrics": {
-        "aurc": 0.03975,
+        "aurc": 0.138489,
         "eclAtTau": 5,
         "elicitAtK": true,
         "leakageHitRate": 0.25
@@ -9487,7 +9487,7 @@
               "score": 0.25
             },
             {
-              "name": "Elicit@3",
+              "name": "Elicit@16",
               "note": "Threshold tau=0.9.",
               "passed": true,
               "score": 1.0
@@ -9788,7 +9788,7 @@
         }
       ],
       "metrics": {
-        "aurc": 0.039318,
+        "aurc": 0.157273,
         "eclAtTau": 6,
         "elicitAtK": true,
         "leakageHitRate": 0.25
@@ -9921,7 +9921,7 @@
               "score": 0.25
             },
             {
-              "name": "Elicit@3",
+              "name": "Elicit@16",
               "note": "Threshold tau=0.9.",
               "passed": true,
               "score": 1.0
@@ -10257,7 +10257,7 @@
         }
       ],
       "metrics": {
-        "aurc": 0.058204,
+        "aurc": 0.166131,
         "eclAtTau": 5,
         "elicitAtK": true,
         "leakageHitRate": 0.25
@@ -10390,7 +10390,7 @@
               "score": 0.25
             },
             {
-              "name": "Elicit@3",
+              "name": "Elicit@16",
               "note": "Threshold tau=0.9.",
               "passed": true,
               "score": 1.0
@@ -10726,7 +10726,7 @@
         }
       ],
       "metrics": {
-        "aurc": 0.03999,
+        "aurc": 0.138683,
         "eclAtTau": 5,
         "elicitAtK": true,
         "leakageHitRate": 0.25
@@ -10859,7 +10859,7 @@
               "score": 0.25
             },
             {
-              "name": "Elicit@3",
+              "name": "Elicit@16",
               "note": "Threshold tau=0.9.",
               "passed": true,
               "score": 1.0
@@ -11195,7 +11195,7 @@
         }
       ],
       "metrics": {
-        "aurc": 0.039587,
+        "aurc": 0.157189,
         "eclAtTau": 6,
         "elicitAtK": true,
         "leakageHitRate": 0.25
@@ -11327,7 +11327,7 @@
               "score": 0.25
             },
             {
-              "name": "Elicit@3",
+              "name": "Elicit@16",
               "note": "Threshold tau=0.9.",
               "passed": true,
               "score": 1.0
@@ -11628,7 +11628,7 @@
         }
       ],
       "metrics": {
-        "aurc": 0.067505,
+        "aurc": 0.174356,
         "eclAtTau": 5,
         "elicitAtK": true,
         "leakageHitRate": 0.25
@@ -11760,7 +11760,7 @@
               "score": 0.25
             },
             {
-              "name": "Elicit@3",
+              "name": "Elicit@16",
               "note": "Threshold tau=0.9.",
               "passed": true,
               "score": 1.0
@@ -12061,7 +12061,7 @@
         }
       ],
       "metrics": {
-        "aurc": 0.038627,
+        "aurc": 0.138044,
         "eclAtTau": 5,
         "elicitAtK": true,
         "leakageHitRate": 0.25
@@ -12193,7 +12193,7 @@
               "score": 0.25
             },
             {
-              "name": "Elicit@3",
+              "name": "Elicit@16",
               "note": "Threshold tau=0.9.",
               "passed": true,
               "score": 1.0
@@ -12494,7 +12494,7 @@
         }
       ],
       "metrics": {
-        "aurc": 0.038864,
+        "aurc": 0.15693,
         "eclAtTau": 6,
         "elicitAtK": true,
         "leakageHitRate": 0.25
@@ -12626,7 +12626,7 @@
               "score": 0.25
             },
             {
-              "name": "Elicit@3",
+              "name": "Elicit@16",
               "note": "Threshold tau=0.9.",
               "passed": true,
               "score": 1.0
@@ -12927,7 +12927,7 @@
         }
       ],
       "metrics": {
-        "aurc": 0.06103,
+        "aurc": 0.168958,
         "eclAtTau": 5,
         "elicitAtK": true,
         "leakageHitRate": 0.25
@@ -13059,7 +13059,7 @@
               "score": 0.25
             },
             {
-              "name": "Elicit@3",
+              "name": "Elicit@16",
               "note": "Threshold tau=0.9.",
               "passed": true,
               "score": 1.0
@@ -13360,7 +13360,7 @@
         }
       ],
       "metrics": {
-        "aurc": 0.038627,
+        "aurc": 0.138044,
         "eclAtTau": 5,
         "elicitAtK": true,
         "leakageHitRate": 0.25
@@ -13492,7 +13492,7 @@
               "score": 0.25
             },
             {
-              "name": "Elicit@3",
+              "name": "Elicit@16",
               "note": "Threshold tau=0.9.",
               "passed": false,
               "score": 0.0
@@ -13793,7 +13793,7 @@
         }
       ],
       "metrics": {
-        "aurc": 0.168112,
+        "aurc": 0.255582,
         "eclAtTau": 34,
         "elicitAtK": false,
         "leakageHitRate": 0.25
@@ -13925,7 +13925,7 @@
               "score": 0.25
             },
             {
-              "name": "Elicit@3",
+              "name": "Elicit@16",
               "note": "Threshold tau=0.9.",
               "passed": false,
               "score": 0.0
@@ -14226,7 +14226,7 @@
         }
       ],
       "metrics": {
-        "aurc": 0.251414,
+        "aurc": 0.332495,
         "eclAtTau": 46,
         "elicitAtK": false,
         "leakageHitRate": 0.25
@@ -14360,7 +14360,7 @@
               "score": 0.25
             },
             {
-              "name": "Elicit@3",
+              "name": "Elicit@16",
               "note": "Threshold tau=0.9.",
               "passed": false,
               "score": 0.0
@@ -14731,7 +14731,7 @@
         }
       ],
       "metrics": {
-        "aurc": 0.173379,
+        "aurc": 0.246834,
         "eclAtTau": 35,
         "elicitAtK": false,
         "leakageHitRate": 0.25
@@ -14863,7 +14863,7 @@
               "score": 0.25
             },
             {
-              "name": "Elicit@3",
+              "name": "Elicit@16",
               "note": "Threshold tau=0.9.",
               "passed": false,
               "score": 0.0
@@ -15164,7 +15164,7 @@
         }
       ],
       "metrics": {
-        "aurc": 0.170964,
+        "aurc": 0.258824,
         "eclAtTau": 34,
         "elicitAtK": false,
         "leakageHitRate": 0.25
@@ -15297,7 +15297,7 @@
               "score": 0.25
             },
             {
-              "name": "Elicit@3",
+              "name": "Elicit@16",
               "note": "Threshold tau=0.9.",
               "passed": false,
               "score": 0.0
@@ -15633,7 +15633,7 @@
         }
       ],
       "metrics": {
-        "aurc": 0.252987,
+        "aurc": 0.333933,
         "eclAtTau": 46,
         "elicitAtK": false,
         "leakageHitRate": 0.25
@@ -15766,7 +15766,7 @@
               "score": 0.25
             },
             {
-              "name": "Elicit@3",
+              "name": "Elicit@16",
               "note": "Threshold tau=0.9.",
               "passed": false,
               "score": 0.0
@@ -16102,7 +16102,7 @@
         }
       ],
       "metrics": {
-        "aurc": 0.171359,
+        "aurc": 0.245254,
         "eclAtTau": 35,
         "elicitAtK": false,
         "leakageHitRate": 0.25
@@ -16234,7 +16234,7 @@
               "score": 0.25
             },
             {
-              "name": "Elicit@3",
+              "name": "Elicit@16",
               "note": "Threshold tau=0.9.",
               "passed": false,
               "score": 0.0
@@ -16535,7 +16535,7 @@
         }
       ],
       "metrics": {
-        "aurc": 0.167376,
+        "aurc": 0.255577,
         "eclAtTau": 34,
         "elicitAtK": false,
         "leakageHitRate": 0.25
@@ -16667,7 +16667,7 @@
               "score": 0.25
             },
             {
-              "name": "Elicit@3",
+              "name": "Elicit@16",
               "note": "Threshold tau=0.9.",
               "passed": false,
               "score": 0.0
@@ -16968,7 +16968,7 @@
         }
       ],
       "metrics": {
-        "aurc": 0.252843,
+        "aurc": 0.333592,
         "eclAtTau": 46,
         "elicitAtK": false,
         "leakageHitRate": 0.25
@@ -17100,7 +17100,7 @@
               "score": 0.25
             },
             {
-              "name": "Elicit@3",
+              "name": "Elicit@16",
               "note": "Threshold tau=0.9.",
               "passed": false,
               "score": 0.0
@@ -17401,7 +17401,7 @@
         }
       ],
       "metrics": {
-        "aurc": 0.169462,
+        "aurc": 0.244556,
         "eclAtTau": 35,
         "elicitAtK": false,
         "leakageHitRate": 0.25
@@ -17534,7 +17534,7 @@
               "score": 0.25
             },
             {
-              "name": "Elicit@3",
+              "name": "Elicit@16",
               "note": "Threshold tau=0.9.",
               "passed": false,
               "score": 0.0
@@ -17870,7 +17870,7 @@
         }
       ],
       "metrics": {
-        "aurc": 0.166391,
+        "aurc": 0.255064,
         "eclAtTau": 34,
         "elicitAtK": false,
         "leakageHitRate": 0.25
@@ -18002,7 +18002,7 @@
               "score": 0.25
             },
             {
-              "name": "Elicit@3",
+              "name": "Elicit@16",
               "note": "Threshold tau=0.9.",
               "passed": false,
               "score": 0.0
@@ -18303,7 +18303,7 @@
         }
       ],
       "metrics": {
-        "aurc": 0.252781,
+        "aurc": 0.33367,
         "eclAtTau": 46,
         "elicitAtK": false,
         "leakageHitRate": 0.25
@@ -18436,7 +18436,7 @@
               "score": 0.25
             },
             {
-              "name": "Elicit@3",
+              "name": "Elicit@16",
               "note": "Threshold tau=0.9.",
               "passed": false,
               "score": 0.0
@@ -18772,7 +18772,7 @@
         }
       ],
       "metrics": {
-        "aurc": 0.171226,
+        "aurc": 0.244681,
         "eclAtTau": 35,
         "elicitAtK": false,
         "leakageHitRate": 0.25
@@ -18905,7 +18905,7 @@
               "score": 0.25
             },
             {
-              "name": "Elicit@3",
+              "name": "Elicit@16",
               "note": "Threshold tau=0.9.",
               "passed": false,
               "score": 0.0
@@ -19241,7 +19241,7 @@
         }
       ],
       "metrics": {
-        "aurc": 0.165734,
+        "aurc": 0.253826,
         "eclAtTau": 34,
         "elicitAtK": false,
         "leakageHitRate": 0.25
@@ -19373,7 +19373,7 @@
               "score": 0.25
             },
             {
-              "name": "Elicit@3",
+              "name": "Elicit@16",
               "note": "Threshold tau=0.9.",
               "passed": false,
               "score": 0.0
@@ -19674,7 +19674,7 @@
         }
       ],
       "metrics": {
-        "aurc": 0.254393,
+        "aurc": 0.335142,
         "eclAtTau": 46,
         "elicitAtK": false,
         "leakageHitRate": 0.25
@@ -19808,7 +19808,7 @@
               "score": 0.25
             },
             {
-              "name": "Elicit@3",
+              "name": "Elicit@16",
               "note": "Threshold tau=0.9.",
               "passed": false,
               "score": 0.0
@@ -20179,7 +20179,7 @@
         }
       ],
       "metrics": {
-        "aurc": 0.171869,
+        "aurc": 0.246401,
         "eclAtTau": 35,
         "elicitAtK": false,
         "leakageHitRate": 0.25
@@ -20312,7 +20312,7 @@
               "score": 0.25
             },
             {
-              "name": "Elicit@3",
+              "name": "Elicit@16",
               "note": "Threshold tau=0.9.",
               "passed": false,
               "score": 0.0
@@ -20648,7 +20648,7 @@
         }
       ],
       "metrics": {
-        "aurc": 0.171494,
+        "aurc": 0.258395,
         "eclAtTau": 34,
         "elicitAtK": false,
         "leakageHitRate": 0.25
@@ -20781,7 +20781,7 @@
               "score": 0.25
             },
             {
-              "name": "Elicit@3",
+              "name": "Elicit@16",
               "note": "Threshold tau=0.9.",
               "passed": false,
               "score": 0.0
@@ -21117,7 +21117,7 @@
         }
       ],
       "metrics": {
-        "aurc": 0.253918,
+        "aurc": 0.334176,
         "eclAtTau": 46,
         "elicitAtK": false,
         "leakageHitRate": 0.25
@@ -21250,7 +21250,7 @@
               "score": 0.25
             },
             {
-              "name": "Elicit@3",
+              "name": "Elicit@16",
               "note": "Threshold tau=0.9.",
               "passed": false,
               "score": 0.0
@@ -21586,7 +21586,7 @@
         }
       ],
       "metrics": {
-        "aurc": 0.172136,
+        "aurc": 0.246475,
         "eclAtTau": 35,
         "elicitAtK": false,
         "leakageHitRate": 0.25
@@ -21719,7 +21719,7 @@
               "score": 0.25
             },
             {
-              "name": "Elicit@3",
+              "name": "Elicit@16",
               "note": "Threshold tau=0.9.",
               "passed": false,
               "score": 0.0
@@ -22055,7 +22055,7 @@
         }
       ],
       "metrics": {
-        "aurc": 0.165832,
+        "aurc": 0.254443,
         "eclAtTau": 34,
         "elicitAtK": false,
         "leakageHitRate": 0.25
@@ -22187,7 +22187,7 @@
               "score": 0.25
             },
             {
-              "name": "Elicit@3",
+              "name": "Elicit@16",
               "note": "Threshold tau=0.9.",
               "passed": false,
               "score": 0.0
@@ -22488,7 +22488,7 @@
         }
       ],
       "metrics": {
-        "aurc": 0.247517,
+        "aurc": 0.329227,
         "eclAtTau": 46,
         "elicitAtK": false,
         "leakageHitRate": 0.25
@@ -22622,7 +22622,7 @@
               "score": 0.25
             },
             {
-              "name": "Elicit@3",
+              "name": "Elicit@16",
               "note": "Threshold tau=0.9.",
               "passed": false,
               "score": 0.0
@@ -22993,7 +22993,7 @@
         }
       ],
       "metrics": {
-        "aurc": 0.169703,
+        "aurc": 0.244235,
         "eclAtTau": 35,
         "elicitAtK": false,
         "leakageHitRate": 0.25
@@ -23127,7 +23127,7 @@
               "score": 0.25
             },
             {
-              "name": "Elicit@3",
+              "name": "Elicit@16",
               "note": "Threshold tau=0.9.",
               "passed": false,
               "score": 0.0
@@ -23498,7 +23498,7 @@
         }
       ],
       "metrics": {
-        "aurc": 0.168222,
+        "aurc": 0.256315,
         "eclAtTau": 34,
         "elicitAtK": false,
         "leakageHitRate": 0.25
@@ -23632,7 +23632,7 @@
               "score": 0.25
             },
             {
-              "name": "Elicit@3",
+              "name": "Elicit@16",
               "note": "Threshold tau=0.9.",
               "passed": false,
               "score": 0.0
@@ -24003,7 +24003,7 @@
         }
       ],
       "metrics": {
-        "aurc": 0.250161,
+        "aurc": 0.331106,
         "eclAtTau": 46,
         "elicitAtK": false,
         "leakageHitRate": 0.25
@@ -24136,7 +24136,7 @@
               "score": 0.25
             },
             {
-              "name": "Elicit@3",
+              "name": "Elicit@16",
               "note": "Threshold tau=0.9.",
               "passed": false,
               "score": 0.0
@@ -24472,7 +24472,7 @@
         }
       ],
       "metrics": {
-        "aurc": 0.170854,
+        "aurc": 0.244553,
         "eclAtTau": 35,
         "elicitAtK": false,
         "leakageHitRate": 0.25
@@ -24604,7 +24604,7 @@
               "score": 0.25
             },
             {
-              "name": "Elicit@3",
+              "name": "Elicit@16",
               "note": "Threshold tau=0.9.",
               "passed": false,
               "score": 0.0
@@ -24905,7 +24905,7 @@
         }
       ],
       "metrics": {
-        "aurc": 0.167376,
+        "aurc": 0.255577,
         "eclAtTau": 34,
         "elicitAtK": false,
         "leakageHitRate": 0.25
@@ -25037,7 +25037,7 @@
               "score": 0.25
             },
             {
-              "name": "Elicit@3",
+              "name": "Elicit@16",
               "note": "Threshold tau=0.9.",
               "passed": false,
               "score": 0.0
@@ -25338,7 +25338,7 @@
         }
       ],
       "metrics": {
-        "aurc": 0.259208,
+        "aurc": 0.339032,
         "eclAtTau": 46,
         "elicitAtK": false,
         "leakageHitRate": 0.25
@@ -25471,7 +25471,7 @@
               "score": 0.25
             },
             {
-              "name": "Elicit@3",
+              "name": "Elicit@16",
               "note": "Threshold tau=0.9.",
               "passed": false,
               "score": 0.0
@@ -25807,7 +25807,7 @@
         }
       ],
       "metrics": {
-        "aurc": 0.171606,
+        "aurc": 0.246327,
         "eclAtTau": 35,
         "elicitAtK": false,
         "leakageHitRate": 0.25
@@ -25939,7 +25939,7 @@
               "score": 0.25
             },
             {
-              "name": "Elicit@3",
+              "name": "Elicit@16",
               "note": "Threshold tau=0.9.",
               "passed": false,
               "score": 0.0
@@ -26240,7 +26240,7 @@
         }
       ],
       "metrics": {
-        "aurc": 0.171935,
+        "aurc": 0.259009,
         "eclAtTau": 34,
         "elicitAtK": false,
         "leakageHitRate": 0.25
@@ -26373,7 +26373,7 @@
               "score": 0.25
             },
             {
-              "name": "Elicit@3",
+              "name": "Elicit@16",
               "note": "Threshold tau=0.9.",
               "passed": false,
               "score": 0.0
@@ -26709,7 +26709,7 @@
         }
       ],
       "metrics": {
-        "aurc": 0.251445,
+        "aurc": 0.332391,
         "eclAtTau": 46,
         "elicitAtK": false,
         "leakageHitRate": 0.25
@@ -26841,7 +26841,7 @@
               "score": 0.25
             },
             {
-              "name": "Elicit@3",
+              "name": "Elicit@16",
               "note": "Threshold tau=0.9.",
               "passed": false,
               "score": 0.0
@@ -27142,7 +27142,7 @@
         }
       ],
       "metrics": {
-        "aurc": 0.170973,
+        "aurc": 0.245694,
         "eclAtTau": 35,
         "elicitAtK": false,
         "leakageHitRate": 0.25
@@ -27274,7 +27274,7 @@
               "score": 0.25
             },
             {
-              "name": "Elicit@3",
+              "name": "Elicit@16",
               "note": "Threshold tau=0.9.",
               "passed": false,
               "score": 0.0
@@ -27575,7 +27575,7 @@
         }
       ],
       "metrics": {
-        "aurc": 0.348305,
+        "aurc": 0.403467,
         "eclAtTau": 34,
         "elicitAtK": false,
         "leakageHitRate": 0.25
@@ -27707,7 +27707,7 @@
               "score": 0.25
             },
             {
-              "name": "Elicit@3",
+              "name": "Elicit@16",
               "note": "Threshold tau=0.9.",
               "passed": false,
               "score": 0.0
@@ -28008,7 +28008,7 @@
         }
       ],
       "metrics": {
-        "aurc": 0.505091,
+        "aurc": 0.554746,
         "eclAtTau": 46,
         "elicitAtK": false,
         "leakageHitRate": 0.25
@@ -28141,7 +28141,7 @@
               "score": 0.25
             },
             {
-              "name": "Elicit@3",
+              "name": "Elicit@16",
               "note": "Threshold tau=0.9.",
               "passed": false,
               "score": 0.0
@@ -28477,7 +28477,7 @@
         }
       ],
       "metrics": {
-        "aurc": 0.362842,
+        "aurc": 0.409068,
         "eclAtTau": 35,
         "elicitAtK": false,
         "leakageHitRate": 0.25
@@ -28610,7 +28610,7 @@
               "score": 0.25
             },
             {
-              "name": "Elicit@3",
+              "name": "Elicit@16",
               "note": "Threshold tau=0.9.",
               "passed": false,
               "score": 0.0
@@ -28946,7 +28946,7 @@
         }
       ],
       "metrics": {
-        "aurc": 0.350438,
+        "aurc": 0.405256,
         "eclAtTau": 34,
         "elicitAtK": false,
         "leakageHitRate": 0.25
@@ -29079,7 +29079,7 @@
               "score": 0.25
             },
             {
-              "name": "Elicit@3",
+              "name": "Elicit@16",
               "note": "Threshold tau=0.9.",
               "passed": false,
               "score": 0.0
@@ -29415,7 +29415,7 @@
         }
       ],
       "metrics": {
-        "aurc": 0.503019,
+        "aurc": 0.553129,
         "eclAtTau": 46,
         "elicitAtK": false,
         "leakageHitRate": 0.25
@@ -29548,7 +29548,7 @@
               "score": 0.25
             },
             {
-              "name": "Elicit@3",
+              "name": "Elicit@16",
               "note": "Threshold tau=0.9.",
               "passed": false,
               "score": 0.0
@@ -29884,7 +29884,7 @@
         }
       ],
       "metrics": {
-        "aurc": 0.360555,
+        "aurc": 0.407058,
         "eclAtTau": 35,
         "elicitAtK": false,
         "leakageHitRate": 0.25
@@ -30016,7 +30016,7 @@
               "score": 0.25
             },
             {
-              "name": "Elicit@3",
+              "name": "Elicit@16",
               "note": "Threshold tau=0.9.",
               "passed": false,
               "score": 0.0
@@ -30317,7 +30317,7 @@
         }
       ],
       "metrics": {
-        "aurc": 0.353063,
+        "aurc": 0.407995,
         "eclAtTau": 34,
         "elicitAtK": false,
         "leakageHitRate": 0.25
@@ -30449,7 +30449,7 @@
               "score": 0.25
             },
             {
-              "name": "Elicit@3",
+              "name": "Elicit@16",
               "note": "Threshold tau=0.9.",
               "passed": false,
               "score": 0.0
@@ -30750,7 +30750,7 @@
         }
       ],
       "metrics": {
-        "aurc": 0.501551,
+        "aurc": 0.551938,
         "eclAtTau": 46,
         "elicitAtK": false,
         "leakageHitRate": 0.25
@@ -30882,7 +30882,7 @@
               "score": 0.25
             },
             {
-              "name": "Elicit@3",
+              "name": "Elicit@16",
               "note": "Threshold tau=0.9.",
               "passed": false,
               "score": 0.0
@@ -31183,7 +31183,7 @@
         }
       ],
       "metrics": {
-        "aurc": 0.362078,
+        "aurc": 0.409012,
         "eclAtTau": 35,
         "elicitAtK": false,
         "leakageHitRate": 0.25
@@ -31315,7 +31315,7 @@
               "score": 0.25
             },
             {
-              "name": "Elicit@3",
+              "name": "Elicit@16",
               "note": "Threshold tau=0.9.",
               "passed": false,
               "score": 0.0
@@ -31616,7 +31616,7 @@
         }
       ],
       "metrics": {
-        "aurc": 0.350872,
+        "aurc": 0.405911,
         "eclAtTau": 34,
         "elicitAtK": false,
         "leakageHitRate": 0.25
@@ -31748,7 +31748,7 @@
               "score": 0.25
             },
             {
-              "name": "Elicit@3",
+              "name": "Elicit@16",
               "note": "Threshold tau=0.9.",
               "passed": false,
               "score": 0.0
@@ -32049,7 +32049,7 @@
         }
       ],
       "metrics": {
-        "aurc": 0.501517,
+        "aurc": 0.552073,
         "eclAtTau": 46,
         "elicitAtK": false,
         "leakageHitRate": 0.25
@@ -32181,7 +32181,7 @@
               "score": 0.25
             },
             {
-              "name": "Elicit@3",
+              "name": "Elicit@16",
               "note": "Threshold tau=0.9.",
               "passed": false,
               "score": 0.0
@@ -32482,7 +32482,7 @@
         }
       ],
       "metrics": {
-        "aurc": 0.364362,
+        "aurc": 0.410588,
         "eclAtTau": 35,
         "elicitAtK": false,
         "leakageHitRate": 0.25
@@ -32615,7 +32615,7 @@
               "score": 0.25
             },
             {
-              "name": "Elicit@3",
+              "name": "Elicit@16",
               "note": "Threshold tau=0.9.",
               "passed": false,
               "score": 0.0
@@ -32951,7 +32951,7 @@
         }
       ],
       "metrics": {
-        "aurc": 0.348513,
+        "aurc": 0.403757,
         "eclAtTau": 34,
         "elicitAtK": false,
         "leakageHitRate": 0.25
@@ -33083,7 +33083,7 @@
               "score": 0.25
             },
             {
-              "name": "Elicit@3",
+              "name": "Elicit@16",
               "note": "Threshold tau=0.9.",
               "passed": false,
               "score": 0.0
@@ -33384,7 +33384,7 @@
         }
       ],
       "metrics": {
-        "aurc": 0.508656,
+        "aurc": 0.558398,
         "eclAtTau": 46,
         "elicitAtK": false,
         "leakageHitRate": 0.25
@@ -33516,7 +33516,7 @@
               "score": 0.25
             },
             {
-              "name": "Elicit@3",
+              "name": "Elicit@16",
               "note": "Threshold tau=0.9.",
               "passed": false,
               "score": 0.0
@@ -33817,7 +33817,7 @@
         }
       ],
       "metrics": {
-        "aurc": 0.362594,
+        "aurc": 0.409096,
         "eclAtTau": 35,
         "elicitAtK": false,
         "leakageHitRate": 0.25
@@ -33950,7 +33950,7 @@
               "score": 0.25
             },
             {
-              "name": "Elicit@3",
+              "name": "Elicit@16",
               "note": "Threshold tau=0.9.",
               "passed": false,
               "score": 0.0
@@ -34286,7 +34286,7 @@
         }
       ],
       "metrics": {
-        "aurc": 0.349782,
+        "aurc": 0.404383,
         "eclAtTau": 37,
         "elicitAtK": false,
         "leakageHitRate": 0.25
@@ -34419,7 +34419,7 @@
               "score": 0.25
             },
             {
-              "name": "Elicit@3",
+              "name": "Elicit@16",
               "note": "Threshold tau=0.9.",
               "passed": false,
               "score": 0.0
@@ -34755,7 +34755,7 @@
         }
       ],
       "metrics": {
-        "aurc": 0.501137,
+        "aurc": 0.551062,
         "eclAtTau": 46,
         "elicitAtK": false,
         "leakageHitRate": 0.25
@@ -34888,7 +34888,7 @@
               "score": 0.25
             },
             {
-              "name": "Elicit@3",
+              "name": "Elicit@16",
               "note": "Threshold tau=0.9.",
               "passed": false,
               "score": 0.0
@@ -35224,7 +35224,7 @@
         }
       ],
       "metrics": {
-        "aurc": 0.359523,
+        "aurc": 0.406306,
         "eclAtTau": 35,
         "elicitAtK": false,
         "leakageHitRate": 0.25
@@ -35357,7 +35357,7 @@
               "score": 0.25
             },
             {
-              "name": "Elicit@3",
+              "name": "Elicit@16",
               "note": "Threshold tau=0.9.",
               "passed": false,
               "score": 0.0
@@ -35693,7 +35693,7 @@
         }
       ],
       "metrics": {
-        "aurc": 0.349061,
+        "aurc": 0.40388,
         "eclAtTau": 34,
         "elicitAtK": false,
         "leakageHitRate": 0.25
@@ -35825,7 +35825,7 @@
               "score": 0.25
             },
             {
-              "name": "Elicit@3",
+              "name": "Elicit@16",
               "note": "Threshold tau=0.9.",
               "passed": false,
               "score": 0.0
@@ -36126,7 +36126,7 @@
         }
       ],
       "metrics": {
-        "aurc": 0.497297,
+        "aurc": 0.548209,
         "eclAtTau": 46,
         "elicitAtK": false,
         "leakageHitRate": 0.25
@@ -36259,7 +36259,7 @@
               "score": 0.25
             },
             {
-              "name": "Elicit@3",
+              "name": "Elicit@16",
               "note": "Threshold tau=0.9.",
               "passed": false,
               "score": 0.0
@@ -36595,7 +36595,7 @@
         }
       ],
       "metrics": {
-        "aurc": 0.362594,
+        "aurc": 0.409096,
         "eclAtTau": 35,
         "elicitAtK": false,
         "leakageHitRate": 0.25
@@ -36727,7 +36727,7 @@
               "score": 0.25
             },
             {
-              "name": "Elicit@3",
+              "name": "Elicit@16",
               "note": "Threshold tau=0.9.",
               "passed": false,
               "score": 0.0
@@ -37028,7 +37028,7 @@
         }
       ],
       "metrics": {
-        "aurc": 0.352743,
+        "aurc": 0.407988,
         "eclAtTau": 34,
         "elicitAtK": false,
         "leakageHitRate": 0.25
@@ -37160,7 +37160,7 @@
               "score": 0.25
             },
             {
-              "name": "Elicit@3",
+              "name": "Elicit@16",
               "note": "Threshold tau=0.9.",
               "passed": false,
               "score": 0.0
@@ -37461,7 +37461,7 @@
         }
       ],
       "metrics": {
-        "aurc": 0.500321,
+        "aurc": 0.551073,
         "eclAtTau": 46,
         "elicitAtK": false,
         "leakageHitRate": 0.25
@@ -37593,7 +37593,7 @@
               "score": 0.25
             },
             {
-              "name": "Elicit@3",
+              "name": "Elicit@16",
               "note": "Threshold tau=0.9.",
               "passed": false,
               "score": 0.0
@@ -37894,7 +37894,7 @@
         }
       ],
       "metrics": {
-        "aurc": 0.358754,
+        "aurc": 0.405537,
         "eclAtTau": 35,
         "elicitAtK": false,
         "leakageHitRate": 0.25
@@ -38028,7 +38028,7 @@
               "score": 0.25
             },
             {
-              "name": "Elicit@3",
+              "name": "Elicit@16",
               "note": "Threshold tau=0.9.",
               "passed": false,
               "score": 0.0
@@ -38399,7 +38399,7 @@
         }
       ],
       "metrics": {
-        "aurc": 0.34842,
+        "aurc": 0.402579,
         "eclAtTau": 34,
         "elicitAtK": false,
         "leakageHitRate": 0.25
@@ -38531,7 +38531,7 @@
               "score": 0.25
             },
             {
-              "name": "Elicit@3",
+              "name": "Elicit@16",
               "note": "Threshold tau=0.9.",
               "passed": false,
               "score": 0.0
@@ -38832,7 +38832,7 @@
         }
       ],
       "metrics": {
-        "aurc": 0.505091,
+        "aurc": 0.554746,
         "eclAtTau": 46,
         "elicitAtK": false,
         "leakageHitRate": 0.25
@@ -38964,7 +38964,7 @@
               "score": 0.25
             },
             {
-              "name": "Elicit@3",
+              "name": "Elicit@16",
               "note": "Threshold tau=0.9.",
               "passed": false,
               "score": 0.0
@@ -39265,7 +39265,7 @@
         }
       ],
       "metrics": {
-        "aurc": 0.361955,
+        "aurc": 0.408815,
         "eclAtTau": 35,
         "elicitAtK": false,
         "leakageHitRate": 0.25
@@ -39397,7 +39397,7 @@
               "score": 0.25
             },
             {
-              "name": "Elicit@3",
+              "name": "Elicit@16",
               "note": "Threshold tau=0.9.",
               "passed": false,
               "score": 0.0
@@ -39698,7 +39698,7 @@
         }
       ],
       "metrics": {
-        "aurc": 0.34842,
+        "aurc": 0.403763,
         "eclAtTau": 34,
         "elicitAtK": false,
         "leakageHitRate": 0.25
@@ -39830,7 +39830,7 @@
               "score": 0.25
             },
             {
-              "name": "Elicit@3",
+              "name": "Elicit@16",
               "note": "Threshold tau=0.9.",
               "passed": false,
               "score": 0.0
@@ -40131,7 +40131,7 @@
         }
       ],
       "metrics": {
-        "aurc": 0.49878,
+        "aurc": 0.549531,
         "eclAtTau": 46,
         "elicitAtK": false,
         "leakageHitRate": 0.25
@@ -40263,7 +40263,7 @@
               "score": 0.25
             },
             {
-              "name": "Elicit@3",
+              "name": "Elicit@16",
               "note": "Threshold tau=0.9.",
               "passed": false,
               "score": 0.0
@@ -40564,7 +40564,7 @@
         }
       ],
       "metrics": {
-        "aurc": 0.361955,
+        "aurc": 0.408815,
         "eclAtTau": 35,
         "elicitAtK": false,
         "leakageHitRate": 0.25
@@ -40572,16 +40572,16 @@
       "model": "mock-small"
     }
   ],
-  "k": 3,
+  "k": 16,
   "metricClasses": [
     "exact"
   ],
   "models": [
     {
-      "aurc": 0.047515,
+      "aurc": 0.155604,
       "aurcCi95": {
-        "high": 0.051577,
-        "low": 0.043485
+        "high": 0.16024,
+        "low": 0.150746
       },
       "coverageAtTau": 1.0,
       "eclAtTau": 5.333333,
@@ -40600,10 +40600,10 @@
       "model": "mock-frontier"
     },
     {
-      "aurc": 0.197422,
+      "aurc": 0.278413,
       "aurcCi95": {
-        "high": 0.210575,
-        "low": 0.182687
+        "high": 0.290913,
+        "low": 0.264227
       },
       "coverageAtTau": 1.0,
       "eclAtTau": 38.333333,
@@ -40622,10 +40622,10 @@
       "model": "mock-mid"
     },
     {
-      "aurc": 0.404643,
+      "aurc": 0.455242,
       "aurcCi95": {
-        "high": 0.430169,
-        "low": 0.381256
+        "high": 0.479953,
+        "low": 0.431247
       },
       "coverageAtTau": 1.0,
       "eclAtTau": 38.433333,
@@ -40647,7 +40647,8 @@
   "notes": [
     "M0 checked-in result uses deterministic mock adapters; it is pipeline evidence, not a real model leaderboard.",
     "Leakage is a gate. Disqualified ladder prompts are excluded from AURC, ECL@tau, and Elicit@k.",
-    "AURC is area under the non-leaking rate-distortion staircase; lower is better."
+    "AURC is area under the non-leaking rate-distortion staircase; lower is better.",
+    "Elicit@k uses k as a measured prompt-length budget, not a count of frontier points."
   ],
   "seed": 0,
   "split": "public",
