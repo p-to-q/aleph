@@ -109,7 +109,7 @@
       "contentUrl": "evidence/m0-bundle.json",
       "encodingFormat": "application/json",
       "name": "evidence/m0-bundle.json",
-      "sha256": "80c6fd9ede41d127abfdd60e8197cd6c64b2aa68f659c28558cf423700b63206"
+      "sha256": "844586530e4cecb76116b15b7c916727b14979abc1f1cda8e9cb80791133a659"
     },
     {
       "@id": "evidence/m0-call-manifest.json",
@@ -125,7 +125,7 @@
       "contentUrl": "evidence/m0-evidence.md",
       "encodingFormat": "text/markdown",
       "name": "evidence/m0-evidence.md",
-      "sha256": "71c7c2bf5395ac48e659dced28d4381f7ee902fc235a0fa30ff74351eaba8ee8"
+      "sha256": "4e7ff9f8bf071f1d3b0b89c7f45260a2a41cf3888ee14185742db84b6a657cbe"
     },
     {
       "@id": "evidence/m0-first-run.json",
@@ -133,7 +133,7 @@
       "contentUrl": "evidence/m0-first-run.json",
       "encodingFormat": "application/json",
       "name": "evidence/m0-first-run.json",
-      "sha256": "af2869f7c3da70c1484fd583905f4a119c8f4bddba6341801cb73e07525cf985"
+      "sha256": "fcaa626530a4d35beac09cb2fec4c28f4760f1ae6dfd75a7ea015c2e1a238136"
     },
     {
       "@id": "evidence/m0-report.md",
@@ -141,7 +141,7 @@
       "contentUrl": "evidence/m0-report.md",
       "encodingFormat": "text/markdown",
       "name": "evidence/m0-report.md",
-      "sha256": "b8f0bd43f283d4648232431923bc46c25f7213e1a52f858ab176c9e26564b5ce"
+      "sha256": "a8694b64633aa2521b661a171929bb160ea97b3532228cd9900c5518b4cfbbde"
     },
     {
       "@id": "evidence/mock_item_metrics.csv",
@@ -149,7 +149,7 @@
       "contentUrl": "evidence/mock_item_metrics.csv",
       "encodingFormat": "text/csv",
       "name": "evidence/mock_item_metrics.csv",
-      "sha256": "4d2f51b93e97d5a8be998a67880ff179b619cafdec58b66b6ade3beacfc0b4e8"
+      "sha256": "bbc7471665b153cf06d555b6431e40db75f0f25ef1c20e9f596ba3b277bc7aaf"
     },
     {
       "@id": "evidence/mock_model_summary.csv",
@@ -157,7 +157,7 @@
       "contentUrl": "evidence/mock_model_summary.csv",
       "encodingFormat": "text/csv",
       "name": "evidence/mock_model_summary.csv",
-      "sha256": "9d23ddbe9d06b012741b9185352a8aac6175d45bd7169422a0ab73e847025ba4"
+      "sha256": "55c6e96224b9e3493f424ca94df18794de73a0d796fdc441397294fb6c794cab"
     },
     {
       "@id": "schemas/aleph-bench-audit.schema.json",

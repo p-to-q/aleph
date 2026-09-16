@@ -20,12 +20,30 @@ from .metrics import (
 from .response_cache import ResponseCacheAdapter
 
 
-DEFAULT_BOOTSTRAP_SAMPLES = 500
-DEFAULT_RERUNS = 3
-DEFAULT_TAU = 0.9
-DEFAULT_K = 3
 FIXED_CREATED_AT = "2026-06-03T00:00:00Z"
 REPO_ROOT = Path(__file__).resolve().parents[2]
+PROTOCOL_CONFIG_PATH = REPO_ROOT / "bench/config/frozen_ladder.json"
+
+
+def load_protocol_config(path: Path = PROTOCOL_CONFIG_PATH) -> dict[str, Any]:
+    config = json.loads(path.read_text(encoding="utf-8"))
+    required = ("tau", "k", "reruns", "bootstrapSamples")
+    missing = [name for name in required if name not in config]
+    if missing:
+        raise ValueError(f"frozen-ladder config missing required fields: {', '.join(missing)}")
+    if not 0.0 <= float(config["tau"]) <= 1.0:
+        raise ValueError("frozen-ladder tau must be between 0 and 1")
+    for name in ("k", "reruns", "bootstrapSamples"):
+        if int(config[name]) < 1:
+            raise ValueError(f"frozen-ladder {name} must be at least 1")
+    return config
+
+
+PROTOCOL_CONFIG = load_protocol_config()
+DEFAULT_BOOTSTRAP_SAMPLES = int(PROTOCOL_CONFIG["bootstrapSamples"])
+DEFAULT_RERUNS = int(PROTOCOL_CONFIG["reruns"])
+DEFAULT_TAU = float(PROTOCOL_CONFIG["tau"])
+DEFAULT_K = int(PROTOCOL_CONFIG["k"])
 
 
 def stable_dataset_path(data_dir: Path) -> str:
@@ -296,5 +314,6 @@ def run_benchmark(
             "M0 checked-in result uses deterministic mock adapters; it is pipeline evidence, not a real model leaderboard.",
             "Leakage is a gate. Disqualified ladder prompts are excluded from AURC, ECL@tau, and Elicit@k.",
             "AURC is area under the non-leaking rate-distortion staircase; lower is better.",
+            "Elicit@k uses k as a measured prompt-length budget, not a count of frontier points.",
         ],
     }

@@ -30,7 +30,7 @@
       "note": "Croissant JSON-LD metadata for cross-platform discovery.",
       "path": "croissant.json",
       "role": "metadata",
-      "sha256": "5394d440b7a54acebe692fcb06fdb07099df4d51143d748628f3cba4b489cedf"
+      "sha256": "9ba7efec908192568f27dca64d44269753aec19f18351c9d52dca5db8db36b33"
     },
     {
       "bytes": 8731,
@@ -102,7 +102,7 @@
       "note": "Mock evidence artifact or generated evidence note.",
       "path": "evidence/m0-bundle.json",
       "role": "evidence",
-      "sha256": "80c6fd9ede41d127abfdd60e8197cd6c64b2aa68f659c28558cf423700b63206"
+      "sha256": "844586530e4cecb76116b15b7c916727b14979abc1f1cda8e9cb80791133a659"
     },
     {
       "bytes": 148252,
@@ -113,20 +113,20 @@
       "sha256": "840d72ed6a238d62ee7c72a379667fd96220640da4d6afb92409afc590561e74"
     },
     {
-      "bytes": 9172,
+      "bytes": 9186,
       "encodingFormat": "text/markdown",
       "note": "Mock evidence artifact or generated evidence note.",
       "path": "evidence/m0-evidence.md",
       "role": "evidence",
-      "sha256": "71c7c2bf5395ac48e659dced28d4381f7ee902fc235a0fa30ff74351eaba8ee8"
+      "sha256": "4e7ff9f8bf071f1d3b0b89c7f45260a2a41cf3888ee14185742db84b6a657cbe"
     },
     {
-      "bytes": 1495191,
+      "bytes": 1495378,
       "encodingFormat": "application/json",
       "note": "Mock evidence artifact or generated evidence note.",
       "path": "evidence/m0-first-run.json",
       "role": "evidence",
-      "sha256": "af2869f7c3da70c1484fd583905f4a119c8f4bddba6341801cb73e07525cf985"
+      "sha256": "fcaa626530a4d35beac09cb2fec4c28f4760f1ae6dfd75a7ea015c2e1a238136"
     },
     {
       "bytes": 2330,
@@ -134,23 +134,23 @@
       "note": "Mock evidence artifact or generated evidence note.",
       "path": "evidence/m0-report.md",
       "role": "evidence",
-      "sha256": "b8f0bd43f283d4648232431923bc46c25f7213e1a52f858ab176c9e26564b5ce"
+      "sha256": "a8694b64633aa2521b661a171929bb160ea97b3532228cd9900c5518b4cfbbde"
     },
     {
-      "bytes": 3708,
+      "bytes": 3714,
       "encodingFormat": "text/csv",
       "note": "Mock evidence artifact or generated evidence note.",
       "path": "evidence/mock_item_metrics.csv",
       "role": "evidence",
-      "sha256": "4d2f51b93e97d5a8be998a67880ff179b619cafdec58b66b6ade3beacfc0b4e8"
+      "sha256": "bbc7471665b153cf06d555b6431e40db75f0f25ef1c20e9f596ba3b277bc7aaf"
     },
     {
-      "bytes": 328,
+      "bytes": 327,
       "encodingFormat": "text/csv",
       "note": "Mock evidence artifact or generated evidence note.",
       "path": "evidence/mock_model_summary.csv",
       "role": "evidence",
-      "sha256": "9d23ddbe9d06b012741b9185352a8aac6175d45bd7169422a0ab73e847025ba4"
+      "sha256": "55c6e96224b9e3493f424ca94df18794de73a0d796fdc441397294fb6c794cab"
     },
     {
       "bytes": 1362,
@@ -177,12 +177,12 @@
       "sha256": "10fe7e32318812377e069e13d926bdf57f4cfdeb9ea64921d4bea9e621a28ea1"
     },
     {
-      "bytes": 9633,
+      "bytes": 9563,
       "encodingFormat": "text/plain",
       "note": "Kaggle Community Benchmark preparation artifact.",
       "path": "kaggle/_scoring.py",
       "role": "kaggle",
-      "sha256": "411d33844252a327f8f95c92131387632e0fb1e145e5898ef213bd060f634874"
+      "sha256": "4b575faba4fdd061cc5f551d0a9bb864ef7e263c06eab0bb794437ab8735af55"
     },
     {
       "bytes": 4098,
@@ -201,12 +201,12 @@
       "sha256": "0fa4d1912f87a8861c93c978a87c8e9da2173ec6d1cbe2846e93b7aaa80b6afb"
     },
     {
-      "bytes": 9964,
+      "bytes": 9965,
       "encodingFormat": "text/plain",
       "note": "Kaggle Community Benchmark preparation artifact.",
       "path": "kaggle/score_outputs.py",
       "role": "kaggle",
-      "sha256": "af02758150ed761e2ccf77553fb0c870d8fce9ab529462fef765beb1b94466fa"
+      "sha256": "a35d9d481526a2c24c0abfbb2fb15b16af94145a6e1405cecf079449f82c5479"
     },
     {
       "bytes": 1170,
