@@ -189,7 +189,7 @@
       "required": [
         "packageId",
         "packageManifestSha256",
-        "packageTreeSha256",
+        "referencePackageTreeSha256",
         "items",
         "prompts",
         "itemCount",
@@ -201,10 +201,10 @@
           "const": "aleph-bench-m0-mock-platform-package"
         },
         "packageManifestSha256": {
-          "$ref": "#/$defs/sha256"
+          "const": "1f4d0ef9420079f1a5734879c6be716bd7227b950d03703341d4bc74517be8d7"
         },
-        "packageTreeSha256": {
-          "$ref": "#/$defs/sha256"
+        "referencePackageTreeSha256": {
+          "const": "0ae1f94ff0c599bda3ce69de7027c44d128ddd1653e23f1a05d3e885d469dec4"
         },
         "items": {
           "$ref": "#/$defs/artifactIdentity"
@@ -294,12 +294,10 @@
       ],
       "properties": {
         "maxTokens": {
-          "type": "integer",
-          "minimum": 1
+          "const": 512
         },
         "saturationMarginTokens": {
-          "type": "integer",
-          "minimum": 0
+          "const": 4
         },
         "maxTokensSource": {
           "const": "operator_asserted_not_present_in_run_json"

@@ -126,15 +126,15 @@ def build_parser() -> argparse.ArgumentParser:
         required=True,
         type=int,
         help=(
-            "Operator-asserted max_tokens; the legacy run JSON does not prove "
-            "this invocation argument"
+            "Operator-asserted max_tokens; only audited value 512 is accepted, "
+            "and the legacy run JSON does not prove this invocation argument"
         ),
     )
     kaggle_replay.add_argument(
         "--saturation-margin-tokens",
         type=int,
         default=DEFAULT_SATURATION_MARGIN_TOKENS,
-        help="Treat usage within this many tokens of max_tokens as near-cap",
+        help="Audited near-cap margin; only 4 is accepted",
     )
     kaggle_replay.add_argument("--out", required=True)
     validate_croissant = subparsers.add_parser(
@@ -335,7 +335,12 @@ def main(argv: list[str] | None = None) -> int:
             max_tokens=args.max_tokens,
             saturation_margin_tokens=args.saturation_margin_tokens,
         )
-        write_new_kaggle_receipt(out, receipt)
+        write_new_kaggle_receipt(
+            out,
+            receipt,
+            run_json_path=run_json_path,
+            package_root=package_root,
+        )
         summary = {
             "status": receipt["diagnostics"]["status"],
             "receipt": str(out),

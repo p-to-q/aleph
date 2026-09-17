@@ -42,7 +42,39 @@ AUDITED_TASK_DEFINITION_SHA256 = (
 AUDITED_PACKAGE_MANIFEST_SHA256 = (
     "1f4d0ef9420079f1a5734879c6be716bd7227b950d03703341d4bc74517be8d7"
 )
+AUDITED_PACKAGE_MANIFEST_BYTES = 10_299
+AUDITED_PACKAGE_TREE_SHA256 = (
+    "0ae1f94ff0c599bda3ce69de7027c44d128ddd1653e23f1a05d3e885d469dec4"
+)
+AUDITED_MAX_TOKENS = 512
+AUDITED_SATURATION_MARGIN_TOKENS = 4
+MAX_RUN_JSON_BYTES = 8 * 1024 * 1024
+MAX_PROMPT_CODEPOINTS = 4_096
+MAX_OUTPUT_CODEPOINTS = 8_192
+MAX_TOTAL_OUTPUT_CODEPOINTS = 262_144
 DEPRECATED_MODEL_VERSION_SLUG = "model_version_slug for conversation is DEPRECATED"
+AUDITED_ARTIFACT_IDENTITIES = {
+    "items": {
+        "path": "data/public_s2_items.jsonl",
+        "sha256": "f6a8fc84861259ece233a2c883ca5cdc6eebe45c2f699a0898c790653f2b870a",
+        "bytes": 92_015,
+    },
+    "prompts": {
+        "path": "data/public_s2_prompts.jsonl",
+        "sha256": "32cb5757463ce8d520f24888009c272c022b9d95f9bf59a6bf7ff8b15fd281cc",
+        "bytes": 133_353,
+    },
+    "scoringCore": {
+        "path": "kaggle/_scoring.py",
+        "sha256": "4b575faba4fdd061cc5f551d0a9bb864ef7e263c06eab0bb794437ab8735af55",
+        "bytes": 9_563,
+    },
+    "scoreOutputs": {
+        "path": "kaggle/score_outputs.py",
+        "sha256": "a35d9d481526a2c24c0abfbb2fb15b16af94145a6e1405cecf079449f82c5479",
+        "bytes": 9_965,
+    },
+}
 
 _RUN_FIELDS = {
     "conversations",
@@ -67,6 +99,7 @@ _UTC_TIMESTAMP = re.compile(
     r"[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}"
     r"(?:\.[0-9]{1,6})?Z\Z"
 )
+_MODEL_SLUG = re.compile(r"[A-Za-z0-9][A-Za-z0-9._:/-]*\Z")
 
 
 class KaggleReceiptError(ValueError):
@@ -141,9 +174,14 @@ def _read_pinned_file(
         metadata = os.fstat(descriptor)
         if not stat.S_ISREG(metadata.st_mode) or metadata.st_nlink != 1:
             raise KaggleReceiptError(f"{role} must be a singly linked regular file")
+        if expected_bytes is not None and metadata.st_size != expected_bytes:
+            raise KaggleReceiptError(
+                f"{role} byte length drifted: expected {expected_bytes}, "
+                f"found {metadata.st_size}"
+            )
         with os.fdopen(descriptor, "rb") as handle:
             descriptor = -1
-            raw = handle.read()
+            raw = handle.read(expected_bytes + 1 if expected_bytes is not None else -1)
     finally:
         if descriptor >= 0:
             os.close(descriptor)
@@ -156,6 +194,38 @@ def _read_pinned_file(
         raise KaggleReceiptError(
             f"{role} digest drifted: expected {expected_sha256}, found {digest}"
         )
+    return raw
+
+
+def _read_bounded_regular_file(path: Path, *, max_bytes: int, role: str) -> bytes:
+    """Read one regular-file snapshot without following the final symlink."""
+
+    flags = (
+        os.O_RDONLY
+        | getattr(os, "O_CLOEXEC", 0)
+        | getattr(os, "O_NOFOLLOW", 0)
+        | getattr(os, "O_NONBLOCK", 0)
+    )
+    try:
+        descriptor = os.open(path, flags)
+    except OSError as exc:
+        raise KaggleReceiptError(f"could not safely open {role}: {exc}") from exc
+    try:
+        metadata = os.fstat(descriptor)
+        if not stat.S_ISREG(metadata.st_mode):
+            raise KaggleReceiptError(f"{role} must be a regular file")
+        if metadata.st_size > max_bytes:
+            raise KaggleReceiptError(
+                f"{role} exceeds the {max_bytes}-byte safety limit"
+            )
+        with os.fdopen(descriptor, "rb") as handle:
+            descriptor = -1
+            raw = handle.read(max_bytes + 1)
+    finally:
+        if descriptor >= 0:
+            os.close(descriptor)
+    if len(raw) > max_bytes:
+        raise KaggleReceiptError(f"{role} exceeds the {max_bytes}-byte safety limit")
     return raw
 
 
@@ -221,7 +291,10 @@ def _require_int(value: Any, *, role: str, minimum: int | None = None) -> int:
 def _require_finite_number(value: Any, *, role: str) -> float:
     if isinstance(value, bool) or not isinstance(value, (int, float)):
         raise KaggleReceiptError(f"{role} must be a number")
-    result = float(value)
+    try:
+        result = float(value)
+    except (OverflowError, ValueError) as exc:
+        raise KaggleReceiptError(f"{role} must be finite") from exc
     if not math.isfinite(result):
         raise KaggleReceiptError(f"{role} must be finite")
     return result
@@ -317,6 +390,47 @@ def _validate_request_metrics(value: Any, *, context: str) -> dict[str, int | st
     }
 
 
+def _diagnostics_for_rows(
+    rows: list[dict[str, Any]],
+    *,
+    max_tokens: int,
+    saturation_margin_tokens: int,
+) -> dict[str, Any]:
+    output_tokens = [int(row["usage"]["outputTokens"]) for row in rows]
+    empty_row_ids = [row["rowId"] for row in rows if not row["outputText"].strip()]
+    invalid_usage_row_ids = [
+        row["rowId"]
+        for row in rows
+        if row["usage"]["inputTokens"] == 0
+        or row["usage"]["outputTokens"] == 0
+        or row["usage"]["outputTokens"] > max_tokens
+    ]
+    saturation_threshold = max_tokens - saturation_margin_tokens
+    near_cap_row_ids = [
+        row["rowId"]
+        for row in rows
+        if row["usage"]["outputTokens"] >= saturation_threshold
+    ]
+    return {
+        "status": (
+            "blocked"
+            if empty_row_ids or invalid_usage_row_ids or near_cap_row_ids
+            else "valid"
+        ),
+        "emptyRowIds": empty_row_ids,
+        "invalidUsageRowIds": invalid_usage_row_ids,
+        "nearCapRowIds": near_cap_row_ids,
+        "outputTokenStats": {
+            "count": len(output_tokens),
+            "min": min(output_tokens),
+            "max": max(output_tokens),
+            "mean": round(sum(output_tokens) / len(output_tokens), 6),
+            "nearCapCount": len(near_cap_row_ids),
+            "nearCapThreshold": saturation_threshold,
+        },
+    }
+
+
 def parse_run_conversations(
     run: dict[str, Any],
     *,
@@ -361,6 +475,7 @@ def parse_run_conversations(
 
     rows_by_base: dict[str, dict[str, Any]] = {}
     placeholder_ids: list[str] = []
+    total_output_codepoints = 0
     for index, conversation in enumerate(conversations):
         context = f"conversation[{index}]"
         if not isinstance(conversation, dict):
@@ -433,12 +548,30 @@ def parse_run_conversations(
         prompt_text, output_text = _strict_request_contents(
             request["contents"], context=context, model_slug=model_slug
         )
+        if len(prompt_text) > MAX_PROMPT_CODEPOINTS:
+            raise KaggleReceiptError(
+                f"{context} prompt exceeds the {MAX_PROMPT_CODEPOINTS}-code-point "
+                "safety limit"
+            )
+        if len(output_text) > MAX_OUTPUT_CODEPOINTS:
+            raise KaggleReceiptError(
+                f"{context} output exceeds the {MAX_OUTPUT_CODEPOINTS}-code-point "
+                "safety limit"
+            )
+        total_output_codepoints += len(output_text)
+        if total_output_codepoints > MAX_TOTAL_OUTPUT_CODEPOINTS:
+            raise KaggleReceiptError(
+                "assistant outputs exceed the "
+                f"{MAX_TOTAL_OUTPUT_CODEPOINTS}-code-point aggregate safety limit"
+            )
         expected = expected_by_base[base]
         if prompt_text != expected["prompt"]:
             raise KaggleReceiptError(f"prompt text drifted for {base}")
         metrics = _validate_request_metrics(request["metrics"], context=context)
-        conversation_metrics = conversation.get("metrics")
-        if conversation_metrics != request["metrics"]:
+        conversation_metrics = _validate_request_metrics(
+            conversation.get("metrics"), context=f"{context} conversation"
+        )
+        if conversation_metrics != metrics:
             raise KaggleReceiptError(f"conversation/request metrics drifted for {base}")
         rows_by_base[base] = {
             "rowId": base,
@@ -463,37 +596,11 @@ def parse_run_conversations(
             f"response coverage mismatch; missing={missing}, extra={extra}"
         )
     rows = [rows_by_base[base] for base in expected_by_base]
-    output_tokens = [int(row["usage"]["outputTokens"]) for row in rows]
-    empty_row_ids = [row["rowId"] for row in rows if not row["outputText"].strip()]
-    invalid_usage_row_ids = [
-        row["rowId"]
-        for row in rows
-        if row["usage"]["inputTokens"] == 0 or row["usage"]["outputTokens"] == 0
-    ]
-    saturation_threshold = max_tokens - saturation_margin_tokens
-    near_cap_row_ids = [
-        row["rowId"]
-        for row in rows
-        if row["usage"]["outputTokens"] >= saturation_threshold
-    ]
-    diagnostics = {
-        "status": (
-            "blocked"
-            if empty_row_ids or invalid_usage_row_ids or near_cap_row_ids
-            else "valid"
-        ),
-        "emptyRowIds": empty_row_ids,
-        "invalidUsageRowIds": invalid_usage_row_ids,
-        "nearCapRowIds": near_cap_row_ids,
-        "outputTokenStats": {
-            "count": len(output_tokens),
-            "min": min(output_tokens),
-            "max": max(output_tokens),
-            "mean": round(sum(output_tokens) / len(output_tokens), 6),
-            "nearCapCount": len(near_cap_row_ids),
-            "nearCapThreshold": saturation_threshold,
-        },
-    }
+    diagnostics = _diagnostics_for_rows(
+        rows,
+        max_tokens=max_tokens,
+        saturation_margin_tokens=saturation_margin_tokens,
+    )
     return rows, diagnostics
 
 
@@ -611,6 +718,7 @@ def _load_package_context(package_root: Path) -> dict[str, Any]:
     manifest_raw = _read_pinned_file(
         manifest_path,
         expected_sha256=AUDITED_PACKAGE_MANIFEST_SHA256,
+        expected_bytes=AUDITED_PACKAGE_MANIFEST_BYTES,
         role="audited package manifest",
     )
     manifest = _load_json_bytes(manifest_raw, role="package manifest")
@@ -654,11 +762,16 @@ def _load_package_context(package_root: Path) -> dict[str, Any]:
     if len(canaries) != 1 or not all(isinstance(value, str) and value for value in canaries):
         raise KaggleReceiptError("package items must share one non-empty canaryGuid")
     immutable_receipt = load_v0_1_receipt()
+    reference_package_tree_sha256 = immutable_receipt["groups"]["platformPackage"][
+        "sha256"
+    ]
+    if reference_package_tree_sha256 != AUDITED_PACKAGE_TREE_SHA256:
+        raise KaggleReceiptError("immutable v0.1 package tree reference drifted")
     return {
         "root": package_root,
         "manifest": manifest,
         "manifestSha256": _sha256(manifest_raw),
-        "packageTreeSha256": immutable_receipt["groups"]["platformPackage"]["sha256"],
+        "referencePackageTreeSha256": reference_package_tree_sha256,
         "items": item_rows,
         "prompts": prompt_rows,
         "sendable": sendable,
@@ -682,7 +795,21 @@ def build_kaggle_receipt(
     """Replay one completed v16-style Kaggle run into a canonical receipt."""
 
     run_path = Path(run_json_path)
-    run_raw = run_path.read_bytes()
+    if max_tokens != AUDITED_MAX_TOKENS:
+        raise KaggleReceiptError(
+            "audited legacy task replay requires --max-tokens "
+            f"{AUDITED_MAX_TOKENS}; the run JSON cannot prove overrides"
+        )
+    if saturation_margin_tokens != AUDITED_SATURATION_MARGIN_TOKENS:
+        raise KaggleReceiptError(
+            "audited legacy task replay requires --saturation-margin-tokens "
+            f"{AUDITED_SATURATION_MARGIN_TOKENS}"
+        )
+    run_raw = _read_bounded_regular_file(
+        run_path,
+        max_bytes=MAX_RUN_JSON_BYTES,
+        role="Kaggle run JSON",
+    )
     run = _load_json_bytes(run_raw, role="Kaggle run")
     if not isinstance(run, dict):
         raise KaggleReceiptError("Kaggle run must be a JSON object")
@@ -723,6 +850,8 @@ def build_kaggle_receipt(
     if not isinstance(model_version, dict) or set(model_version) != {"slug"}:
         raise KaggleReceiptError("modelVersion must contain exactly slug")
     model_slug = _require_string(model_version["slug"], role="modelVersion.slug")
+    if len(model_slug) > 256 or _MODEL_SLUG.fullmatch(model_slug) is None:
+        raise KaggleReceiptError("modelVersion.slug is not an audited model identifier")
     py_run_id = _require_string(run.get("pyRunId"), role="pyRunId")
     started_at = _require_string(run.get("startTime"), role="startTime")
     ended_at = _require_string(run.get("endTime"), role="endTime")
@@ -833,7 +962,7 @@ def build_kaggle_receipt(
                 package["manifest"].get("id"), role="package manifest id"
             ),
             "packageManifestSha256": package["manifestSha256"],
-            "packageTreeSha256": package["packageTreeSha256"],
+            "referencePackageTreeSha256": package["referencePackageTreeSha256"],
             "items": package["itemsIdentity"],
             "prompts": package["promptsIdentity"],
             "itemCount": len(package["items"]),
@@ -868,13 +997,147 @@ def build_kaggle_receipt(
         **payload,
         "id": f"aleph-bench-kaggle-receipt-v0.2-artifact-{artifact_digest}",
     }
-    validate(receipt, load_schema(RECEIPT_SCHEMA_PATH))
-    canonical_json_bytes(receipt)
+    serialize_kaggle_receipt(receipt)
     return receipt
+
+
+def _validate_kaggle_receipt_semantics(receipt: dict[str, Any]) -> None:
+    """Check cross-field claims that JSON Schema cannot express."""
+
+    started = _parse_utc_timestamp(receipt["startedAt"], role="startedAt")
+    ended = _parse_utc_timestamp(receipt["endedAt"], role="endedAt")
+    if ended < started:
+        raise KaggleReceiptError("receipt endedAt must not precede startedAt")
+
+    assertions = receipt["operatorAssertions"]
+    if (
+        assertions["maxTokens"] != AUDITED_MAX_TOKENS
+        or assertions["saturationMarginTokens"]
+        != AUDITED_SATURATION_MARGIN_TOKENS
+    ):
+        raise KaggleReceiptError("receipt operator assertions drifted from audited policy")
+
+    rows = receipt["submissionRows"]
+    if receipt["rowCount"] != len(rows) or receipt["expectedRowCount"] != len(rows):
+        raise KaggleReceiptError("receipt row counts disagree with submissionRows")
+    row_ids: set[str] = set()
+    conversation_ids: set[str] = set()
+    request_ids: set[str] = set()
+    total_output_codepoints = 0
+    for index, row in enumerate(rows):
+        expected_row_id = f"{row['itemId']}:{row['promptId']}"
+        if row["rowId"] != expected_row_id:
+            raise KaggleReceiptError(f"submissionRows[{index}] row identity drifted")
+        conversation_id = row["conversationId"]
+        suffix = conversation_id[len(expected_row_id) + 1 :]
+        if (
+            not conversation_id.startswith(f"{expected_row_id}-")
+            or _CHAT_SUFFIX.fullmatch(suffix) is None
+            or row["requestId"] != f"{conversation_id}-req-1"
+        ):
+            raise KaggleReceiptError(
+                f"submissionRows[{index}] conversation/request identity drifted"
+            )
+        if row["rowId"] in row_ids:
+            raise KaggleReceiptError(f"duplicate receipt row id: {row['rowId']}")
+        if conversation_id in conversation_ids:
+            raise KaggleReceiptError(
+                f"duplicate receipt conversation id: {conversation_id}"
+            )
+        if row["requestId"] in request_ids:
+            raise KaggleReceiptError(f"duplicate receipt request id: {row['requestId']}")
+        row_ids.add(row["rowId"])
+        conversation_ids.add(conversation_id)
+        request_ids.add(row["requestId"])
+        if len(row["promptText"]) > MAX_PROMPT_CODEPOINTS:
+            raise KaggleReceiptError(
+                f"submissionRows[{index}] prompt exceeds the safety limit"
+            )
+        if len(row["outputText"]) > MAX_OUTPUT_CODEPOINTS:
+            raise KaggleReceiptError(
+                f"submissionRows[{index}] output exceeds the safety limit"
+            )
+        total_output_codepoints += len(row["outputText"])
+    if total_output_codepoints > MAX_TOTAL_OUTPUT_CODEPOINTS:
+        raise KaggleReceiptError("receipt assistant outputs exceed the aggregate safety limit")
+
+    expected_diagnostics = _diagnostics_for_rows(
+        rows,
+        max_tokens=assertions["maxTokens"],
+        saturation_margin_tokens=assertions["saturationMarginTokens"],
+    )
+    if receipt["diagnostics"] != expected_diagnostics:
+        raise KaggleReceiptError("receipt diagnostics disagree with submission rows")
+
+    leaderboard_scalar = _require_finite_number(
+        receipt["leaderboardScalar"], role="receipt leaderboardScalar"
+    )
+    replayed_scalar = _require_finite_number(
+        receipt["replayedScalar"], role="receipt replayedScalar"
+    )
+    if not math.isclose(
+        leaderboard_scalar, replayed_scalar, rel_tol=0.0, abs_tol=1e-12
+    ):
+        raise KaggleReceiptError("receipt leaderboard and replayed scalars disagree")
+    bench_result = receipt["benchResult"]
+    expected_replayed_scalar = 1.0 - _require_finite_number(
+        bench_result["aggregate"]["aurc"], role="receipt benchResult aggregate.aurc"
+    )
+    if not math.isclose(
+        replayed_scalar, expected_replayed_scalar, rel_tol=0.0, abs_tol=1e-12
+    ):
+        raise KaggleReceiptError("receipt replayed scalar disagrees with benchResult")
+
+    model_slug = receipt["modelIdentity"]["slug"]
+    if bench_result["models"][0]["model"] != model_slug or any(
+        item_run["model"] != model_slug for item_run in bench_result["itemRuns"]
+    ):
+        raise KaggleReceiptError("receipt model identity disagrees with benchResult")
+    item_run_ids = [item_run["itemId"] for item_run in bench_result["itemRuns"]]
+    if len(set(item_run_ids)) != len(item_run_ids):
+        raise KaggleReceiptError("receipt benchResult contains duplicate item ids")
+    row_item_ids = {row["itemId"] for row in rows}
+    if row_item_ids != set(item_run_ids):
+        raise KaggleReceiptError("receipt row item ids disagree with benchResult")
+
+    dataset_identity = receipt["datasetIdentity"]
+    if (
+        dataset_identity["packageManifestSha256"]
+        != AUDITED_PACKAGE_MANIFEST_SHA256
+        or dataset_identity["referencePackageTreeSha256"]
+        != AUDITED_PACKAGE_TREE_SHA256
+        or dataset_identity["canaryGuid"] != bench_result["canaryGuid"]
+        or dataset_identity["itemCount"] != len(item_run_ids)
+        or dataset_identity["sendablePromptCount"] != len(rows)
+    ):
+        raise KaggleReceiptError("receipt dataset identity claims disagree")
+    for key in ("items", "prompts"):
+        if dataset_identity[key] != AUDITED_ARTIFACT_IDENTITIES[key]:
+            raise KaggleReceiptError(f"receipt dataset {key} identity drifted")
+
+    scoring_identity = receipt["scoringIdentity"]
+    for key in ("scoreOutputs", "scoringCore"):
+        if scoring_identity[key] != AUDITED_ARTIFACT_IDENTITIES[key]:
+            raise KaggleReceiptError(f"receipt {key} identity drifted")
+    scoring_config = scoring_identity["config"]
+    expected_scoring_config = {
+        "tau": bench_result["tau"],
+        "k": bench_result["k"],
+        "seed": bench_result["seed"],
+        "bootstrapSamples": bench_result["config"]["bootstrapSamples"],
+        "reruns": bench_result["config"]["reruns"],
+        "leakageThresholds": bench_result["config"]["leakageThresholds"],
+    }
+    if scoring_config != expected_scoring_config:
+        raise KaggleReceiptError("receipt scoring config disagrees with benchResult")
+    expected_config_sha256 = _sha256(_identity_json_bytes(scoring_config))
+    if scoring_identity["configSha256"] != expected_config_sha256:
+        raise KaggleReceiptError("receipt scoring config digest disagrees with config")
 
 
 def serialize_kaggle_receipt(receipt: dict[str, Any]) -> bytes:
     validate(receipt, load_schema(RECEIPT_SCHEMA_PATH))
+    _validate_kaggle_receipt_semantics(receipt)
     expected_id = receipt.get("id")
     payload = {key: value for key, value in receipt.items() if key != "id"}
     observed_id = (
@@ -918,27 +1181,91 @@ def validate_kaggle_replay_output_path(
         raise KaggleReceiptError("receipt output must not alias the source run JSON")
     if output_path == package_path or output_path.is_relative_to(package_path):
         raise KaggleReceiptError("receipt output must be outside the scorer package")
-    assert_not_v0_1_write(requested_out)
-    return requested_out
+    assert_not_v0_1_write(output_path)
+    return output_path
 
 
-def write_new_kaggle_receipt(path: Path, receipt: dict[str, Any]) -> None:
+def _open_directory_no_symlinks(
+    path: Path, *, create_missing: bool
+) -> tuple[int, set[tuple[int, int]]]:
+    """Open an absolute directory component-by-component with stable dirfds."""
+
+    if not path.is_absolute():
+        raise KaggleReceiptError("safe directory open requires an absolute path")
+    if not hasattr(os, "O_NOFOLLOW") or not hasattr(os, "O_DIRECTORY"):
+        raise KaggleReceiptError("safe receipt publication is unsupported on this platform")
+    flags = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | getattr(os, "O_CLOEXEC", 0)
+    anchor = path.anchor or os.sep
+    try:
+        descriptor = os.open(anchor, flags)
+    except OSError as exc:
+        raise KaggleReceiptError(f"could not safely open path anchor: {exc}") from exc
+    identities: set[tuple[int, int]] = set()
+    try:
+        metadata = os.fstat(descriptor)
+        identities.add((metadata.st_dev, metadata.st_ino))
+        for part in path.parts[1:]:
+            if part in {"", ".", ".."}:
+                raise KaggleReceiptError(f"unsafe receipt directory component: {part!r}")
+            try:
+                child_descriptor = os.open(part, flags, dir_fd=descriptor)
+            except FileNotFoundError:
+                if not create_missing:
+                    raise
+                try:
+                    os.mkdir(part, 0o700, dir_fd=descriptor)
+                except FileExistsError:
+                    pass
+                child_descriptor = os.open(part, flags, dir_fd=descriptor)
+            except OSError as exc:
+                raise KaggleReceiptError(
+                    f"could not safely open receipt directory component {part!r}: {exc}"
+                ) from exc
+            os.close(descriptor)
+            descriptor = child_descriptor
+            metadata = os.fstat(descriptor)
+            if not stat.S_ISDIR(metadata.st_mode):
+                raise KaggleReceiptError(
+                    f"receipt directory component is not a directory: {part!r}"
+                )
+            identities.add((metadata.st_dev, metadata.st_ino))
+        return descriptor, identities
+    except BaseException:
+        os.close(descriptor)
+        raise
+
+
+def write_new_kaggle_receipt(
+    path: Path,
+    receipt: dict[str, Any],
+    *,
+    run_json_path: Path,
+    package_root: Path,
+) -> None:
     """Atomically publish a new receipt and fail if its path already exists."""
 
     content = serialize_kaggle_receipt(receipt)
-    target = Path(path).absolute()
+    target = validate_kaggle_replay_output_path(
+        run_json_path=run_json_path,
+        package_root=package_root,
+        out=path,
+    )
     assert_not_v0_1_write(target)
-    target.parent.mkdir(parents=True, exist_ok=True)
-    assert_not_v0_1_write(target)
-    directory_flags = os.O_RDONLY | getattr(os, "O_DIRECTORY", 0) | getattr(
-        os, "O_NOFOLLOW", 0
+    package_path = Path(package_root).resolve(strict=True)
+    package_descriptor, _ = _open_directory_no_symlinks(
+        package_path, create_missing=False
     )
     try:
-        parent_descriptor = os.open(target.parent, directory_flags)
-    except OSError as exc:
-        raise KaggleReceiptError(
-            f"could not safely open receipt output directory: {exc}"
-        ) from exc
+        package_metadata = os.fstat(package_descriptor)
+        package_identity = (package_metadata.st_dev, package_metadata.st_ino)
+        parent_descriptor, parent_identities = _open_directory_no_symlinks(
+            target.parent, create_missing=True
+        )
+    finally:
+        os.close(package_descriptor)
+    if package_identity in parent_identities:
+        os.close(parent_descriptor)
+        raise KaggleReceiptError("receipt output directory aliases the scorer package")
     temporary_name = f".{target.name}.{os.getpid()}.{secrets.token_hex(8)}.tmp"
     temporary_descriptor: int | None = None
     try:

@@ -244,12 +244,16 @@ detailed, offline receipt with no model or network calls:
 ```
 
 The command accepts only a receipt-identical immutable v0.1 package, requires exact 180-row
-conversation coverage, replays its packaged scorer, and checks Kaggle's scalar against inverse AURC.
-It writes a content-addressed receipt and exits `2` when empty or near-cap outputs make the run
-operationally blocked. The supported legacy task name, version, and audited definition digest are
-fixed. `--max-tokens` is retained as an explicit operator assertion because the run JSON does not
-prove that invocation argument. This improves inspection of legacy evidence; it does not relabel
-that evidence as v0.2. See the [Kaggle replay runbook](../docs/benchmark/kaggle-runbook.md).
+conversation coverage, executes the pinned scorer from one verified in-memory snapshot, and checks
+Kaggle's scalar against inverse AURC. It writes a fresh content-addressed receipt without replacing
+an existing path and exits `2` when empty, invalid-usage, or near-cap outputs make the run
+operationally blocked. The supported legacy task identity, audited `512` generation cap, and
+four-token saturation margin are fixed; changing the asserted cap cannot reclassify a truncated run
+as valid. `--max-tokens` remains explicit because the retained run JSON does not itself prove the
+invocation argument. Inputs and output text are bounded before the quadratic legacy scorer runs, and
+serialization checks cross-field semantics in addition to JSON Schema and content identity. This
+improves inspection of legacy evidence; it does not relabel that evidence as v0.2. See the
+[Kaggle replay runbook](../docs/benchmark/kaggle-runbook.md).
 
 Track, split, stratum, `tau`, `k`, rerun count, bootstrap count, dataset identity, and leakage
 thresholds are frozen in the v0.2 protocol configuration. The release CLI does not expose overrides

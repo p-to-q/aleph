@@ -4,6 +4,7 @@ import copy
 import io
 import json
 import math
+import os
 import shutil
 import tempfile
 import unittest
@@ -12,11 +13,18 @@ from pathlib import Path
 from unittest.mock import patch
 
 from bench.engine.kaggle_receipt import (
+    AUDITED_PACKAGE_MANIFEST_SHA256,
+    AUDITED_PACKAGE_TREE_SHA256,
     AUDITED_TASK_DESCRIPTION,
     DEFAULT_V0_1_PACKAGE_ROOT,
     KaggleReceiptError,
+    MAX_OUTPUT_CODEPOINTS,
+    MAX_RUN_JSON_BYTES,
+    MAX_TOTAL_OUTPUT_CODEPOINTS,
+    _identity_json_bytes,
     _load_legacy_score_function,
     _load_package_context,
+    _sha256,
     build_kaggle_receipt,
     canonical_json_bytes,
     parse_run_conversations,
@@ -50,6 +58,14 @@ def _fixture_expected_prompts() -> list[dict[str, str]]:
             "prompt": "fixture prompt",
         }
     ]
+
+
+def _resign_receipt(receipt: dict) -> None:
+    payload = {key: value for key, value in receipt.items() if key != "id"}
+    receipt["id"] = (
+        "aleph-bench-kaggle-receipt-v0.2-artifact-"
+        + _sha256(_identity_json_bytes(payload))
+    )
 
 
 def _conversation(
@@ -316,6 +332,17 @@ class KaggleConversationParserTests(unittest.TestCase):
         self.assertEqual(diagnostics["status"], "blocked")
         self.assertEqual(diagnostics["invalidUsageRowIds"], [rows[0]["rowId"]])
 
+    def test_conversation_metrics_use_strict_types(self) -> None:
+        run = _load_fixture()
+        run["conversations"][1]["metrics"]["inputTokens"] = True
+        with self.assertRaisesRegex(KaggleReceiptError, "inputTokens must be an integer"):
+            parse_run_conversations(
+                run,
+                expected_prompts=_fixture_expected_prompts(),
+                model_slug=FIXTURE_MODEL_SLUG,
+                max_tokens=32,
+            )
+
 
 class KaggleReceiptIntegrationTests(unittest.TestCase):
     @classmethod
@@ -353,7 +380,7 @@ class KaggleReceiptIntegrationTests(unittest.TestCase):
         self.assertEqual(serialize_kaggle_receipt(first), serialize_kaggle_receipt(reordered))
         self.assertEqual(canonical_json_bytes(first), serialize_kaggle_receipt(first))
 
-    def test_supported_identity_and_operator_assertion_are_content_addressed(self) -> None:
+    def test_supported_model_identity_is_content_addressed_and_cap_is_fixed(self) -> None:
         with tempfile.TemporaryDirectory() as temporary_directory:
             run_path = self._write_run(temporary_directory)
             first = build_kaggle_receipt(run_json_path=run_path, max_tokens=512)
@@ -370,22 +397,23 @@ class KaggleReceiptIntegrationTests(unittest.TestCase):
                 run_json_path=changed_path,
                 max_tokens=512,
             )
-            changed_config = build_kaggle_receipt(
-                run_json_path=run_path,
-                max_tokens=1024,
-            )
+            with self.assertRaisesRegex(KaggleReceiptError, "requires --max-tokens 512"):
+                build_kaggle_receipt(run_json_path=run_path, max_tokens=1024)
         self.assertNotEqual(first["id"], changed["id"])
-        self.assertNotEqual(first["id"], changed_config["id"])
-        self.assertEqual(
-            first["scoringIdentity"]["configSha256"],
-            changed_config["scoringIdentity"]["configSha256"],
-        )
         self.assertEqual(
             first["operatorAssertions"]["maxTokensSource"],
             "operator_asserted_not_present_in_run_json",
         )
         self.assertEqual(first["operatorAssertions"]["maxTokens"], 512)
-        self.assertEqual(changed_config["operatorAssertions"]["maxTokens"], 1024)
+        self.assertEqual(first["operatorAssertions"]["saturationMarginTokens"], 4)
+        self.assertEqual(
+            first["datasetIdentity"]["packageManifestSha256"],
+            AUDITED_PACKAGE_MANIFEST_SHA256,
+        )
+        self.assertEqual(
+            first["datasetIdentity"]["referencePackageTreeSha256"],
+            AUDITED_PACKAGE_TREE_SHA256,
+        )
 
     def test_unsupported_task_identity_fails_closed(self) -> None:
         mutations = (
@@ -461,6 +489,47 @@ class KaggleReceiptIntegrationTests(unittest.TestCase):
             with self.assertRaisesRegex(KaggleReceiptError, "must not precede"):
                 build_kaggle_receipt(run_json_path=run_path, max_tokens=512)
 
+    def test_run_input_must_be_bounded_regular_file(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            oversized = Path(temporary_directory) / "oversized.run.json"
+            with oversized.open("wb") as handle:
+                handle.truncate(MAX_RUN_JSON_BYTES + 1)
+            with self.assertRaisesRegex(KaggleReceiptError, "byte safety limit"):
+                build_kaggle_receipt(run_json_path=oversized, max_tokens=512)
+
+            symlink = Path(temporary_directory) / "run-link.json"
+            target = self._write_run(temporary_directory)
+            symlink.symlink_to(target)
+            with self.assertRaisesRegex(KaggleReceiptError, "could not safely open"):
+                build_kaggle_receipt(run_json_path=symlink, max_tokens=512)
+
+            if hasattr(os, "mkfifo"):
+                fifo = Path(temporary_directory) / "run.fifo"
+                os.mkfifo(fifo)
+                with self.assertRaisesRegex(KaggleReceiptError, "must be a regular file"):
+                    build_kaggle_receipt(run_json_path=fifo, max_tokens=512)
+
+    def test_output_text_safety_limits_fail_before_scoring(self) -> None:
+        too_long = copy.deepcopy(self.run_payload)
+        too_long["conversations"][1]["requests"][0]["contents"][1]["parts"][0][
+            "text"
+        ] = "x" * (MAX_OUTPUT_CODEPOINTS + 1)
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            run_path = self._write_run(temporary_directory, too_long)
+            with self.assertRaisesRegex(KaggleReceiptError, "output exceeds"):
+                build_kaggle_receipt(run_json_path=run_path, max_tokens=512)
+
+        aggregate_too_long = copy.deepcopy(self.run_payload)
+        per_row = MAX_TOTAL_OUTPUT_CODEPOINTS // 180 + 1
+        for conversation in aggregate_too_long["conversations"][1:]:
+            conversation["requests"][0]["contents"][1]["parts"][0]["text"] = (
+                "x" * per_row
+            )
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            run_path = self._write_run(temporary_directory, aggregate_too_long)
+            with self.assertRaisesRegex(KaggleReceiptError, "aggregate safety limit"):
+                build_kaggle_receipt(run_json_path=run_path, max_tokens=512)
+
     def test_non_finite_scalar_object_fails_closed(self) -> None:
         changed = copy.deepcopy(self.run_payload)
         changed["results"][0]["numericResult"]["value"] = math.inf
@@ -468,6 +537,36 @@ class KaggleReceiptIntegrationTests(unittest.TestCase):
             run_path = self._write_run(temporary_directory, changed)
             with self.assertRaisesRegex(KaggleReceiptError, "non-finite JSON"):
                 build_kaggle_receipt(run_json_path=run_path, max_tokens=512)
+
+    def test_huge_integer_scalar_fails_cleanly(self) -> None:
+        changed = copy.deepcopy(self.run_payload)
+        changed["results"][0]["numericResult"]["value"] = 10**1_000
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            run_path = self._write_run(temporary_directory, changed)
+            with self.assertRaisesRegex(KaggleReceiptError, "must be finite"):
+                build_kaggle_receipt(run_json_path=run_path, max_tokens=512)
+
+    def test_resigned_cross_field_contradictions_fail_semantic_validation(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            receipt = build_kaggle_receipt(
+                run_json_path=self._write_run(temporary_directory),
+                max_tokens=512,
+            )
+
+        scalar_drift = copy.deepcopy(receipt)
+        scalar_drift["leaderboardScalar"] = 0.0
+        scalar_drift["replayedScalar"] = 1.0
+        _resign_receipt(scalar_drift)
+        with self.assertRaisesRegex(KaggleReceiptError, "scalars disagree"):
+            serialize_kaggle_receipt(scalar_drift)
+
+        diagnostic_drift = copy.deepcopy(receipt)
+        diagnostic_drift["diagnostics"]["emptyRowIds"] = [
+            diagnostic_drift["submissionRows"][0]["rowId"]
+        ]
+        _resign_receipt(diagnostic_drift)
+        with self.assertRaisesRegex(KaggleReceiptError, "diagnostics disagree"):
+            serialize_kaggle_receipt(diagnostic_drift)
 
     def test_tampered_receipt_fails_artifact_id_check(self) -> None:
         with tempfile.TemporaryDirectory() as temporary_directory:
@@ -574,7 +673,7 @@ class KaggleReceiptIntegrationTests(unittest.TestCase):
                 return_value=[],
             ):
                 with self.assertRaisesRegex(
-                    KaggleReceiptError, "audited package manifest digest drifted"
+                    KaggleReceiptError, "audited package manifest .* drifted"
                 ):
                     _load_package_context(copied_package)
 
@@ -641,7 +740,12 @@ class KaggleReceiptIntegrationTests(unittest.TestCase):
             receipt = build_kaggle_receipt(run_json_path=run_path, max_tokens=512)
             out.write_bytes(b"winner")
             with self.assertRaisesRegex(KaggleReceiptError, "refusing to replace"):
-                write_new_kaggle_receipt(validated_out, receipt)
+                write_new_kaggle_receipt(
+                    validated_out,
+                    receipt,
+                    run_json_path=run_path,
+                    package_root=DEFAULT_V0_1_PACKAGE_ROOT,
+                )
             self.assertEqual(out.read_bytes(), b"winner")
 
     def test_structural_failure_never_writes_a_receipt(self) -> None:
