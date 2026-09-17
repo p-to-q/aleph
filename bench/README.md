@@ -229,6 +229,34 @@ material for Kaggle integration and scorer conformance, not a complete Kaggle ev
 implement submission I/O, model execution, AURC/ECL aggregation, or leaderboard hosting. It is also
 not model evidence or a publication bundle.
 
+### Replay a retained legacy Kaggle run
+
+A completed legacy Kaggle `*.run.json` retains the named conversations, raw assistant strings, and
+request usage even though the task returns only a leaderboard float. Convert it into a canonical,
+detailed, offline receipt with no model or network calls:
+
+```bash
+./aleph-bench kaggle-replay \
+  --run-json /path/to/aleph_bench_frozen_ladder.run.json \
+  --package-root bench/results/platform/m0-mock \
+  --max-tokens 512 \
+  --out /tmp/aleph-bench/kaggle-receipt.json
+```
+
+The command accepts only a receipt-identical immutable v0.1 package, requires exact 180-row
+conversation coverage, executes the pinned scorer from one verified in-memory snapshot, and checks
+Kaggle's scalar against inverse AURC. It writes a fresh content-addressed receipt without replacing
+an existing path and exits `2` when empty, invalid-usage, or near-cap outputs make the run
+operationally blocked. The supported legacy task identity, audited `512` generation cap, and
+four-token saturation margin are fixed; changing the asserted cap cannot reclassify a truncated run
+as valid. `--max-tokens` remains explicit because the retained run JSON does not itself prove the
+invocation argument. Inputs and output text are bounded before the quadratic legacy scorer runs, and
+serialization checks cross-field semantics in addition to JSON Schema and content identity. This
+includes replaying the raw rows with the pinned scorer and comparing the complete detailed result.
+The receipt is not a signature: retain the source run JSON and verify `sourceRunSha256` when auditing
+the extraction. This improves inspection of legacy evidence; it does not relabel that evidence as v0.2. See the
+[Kaggle replay runbook](../docs/benchmark/kaggle-runbook.md).
+
 Track, split, stratum, `tau`, `k`, rerun count, bootstrap count, dataset identity, and leakage
 thresholds are frozen in the v0.2 protocol configuration. The release CLI does not expose overrides
 for them and does not expose a smoke-test item limit; change to any of those values requires a new
