@@ -1100,6 +1100,49 @@ def _validate_kaggle_receipt_semantics(receipt: dict[str, Any]) -> None:
     if row_item_ids != set(item_run_ids):
         raise KaggleReceiptError("receipt row item ids disagree with benchResult")
 
+    canonical_package = _load_package_context(DEFAULT_V0_1_PACKAGE_ROOT)
+    expected_prompts = {
+        (row["item_id"], row["prompt_id"]): row["prompt"]
+        for row in canonical_package["sendable"]
+    }
+    observed_prompt_keys = {(row["itemId"], row["promptId"]) for row in rows}
+    if observed_prompt_keys != set(expected_prompts):
+        raise KaggleReceiptError("receipt prompt coverage disagrees with pinned prompts")
+    for index, row in enumerate(rows):
+        expected_prompt = expected_prompts[(row["itemId"], row["promptId"])]
+        if row["promptText"] != expected_prompt:
+            raise KaggleReceiptError(
+                f"submissionRows[{index}] prompt text disagrees with pinned prompt"
+            )
+    semantic_submission_rows = [
+        {
+            "row_id": row["rowId"],
+            "model_id": model_slug,
+            "item_id": row["itemId"],
+            "prompt_id": row["promptId"],
+            "output_text": row["outputText"],
+        }
+        for row in rows
+    ]
+    semantic_scorer = _load_legacy_score_function(
+        scoring_source=canonical_package["scoringSource"],
+        score_outputs_source=canonical_package["scoreSource"],
+        item_rows=canonical_package["items"],
+        prompt_rows=canonical_package["prompts"],
+    )
+    expected_bench_result = _normalize_bench_result(
+        semantic_scorer(
+            items_path="data/public_s2_items.jsonl",
+            prompts_path="data/public_s2_prompts.jsonl",
+            submission_rows=semantic_submission_rows,
+            model_id=model_slug,
+        )
+    )
+    if bench_result != expected_bench_result:
+        raise KaggleReceiptError(
+            "receipt benchResult disagrees with replay of its raw output rows"
+        )
+
     dataset_identity = receipt["datasetIdentity"]
     if (
         dataset_identity["packageManifestSha256"]
@@ -1235,12 +1278,28 @@ def _open_directory_no_symlinks(
         raise
 
 
+def capture_kaggle_package_root_identity(package_root: Path) -> tuple[int, int]:
+    """Capture the scorer-package directory identity used across replay publication."""
+
+    try:
+        package_path = Path(package_root).resolve(strict=True)
+    except OSError as exc:
+        raise KaggleReceiptError(f"could not resolve scorer package root: {exc}") from exc
+    descriptor, _ = _open_directory_no_symlinks(package_path, create_missing=False)
+    try:
+        metadata = os.fstat(descriptor)
+        return metadata.st_dev, metadata.st_ino
+    finally:
+        os.close(descriptor)
+
+
 def write_new_kaggle_receipt(
     path: Path,
     receipt: dict[str, Any],
     *,
     run_json_path: Path,
     package_root: Path,
+    expected_package_root_identity: tuple[int, int],
 ) -> None:
     """Atomically publish a new receipt and fail if its path already exists."""
 
@@ -1258,12 +1317,16 @@ def write_new_kaggle_receipt(
     try:
         package_metadata = os.fstat(package_descriptor)
         package_identity = (package_metadata.st_dev, package_metadata.st_ino)
+        if package_identity != expected_package_root_identity:
+            raise KaggleReceiptError(
+                "scorer package root changed between replay and publication"
+            )
         parent_descriptor, parent_identities = _open_directory_no_symlinks(
             target.parent, create_missing=True
         )
     finally:
         os.close(package_descriptor)
-    if package_identity in parent_identities:
+    if expected_package_root_identity in parent_identities:
         os.close(parent_descriptor)
         raise KaggleReceiptError("receipt output directory aliases the scorer package")
     temporary_name = f".{target.name}.{os.getpid()}.{secrets.token_hex(8)}.tmp"

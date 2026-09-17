@@ -27,6 +27,7 @@ from bench.engine.kaggle_receipt import (
     _sha256,
     build_kaggle_receipt,
     canonical_json_bytes,
+    capture_kaggle_package_root_identity,
     parse_run_conversations,
     serialize_kaggle_receipt,
     validate_kaggle_replay_output_path,
@@ -399,6 +400,14 @@ class KaggleReceiptIntegrationTests(unittest.TestCase):
             )
             with self.assertRaisesRegex(KaggleReceiptError, "requires --max-tokens 512"):
                 build_kaggle_receipt(run_json_path=run_path, max_tokens=1024)
+            with self.assertRaisesRegex(
+                KaggleReceiptError, "requires --saturation-margin-tokens 4"
+            ):
+                build_kaggle_receipt(
+                    run_json_path=run_path,
+                    max_tokens=512,
+                    saturation_margin_tokens=0,
+                )
         self.assertNotEqual(first["id"], changed["id"])
         self.assertEqual(
             first["operatorAssertions"]["maxTokensSource"],
@@ -568,6 +577,27 @@ class KaggleReceiptIntegrationTests(unittest.TestCase):
         with self.assertRaisesRegex(KaggleReceiptError, "diagnostics disagree"):
             serialize_kaggle_receipt(diagnostic_drift)
 
+        output_drift = copy.deepcopy(receipt)
+        package = _load_package_context(DEFAULT_V0_1_PACKAGE_ROOT)
+        output_drift["submissionRows"][0]["outputText"] = package["items"][0][
+            "target"
+        ]["text"]
+        _resign_receipt(output_drift)
+        with self.assertRaisesRegex(KaggleReceiptError, "benchResult disagrees"):
+            serialize_kaggle_receipt(output_drift)
+
+        prompt_drift = copy.deepcopy(receipt)
+        prompt_drift["submissionRows"][0]["promptText"] = "different prompt"
+        _resign_receipt(prompt_drift)
+        with self.assertRaisesRegex(KaggleReceiptError, "pinned prompt"):
+            serialize_kaggle_receipt(prompt_drift)
+
+        detail_drift = copy.deepcopy(receipt)
+        detail_drift["benchResult"]["itemRuns"][0]["frontier"][0]["fidelity"] = 0.123
+        _resign_receipt(detail_drift)
+        with self.assertRaisesRegex(KaggleReceiptError, "benchResult disagrees"):
+            serialize_kaggle_receipt(detail_drift)
+
     def test_tampered_receipt_fails_artifact_id_check(self) -> None:
         with tempfile.TemporaryDirectory() as temporary_directory:
             receipt = build_kaggle_receipt(
@@ -677,6 +707,16 @@ class KaggleReceiptIntegrationTests(unittest.TestCase):
                 ):
                     _load_package_context(copied_package)
 
+    def test_package_verification_rejects_oversized_files_without_reading_them(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            copied_package = Path(temporary_directory) / "package"
+            shutil.copytree(DEFAULT_V0_1_PACKAGE_ROOT, copied_package)
+            oversized = copied_package / "EVALUATION.md"
+            with oversized.open("wb") as handle:
+                handle.truncate(8 * 1024 * 1024 + 1)
+            with self.assertRaisesRegex(KaggleReceiptError, "safety limit"):
+                _load_package_context(copied_package)
+
     def test_cli_refuses_existing_output_and_preserves_it(self) -> None:
         with tempfile.TemporaryDirectory() as temporary_directory:
             run_path = self._write_run(temporary_directory)
@@ -745,8 +785,33 @@ class KaggleReceiptIntegrationTests(unittest.TestCase):
                     receipt,
                     run_json_path=run_path,
                     package_root=DEFAULT_V0_1_PACKAGE_ROOT,
+                    expected_package_root_identity=(
+                        capture_kaggle_package_root_identity(
+                            DEFAULT_V0_1_PACKAGE_ROOT
+                        )
+                    ),
                 )
             self.assertEqual(out.read_bytes(), b"winner")
+
+    def test_publish_rejects_replaced_package_directory_identity(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            run_path = self._write_run(temporary_directory)
+            receipt = build_kaggle_receipt(run_json_path=run_path, max_tokens=512)
+            copied_package = Path(temporary_directory) / "package"
+            shutil.copytree(DEFAULT_V0_1_PACKAGE_ROOT, copied_package)
+            expected_identity = capture_kaggle_package_root_identity(copied_package)
+            copied_package.rename(Path(temporary_directory) / "original-package")
+            shutil.copytree(DEFAULT_V0_1_PACKAGE_ROOT, copied_package)
+            out = Path(temporary_directory) / "receipt.json"
+            with self.assertRaisesRegex(KaggleReceiptError, "package root changed"):
+                write_new_kaggle_receipt(
+                    out,
+                    receipt,
+                    run_json_path=run_path,
+                    package_root=copied_package,
+                    expected_package_root_identity=expected_identity,
+                )
+            self.assertFalse(out.exists())
 
     def test_structural_failure_never_writes_a_receipt(self) -> None:
         changed = copy.deepcopy(self.run_payload)

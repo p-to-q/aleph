@@ -25,6 +25,9 @@ IMMUTABLE_TREE_PATHS = {
     "bench/data/public/s2",
     "bench/results/platform/m0-mock",
 }
+MAX_V0_1_FILE_BYTES = 8 * 1024 * 1024
+MAX_V0_1_GROUP_BYTES = 64 * 1024 * 1024
+HASH_CHUNK_BYTES = 1024 * 1024
 
 
 def load_v0_1_receipt() -> dict[str, Any]:
@@ -75,13 +78,53 @@ def is_ignored(relative_path: PurePosixPath, ignored: dict[str, list[str]]) -> b
 
 def aggregate_sha256(files: list[tuple[PurePosixPath, Path]]) -> str:
     aggregate = hashlib.sha256()
+    aggregate_bytes = 0
     for relative_path, path in sorted(files, key=lambda item: item[0].as_posix()):
         path_bytes = relative_path.as_posix().encode("utf-8")
-        content = path.read_bytes()
-        aggregate.update(len(path_bytes).to_bytes(4, "big"))
-        aggregate.update(path_bytes)
-        aggregate.update(len(content).to_bytes(8, "big"))
-        aggregate.update(content)
+        flags = (
+            os.O_RDONLY
+            | getattr(os, "O_CLOEXEC", 0)
+            | getattr(os, "O_NOFOLLOW", 0)
+            | getattr(os, "O_NONBLOCK", 0)
+        )
+        try:
+            descriptor = os.open(path, flags)
+        except OSError as exc:
+            raise ValueError(f"could not safely open immutable file {path}: {exc}") from exc
+        try:
+            metadata = os.fstat(descriptor)
+            if not stat.S_ISREG(metadata.st_mode):
+                raise ValueError(f"immutable path is not a regular file: {path}")
+            file_bytes = metadata.st_size
+            if file_bytes > MAX_V0_1_FILE_BYTES:
+                raise ValueError(
+                    f"immutable file exceeds {MAX_V0_1_FILE_BYTES}-byte safety limit: "
+                    f"{relative_path}"
+                )
+            aggregate_bytes += file_bytes
+            if aggregate_bytes > MAX_V0_1_GROUP_BYTES:
+                raise ValueError(
+                    "immutable group exceeds "
+                    f"{MAX_V0_1_GROUP_BYTES}-byte safety limit"
+                )
+            aggregate.update(len(path_bytes).to_bytes(4, "big"))
+            aggregate.update(path_bytes)
+            aggregate.update(file_bytes.to_bytes(8, "big"))
+            remaining = file_bytes
+            while remaining:
+                chunk = os.read(descriptor, min(HASH_CHUNK_BYTES, remaining))
+                if not chunk:
+                    raise ValueError(
+                        f"immutable file changed size while hashing: {relative_path}"
+                    )
+                aggregate.update(chunk)
+                remaining -= len(chunk)
+            if os.read(descriptor, 1):
+                raise ValueError(
+                    f"immutable file changed size while hashing: {relative_path}"
+                )
+        finally:
+            os.close(descriptor)
     return aggregate.hexdigest()
 
 
@@ -207,7 +250,11 @@ def verify_v0_1_package_receipt(package_root: Path) -> list[str]:
             "v0.1 platform package file set changed: "
             f"expected {group['fileCount']}, found {len(files)}"
         )
-    actual = aggregate_sha256(files)
+    try:
+        actual = aggregate_sha256(files)
+    except (OSError, ValueError) as exc:
+        errors.append(f"v0.1 platform package could not be safely hashed: {exc}")
+        return errors
     if actual != group["sha256"]:
         errors.append(
             "v0.1 platform package bytes do not match the immutable receipt: "
@@ -292,7 +339,11 @@ def verify_v0_1_repository_receipt() -> list[str]:
                 f"v0.1 {name} file set changed: expected {group['fileCount']}, "
                 f"found {len(files)}"
             )
-        actual = aggregate_sha256(files)
+        try:
+            actual = aggregate_sha256(files)
+        except (OSError, ValueError) as exc:
+            errors.append(f"v0.1 {name} files could not be safely hashed: {exc}")
+            continue
         if actual != group["sha256"]:
             errors.append(
                 f"v0.1 {name} bytes changed: expected {group['sha256']}, found {actual}"

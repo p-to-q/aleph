@@ -60,15 +60,20 @@ never edits that package. The receipt calls the whole-tree value
 it is not falsely presented as a simultaneous observation of every package
 file. The manifest and the four inputs actually parsed or executed are opened
 once, length- and digest-checked, and used from those same in-memory snapshots.
-The scorer never re-reads an operator-controlled path.
+The full legacy package receipt is hashed in bounded chunks with an 8 MiB
+per-file and 64 MiB group budget, so an abnormal copied package cannot force an
+unbounded read before the pinned snapshots are checked. The scorer never
+re-reads an operator-controlled path.
 
 Use a new, attempt-specific output name every time. Existing outputs are never
 replaced, including if another process creates the name between validation and
 publication. The writer resolves the path once, opens directory components
 without following symlinks, rechecks that the opened directory is not the
-scorer package, fsyncs the new file, and publishes it with a no-replace link.
-This prevents a stale successful receipt from being mistaken for a later failed
-attempt.
+scorer package, and requires the package-root directory identity captured before
+replay to remain unchanged through publication. It then fsyncs the new file and
+publishes it with a no-replace link. This prevents a stale successful receipt
+from being mistaken for a later failed attempt and fails closed on package-root
+rename replacement.
 
 ## Exit status and blocked receipts
 
@@ -113,8 +118,17 @@ Serialization also rechecks cross-field semantics that JSON Schema alone cannot
 express: diagnostics must be exactly derivable from the rows; row,
 conversation, and request identities must agree; the two scalar fields must
 match inverse AURC; repeated model, canary, dataset, scorer, and config claims
-must agree; and all pinned identities must remain the audited values. Recomputing
-the content id cannot make a contradictory receipt valid.
+must agree; and all pinned identities must remain the audited values. It reloads
+the canonical pinned prompt/scorer snapshots, requires exact prompt coverage,
+replays the raw output rows, and compares the complete normalized `benchResult`.
+Recomputing the content id therefore cannot make internally contradictory score
+detail valid.
+
+The receipt is content-addressed, not signed. `sourceRunSha256` is the trust
+anchor for the extraction itself: an auditor must retain the source run JSON,
+verify that digest, and reproduce the receipt bytes. A different raw output that
+happens to be score-equivalent is not distinguishable from the receipt alone;
+Git history or another signature supplies publication authority.
 
 The strict schema is
 [`schemas/v0.2/aleph-bench-kaggle-receipt.schema.json`](../../schemas/v0.2/aleph-bench-kaggle-receipt.schema.json).

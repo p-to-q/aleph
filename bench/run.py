@@ -22,6 +22,7 @@ from bench.engine.kaggle_receipt import (  # noqa: E402
     DEFAULT_SATURATION_MARGIN_TOKENS,
     DEFAULT_V0_1_PACKAGE_ROOT,
     build_kaggle_receipt,
+    capture_kaggle_package_root_identity,
     validate_kaggle_replay_output_path,
     write_new_kaggle_receipt,
 )
@@ -324,6 +325,7 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "kaggle-replay":
         run_json_path = Path(args.run_json)
         package_root = Path(args.package_root)
+        package_root_identity = capture_kaggle_package_root_identity(package_root)
         out = validate_kaggle_replay_output_path(
             run_json_path=run_json_path,
             package_root=package_root,
@@ -340,6 +342,7 @@ def main(argv: list[str] | None = None) -> int:
             receipt,
             run_json_path=run_json_path,
             package_root=package_root,
+            expected_package_root_identity=package_root_identity,
         )
         summary = {
             "status": receipt["diagnostics"]["status"],

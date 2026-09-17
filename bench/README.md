@@ -252,7 +252,9 @@ four-token saturation margin are fixed; changing the asserted cap cannot reclass
 as valid. `--max-tokens` remains explicit because the retained run JSON does not itself prove the
 invocation argument. Inputs and output text are bounded before the quadratic legacy scorer runs, and
 serialization checks cross-field semantics in addition to JSON Schema and content identity. This
-improves inspection of legacy evidence; it does not relabel that evidence as v0.2. See the
+includes replaying the raw rows with the pinned scorer and comparing the complete detailed result.
+The receipt is not a signature: retain the source run JSON and verify `sourceRunSha256` when auditing
+the extraction. This improves inspection of legacy evidence; it does not relabel that evidence as v0.2. See the
 [Kaggle replay runbook](../docs/benchmark/kaggle-runbook.md).
 
 Track, split, stratum, `tau`, `k`, rerun count, bootstrap count, dataset identity, and leakage
