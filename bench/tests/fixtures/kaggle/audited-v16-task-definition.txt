@@ -1,0 +1,39 @@
+@kbench.task(
+    name="aleph_bench_frozen_ladder",
+    description="Score target recovery from non-leaking frozen-ladder prompts using inverse AURC.",
+    version=TASK_PROTOCOL_VERSION,
+)
+def aleph_bench_frozen_ladder(
+    llm,
+    smoke_limit: int = 0,
+    max_tokens: int = DEFAULT_MAX_TOKENS,
+) -> float:
+    prompts = load_prompts()
+    if smoke_limit > 0:
+        prompts = prompts.head(smoke_limit)
+    model_id = str(getattr(llm, "name", None) or getattr(llm, "model", None) or "kaggle_model")
+
+    submission_rows = []
+    for _, row in prompts.iterrows():
+        # Each prompt must be evaluated in a fresh chat so prior rows do not leak context.
+        with kbench.chats.new(f"{row['item_id']}:{row['prompt_id']}"):
+            output = prompt_model(llm, str(row["prompt"]), max_tokens)
+        submission_rows.append(
+            {
+                "row_id": f'{row["item_id"]}:{row["prompt_id"]}',
+                "model_id": model_id,
+                "item_id": str(row["item_id"]),
+                "prompt_id": str(row["prompt_id"]),
+                "output_text": output,
+            }
+        )
+
+    bench_result = score_submission(
+        items_path=DATA_ROOT / "data/public_s2_items.jsonl",
+        prompts_path=DATA_ROOT / "data/public_s2_prompts.jsonl",
+        submission_rows=submission_rows,
+        model_id=model_id,
+    )
+
+    aurc = float(bench_result["aggregate"]["aurc"])
+    return 1.0 - aurc

@@ -1,0 +1,73 @@
+{
+  "conversations": [
+    {
+      "id": "aleph_bench_frozen_ladder-511dd426",
+      "metrics": {},
+      "modelVersionSlug": "model_version_slug for conversation is DEPRECATED"
+    },
+    {
+      "id": "s2-001:s2-001-r1-p0-9a1370ab",
+      "requests": [
+        {
+          "contents": [
+            {
+              "parts": [
+                {
+                  "text": "fixture prompt"
+                }
+              ],
+              "role": "CONTENT_ROLE_USER",
+              "senderName": "User"
+            },
+            {
+              "parts": [
+                {
+                  "text": "\n Café 🧪 \n"
+                }
+              ],
+              "role": "CONTENT_ROLE_ASSISTANT",
+              "senderName": "fixture/model"
+            }
+          ],
+          "metrics": {
+            "inputTokens": 3,
+            "outputTokens": 7,
+            "inputTokensCostNanodollars": "0",
+            "outputTokensCostNanodollars": "0",
+            "totalBackendLatencyMs": "11"
+          },
+          "id": "s2-001:s2-001-r1-p0-9a1370ab-req-1"
+        }
+      ],
+      "metrics": {
+        "inputTokens": 3,
+        "outputTokens": 7,
+        "inputTokensCostNanodollars": "0",
+        "outputTokensCostNanodollars": "0",
+        "totalBackendLatencyMs": "11"
+      },
+      "modelVersionSlug": "model_version_slug for conversation is DEPRECATED"
+    }
+  ],
+  "endTime": "2026-09-17T02:29:26.183094Z",
+  "modelVersion": {
+    "slug": "fixture/model"
+  },
+  "pyRunId": "aleph_bench_frozen_ladder-Run #1",
+  "results": [
+    {
+      "type": "AGGREGATED",
+      "numericResult": {
+        "value": 0.5
+      }
+    }
+  ],
+  "startTime": "2026-09-17T02:20:17.314234Z",
+  "state": "BENCHMARK_TASK_RUN_STATE_COMPLETED",
+  "taskVersion": {
+    "versionNumber": 3,
+    "name": "aleph_bench_frozen_ladder",
+    "description": "Sanitized parser fixture.",
+    "definition": "def aleph_bench_frozen_ladder(...): ..."
+  }
+}

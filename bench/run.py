@@ -18,6 +18,12 @@ from bench.engine.frozen_ladder import (  # noqa: E402
 from bench.engine.audit import format_audit_report  # noqa: E402
 from bench.engine.bundle import build_m0_bundle, compare_bundle  # noqa: E402
 from bench.engine.manifest import build_manifest  # noqa: E402
+from bench.engine.kaggle_receipt import (  # noqa: E402
+    DEFAULT_SATURATION_MARGIN_TOKENS,
+    DEFAULT_V0_1_PACKAGE_ROOT,
+    build_kaggle_receipt,
+    serialize_kaggle_receipt,
+)
 from bench.engine.legacy_v0_1 import (  # noqa: E402
     assert_not_v0_1_write,
     safe_write_text,
@@ -104,6 +110,32 @@ def build_parser() -> argparse.ArgumentParser:
     package_v0_2.add_argument("--out-dir", default=None)
     package_v0_2.add_argument("--check", default=None)
     package_v0_2.add_argument("--json", action="store_true")
+    kaggle_replay = subparsers.add_parser(
+        "kaggle-replay",
+        help="Replay a completed legacy Kaggle run into a canonical detailed receipt",
+    )
+    kaggle_replay.add_argument("--run-json", required=True)
+    kaggle_replay.add_argument(
+        "--package-root",
+        default=str(DEFAULT_V0_1_PACKAGE_ROOT),
+        help="Receipt-identical immutable v0.1 platform package",
+    )
+    kaggle_replay.add_argument(
+        "--max-tokens",
+        required=True,
+        type=int,
+        help=(
+            "Operator-asserted max_tokens; the legacy run JSON does not prove "
+            "this invocation argument"
+        ),
+    )
+    kaggle_replay.add_argument(
+        "--saturation-margin-tokens",
+        type=int,
+        default=DEFAULT_SATURATION_MARGIN_TOKENS,
+        help="Treat usage within this many tokens of max_tokens as near-cap",
+    )
+    kaggle_replay.add_argument("--out", required=True)
     validate_croissant = subparsers.add_parser(
         "validate-croissant",
         help="Validate a Croissant JSON-LD file with mlcroissant (must be installed)",
@@ -288,6 +320,28 @@ def main(argv: list[str] | None = None) -> int:
         else:
             print(f"wrote {out_dir / 'package-manifest.json'}")
         return 0
+    if args.command == "kaggle-replay":
+        out = Path(args.out)
+        assert_not_v0_1_write(out)
+        receipt = build_kaggle_receipt(
+            run_json_path=Path(args.run_json),
+            package_root=Path(args.package_root),
+            max_tokens=args.max_tokens,
+            saturation_margin_tokens=args.saturation_margin_tokens,
+        )
+        safe_write_text(out, serialize_kaggle_receipt(receipt).decode("utf-8"))
+        summary = {
+            "status": receipt["diagnostics"]["status"],
+            "receipt": str(out),
+            "id": receipt["id"],
+            "rowCount": receipt["rowCount"],
+            "emptyRowCount": len(receipt["diagnostics"]["emptyRowIds"]),
+            "nearCapRowCount": len(receipt["diagnostics"]["nearCapRowIds"]),
+            "leaderboardScalar": receipt["leaderboardScalar"],
+            "replayedScalar": receipt["replayedScalar"],
+        }
+        print(json.dumps(summary, indent=2, sort_keys=True))
+        return 0 if receipt["diagnostics"]["status"] == "valid" else 2
     if args.command != "run":
         raise AssertionError(args.command)
     out = Path(args.out)

@@ -229,6 +229,28 @@ material for Kaggle integration and scorer conformance, not a complete Kaggle ev
 implement submission I/O, model execution, AURC/ECL aggregation, or leaderboard hosting. It is also
 not model evidence or a publication bundle.
 
+### Replay a retained legacy Kaggle run
+
+A completed legacy Kaggle `*.run.json` retains the named conversations, raw assistant strings, and
+request usage even though the task returns only a leaderboard float. Convert it into a canonical,
+detailed, offline receipt with no model or network calls:
+
+```bash
+./aleph-bench kaggle-replay \
+  --run-json /path/to/aleph_bench_frozen_ladder.run.json \
+  --package-root bench/results/platform/m0-mock \
+  --max-tokens 512 \
+  --out /tmp/aleph-bench/kaggle-receipt.json
+```
+
+The command accepts only a receipt-identical immutable v0.1 package, requires exact 180-row
+conversation coverage, replays its packaged scorer, and checks Kaggle's scalar against inverse AURC.
+It writes a content-addressed receipt and exits `2` when empty or near-cap outputs make the run
+operationally blocked. The supported legacy task name, version, and audited definition digest are
+fixed. `--max-tokens` is retained as an explicit operator assertion because the run JSON does not
+prove that invocation argument. This improves inspection of legacy evidence; it does not relabel
+that evidence as v0.2. See the [Kaggle replay runbook](../docs/benchmark/kaggle-runbook.md).
+
 Track, split, stratum, `tau`, `k`, rerun count, bootstrap count, dataset identity, and leakage
 thresholds are frozen in the v0.2 protocol configuration. The release CLI does not expose overrides
 for them and does not expose a smoke-test item limit; change to any of those values requires a new
