@@ -16,20 +16,27 @@
 > **Note to the implementer (this doc is written to be read by you, human or Codex):** the boundary in
 > §1.5 is the one architectural decision you must not blur. Everything else in this file is a seed to
 > optimize; §1.5 and the three invariants at the end are the load-bearing constraints.
+>
+> **Current implementation boundary.** This seed predates the versioned scorer. Operational commands
+> live in [`bench/README.md`](../../bench/README.md). In v0.2, Track F, public/S2, thresholds, reruns,
+> bootstrap samples, and canonical dataset identity are frozen; the CLI intentionally has no
+> `--track`, `--split`, or diagnostic `--limit` override. The unversioned v0.1 evidence is immutable
+> and its `audit`, `bundle`, and `package` commands are check-only.
 
 ## 0. The original thought, preserved
 
 The seed idea, in the repo's own words ([`web/public/aleph-frontier.json`](../../web/public/aleph-frontier.json)):
 *every output `y` has a shortest-prompt length at distortion ε; push ε→0 and it approaches `K(y|θ)`;
 between the identity prompt and that limit is a real rate–distortion curve.* M0's only job is to turn
-that, for the **first time, across more than one model**, into a reproducible number with a confidence
+that, for the **first time, across more than one model**, into an offline-score-replayable number with a confidence
 interval. Nothing in M0 should overreach that.
 
 ## 1. Goal and non-goals of M0
 
 **Goal.** The smallest artifact that proves the metric is real: evaluate the **Frozen Ladder (Track F)**
 on **one stratum** across **3 models** and emit a schema-valid `BenchResult` with **AURC + ECL@τ +
-Elicit@k**, a **leakage gate**, and **bootstrap CIs** — reproducible from a seed.
+Elicit@k**, a **leakage gate**, and **bootstrap CIs** — deterministic for mock fixtures and
+recomputable from retained hosted outputs.
 
 **Non-goals (defer past M0).** Full 5-stratum dataset; private/fresh splits; Track O search harness;
 Track W white-box (unless an MLX model is trivially available); HF/Kaggle hosting; the leaderboard UI.
@@ -162,7 +169,8 @@ M0 is done when **all** hold (mirrors the repo's decision-gate style):
 ```text
 [ ] exact target == output  ⇒ distortion 0.0, fidelity 1.0      (no drift; the metric plan's first rule)
 [ ] a prompt that quotes the target is DISQUALIFIED, not scored  (leakage gate works)
-[ ] each of 3 models yields a schema-valid BenchResult from a fixed seed, reproducibly
+[ ] each of 3 models yields a schema-valid BenchResult under the fixed procedure, with retained raw
+    outputs that reproduce its published scores offline
 [ ] AURC ranks the 3 models, and the ranking is STABLE across 2 reruns (different seeds) within CI
 [ ] removing one model does NOT change the relative order of the other two   (IIA sanity — 09 §3)
 [ ] per-stratum + bootstrap CI are reported; no single fused weighted number anywhere
@@ -179,7 +187,7 @@ bench/engine/frozen_ladder.py     # item_frontier, monotone reuse
 bench/engine/metrics.py           # distortion basket, aurc, ecl_at_tau, elicit_at_k, bootstrap CI
 bench/engine/leakage_gate.py      # LCS / trigram / span
 bench/data/public/s2/*.json       # ~30 BenchItem seeds (+ canary)
-bench/run.py                      # aleph-bench run --track F --model X --split public --seed 0
+bench/run.py                      # aleph-bench run --model X --seed 0 --out RESULT
 schemas/aleph-bench-item.schema.json, schemas/aleph-bench-result.schema.json
 packages/core/src/bench.ts        # shared types (so web can later render a BenchResult)
 bench/tests/                      # exact-match, leakage-gate, AURC-monotonicity, schema-validity, IIA

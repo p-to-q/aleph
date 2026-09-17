@@ -1,5 +1,12 @@
 # Architecture and Launch Plan
 
+> **Status: future architecture, not the v0.2 protocol contract.** This document mixes the
+> shipped M0 foundation with later S1–S5, Track O/W, hosted-platform, and leaderboard work. The
+> operational source of truth is [`bench/README.md`](../../bench/README.md), the frozen config in
+> `bench/config/frozen_ladder-v0.2.json`, and [`schemas/v0.2`](../../schemas/v0.2). Current v0.2 is
+> Track F, public/S2 only; it does not implement the future semantic, rubric, execution, held-out,
+> or fresh-split shapes described below.
+
 This is the technical work: what to build, how it extends the existing `AlephRun` contract, where it
 lives, how it multi-homes onto the platforms the community already uses, and a phased milestone plan
 with acceptance gates in the repo's existing decision-gate style. It also states, bluntly, how much
@@ -23,13 +30,36 @@ The point: this is weeks of careful engineering on a strong base, not a from-scr
 intellectual core (the rate–distortion frontier of a frozen model) is done and is already articulated
 in the live pitch script.
 
-## 2. Data contract: from `AlephRun` to `BenchItem` / `BenchResult`
+## 2. Data contract: current v0.2 and the future target
 
 Keep the architecture rule from [`docs/architecture.md`](../architecture.md): one durable shape, no
-parallel hidden models. Add two shapes that compose with `AlephRun`.
+parallel hidden models.
+
+The implemented, versioned v0.2 boundary is deliberately narrower:
 
 ```text
-BenchItem                      # a frozen unit of the benchmark dataset
+BenchItemV02
+├─ protocolVersion: "0.2.0", id, stratum: "S2", language
+├─ target: TargetOutput
+├─ metricClass: exact | normalized_edit_similarity | unicode_char_ngram
+├─ frozenLadder: FrozenLadderPromptV02[8]
+├─ canaryGuid, provenance, license
+
+BenchResultV02
+├─ protocolVersion: "0.2.0", evaluationScope: canonical | smoke
+├─ track: "F", split: "public", stratum: "S2", seed, tau: 0.95, k: 16
+├─ config: canonical dataset identity + frozen scoring/decoding/leakage settings
+├─ models: BenchModelSummaryV02[]
+├─ itemRuns: BenchItemModelRunV02[]   # raw rerun outputs retained for replay
+└─ notes
+```
+
+The exact field constraints live in `schemas/v0.2` and
+`packages/core/src/bench-v0-2.ts`; prose here must not be used to reconstruct them. The following is
+the **future multi-stratum target**, not an accepted input shape for v0.2:
+
+```text
+FutureBenchItem                # planned multi-stratum benchmark dataset unit
 ├─ id, stratum (S1..S5), language
 ├─ target: TargetOutput        # reuse existing type
 ├─ metricClass: exact | lexical | semantic | rubric | execution
@@ -39,20 +69,21 @@ BenchItem                      # a frozen unit of the benchmark dataset
 ├─ canary: "<GUID>"            # contamination probe
 └─ provenance, license         # datasheet fields
 
-BenchResult                    # one model's measured outcome on the benchmark
+FutureBenchResult              # planned multi-track measured outcome
 ├─ model, decoding, harnessVersion, seed, track: F | O | W, observationMode
 ├─ perItem: { itemId, frontier: {L, distortion, fidelityVariance}[], ecl_at_tau, elicit_at_k, transferGap?, disqualified? }[]
 ├─ aggregate: { aurc, aurc_ci, ecl_at_tau_median, cf_median, elicit_at_k, byStratum: {...} }
 └─ contamination: { canaryEmitted: bool, publicVsHeldoutGap: number, audit: ... }
 ```
 
-`BenchResult` is to the leaderboard what `AlephRun` is to the workbench. It is JSON, versioned, and
+The future `BenchResult` is to the leaderboard what `AlephRun` is to the workbench. It is JSON, versioned, and
 schema-checked, so a result can leave the harness, land in a dataset, and render on a Space without a
 parallel model — the file-first thesis applied to the benchmark.
 
 ## 3. Repository layout
 
-Match the existing top-level package style (`packages/*`, `search/`, `docs/*`):
+The tree below is the planned multi-home end state, not a list of current v0.2 paths. Match the
+existing top-level package style (`packages/*`, `search/`, `docs/*`):
 
 ```text
 bench/
@@ -73,7 +104,7 @@ bench/
 ├─ leaderboard/          Gradio HF Space reading the results dataset
 ├─ croissant.json        machine-readable dataset metadata
 ├─ DATASHEET.md          datasheet for datasets
-└─ run.py                CLI: aleph-bench run --track F --model X --split public
+└─ run.py                CLI: aleph-bench run --model X --seed 0 --out RESULT
 
 schemas/aleph-bench-item.schema.json
 schemas/aleph-bench-result.schema.json
@@ -86,8 +117,12 @@ schemas/aleph-bench-result.schema.json
 
 Do not ship a bespoke runner and hope. Land ALEPH-Bench inside the tools people already run:
 
-- **Standalone**: `pip install aleph-bench`; `aleph-bench run --track F --model gpt-… --split public`.
-  Pins versions; emits a schema-valid `BenchResult`; reproducible from a seed.
+- **Standalone**: the current v0.2 entry point is
+  `aleph-bench run --model hosted:gpt-… --seed 0 --out result.json`. Track F, public/S2, metric
+  thresholds, reruns, bootstrap samples, and canonical dataset identity are frozen protocol fields,
+  not CLI overrides. It emits a schema-valid, raw-output-retaining `BenchResult` whose scores can be
+  replayed offline. A logical seed does not make mutable hosted deployments regenerate the same
+  provider output.
 - **Kaggle Community Benchmarks**: wrap each `BenchItem` as an `@kbench.task` that calls
   `llm.prompt(rung)` and scores with our assertions, group into a Benchmark → native Kaggle
   leaderboard with **free frontier-model access**. Apply for the **Benchmarks Resource Grant** so we

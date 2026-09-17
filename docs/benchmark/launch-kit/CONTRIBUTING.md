@@ -8,19 +8,28 @@ identity *is* its PR-based task submission.
 
 ## A. Submit a model (get on the leaderboard)
 
-1. Run the public split reproducibly:
+1. Run the public split with the frozen, reviewable procedure:
    ```bash
-   aleph-bench run --track F --model <model-id> --split public --seed 0 --out result.json
+   aleph-bench run \
+     --data-dir bench/data/v0.2/public/s2 \
+     --model hosted:<provider-model-id> \
+     --seed 0 \
+     --out result.json
    ```
    (or run the Kaggle Benchmarks task, which provides free model access.)
 2. Open a **Model Submission PR** adding `submissions/<model-id>/result.json` plus a short **model card**
    (provider, version, decoding settings, date, any caveats).
-3. CI validates the `BenchResult` against the schema and re-runs a sample for reproducibility.
+3. CI validates the `BenchResult` against the schema and offline-rescores its retained raw outputs.
 4. Maintainers run the **held-out / private split** (you never see it) and publish the public-vs-held-out
    gap alongside your row. A large gap flags contamination/overfitting.
 
 **Rules.** Pin the model version and decoding. No tuning on the held-out/private split (it is
 inaccessible by design). Report, don't hide, failure cases.
+
+For the current v0.2 protocol, Track F, public/S2, thresholds, five hosted reruns, bootstrap samples,
+and canonical dataset identity are frozen. The CLI has no `--track`, `--split`, or `--limit`
+override. A future extracted repository must version a broader command surface rather than silently
+reinterpreting v0.2 results.
 
 ## B. Submit a task / stratum item (grow the benchmark)
 

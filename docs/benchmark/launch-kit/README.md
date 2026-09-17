@@ -15,6 +15,11 @@ out directly as a production cost: fewer tokens to elicit the behavior you want.
 **Leaderboard** · **Paper** · **Dataset (HF)** · **Kaggle** · `pip install aleph-bench`
 <br/><sub>Links filled at repo extraction: `<LEADERBOARD_URL>` `<PAPER_URL>` `<HF_DATASET_URL>` `<KAGGLE_URL>` `<PYPI_URL>`</sub>
 
+> **Staged template, not a current release claim.** The repository's v0.2 artifact is a frozen
+> public-S2 scorer-core conformance package, not a complete Kaggle evaluator or leaderboard. The
+> length/ECL contract in issue #35 and the remaining platform integration must land before publishing
+> this launch copy.
+
 > A high score means: this model recovers intended outputs from terser prompts — cheaper per call,
 > faster to first token, less prompt-engineering and less RL-patching to stay on target.
 > It does **not** mean the model is more accurate. Elicitation efficiency is a *different axis*.
@@ -57,13 +62,21 @@ public-vs-held-out contamination gap are in the full board.
 
 ```bash
 pip install aleph-bench
-# evaluate a model on the public split, Frozen-Ladder track, reproducibly
-aleph-bench run --track F --model <model-id> --split public --seed 0 --out result.json
+# evaluate a model under a fixed public Frozen-Ladder procedure
+aleph-bench run \
+  --data-dir bench/data/v0.2/public/s2 \
+  --model hosted:<provider-model-id> \
+  --seed 0 \
+  --out result.json
 # also runs as a Kaggle Benchmarks task and an lm-evaluation-harness task
 ```
 
 `result.json` is a schema-valid `BenchResult`: per-item frontiers, AURC with bootstrap CIs, ECL@τ,
 Elicit@k, leakage-gate hits, and per-stratum profiles.
+
+In v0.2, Track F, public/S2, thresholds, five hosted reruns, bootstrap samples, and canonical dataset
+identity are frozen protocol fields. The release CLI intentionally exposes no `--track`, `--split`,
+or `--limit` override. A later multi-track release must use a new versioned contract.
 
 ## Tracks
 
@@ -72,7 +85,9 @@ The product is a **black-box leaderboard with an accompanying white-box table** 
 - **Track F — Frozen Ladder** *(flagship, all vendors, black-box).* A public, cross-vendor leaderboard
   in the spirit of LMArena, but ranking models on **elicitation efficiency** instead of human
   preference. Every model is scored on the same frozen, audited prompt ladders; no search at evaluation
-  → reproducible and immune to search-quality confounds. Built entirely from behavioral signals, so it
+  → removes search-quality confounds and retains outputs for offline score replay. Hosted outputs
+  themselves are not reproducible from a seed when a provider deployment or alias changes. Built
+  entirely from behavioral signals, so it
   runs against every vendor including those that expose no logprobs. **This is the headline board.**
 - **Track O — Open Compression** *(bring-your-own compressor).* Supply a compressor/search under a
   pinned harness; report achieved length–fidelity with budget disclosure and a convergence diagnostic.

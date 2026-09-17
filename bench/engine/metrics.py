@@ -3,88 +3,29 @@ from __future__ import annotations
 import random
 import re
 from statistics import mean
-from typing import Any, Callable, Iterable
+from typing import Any, Iterable
+
+from .scoring_core import (
+    exact_match_fidelity,
+    fidelity,
+    levenshtein,
+    normalize_lexical_text,
+    normalize_unicode,
+    normalized_edit_similarity,
+    unicode_char_ngram_similarity,
+)
 
 
 TOKEN_RE = re.compile(r"[A-Za-z0-9]+")
 
+# Source compatibility for callers that imported the v0.1 function name.
+# The v0.2 behavior is deliberately binary; callers needing a gradient must
+# request ``normalized_edit_similarity`` explicitly.
+exact_fidelity = exact_match_fidelity
+
 
 def token_count(text: str) -> int:
     return len(TOKEN_RE.findall(text))
-
-
-def normalized_text(text: str) -> str:
-    return " ".join(TOKEN_RE.findall(text.lower()))
-
-
-def levenshtein(a: str, b: str) -> int:
-    if a == b:
-        return 0
-    if not a:
-        return len(b)
-    if not b:
-        return len(a)
-    previous = list(range(len(b) + 1))
-    for i, char_a in enumerate(a, start=1):
-        current = [i]
-        for j, char_b in enumerate(b, start=1):
-            insert = current[j - 1] + 1
-            delete = previous[j] + 1
-            replace = previous[j - 1] + (0 if char_a == char_b else 1)
-            current.append(min(insert, delete, replace))
-        previous = current
-    return previous[-1]
-
-
-def exact_fidelity(target: str, output: str) -> float:
-    """Exact-class fidelity with edit-distance signal for near misses.
-
-    Returns ``1.0`` on exact equality (the audit gate requires this); on any
-    mismatch, falls back to ``1 - normalized_edit_distance`` rather than a
-    hard ``0.0``. This refines ``docs/benchmark/02-design-spec.md`` §5, which
-    describes the exact class as binary; the gradient is a deliberate M0
-    softening so a one-character drift does not look identical to an empty
-    output. The change is documented in
-    ``docs/benchmark/02-design-spec.md`` and tracked in the audit notes.
-    """
-
-    if target == output:
-        return 1.0
-    target_norm = normalized_text(target)
-    output_norm = normalized_text(output)
-    if not target_norm and not output_norm:
-        return 1.0
-    if not target_norm or not output_norm:
-        return 0.0
-    distance = levenshtein(target_norm, output_norm)
-    scale = max(len(target_norm), len(output_norm))
-    return round(max(0.0, 1.0 - distance / scale), 6)
-
-
-def char_ngram_fidelity(target: str, output: str, n: int = 3) -> float:
-    def grams(value: str) -> set[str]:
-        clean = normalized_text(value)
-        if len(clean) < n:
-            return {clean} if clean else set()
-        return {clean[i : i + n] for i in range(len(clean) - n + 1)}
-
-    target_grams = grams(target)
-    output_grams = grams(output)
-    if not target_grams and not output_grams:
-        return 1.0
-    if not target_grams or not output_grams:
-        return 0.0
-    return round(len(target_grams & output_grams) / len(target_grams | output_grams), 6)
-
-
-def fidelity(target: str, output: str, metric_class: str) -> float:
-    if metric_class == "exact":
-        return exact_fidelity(target, output)
-    if metric_class == "lexical":
-        return char_ngram_fidelity(target, output)
-    # M0 keeps semantic, judge, and execution classes explicit without hiding
-    # them behind a weighted score. Exact fallback keeps the pipeline runnable.
-    return exact_fidelity(target, output)
 
 
 def distortion(target: str, output: str, metric_class: str) -> float:

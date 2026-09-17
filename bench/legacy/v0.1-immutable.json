@@ -1,0 +1,78 @@
+{
+  "formatVersion": 1,
+  "protocolVersion": "0.1",
+  "sourceCommit": "ecc3badb3cedeb659dd4a47c8664e725f4d57232",
+  "aggregate": {
+    "algorithm": "sha256-length-framed-path-and-content-v1",
+    "pathEncoding": "UTF-8",
+    "pathLengthBytes": 4,
+    "contentLengthBytes": 8,
+    "integerByteOrder": "big",
+    "ordering": "repository-relative POSIX paths, globally sorted"
+  },
+  "ignored": {
+    "directoryNames": [
+      "__pycache__"
+    ],
+    "fileNames": [
+      ".DS_Store"
+    ],
+    "fileSuffixes": [
+      ".pyc"
+    ]
+  },
+  "groups": {
+    "config": {
+      "paths": [
+        "bench/config/frozen_ladder.json"
+      ],
+      "fileCount": 1,
+      "sha256": "d60ea9bbdd47f859aadb77bdd2e0109db41dba5dff85fa81fba6347137c27205"
+    },
+    "data": {
+      "paths": [
+        "bench/data/public/s2"
+      ],
+      "fileCount": 30,
+      "sha256": "9323d90bdd9167fcffe8ef2dffa1a1e6b8fcf24d05c89623dfd82afa076aaae0"
+    },
+    "schemas": {
+      "paths": [
+        "schemas/aleph-bench-audit.schema.json",
+        "schemas/aleph-bench-bundle.schema.json",
+        "schemas/aleph-bench-item.schema.json",
+        "schemas/aleph-bench-manifest.schema.json",
+        "schemas/aleph-bench-platform-package.schema.json",
+        "schemas/aleph-bench-result.schema.json"
+      ],
+      "fileCount": 6,
+      "sha256": "4dfb9122e6989bce8230d9c5153444ff7fd44a2e40f6ae8fc7fdd5a29638dfb9"
+    },
+    "results": {
+      "paths": [
+        "bench/results/m0-audit.json",
+        "bench/results/m0-bundle.json",
+        "bench/results/m0-call-manifest.json",
+        "bench/results/m0-first-run.json",
+        "bench/results/m0-report.md",
+        "docs/benchmark/m0-evidence.md"
+      ],
+      "fileCount": 6,
+      "sha256": "7fba500b457145d1aaee577a47c0156ed144094a358170ad68cd2203ccf4029a"
+    },
+    "platformPackage": {
+      "paths": [
+        "bench/results/platform/m0-mock"
+      ],
+      "fileCount": 34,
+      "sha256": "0ae1f94ff0c599bda3ce69de7027c44d128ddd1653e23f1a05d3e885d469dec4"
+    },
+    "coreTypes": {
+      "paths": [
+        "packages/core/src/bench.ts"
+      ],
+      "fileCount": 1,
+      "sha256": "668d201e61847593bc3dda52869e39e6ebbc681a56f7a4818cc099d2d35aeb4d"
+    }
+  }
+}

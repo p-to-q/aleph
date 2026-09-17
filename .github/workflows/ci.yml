@@ -1,38 +1,53 @@
 name: ci
 
+permissions:
+  contents: read
+
 on:
   pull_request:
   push:
-    branches: [main]
+    branches: [main, benchmark/source-v0.2]
 
 jobs:
   lint:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
-      - uses: actions/setup-node@v6
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
         with:
           node-version: 22
+          cache: npm
+      - run: npm ci --ignore-scripts
       - run: npm run lint
+      - run: npm run typecheck:core
 
   bench-check:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
-      - uses: actions/setup-python@v6
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
         with:
-          python-version: "3.11"
-      - name: Verify S2 seed dataset byte-stability
+          persist-credentials: false
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1
+        with:
+          python-version: "3.13"
+      - name: Verify v0.2 S2 seed dataset byte-stability
         run: python3 bench/data/generate_s2.py --check
       - name: Run bench unit tests
         run: python3 -m unittest discover bench/tests
-      - name: Verify checked-in platform package
+      - name: Verify immutable v0.1 platform package
         run: python3 bench/run.py package --check bench/results/platform/m0-mock/package-manifest.json
-      - name: Replay M0 acceptance audit
-        run: python3 bench/run.py audit
-      - name: Smoke-test Kaggle scaffold
+      - name: Verify immutable v0.1 evidence receipts
+        run: python3 bench/run.py verify --audit bench/results/m0-audit.json --bundle bench/results/m0-bundle.json
+      - name: Build and verify v0.2 scorer package
+        run: |
+          python3 bench/run.py package-v0.2 --out-dir "$RUNNER_TEMP/aleph-bench-v0.2"
+          python3 bench/run.py package-v0.2 --check "$RUNNER_TEMP/aleph-bench-v0.2/package-manifest.json"
+          python3 "$RUNNER_TEMP/aleph-bench-v0.2/kaggle/run_conformance.py"
+      - name: Smoke-test frozen v0.1 Kaggle scaffold
         run: python3 bench/results/platform/m0-mock/kaggle/api_test_smoke.py
-      - name: Dry-run HF upload helper
+      - name: Dry-run frozen v0.1 HF upload helper
         run: python3 bench/results/platform/m0-mock/huggingface/upload_dataset.py --dry-run
       - name: Validate Croissant metadata with mlcroissant
         run: |

@@ -1,10 +1,16 @@
-# Hosted M0 Runbook
+# Hosted v0.2 M0 Runbook
 
-This runbook turns the next Aleph-Bench step into a reproducible black-box evidence pass. It does not replace the checked-in mock receipt until the hosted result validates.
+This runbook turns the next Aleph-Bench step into a procedure-fixed, offline-score-replayable
+black-box evidence pass. It does not claim that a provider will regenerate the same model outputs,
+and it does not replace or rewrite the immutable checked-in v0.1 mock receipt. Any durable hosted
+result must use a new v0.2 namespace and go through its own issue and review.
 
 ## Purpose
 
-The checked-in M0 result is deterministic mock evidence. The hosted M0 run should answer a narrower question: can the same Track F procedure produce three schema-valid `black_box` model rows without changing the dataset, leakage gate, metric definitions, or embedded `AlephRun` contract?
+The checked-in v0.1 M0 result is deterministic mock evidence. A hosted v0.2 run should answer a
+narrower question: can the frozen v0.2 Track F procedure produce three schema-valid `black_box` model
+rows without changing the canonical dataset identity, leakage gate, metric definitions, or embedded
+`AlephRun` contract?
 
 ## Model Choice
 
@@ -23,16 +29,22 @@ Credentials must stay server-side:
 ```bash
 export ALEPH_CUSTOM_API_BASE_URL=...
 export ALEPH_CUSTOM_API_KEY=...
+export ALEPH_CUSTOM_API_DEPLOYMENT_ID=provider-snapshot-or-proxy-route
 ```
 
-> **Adapter scope (M0).** `ALEPH_CUSTOM_API_BASE_URL` expects an OpenAI-compatible
-> `/chat/completions` endpoint
+> **Adapter scope (M0).** `ALEPH_CUSTOM_API_BASE_URL` is the OpenAI-compatible API base URL prefix
+> (for example, `https://provider.example/v1`); the adapter appends `/chat/completions`
 > ([`bench/engine/adapters/hosted_black_box.py`](../../bench/engine/adapters/hosted_black_box.py)).
 > For cross-vendor coverage (Anthropic, Gemini, Grok), point it at an OpenAI-compatible proxy
-> such as OpenRouter or LiteLLM, and record the proxy + upstream model id in the manifest and
-> evidence note. **Native Anthropic / Gemini / Vertex adapters are M1 scope** — M0 deliberately
+> such as OpenRouter or LiteLLM. Set `ALEPH_CUSTOM_API_DEPLOYMENT_ID` to a stable, non-secret
+> snapshot or route identifier reviewed for this run; the manifest and result retain it together
+> with a hash of the final endpoint and the upstream model id. **Native Anthropic / Gemini / Vertex
+> adapters are M1 scope** — M0 deliberately
 > ships a single OpenAI-compatible adapter to keep the surface small and the leaderboard
 > contract reviewable.
+
+The adapter rejects HTTP redirects rather than following them, including same-origin redirects.
+Configure the final base URL directly so the bearer credential cannot leave the reviewed endpoint.
 
 Optional retry controls:
 
@@ -44,10 +56,23 @@ export ALEPH_CUSTOM_API_RETRY_DELAY_SECONDS=1
 Then check readiness and call budget:
 
 ```bash
-./aleph-bench doctor --model hosted:model-a,hosted:model-b,hosted:model-c
+./aleph-bench doctor \
+  --data-dir bench/data/v0.2/public/s2 \
+  --model hosted:model-a,hosted:model-b,hosted:model-c
 ```
 
-Proceed only if `doctor` reports `status: ready`. The expected M0 budget is 180 non-leaking prompts times three models times one effective rerun: 540 hosted generations.
+Proceed only if `doctor` reports `status: ready` and the canonical dataset id, item count, and digest
+match the frozen config. The v0.2 hosted budget is 180 non-leaking prompts times three models times
+five calls: 2,700 **logical generations**. With the default two retries, the pre-run upper bound is
+8,100 HTTP attempts. A timeout can occur after a provider has generated or billed a response, so the
+HTTP-attempt bound is the safer cost envelope; it is not a billing guarantee. Retry count is limited
+to 0–5. The repeated logical samples measure provider-side nondeterminism even at temperature zero;
+the logical seed is used for bootstrap/cache coordinates and is not sent to the OpenAI-compatible
+provider.
+
+Each retained hosted output also carries its original capture timestamp and whether this invocation
+came from the provider or the private resume cache. `createdAt` is the run-start timestamp;
+the model summary's `responseCapture` range is the provider-output evidence time.
 
 ## No-Call Manifest
 
@@ -55,8 +80,9 @@ Create a manifest before spending calls:
 
 ```bash
 ./aleph-bench manifest \
+  --data-dir bench/data/v0.2/public/s2 \
   --model hosted:model-a,hosted:model-b,hosted:model-c \
-  --out bench/results/m0-hosted-manifest.json
+  --out /tmp/aleph-bench-v0.2/hosted-manifest.json
 ```
 
 Review the manifest for:
@@ -65,7 +91,11 @@ Review the manifest for:
 - 180 sendable prompts;
 - 60 gated explicit reconstruction anchors;
 - no prompt text repeated in `gatedPrompts`;
-- `estimatedGenerations` equal to 540.
+- each hosted model reports five effective reruns;
+- `estimatedGenerations` equal to 2,700 logical samples;
+- `hostedMaxRetries` equal to the reviewed retry policy (default 2) and
+  `estimatedMaxHttpAttempts` equal to 8,100 at that default;
+- the canonical dataset id, item count, and digest match the frozen protocol config.
 
 Commit a hosted manifest only if it uses the real model ids for the intended run. Do not commit manifests with placeholder model names.
 
@@ -75,15 +105,22 @@ Use an ignored local cache so an interrupted hosted run can resume without commi
 
 ```bash
 ./aleph-bench run \
-  --track F \
+  --data-dir bench/data/v0.2/public/s2 \
   --model hosted:model-a,hosted:model-b,hosted:model-c \
-  --split public \
   --seed 0 \
-  --cache-dir .cache/aleph-bench/m0-hosted \
-  --out bench/results/m0-hosted-run.json
+  --cache-dir .cache/aleph-bench/v0.2-hosted \
+  --out /tmp/aleph-bench-v0.2/hosted-result.json
 ```
 
-The cache is runtime state, not evidence. Keep `.cache/` uncommitted.
+Track F, public/S2, `tau`, `k`, the rerun count, bootstrap count, dataset identity, and leakage
+thresholds are frozen by v0.2. The release CLI exposes no overrides for them and no `--limit` smoke
+mode. The cache is runtime state, not evidence. Keep `.cache/` uncommitted.
+The current result receipt does not retain provider retry attempts or billing events. Preserve
+provider logs alongside any hosted release candidate, and do not report `estimatedGenerations` as an
+observed request or cost count.
+Use that cache only to resume the same logical run against the same provider deployment. If a mutable
+model alias may now resolve to a different backend revision, choose a new cache directory rather than
+silently mixing old response receipts into a new evidence date.
 
 ## Validation
 
@@ -91,25 +128,32 @@ Run the no-call artifact gate and generated report before changing evidence note
 
 ```bash
 ./aleph-bench verify \
-  --result bench/results/m0-hosted-run.json \
-  --manifest bench/results/m0-hosted-manifest.json
+  --data-dir bench/data/v0.2/public/s2 \
+  --result /tmp/aleph-bench-v0.2/hosted-result.json \
+  --manifest /tmp/aleph-bench-v0.2/hosted-manifest.json
 
 ./aleph-bench report \
-  --result bench/results/m0-hosted-run.json \
-  --out bench/results/m0-hosted-report.md
+  --result /tmp/aleph-bench-v0.2/hosted-result.json \
+  --out /tmp/aleph-bench-v0.2/hosted-report.md
 ```
 
-Do not run `./aleph-bench audit` against hosted results. The audit command is intentionally mock-only because it reruns seed 0 and seed 1 to prove M0 acceptance gates without spending hosted calls. A future hosted audit mode must require an explicit adapter-call flag or separate precomputed seed results.
+Do not run `./aleph-bench audit` or `./aleph-bench bundle` as if either validates hosted v0.2
+results. Both commands are read-only checks for immutable v0.1 receipts; they neither replay v0.1 nor
+accept a hosted result target. v0.2 verification currently covers the dataset, result, and manifest.
 
 Do not pass the checked-in mock `bench/results/m0-audit.json` or `bench/results/m0-bundle.json` to hosted `verify`; those receipts are tied to `bench/results/m0-first-run.json`.
 
 ## Evidence Update
 
-After validation passes:
+After validation passes, keep the generated artifacts in `/tmp` until a dedicated evidence issue
+defines their release path and acceptance gate. Then:
 
-- keep [bench/results/m0-first-run.json](../../bench/results/m0-first-run.json) as mock pipeline evidence unless intentionally replacing the first-run artifact;
-- add or update `bench/results/m0-hosted-run.json` and `bench/results/m0-hosted-report.md`;
-- update [docs/benchmark/m0-evidence.md](m0-evidence.md) with the hosted model summary, failure notes, latency or retry observations, and any empty-output behavior;
+- keep [bench/results/m0-first-run.json](../../bench/results/m0-first-run.json) and
+  [docs/benchmark/m0-evidence.md](m0-evidence.md) byte-identical as immutable v0.1 evidence;
+- add new result, manifest, report, and evidence-note files under an explicit v0.2 namespace rather
+  than reusing any `m0-*` receipt path;
+- record the hosted model summary, failure notes, latency/retry observations, and empty-output behavior
+  in the new v0.2 evidence note;
 - state that hosted rows are `black_box` behavioral evidence only;
 - do not add token NLL, logits, bits, or white-box claims.
 

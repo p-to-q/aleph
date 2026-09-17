@@ -5,8 +5,8 @@ function ngrams(tokens: string[], n: number): Set<string> {
 }
 
 export function leakageScore(prompt: string, target: string): number {
-  const p = prompt.toLowerCase().match(/[\p{L}\p{N}]+/gu) ?? [];
-  const t = target.toLowerCase().match(/[\p{L}\p{N}]+/gu) ?? [];
+  const p: string[] = Array.from(prompt.toLowerCase().match(/[\p{L}\p{N}]+/gu) ?? []);
+  const t: string[] = Array.from(target.toLowerCase().match(/[\p{L}\p{N}]+/gu) ?? []);
   if (p.length === 0 || t.length === 0) return 0;
   const unigramOverlap = p.filter((tok) => t.includes(tok)).length / p.length;
   const targetTrigrams = ngrams(t, 3);
