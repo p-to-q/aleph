@@ -24,6 +24,7 @@ from bench.engine.kaggle_receipt import (
     _identity_json_bytes,
     _load_legacy_score_function,
     _load_package_context,
+    _open_expected_receipt_parent,
     _sha256,
     build_kaggle_receipt,
     canonical_json_bytes,
@@ -848,6 +849,339 @@ class KaggleReceiptIntegrationTests(unittest.TestCase):
                     )
             self.assertTrue(swapped)
             self.assertFalse(out.exists())
+
+    def test_publish_detects_package_change_without_deleting_receipt(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            run_path = self._write_run(temporary_directory)
+            copied_package = Path(temporary_directory) / "package"
+            shutil.copytree(DEFAULT_V0_1_PACKAGE_ROOT, copied_package)
+            expected_identity = capture_kaggle_package_root_identity(copied_package)
+            receipt = build_kaggle_receipt(
+                run_json_path=run_path,
+                package_root=copied_package,
+                max_tokens=512,
+            )
+            out = Path(temporary_directory) / "receipt.json"
+            original_link = os.link
+            swapped = False
+
+            def swap_package_during_link(*args: object, **kwargs: object) -> None:
+                nonlocal swapped
+                if not swapped:
+                    swapped = True
+                    copied_package.rename(
+                        Path(temporary_directory) / "original-package"
+                    )
+                    shutil.copytree(DEFAULT_V0_1_PACKAGE_ROOT, copied_package)
+                original_link(*args, **kwargs)
+
+            with patch(
+                "bench.engine.kaggle_receipt.os.link",
+                side_effect=swap_package_during_link,
+            ):
+                with self.assertRaisesRegex(KaggleReceiptError, "package root changed"):
+                    write_new_kaggle_receipt(
+                        out,
+                        receipt,
+                        run_json_path=run_path,
+                        package_root=copied_package,
+                        expected_package_root_identity=expected_identity,
+                    )
+            self.assertTrue(swapped)
+            self.assertEqual(out.read_bytes(), serialize_kaggle_receipt(receipt))
+
+    def test_publish_accepts_ambiguous_link_error_only_for_its_inode(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            run_path = self._write_run(temporary_directory)
+            receipt = build_kaggle_receipt(run_json_path=run_path, max_tokens=512)
+            out = Path(temporary_directory) / "receipt.json"
+            original_link = os.link
+
+            def link_then_report_error(*args: object, **kwargs: object) -> None:
+                original_link(*args, **kwargs)
+                raise OSError("simulated ambiguous link error")
+
+            with patch(
+                "bench.engine.kaggle_receipt.os.link",
+                side_effect=link_then_report_error,
+            ):
+                write_new_kaggle_receipt(
+                    out,
+                    receipt,
+                    run_json_path=run_path,
+                    package_root=DEFAULT_V0_1_PACKAGE_ROOT,
+                    expected_package_root_identity=(
+                        capture_kaggle_package_root_identity(
+                            DEFAULT_V0_1_PACKAGE_ROOT
+                        )
+                    ),
+                )
+            self.assertEqual(out.read_bytes(), serialize_kaggle_receipt(receipt))
+            self.assertFalse(list(Path(temporary_directory).glob(".*.tmp")))
+
+    def test_publish_detects_parent_move_without_deleting_receipt(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            run_path = self._write_run(temporary_directory)
+            copied_package = Path(temporary_directory) / "package"
+            shutil.copytree(DEFAULT_V0_1_PACKAGE_ROOT, copied_package)
+            expected_identity = capture_kaggle_package_root_identity(copied_package)
+            receipt = build_kaggle_receipt(
+                run_json_path=run_path,
+                package_root=copied_package,
+                max_tokens=512,
+            )
+            outside = Path(temporary_directory) / "outside"
+            outside.mkdir()
+            out = outside / "receipt.json"
+            moved_parent = copied_package / "moved-output"
+            original_link = os.link
+            moved = False
+
+            def move_parent_during_link(*args: object, **kwargs: object) -> None:
+                nonlocal moved
+                if not moved:
+                    moved = True
+                    outside.rename(moved_parent)
+                original_link(*args, **kwargs)
+
+            with patch(
+                "bench.engine.kaggle_receipt.os.link",
+                side_effect=move_parent_during_link,
+            ):
+                with self.assertRaisesRegex(KaggleReceiptError, "output directory"):
+                    write_new_kaggle_receipt(
+                        out,
+                        receipt,
+                        run_json_path=run_path,
+                        package_root=copied_package,
+                        expected_package_root_identity=expected_identity,
+                    )
+            self.assertTrue(moved)
+            self.assertFalse(out.exists())
+            self.assertEqual(
+                (moved_parent / "receipt.json").read_bytes(),
+                serialize_kaggle_receipt(receipt),
+            )
+
+    def test_publish_never_removes_concurrently_replaced_target(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            run_path = self._write_run(temporary_directory)
+            copied_package = Path(temporary_directory) / "package"
+            shutil.copytree(DEFAULT_V0_1_PACKAGE_ROOT, copied_package)
+            expected_identity = capture_kaggle_package_root_identity(copied_package)
+            receipt = build_kaggle_receipt(
+                run_json_path=run_path,
+                package_root=copied_package,
+                max_tokens=512,
+            )
+            out = Path(temporary_directory) / "receipt.json"
+            relocated_receipt = Path(temporary_directory) / "relocated-receipt.json"
+            parent_checks = 0
+
+            def replace_target_after_publication(*args: object, **kwargs: object) -> int:
+                nonlocal parent_checks
+                descriptor = _open_expected_receipt_parent(*args, **kwargs)
+                parent_checks += 1
+                if parent_checks == 2:
+                    out.rename(relocated_receipt)
+                    out.write_bytes(b"concurrent replacement")
+                return descriptor
+
+            with patch(
+                "bench.engine.kaggle_receipt._open_expected_receipt_parent",
+                side_effect=replace_target_after_publication,
+            ):
+                with self.assertRaisesRegex(
+                    KaggleReceiptError,
+                    "output path changed",
+                ):
+                    write_new_kaggle_receipt(
+                        out,
+                        receipt,
+                        run_json_path=run_path,
+                        package_root=copied_package,
+                        expected_package_root_identity=expected_identity,
+                    )
+            self.assertEqual(parent_checks, 2)
+            self.assertEqual(out.read_bytes(), b"concurrent replacement")
+            self.assertTrue(relocated_receipt.is_file())
+
+    def test_publish_never_accepts_replaced_temporary_file(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            run_path = self._write_run(temporary_directory)
+            copied_package = Path(temporary_directory) / "package"
+            shutil.copytree(DEFAULT_V0_1_PACKAGE_ROOT, copied_package)
+            expected_identity = capture_kaggle_package_root_identity(copied_package)
+            receipt = build_kaggle_receipt(
+                run_json_path=run_path,
+                package_root=copied_package,
+                max_tokens=512,
+            )
+            out = Path(temporary_directory) / "receipt.json"
+            original_link = os.link
+            replaced = False
+
+            def replace_temporary_file_during_link(
+                source: object,
+                target: object,
+                **kwargs: object,
+            ) -> None:
+                nonlocal replaced
+                if not replaced:
+                    replaced = True
+                    source_directory = kwargs["src_dir_fd"]
+                    if not isinstance(source_directory, int):
+                        raise AssertionError("expected source directory descriptor")
+                    os.unlink(source, dir_fd=source_directory)
+                    replacement_descriptor = os.open(
+                        source,
+                        os.O_WRONLY | os.O_CREAT | os.O_EXCL,
+                        0o600,
+                        dir_fd=source_directory,
+                    )
+                    try:
+                        os.write(replacement_descriptor, b"not a receipt\n")
+                    finally:
+                        os.close(replacement_descriptor)
+                original_link(source, target, **kwargs)
+
+            with patch(
+                "bench.engine.kaggle_receipt.os.link",
+                side_effect=replace_temporary_file_during_link,
+            ):
+                with self.assertRaisesRegex(
+                    KaggleReceiptError,
+                    "temporary receipt path changed",
+                ):
+                    write_new_kaggle_receipt(
+                        out,
+                        receipt,
+                        run_json_path=run_path,
+                        package_root=copied_package,
+                        expected_package_root_identity=expected_identity,
+                    )
+            self.assertTrue(replaced)
+            self.assertEqual(out.read_bytes(), b"not a receipt\n")
+
+    def test_publish_fsync_failure_leaves_untrusted_residue(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            run_path = self._write_run(temporary_directory)
+            receipt = build_kaggle_receipt(run_json_path=run_path, max_tokens=512)
+            out = Path(temporary_directory) / "receipt.json"
+            original_fsync = os.fsync
+            fsync_calls = 0
+
+            def fail_first_publication_fsync(descriptor: int) -> None:
+                nonlocal fsync_calls
+                fsync_calls += 1
+                if fsync_calls == 2:
+                    raise OSError("simulated directory fsync failure")
+                original_fsync(descriptor)
+
+            with patch(
+                "bench.engine.kaggle_receipt.os.fsync",
+                side_effect=fail_first_publication_fsync,
+            ):
+                with self.assertRaisesRegex(OSError, "directory fsync failure"):
+                    write_new_kaggle_receipt(
+                        out,
+                        receipt,
+                        run_json_path=run_path,
+                        package_root=DEFAULT_V0_1_PACKAGE_ROOT,
+                        expected_package_root_identity=(
+                            capture_kaggle_package_root_identity(
+                                DEFAULT_V0_1_PACKAGE_ROOT
+                            )
+                        ),
+                    )
+            self.assertEqual(fsync_calls, 2)
+            self.assertEqual(out.read_bytes(), serialize_kaggle_receipt(receipt))
+            self.assertEqual(len(list(Path(temporary_directory).glob(".*.tmp"))), 1)
+
+    def test_publish_cleanup_failure_leaves_untrusted_residue(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            run_path = self._write_run(temporary_directory)
+            receipt = build_kaggle_receipt(run_json_path=run_path, max_tokens=512)
+            out = Path(temporary_directory) / "receipt.json"
+            original_unlink = os.unlink
+            cleanup_failed = False
+
+            def fail_first_temporary_cleanup(
+                path: object,
+                **kwargs: object,
+            ) -> None:
+                nonlocal cleanup_failed
+                if not cleanup_failed and str(path).startswith("."):
+                    cleanup_failed = True
+                    raise OSError("simulated temporary cleanup failure")
+                original_unlink(path, **kwargs)
+
+            with patch(
+                "bench.engine.kaggle_receipt.os.unlink",
+                side_effect=fail_first_temporary_cleanup,
+            ):
+                with self.assertRaisesRegex(OSError, "temporary cleanup failure"):
+                    write_new_kaggle_receipt(
+                        out,
+                        receipt,
+                        run_json_path=run_path,
+                        package_root=DEFAULT_V0_1_PACKAGE_ROOT,
+                        expected_package_root_identity=(
+                            capture_kaggle_package_root_identity(
+                                DEFAULT_V0_1_PACKAGE_ROOT
+                            )
+                        ),
+                    )
+            self.assertTrue(cleanup_failed)
+            self.assertEqual(out.read_bytes(), serialize_kaggle_receipt(receipt))
+            self.assertEqual(len(list(Path(temporary_directory).glob(".*.tmp"))), 1)
+
+    def test_publish_rechecks_parent_after_temporary_cleanup(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            run_path = self._write_run(temporary_directory)
+            copied_package = Path(temporary_directory) / "package"
+            shutil.copytree(DEFAULT_V0_1_PACKAGE_ROOT, copied_package)
+            expected_identity = capture_kaggle_package_root_identity(copied_package)
+            receipt = build_kaggle_receipt(
+                run_json_path=run_path,
+                package_root=copied_package,
+                max_tokens=512,
+            )
+            outside = Path(temporary_directory) / "outside"
+            outside.mkdir()
+            out = outside / "receipt.json"
+            moved_parent = copied_package / "moved-during-cleanup"
+            original_unlink = os.unlink
+            moved = False
+
+            def move_parent_during_temporary_cleanup(
+                path: object,
+                **kwargs: object,
+            ) -> None:
+                nonlocal moved
+                if not moved and str(path).startswith("."):
+                    moved = True
+                    outside.rename(moved_parent)
+                original_unlink(path, **kwargs)
+
+            with patch(
+                "bench.engine.kaggle_receipt.os.unlink",
+                side_effect=move_parent_during_temporary_cleanup,
+            ):
+                with self.assertRaisesRegex(KaggleReceiptError, "output directory"):
+                    write_new_kaggle_receipt(
+                        out,
+                        receipt,
+                        run_json_path=run_path,
+                        package_root=copied_package,
+                        expected_package_root_identity=expected_identity,
+                    )
+            self.assertTrue(moved)
+            self.assertFalse(out.exists())
+            self.assertEqual(
+                (moved_parent / "receipt.json").read_bytes(),
+                serialize_kaggle_receipt(receipt),
+            )
 
     def test_structural_failure_never_writes_a_receipt(self) -> None:
         changed = copy.deepcopy(self.run_payload)

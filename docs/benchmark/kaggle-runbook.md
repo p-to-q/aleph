@@ -71,10 +71,25 @@ publication. The writer resolves the path once, opens directory components
 without following symlinks, rechecks that the opened directory is not the
 scorer package, and requires the package-root directory identity captured before
 replay to match both when the stable output-directory fd is opened and again
-immediately before publication; the corresponding package fds remain open
-through the no-replace link and directory fsync. This prevents a stale
-successful receipt from being mistaken for a later failed attempt and fails
-closed on package-root rename replacement.
+immediately before publication. It writes and fsyncs a private file, captures
+that open descriptor's inode, creates the final name with a no-replace hard
+link, cleans up and fsyncs the private name, and finally reopens the package and
+requested parent paths. Successful return requires the final name, stable
+parent, containment, and package identity all still to match.
+
+The no-replace link is the irreversible filesystem commit candidate. Portable
+POSIX APIs cannot atomically compare an inode and conditionally unlink that same
+name. The writer therefore never performs destructive rollback after linking:
+doing so could delete a concurrent replacement. If `link` reports an ambiguous
+error, the writer continues only when the final name already points to the
+descriptor-captured inode. A later fsync, cleanup, or namespace check failure
+returns an error but may leave an attempt-specific final name or private temp
+name. Such residue is non-authoritative: never reuse or overwrite it, and do not
+treat it as published unless the publication routine returned normally and the
+CLI printed its receipt summary. This threat model detects pathname drift before
+successful return and avoids destructive races; it does not claim protection
+against a hostile process running as the same OS user, which could mutate files
+again immediately after any possible final check.
 
 ## Exit status and blocked receipts
 
@@ -86,10 +101,13 @@ The command writes the receipt before deciding its exit status:
   zero or cap-inconsistent token usage, or was within four tokens of the audited
   `512` cap. The run is operationally blocked and must not be treated as valid
   leaderboard evidence;
-- `2` with no receipt: structural or identity failure, including missing,
-  duplicate, or unexpected conversations; prompt drift; non-string output;
-  duplicate JSON keys; invalid UTC timestamps; package drift; scalar mismatch;
-  or an unsafe input/output path.
+- error-only termination with no receipt summary: structural, identity, or I/O
+  failure, including missing, duplicate, or unexpected conversations; prompt
+  drift; non-string output; duplicate JSON keys; invalid UTC timestamps;
+  package drift; scalar mismatch; or an unsafe input/output path. A failure
+  after the irreversible no-replace link may leave a non-authoritative
+  attempt-specific residue as described above; its mere presence is not a
+  successful publication.
 
 Whitespace-only output is classified as empty for the diagnostic, while its
 original string remains unchanged in `submissionRows[].outputText`. Near-cap is

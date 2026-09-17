@@ -1306,6 +1306,36 @@ def capture_kaggle_package_root_identity(package_root: Path) -> tuple[int, int]:
     return identity
 
 
+def _open_expected_receipt_parent(
+    parent: Path,
+    *,
+    expected_identity: tuple[int, int],
+    package_root_identity: tuple[int, int],
+) -> int:
+    try:
+        descriptor, identities = _open_directory_no_symlinks(
+            parent,
+            create_missing=False,
+        )
+    except OSError as exc:
+        raise KaggleReceiptError(
+            "receipt output directory changed or became unavailable during publication"
+        ) from exc
+    try:
+        metadata = os.fstat(descriptor)
+        identity = metadata.st_dev, metadata.st_ino
+        if identity == expected_identity and package_root_identity not in identities:
+            return descriptor
+    except BaseException:
+        os.close(descriptor)
+        raise
+    os.close(descriptor)
+    raise KaggleReceiptError(
+        "receipt output directory changed or entered the scorer package "
+        "during publication"
+    )
+
+
 def write_new_kaggle_receipt(
     path: Path,
     receipt: dict[str, Any],
@@ -1314,7 +1344,7 @@ def write_new_kaggle_receipt(
     package_root: Path,
     expected_package_root_identity: tuple[int, int],
 ) -> None:
-    """Atomically publish a new receipt and fail if its path already exists."""
+    """Publish with a no-replace link; later errors may leave untrusted residue."""
 
     content = serialize_kaggle_receipt(receipt)
     target = validate_kaggle_replay_output_path(
@@ -1328,8 +1358,13 @@ def write_new_kaggle_receipt(
         expected_identity=expected_package_root_identity,
     )
     parent_descriptor: int | None = None
+    pre_publication_parent_descriptor: int | None = None
     publication_package_descriptor: int | None = None
+    post_publication_package_descriptor: int | None = None
+    post_publication_parent_descriptor: int | None = None
     temporary_descriptor: int | None = None
+    temporary_identity: tuple[int, int] | None = None
+    parent_identity: tuple[int, int] | None = None
     temporary_name = f".{target.name}.{os.getpid()}.{secrets.token_hex(8)}.tmp"
     try:
         parent_descriptor, parent_identities = _open_directory_no_symlinks(
@@ -1337,6 +1372,8 @@ def write_new_kaggle_receipt(
         )
         if expected_package_root_identity in parent_identities:
             raise KaggleReceiptError("receipt output directory aliases the scorer package")
+        parent_metadata = os.fstat(parent_descriptor)
+        parent_identity = parent_metadata.st_dev, parent_metadata.st_ino
         temporary_descriptor = os.open(
             temporary_name,
             os.O_WRONLY
@@ -1346,14 +1383,32 @@ def write_new_kaggle_receipt(
             0o600,
             dir_fd=parent_descriptor,
         )
+        opened_temporary_metadata = os.fstat(temporary_descriptor)
+        temporary_identity = (
+            opened_temporary_metadata.st_dev,
+            opened_temporary_metadata.st_ino,
+        )
         with os.fdopen(temporary_descriptor, "wb") as handle:
             temporary_descriptor = None
             handle.write(content)
             handle.flush()
             os.fsync(handle.fileno())
+            temporary_metadata = os.fstat(handle.fileno())
+            if (
+                temporary_metadata.st_dev,
+                temporary_metadata.st_ino,
+            ) != temporary_identity:
+                raise KaggleReceiptError(
+                    "temporary receipt identity changed while its descriptor was open"
+                )
         publication_package_descriptor, _ = _open_kaggle_package_root(
             package_root,
             expected_identity=expected_package_root_identity,
+        )
+        pre_publication_parent_descriptor = _open_expected_receipt_parent(
+            target.parent,
+            expected_identity=parent_identity,
+            package_root_identity=expected_package_root_identity,
         )
         try:
             os.link(
@@ -1363,20 +1418,75 @@ def write_new_kaggle_receipt(
                 dst_dir_fd=parent_descriptor,
                 follow_symlinks=False,
             )
-        except FileExistsError as exc:
-            raise KaggleReceiptError(
-                f"refusing to replace existing Kaggle receipt output: {target}"
-            ) from exc
-        os.fsync(parent_descriptor)
-    finally:
-        if temporary_descriptor is not None:
-            os.close(temporary_descriptor)
-        if publication_package_descriptor is not None:
-            os.close(publication_package_descriptor)
-        if parent_descriptor is not None:
+        except OSError as link_error:
             try:
-                os.unlink(temporary_name, dir_fd=parent_descriptor)
-            except FileNotFoundError:
-                pass
-            os.close(parent_descriptor)
-        os.close(package_descriptor)
+                published_metadata = os.stat(
+                    target.name,
+                    dir_fd=parent_descriptor,
+                    follow_symlinks=False,
+                )
+                published_identity = (
+                    published_metadata.st_dev,
+                    published_metadata.st_ino,
+                )
+            except OSError:
+                if isinstance(link_error, FileExistsError):
+                    raise KaggleReceiptError(
+                        f"refusing to replace existing Kaggle receipt output: {target}"
+                    ) from link_error
+                raise link_error
+            if temporary_identity is None or published_identity != temporary_identity:
+                if isinstance(link_error, FileExistsError):
+                    raise KaggleReceiptError(
+                        f"refusing to replace existing Kaggle receipt output: {target}"
+                    ) from link_error
+                raise link_error
+        os.fsync(parent_descriptor)
+        try:
+            cleanup_metadata = os.stat(
+                temporary_name,
+                dir_fd=parent_descriptor,
+                follow_symlinks=False,
+            )
+        except FileNotFoundError:
+            pass
+        else:
+            cleanup_identity = cleanup_metadata.st_dev, cleanup_metadata.st_ino
+            if temporary_identity is None or cleanup_identity != temporary_identity:
+                raise KaggleReceiptError(
+                    "temporary receipt path changed during publication cleanup"
+                )
+            os.unlink(temporary_name, dir_fd=parent_descriptor)
+        os.fsync(parent_descriptor)
+        post_publication_package_descriptor, _ = _open_kaggle_package_root(
+            package_root,
+            expected_identity=expected_package_root_identity,
+        )
+        post_publication_parent_descriptor = _open_expected_receipt_parent(
+            target.parent,
+            expected_identity=parent_identity,
+            package_root_identity=expected_package_root_identity,
+        )
+        published_metadata = os.stat(
+            target.name,
+            dir_fd=parent_descriptor,
+            follow_symlinks=False,
+        )
+        published_identity = published_metadata.st_dev, published_metadata.st_ino
+        if temporary_identity is None or published_identity != temporary_identity:
+            raise KaggleReceiptError("receipt output path changed during publication")
+    finally:
+        for descriptor in (
+            temporary_descriptor,
+            post_publication_parent_descriptor,
+            post_publication_package_descriptor,
+            pre_publication_parent_descriptor,
+            publication_package_descriptor,
+            parent_descriptor,
+            package_descriptor,
+        ):
+            if descriptor is not None:
+                try:
+                    os.close(descriptor)
+                except OSError:
+                    pass
