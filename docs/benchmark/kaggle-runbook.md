@@ -72,10 +72,11 @@ without following symlinks, rechecks that the opened directory is not the
 scorer package, and requires the package-root directory identity captured before
 replay to match both when the stable output-directory fd is opened and again
 immediately before publication. It writes and fsyncs a private file, captures
-that open descriptor's inode, creates the final name with a no-replace hard
-link, cleans up and fsyncs the private name, and finally reopens the package and
-requested parent paths. Successful return requires the final name, stable
-parent, containment, and package identity all still to match.
+that open descriptor's inode, keeps the descriptor open so the inode cannot be
+recycled, creates the final name with a no-replace hard link, cleans up and
+fsyncs the private name, and finally reopens the package and requested parent
+paths. Successful return requires the final name, stable parent, containment,
+and package identity all still to match.
 
 The no-replace link is the irreversible filesystem commit candidate. Portable
 POSIX APIs cannot atomically compare an inode and conditionally unlink that same

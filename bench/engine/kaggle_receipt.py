@@ -1388,8 +1388,7 @@ def write_new_kaggle_receipt(
             opened_temporary_metadata.st_dev,
             opened_temporary_metadata.st_ino,
         )
-        with os.fdopen(temporary_descriptor, "wb") as handle:
-            temporary_descriptor = None
+        with os.fdopen(os.dup(temporary_descriptor), "wb") as handle:
             handle.write(content)
             handle.flush()
             os.fsync(handle.fileno())
