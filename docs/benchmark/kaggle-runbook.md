@@ -70,10 +70,11 @@ replaced, including if another process creates the name between validation and
 publication. The writer resolves the path once, opens directory components
 without following symlinks, rechecks that the opened directory is not the
 scorer package, and requires the package-root directory identity captured before
-replay to remain unchanged through publication. It then fsyncs the new file and
-publishes it with a no-replace link. This prevents a stale successful receipt
-from being mistaken for a later failed attempt and fails closed on package-root
-rename replacement.
+replay to match both when the stable output-directory fd is opened and again
+immediately before publication; the corresponding package fds remain open
+through the no-replace link and directory fsync. This prevents a stale
+successful receipt from being mistaken for a later failed attempt and fails
+closed on package-root rename replacement.
 
 ## Exit status and blocked receipts
 

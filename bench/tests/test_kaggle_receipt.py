@@ -813,6 +813,42 @@ class KaggleReceiptIntegrationTests(unittest.TestCase):
                 )
             self.assertFalse(out.exists())
 
+    def test_publish_rechecks_package_identity_after_temp_write(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            run_path = self._write_run(temporary_directory)
+            receipt = build_kaggle_receipt(run_json_path=run_path, max_tokens=512)
+            copied_package = Path(temporary_directory) / "package"
+            shutil.copytree(DEFAULT_V0_1_PACKAGE_ROOT, copied_package)
+            expected_identity = capture_kaggle_package_root_identity(copied_package)
+            out = Path(temporary_directory) / "receipt.json"
+            original_fsync = os.fsync
+            swapped = False
+
+            def swap_package_after_temp_fsync(descriptor: int) -> None:
+                nonlocal swapped
+                original_fsync(descriptor)
+                if not swapped:
+                    swapped = True
+                    copied_package.rename(
+                        Path(temporary_directory) / "original-package"
+                    )
+                    shutil.copytree(DEFAULT_V0_1_PACKAGE_ROOT, copied_package)
+
+            with patch(
+                "bench.engine.kaggle_receipt.os.fsync",
+                side_effect=swap_package_after_temp_fsync,
+            ):
+                with self.assertRaisesRegex(KaggleReceiptError, "package root changed"):
+                    write_new_kaggle_receipt(
+                        out,
+                        receipt,
+                        run_json_path=run_path,
+                        package_root=copied_package,
+                        expected_package_root_identity=expected_identity,
+                    )
+            self.assertTrue(swapped)
+            self.assertFalse(out.exists())
+
     def test_structural_failure_never_writes_a_receipt(self) -> None:
         changed = copy.deepcopy(self.run_payload)
         changed["taskVersion"]["description"] = "Drifted task description."

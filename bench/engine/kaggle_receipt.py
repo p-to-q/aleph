@@ -1278,19 +1278,32 @@ def _open_directory_no_symlinks(
         raise
 
 
-def capture_kaggle_package_root_identity(package_root: Path) -> tuple[int, int]:
-    """Capture the scorer-package directory identity used across replay publication."""
-
+def _open_kaggle_package_root(
+    package_root: Path,
+    *,
+    expected_identity: tuple[int, int] | None = None,
+) -> tuple[int, tuple[int, int]]:
     try:
         package_path = Path(package_root).resolve(strict=True)
     except OSError as exc:
         raise KaggleReceiptError(f"could not resolve scorer package root: {exc}") from exc
     descriptor, _ = _open_directory_no_symlinks(package_path, create_missing=False)
-    try:
-        metadata = os.fstat(descriptor)
-        return metadata.st_dev, metadata.st_ino
-    finally:
+    metadata = os.fstat(descriptor)
+    identity = metadata.st_dev, metadata.st_ino
+    if expected_identity is not None and identity != expected_identity:
         os.close(descriptor)
+        raise KaggleReceiptError(
+            "scorer package root changed between replay and publication"
+        )
+    return descriptor, identity
+
+
+def capture_kaggle_package_root_identity(package_root: Path) -> tuple[int, int]:
+    """Capture the scorer-package directory identity used across replay publication."""
+
+    descriptor, identity = _open_kaggle_package_root(package_root)
+    os.close(descriptor)
+    return identity
 
 
 def write_new_kaggle_receipt(
@@ -1310,28 +1323,20 @@ def write_new_kaggle_receipt(
         out=path,
     )
     assert_not_v0_1_write(target)
-    package_path = Path(package_root).resolve(strict=True)
-    package_descriptor, _ = _open_directory_no_symlinks(
-        package_path, create_missing=False
+    package_descriptor, _ = _open_kaggle_package_root(
+        package_root,
+        expected_identity=expected_package_root_identity,
     )
+    parent_descriptor: int | None = None
+    publication_package_descriptor: int | None = None
+    temporary_descriptor: int | None = None
+    temporary_name = f".{target.name}.{os.getpid()}.{secrets.token_hex(8)}.tmp"
     try:
-        package_metadata = os.fstat(package_descriptor)
-        package_identity = (package_metadata.st_dev, package_metadata.st_ino)
-        if package_identity != expected_package_root_identity:
-            raise KaggleReceiptError(
-                "scorer package root changed between replay and publication"
-            )
         parent_descriptor, parent_identities = _open_directory_no_symlinks(
             target.parent, create_missing=True
         )
-    finally:
-        os.close(package_descriptor)
-    if expected_package_root_identity in parent_identities:
-        os.close(parent_descriptor)
-        raise KaggleReceiptError("receipt output directory aliases the scorer package")
-    temporary_name = f".{target.name}.{os.getpid()}.{secrets.token_hex(8)}.tmp"
-    temporary_descriptor: int | None = None
-    try:
+        if expected_package_root_identity in parent_identities:
+            raise KaggleReceiptError("receipt output directory aliases the scorer package")
         temporary_descriptor = os.open(
             temporary_name,
             os.O_WRONLY
@@ -1346,6 +1351,10 @@ def write_new_kaggle_receipt(
             handle.write(content)
             handle.flush()
             os.fsync(handle.fileno())
+        publication_package_descriptor, _ = _open_kaggle_package_root(
+            package_root,
+            expected_identity=expected_package_root_identity,
+        )
         try:
             os.link(
                 temporary_name,
@@ -1362,9 +1371,12 @@ def write_new_kaggle_receipt(
     finally:
         if temporary_descriptor is not None:
             os.close(temporary_descriptor)
-        try:
-            os.unlink(temporary_name, dir_fd=parent_descriptor)
-        except FileNotFoundError:
-            pass
-        finally:
+        if publication_package_descriptor is not None:
+            os.close(publication_package_descriptor)
+        if parent_descriptor is not None:
+            try:
+                os.unlink(temporary_name, dir_fd=parent_descriptor)
+            except FileNotFoundError:
+                pass
             os.close(parent_descriptor)
+        os.close(package_descriptor)
