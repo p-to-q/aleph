@@ -161,8 +161,7 @@
           "const": 3
         },
         "description": {
-          "type": "string",
-          "minLength": 1
+          "const": "Score target recovery from non-leaking frozen-ladder prompts using inverse AURC."
         },
         "definitionSha256": {
           "const": "93020f8ac90bd37e3711b6ad233443fc5e7f1ec4f047a8930f1bbf31039f6e02"
@@ -313,6 +312,7 @@
       "required": [
         "status",
         "emptyRowIds",
+        "invalidUsageRowIds",
         "nearCapRowIds",
         "outputTokenStats"
       ],
@@ -325,6 +325,15 @@
         },
         "emptyRowIds": {
           "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "invalidUsageRowIds": {
+          "type": "array",
+          "maxItems": 180,
           "uniqueItems": true,
           "items": {
             "type": "string",

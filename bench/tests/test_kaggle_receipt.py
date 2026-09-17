@@ -4,12 +4,15 @@ import copy
 import io
 import json
 import math
+import shutil
 import tempfile
 import unittest
 from contextlib import redirect_stdout
 from pathlib import Path
+from unittest.mock import patch
 
 from bench.engine.kaggle_receipt import (
+    AUDITED_TASK_DESCRIPTION,
     DEFAULT_V0_1_PACKAGE_ROOT,
     KaggleReceiptError,
     _load_legacy_score_function,
@@ -18,6 +21,8 @@ from bench.engine.kaggle_receipt import (
     canonical_json_bytes,
     parse_run_conversations,
     serialize_kaggle_receipt,
+    validate_kaggle_replay_output_path,
+    write_new_kaggle_receipt,
 )
 from bench.engine.legacy_v0_1 import verify_v0_1_repository_receipt
 from bench.engine.schema_validation import load_schema, validate
@@ -30,6 +35,7 @@ AUDITED_TASK_DEFINITION_PATH = (
     ROOT / "bench/tests/fixtures/kaggle/audited-v16-task-definition.txt"
 )
 SCHEMA_PATH = ROOT / "schemas/v0.2/aleph-bench-kaggle-receipt.schema.json"
+FIXTURE_MODEL_SLUG = "fixture/model"
 
 
 def _load_fixture() -> dict:
@@ -119,10 +125,15 @@ def _full_run(*, empty_first: bool = False) -> dict:
                 "output_text": output,
             }
         )
-    scorer = _load_legacy_score_function(DEFAULT_V0_1_PACKAGE_ROOT)
+    scorer = _load_legacy_score_function(
+        scoring_source=package["scoringSource"],
+        score_outputs_source=package["scoreSource"],
+        item_rows=package["items"],
+        prompt_rows=package["prompts"],
+    )
     result = scorer(
-        items_path=DEFAULT_V0_1_PACKAGE_ROOT / "data/public_s2_items.jsonl",
-        prompts_path=DEFAULT_V0_1_PACKAGE_ROOT / "data/public_s2_prompts.jsonl",
+        items_path="data/public_s2_items.jsonl",
+        prompts_path="data/public_s2_prompts.jsonl",
         submission_rows=outputs,
         model_id="fixture/model",
     )
@@ -140,7 +151,7 @@ def _full_run(*, empty_first: bool = False) -> dict:
         "taskVersion": {
             "versionNumber": 3,
             "name": "aleph_bench_frozen_ladder",
-            "description": "Fixture full run.",
+            "description": AUDITED_TASK_DESCRIPTION,
             "definition": AUDITED_TASK_DEFINITION_PATH.read_text(encoding="utf-8"),
         },
     }
@@ -152,6 +163,7 @@ class KaggleConversationParserTests(unittest.TestCase):
         rows, diagnostics = parse_run_conversations(
             run,
             expected_prompts=_fixture_expected_prompts(),
+            model_slug=FIXTURE_MODEL_SLUG,
             max_tokens=32,
         )
         self.assertEqual(len(rows), 1)
@@ -160,6 +172,7 @@ class KaggleConversationParserTests(unittest.TestCase):
         self.assertEqual(rows[0]["conversationId"], "s2-001:s2-001-r1-p0-9a1370ab")
         self.assertEqual(diagnostics["status"], "valid")
         self.assertEqual(diagnostics["emptyRowIds"], [])
+        self.assertEqual(diagnostics["invalidUsageRowIds"], [])
 
     def test_duplicate_conversation_fails_closed(self) -> None:
         run = _load_fixture()
@@ -168,6 +181,7 @@ class KaggleConversationParserTests(unittest.TestCase):
             parse_run_conversations(
                 run,
                 expected_prompts=_fixture_expected_prompts(),
+                model_slug=FIXTURE_MODEL_SLUG,
                 max_tokens=32,
             )
 
@@ -178,6 +192,7 @@ class KaggleConversationParserTests(unittest.TestCase):
             parse_run_conversations(
                 run,
                 expected_prompts=_fixture_expected_prompts(),
+                model_slug=FIXTURE_MODEL_SLUG,
                 max_tokens=32,
             )
 
@@ -186,10 +201,11 @@ class KaggleConversationParserTests(unittest.TestCase):
         run["conversations"][1]["requests"][0]["contents"][1]["parts"][0][
             "text"
         ] = {"not": "a string"}
-        with self.assertRaisesRegex(KaggleReceiptError, "ASSISTANT text must be a string"):
+        with self.assertRaisesRegex(KaggleReceiptError, r"contents\[1\] text must be a string"):
             parse_run_conversations(
                 run,
                 expected_prompts=_fixture_expected_prompts(),
+                model_slug=FIXTURE_MODEL_SLUG,
                 max_tokens=32,
             )
 
@@ -202,6 +218,7 @@ class KaggleConversationParserTests(unittest.TestCase):
         rows, diagnostics = parse_run_conversations(
             run,
             expected_prompts=_fixture_expected_prompts(),
+            model_slug=FIXTURE_MODEL_SLUG,
             max_tokens=32,
             saturation_margin_tokens=4,
         )
@@ -215,9 +232,89 @@ class KaggleConversationParserTests(unittest.TestCase):
             parse_run_conversations(
                 _load_fixture(),
                 expected_prompts=_fixture_expected_prompts(),
+                model_slug=FIXTURE_MODEL_SLUG,
                 max_tokens=4,
                 saturation_margin_tokens=4,
             )
+
+    def test_extra_system_content_fails_closed(self) -> None:
+        run = _load_fixture()
+        run["conversations"][1]["requests"][0]["contents"].insert(
+            1,
+            {
+                "parts": [{"text": "unexpected"}],
+                "role": "CONTENT_ROLE_SYSTEM",
+                "senderName": "System",
+            },
+        )
+        with self.assertRaisesRegex(KaggleReceiptError, "audited two-message exchange"):
+            parse_run_conversations(
+                run,
+                expected_prompts=_fixture_expected_prompts(),
+                model_slug=FIXTURE_MODEL_SLUG,
+                max_tokens=32,
+            )
+
+    def test_assistant_sender_must_match_top_level_model(self) -> None:
+        run = _load_fixture()
+        run["conversations"][1]["requests"][0]["contents"][1]["senderName"] = (
+            "fixture/other-model"
+        )
+        with self.assertRaisesRegex(KaggleReceiptError, "identity drifted"):
+            parse_run_conversations(
+                run,
+                expected_prompts=_fixture_expected_prompts(),
+                model_slug=FIXTURE_MODEL_SLUG,
+                max_tokens=32,
+            )
+
+    def test_request_and_placeholder_shapes_are_exact(self) -> None:
+        request_drift = _load_fixture()
+        request_drift["conversations"][1]["requests"][0]["unexpected"] = True
+        with self.assertRaisesRegex(KaggleReceiptError, "request fields drifted"):
+            parse_run_conversations(
+                request_drift,
+                expected_prompts=_fixture_expected_prompts(),
+                model_slug=FIXTURE_MODEL_SLUG,
+                max_tokens=32,
+            )
+
+        placeholder_drift = _load_fixture()
+        placeholder_drift["conversations"][0]["metrics"] = {"unexpected": 1}
+        with self.assertRaisesRegex(KaggleReceiptError, "unexpected request-less"):
+            parse_run_conversations(
+                placeholder_drift,
+                expected_prompts=_fixture_expected_prompts(),
+                model_slug=FIXTURE_MODEL_SLUG,
+                max_tokens=32,
+            )
+
+    def test_deprecated_model_marker_drift_fails_closed(self) -> None:
+        run = _load_fixture()
+        run["conversations"][1]["modelVersionSlug"] = "fixture/model"
+        with self.assertRaisesRegex(KaggleReceiptError, "modelVersionSlug marker drifted"):
+            parse_run_conversations(
+                run,
+                expected_prompts=_fixture_expected_prompts(),
+                model_slug=FIXTURE_MODEL_SLUG,
+                max_tokens=32,
+            )
+
+    def test_zero_token_usage_is_blocked_and_retained(self) -> None:
+        run = _load_fixture()
+        request_metrics = run["conversations"][1]["requests"][0]["metrics"]
+        conversation_metrics = run["conversations"][1]["metrics"]
+        request_metrics["inputTokens"] = 0
+        conversation_metrics["inputTokens"] = 0
+        rows, diagnostics = parse_run_conversations(
+            run,
+            expected_prompts=_fixture_expected_prompts(),
+            model_slug=FIXTURE_MODEL_SLUG,
+            max_tokens=32,
+        )
+        self.assertEqual(rows[0]["usage"]["inputTokens"], 0)
+        self.assertEqual(diagnostics["status"], "blocked")
+        self.assertEqual(diagnostics["invalidUsageRowIds"], [rows[0]["rowId"]])
 
 
 class KaggleReceiptIntegrationTests(unittest.TestCase):
@@ -262,6 +359,11 @@ class KaggleReceiptIntegrationTests(unittest.TestCase):
             first = build_kaggle_receipt(run_json_path=run_path, max_tokens=512)
             changed_run = copy.deepcopy(self.run_payload)
             changed_run["modelVersion"]["slug"] = "fixture/other-model"
+            for conversation in changed_run["conversations"]:
+                if "requests" in conversation:
+                    conversation["requests"][0]["contents"][1]["senderName"] = (
+                        "fixture/other-model"
+                    )
             changed_path = Path(temporary_directory) / "changed.json"
             changed_path.write_text(json.dumps(changed_run), encoding="utf-8")
             changed = build_kaggle_receipt(
@@ -289,6 +391,7 @@ class KaggleReceiptIntegrationTests(unittest.TestCase):
         mutations = (
             ("name", "some_other_task"),
             ("versionNumber", 4),
+            ("description", "Drifted task description."),
             (
                 "definition",
                 self.run_payload["taskVersion"]["definition"] + "# drift\n",
@@ -323,6 +426,41 @@ class KaggleReceiptIntegrationTests(unittest.TestCase):
             with self.assertRaisesRegex(KaggleReceiptError, "non-finite JSON"):
                 build_kaggle_receipt(run_json_path=run_path, max_tokens=512)
 
+    def test_duplicate_raw_json_key_fails_closed(self) -> None:
+        raw = json.dumps(self.run_payload, ensure_ascii=False)
+        duplicate = (
+            '{"state":"BENCHMARK_TASK_RUN_STATE_COMPLETED",' + raw[1:]
+        )
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            run_path = Path(temporary_directory) / "run.json"
+            run_path.write_text(duplicate, encoding="utf-8")
+            with self.assertRaisesRegex(
+                KaggleReceiptError, "duplicate JSON object key.*state"
+            ):
+                build_kaggle_receipt(run_json_path=run_path, max_tokens=512)
+
+    def test_timestamps_must_be_valid_canonical_utc_and_ordered(self) -> None:
+        cases = (
+            ("2026-09-17T02:20:17+00:00", "canonical RFC 3339 UTC"),
+            ("2026-09-17T02:20:17.1234567Z", "canonical RFC 3339 UTC"),
+            ("2026-02-30T02:20:17Z", "not a valid UTC timestamp"),
+        )
+        for start_time, message in cases:
+            with self.subTest(start_time=start_time):
+                changed = copy.deepcopy(self.run_payload)
+                changed["startTime"] = start_time
+                with tempfile.TemporaryDirectory() as temporary_directory:
+                    run_path = self._write_run(temporary_directory, changed)
+                    with self.assertRaisesRegex(KaggleReceiptError, message):
+                        build_kaggle_receipt(run_json_path=run_path, max_tokens=512)
+
+        changed = copy.deepcopy(self.run_payload)
+        changed["endTime"] = "2026-09-17T02:19:17Z"
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            run_path = self._write_run(temporary_directory, changed)
+            with self.assertRaisesRegex(KaggleReceiptError, "must not precede"):
+                build_kaggle_receipt(run_json_path=run_path, max_tokens=512)
+
     def test_non_finite_scalar_object_fails_closed(self) -> None:
         changed = copy.deepcopy(self.run_payload)
         changed["results"][0]["numericResult"]["value"] = math.inf
@@ -353,6 +491,21 @@ class KaggleReceiptIntegrationTests(unittest.TestCase):
         self.assertEqual(receipt["submissionRows"][0]["outputText"], "")
         serialize_kaggle_receipt(receipt)
 
+    def test_zero_usage_produces_schema_valid_blocked_receipt(self) -> None:
+        blocked_run = copy.deepcopy(self.run_payload)
+        conversation = blocked_run["conversations"][1]
+        conversation["requests"][0]["metrics"]["outputTokens"] = 0
+        conversation["metrics"]["outputTokens"] = 0
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            receipt = build_kaggle_receipt(
+                run_json_path=self._write_run(temporary_directory, blocked_run),
+                max_tokens=512,
+            )
+        self.assertEqual(receipt["diagnostics"]["status"], "blocked")
+        self.assertEqual(len(receipt["diagnostics"]["invalidUsageRowIds"]), 1)
+        self.assertEqual(receipt["submissionRows"][0]["usage"]["outputTokens"], 0)
+        serialize_kaggle_receipt(receipt)
+
     def test_replay_does_not_modify_immutable_v0_1_receipt(self) -> None:
         before = verify_v0_1_repository_receipt()
         self.assertEqual(before, [])
@@ -362,6 +515,154 @@ class KaggleReceiptIntegrationTests(unittest.TestCase):
                 max_tokens=512,
             )
         self.assertEqual(verify_v0_1_repository_receipt(), [])
+
+    def test_scorer_and_data_are_used_from_one_verified_memory_snapshot(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            copied_package = Path(temporary_directory) / "package"
+            shutil.copytree(DEFAULT_V0_1_PACKAGE_ROOT, copied_package)
+            package = _load_package_context(copied_package)
+
+            (copied_package / "kaggle/score_outputs.py").write_text(
+                "raise RuntimeError('operator path was re-read')\n",
+                encoding="utf-8",
+            )
+            (copied_package / "data/public_s2_items.jsonl").write_text(
+                "{}\n",
+                encoding="utf-8",
+            )
+
+            scorer = _load_legacy_score_function(
+                scoring_source=package["scoringSource"],
+                score_outputs_source=package["scoreSource"],
+                item_rows=package["items"],
+                prompt_rows=package["prompts"],
+            )
+            outputs = []
+            for prompt, conversation in zip(
+                package["sendable"], self.run_payload["conversations"][1:]
+            ):
+                outputs.append(
+                    {
+                        "row_id": f"{prompt['item_id']}:{prompt['prompt_id']}",
+                        "model_id": FIXTURE_MODEL_SLUG,
+                        "item_id": prompt["item_id"],
+                        "prompt_id": prompt["prompt_id"],
+                        "output_text": conversation["requests"][0]["contents"][1][
+                            "parts"
+                        ][0]["text"],
+                    }
+                )
+            result = scorer(
+                items_path="data/public_s2_items.jsonl",
+                prompts_path="data/public_s2_prompts.jsonl",
+                submission_rows=outputs,
+                model_id=FIXTURE_MODEL_SLUG,
+            )
+        self.assertAlmostEqual(
+            1.0 - float(result["aggregate"]["aurc"]),
+            self.run_payload["results"][0]["numericResult"]["value"],
+        )
+
+    def test_manifest_digest_is_independently_pinned(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            copied_package = Path(temporary_directory) / "package"
+            shutil.copytree(DEFAULT_V0_1_PACKAGE_ROOT, copied_package)
+            manifest = copied_package / "package-manifest.json"
+            manifest.write_bytes(manifest.read_bytes() + b"\n")
+            with patch(
+                "bench.engine.kaggle_receipt.verify_v0_1_package_receipt",
+                return_value=[],
+            ):
+                with self.assertRaisesRegex(
+                    KaggleReceiptError, "audited package manifest digest drifted"
+                ):
+                    _load_package_context(copied_package)
+
+    def test_cli_refuses_existing_output_and_preserves_it(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            run_path = self._write_run(temporary_directory)
+            out = Path(temporary_directory) / "existing.json"
+            out.write_bytes(b"sentinel")
+            with self.assertRaisesRegex(KaggleReceiptError, "refusing to replace"):
+                bench_main(
+                    [
+                        "kaggle-replay",
+                        "--run-json",
+                        str(run_path),
+                        "--max-tokens",
+                        "512",
+                        "--out",
+                        str(out),
+                    ]
+                )
+            self.assertEqual(out.read_bytes(), b"sentinel")
+
+    def test_cli_refuses_source_run_as_output_without_modifying_it(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            run_path = self._write_run(temporary_directory)
+            before = run_path.read_bytes()
+            with self.assertRaisesRegex(KaggleReceiptError, "refusing to replace"):
+                bench_main(
+                    [
+                        "kaggle-replay",
+                        "--run-json",
+                        str(run_path),
+                        "--max-tokens",
+                        "512",
+                        "--out",
+                        str(run_path),
+                    ]
+                )
+            self.assertEqual(run_path.read_bytes(), before)
+
+    def test_output_must_be_outside_package_through_symlink_alias(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            run_path = self._write_run(temporary_directory)
+            package_alias = Path(temporary_directory) / "package-alias"
+            package_alias.symlink_to(DEFAULT_V0_1_PACKAGE_ROOT, target_is_directory=True)
+            out = package_alias / "receipt-do-not-create.json"
+            with self.assertRaisesRegex(KaggleReceiptError, "outside the scorer package"):
+                validate_kaggle_replay_output_path(
+                    run_json_path=run_path,
+                    package_root=DEFAULT_V0_1_PACKAGE_ROOT,
+                    out=out,
+                )
+            self.assertFalse(out.exists())
+
+    def test_atomic_publish_loses_race_without_overwriting(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            run_path = self._write_run(temporary_directory)
+            out = Path(temporary_directory) / "raced.json"
+            validated_out = validate_kaggle_replay_output_path(
+                run_json_path=run_path,
+                package_root=DEFAULT_V0_1_PACKAGE_ROOT,
+                out=out,
+            )
+            receipt = build_kaggle_receipt(run_json_path=run_path, max_tokens=512)
+            out.write_bytes(b"winner")
+            with self.assertRaisesRegex(KaggleReceiptError, "refusing to replace"):
+                write_new_kaggle_receipt(validated_out, receipt)
+            self.assertEqual(out.read_bytes(), b"winner")
+
+    def test_structural_failure_never_writes_a_receipt(self) -> None:
+        changed = copy.deepcopy(self.run_payload)
+        changed["taskVersion"]["description"] = "Drifted task description."
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            run_path = self._write_run(temporary_directory, changed)
+            out = Path(temporary_directory) / "must-not-exist.json"
+            with self.assertRaisesRegex(KaggleReceiptError, "unsupported Kaggle task"):
+                bench_main(
+                    [
+                        "kaggle-replay",
+                        "--run-json",
+                        str(run_path),
+                        "--max-tokens",
+                        "512",
+                        "--out",
+                        str(out),
+                    ]
+                )
+            self.assertFalse(out.exists())
 
     def test_cli_writes_valid_receipt_and_returns_zero(self) -> None:
         with tempfile.TemporaryDirectory() as temporary_directory:

@@ -22,7 +22,8 @@ from bench.engine.kaggle_receipt import (  # noqa: E402
     DEFAULT_SATURATION_MARGIN_TOKENS,
     DEFAULT_V0_1_PACKAGE_ROOT,
     build_kaggle_receipt,
-    serialize_kaggle_receipt,
+    validate_kaggle_replay_output_path,
+    write_new_kaggle_receipt,
 )
 from bench.engine.legacy_v0_1 import (  # noqa: E402
     assert_not_v0_1_write,
@@ -321,21 +322,29 @@ def main(argv: list[str] | None = None) -> int:
             print(f"wrote {out_dir / 'package-manifest.json'}")
         return 0
     if args.command == "kaggle-replay":
-        out = Path(args.out)
-        assert_not_v0_1_write(out)
+        run_json_path = Path(args.run_json)
+        package_root = Path(args.package_root)
+        out = validate_kaggle_replay_output_path(
+            run_json_path=run_json_path,
+            package_root=package_root,
+            out=Path(args.out),
+        )
         receipt = build_kaggle_receipt(
-            run_json_path=Path(args.run_json),
-            package_root=Path(args.package_root),
+            run_json_path=run_json_path,
+            package_root=package_root,
             max_tokens=args.max_tokens,
             saturation_margin_tokens=args.saturation_margin_tokens,
         )
-        safe_write_text(out, serialize_kaggle_receipt(receipt).decode("utf-8"))
+        write_new_kaggle_receipt(out, receipt)
         summary = {
             "status": receipt["diagnostics"]["status"],
             "receipt": str(out),
             "id": receipt["id"],
             "rowCount": receipt["rowCount"],
             "emptyRowCount": len(receipt["diagnostics"]["emptyRowIds"]),
+            "invalidUsageRowCount": len(
+                receipt["diagnostics"]["invalidUsageRowIds"]
+            ),
             "nearCapRowCount": len(receipt["diagnostics"]["nearCapRowIds"]),
             "leaderboardScalar": receipt["leaderboardScalar"],
             "replayedScalar": receipt["replayedScalar"],

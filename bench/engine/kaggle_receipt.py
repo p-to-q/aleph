@@ -4,13 +4,21 @@ import copy
 import hashlib
 import json
 import math
+import os
 import re
+import secrets
+import stat
 import sys
+from datetime import datetime
 from pathlib import Path
 from types import ModuleType
 from typing import Any, Callable
 
-from .legacy_v0_1 import load_v0_1_receipt, verify_v0_1_package_receipt
+from .legacy_v0_1 import (
+    assert_not_v0_1_write,
+    load_v0_1_receipt,
+    verify_v0_1_package_receipt,
+)
 from .schema_validation import load_schema, validate
 
 
@@ -25,9 +33,16 @@ COMPLETED_STATE = "BENCHMARK_TASK_RUN_STATE_COMPLETED"
 DEFAULT_SATURATION_MARGIN_TOKENS = 4
 AUDITED_TASK_NAME = "aleph_bench_frozen_ladder"
 AUDITED_TASK_VERSION = 3
+AUDITED_TASK_DESCRIPTION = (
+    "Score target recovery from non-leaking frozen-ladder prompts using inverse AURC."
+)
 AUDITED_TASK_DEFINITION_SHA256 = (
     "93020f8ac90bd37e3711b6ad233443fc5e7f1ec4f047a8930f1bbf31039f6e02"
 )
+AUDITED_PACKAGE_MANIFEST_SHA256 = (
+    "1f4d0ef9420079f1a5734879c6be716bd7227b950d03703341d4bc74517be8d7"
+)
+DEPRECATED_MODEL_VERSION_SLUG = "model_version_slug for conversation is DEPRECATED"
 
 _RUN_FIELDS = {
     "conversations",
@@ -48,6 +63,10 @@ _REQUEST_METRIC_FIELDS = {
     "totalBackendLatencyMs",
 }
 _CHAT_SUFFIX = re.compile(r"[0-9a-f]{8}\Z")
+_UTC_TIMESTAMP = re.compile(
+    r"[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}"
+    r"(?:\.[0-9]{1,6})?Z\Z"
+)
 
 
 class KaggleReceiptError(ValueError):
@@ -58,22 +77,31 @@ def _reject_json_constant(value: str) -> None:
     raise KaggleReceiptError(f"non-finite JSON constant is forbidden: {value}")
 
 
+def _reject_duplicate_keys(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
+    value: dict[str, Any] = {}
+    for key, child in pairs:
+        if key in value:
+            raise KaggleReceiptError(f"duplicate JSON object key is forbidden: {key!r}")
+        value[key] = child
+    return value
+
+
 def _load_json_bytes(raw: bytes, *, role: str) -> Any:
     try:
-        return json.loads(raw.decode("utf-8"), parse_constant=_reject_json_constant)
+        return json.loads(
+            raw.decode("utf-8"),
+            parse_constant=_reject_json_constant,
+            object_pairs_hook=_reject_duplicate_keys,
+        )
     except UnicodeDecodeError as exc:
         raise KaggleReceiptError(f"{role} is not valid UTF-8") from exc
     except json.JSONDecodeError as exc:
         raise KaggleReceiptError(f"{role} is not valid JSON: {exc}") from exc
 
 
-def _load_jsonl(path: Path, *, role: str) -> list[dict[str, Any]]:
+def _load_jsonl_bytes(raw: bytes, *, role: str) -> list[dict[str, Any]]:
     rows: list[dict[str, Any]] = []
-    try:
-        lines = path.read_bytes().splitlines()
-    except OSError as exc:
-        raise KaggleReceiptError(f"could not read {role}: {exc}") from exc
-    for index, raw_line in enumerate(lines, start=1):
+    for index, raw_line in enumerate(raw.splitlines(), start=1):
         if not raw_line.strip():
             continue
         row = _load_json_bytes(raw_line, role=f"{role} line {index}")
@@ -83,6 +111,52 @@ def _load_jsonl(path: Path, *, role: str) -> list[dict[str, Any]]:
     if not rows:
         raise KaggleReceiptError(f"{role} contains no rows")
     return rows
+
+
+def _parse_utc_timestamp(value: Any, *, role: str) -> datetime:
+    text = _require_string(value, role=role)
+    if _UTC_TIMESTAMP.fullmatch(text) is None:
+        raise KaggleReceiptError(f"{role} must be canonical RFC 3339 UTC")
+    try:
+        return datetime.fromisoformat(text[:-1] + "+00:00")
+    except ValueError as exc:
+        raise KaggleReceiptError(f"{role} is not a valid UTC timestamp") from exc
+
+
+def _read_pinned_file(
+    path: Path,
+    *,
+    expected_sha256: str,
+    expected_bytes: int | None = None,
+    role: str,
+) -> bytes:
+    """Read once, hash those exact bytes, and never execute through the path."""
+
+    flags = os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0)
+    try:
+        descriptor = os.open(path, flags)
+    except OSError as exc:
+        raise KaggleReceiptError(f"could not safely open {role}: {exc}") from exc
+    try:
+        metadata = os.fstat(descriptor)
+        if not stat.S_ISREG(metadata.st_mode) or metadata.st_nlink != 1:
+            raise KaggleReceiptError(f"{role} must be a singly linked regular file")
+        with os.fdopen(descriptor, "rb") as handle:
+            descriptor = -1
+            raw = handle.read()
+    finally:
+        if descriptor >= 0:
+            os.close(descriptor)
+    if expected_bytes is not None and len(raw) != expected_bytes:
+        raise KaggleReceiptError(
+            f"{role} byte length drifted: expected {expected_bytes}, found {len(raw)}"
+        )
+    digest = _sha256(raw)
+    if digest != expected_sha256:
+        raise KaggleReceiptError(
+            f"{role} digest drifted: expected {expected_sha256}, found {digest}"
+        )
+    return raw
 
 
 def _sha256(data: bytes) -> str:
@@ -170,31 +244,51 @@ def _assert_finite_tree(value: Any, *, role: str = "value") -> None:
             _assert_finite_tree(child, role=f"{role}[{index}]")
 
 
-def _single_text_content(
+def _strict_request_contents(
     contents: Any,
     *,
-    role: str,
     context: str,
-) -> str:
-    if not isinstance(contents, list):
-        raise KaggleReceiptError(f"{context} contents must be an array")
-    matches = [row for row in contents if isinstance(row, dict) and row.get("role") == role]
-    if len(matches) != 1:
+    model_slug: str,
+) -> tuple[str, str]:
+    if not isinstance(contents, list) or len(contents) != 2:
+        found = len(contents) if isinstance(contents, list) else "non-array"
         raise KaggleReceiptError(
-            f"{context} must contain exactly one {role} content; found {len(matches)}"
+            f"{context} contents must be the audited two-message exchange; found {found}"
         )
-    parts = matches[0].get("parts")
-    if not isinstance(parts, list) or len(parts) != 1 or not isinstance(parts[0], dict):
-        raise KaggleReceiptError(f"{context} {role} content must contain exactly one part")
-    if set(parts[0]) != {"text"}:
-        raise KaggleReceiptError(
-            f"{context} {role} part fields drifted: {sorted(parts[0])}"
-        )
-    return _require_string(
-        parts[0].get("text"),
-        role=f"{context} {role} text",
-        allow_empty=role == "CONTENT_ROLE_ASSISTANT",
+    expected = (
+        ("CONTENT_ROLE_USER", "User", False),
+        ("CONTENT_ROLE_ASSISTANT", model_slug, True),
     )
+    texts: list[str] = []
+    for index, (content, (role, sender_name, allow_empty)) in enumerate(
+        zip(contents, expected)
+    ):
+        content_context = f"{context} contents[{index}]"
+        if not isinstance(content, dict):
+            raise KaggleReceiptError(f"{content_context} must be an object")
+        _require_exact_fields(
+            content,
+            {"parts", "role", "senderName"},
+            role=content_context,
+        )
+        if content["role"] != role or content["senderName"] != sender_name:
+            raise KaggleReceiptError(
+                f"{content_context} identity drifted: expected {role}/{sender_name!r}"
+            )
+        parts = content["parts"]
+        if not isinstance(parts, list) or len(parts) != 1 or not isinstance(parts[0], dict):
+            raise KaggleReceiptError(
+                f"{content_context} must contain exactly one text part"
+            )
+        _require_exact_fields(parts[0], {"text"}, role=f"{content_context} part")
+        texts.append(
+            _require_string(
+                parts[0]["text"],
+                role=f"{content_context} text",
+                allow_empty=allow_empty,
+            )
+        )
+    return texts[0], texts[1]
 
 
 def _validate_request_metrics(value: Any, *, context: str) -> dict[str, int | str]:
@@ -227,6 +321,7 @@ def parse_run_conversations(
     run: dict[str, Any],
     *,
     expected_prompts: list[dict[str, str]],
+    model_slug: str,
     max_tokens: int,
     saturation_margin_tokens: int = DEFAULT_SATURATION_MARGIN_TOKENS,
 ) -> tuple[list[dict[str, Any]], dict[str, Any]]:
@@ -275,10 +370,19 @@ def parse_run_conversations(
         )
         requests = conversation.get("requests")
         if requests is None:
+            _require_exact_fields(
+                conversation,
+                {"id", "metrics", "modelVersionSlug"},
+                role=f"{context} placeholder",
+            )
+            suffix = conversation_id[len(task_name) + 1 :]
             if (
-                placeholder_ids
+                index != 0
+                or placeholder_ids
                 or not conversation_id.startswith(f"{task_name}-")
-                or set(conversation) - {"id", "metrics", "modelVersionSlug"}
+                or _CHAT_SUFFIX.fullmatch(suffix) is None
+                or conversation["metrics"] != {}
+                or conversation["modelVersionSlug"] != DEPRECATED_MODEL_VERSION_SLUG
             ):
                 raise KaggleReceiptError(
                     f"unexpected request-less conversation: {conversation_id}"
@@ -290,6 +394,13 @@ def parse_run_conversations(
                 f"{context} must contain exactly one request; found "
                 f"{len(requests) if isinstance(requests, list) else 'non-array'}"
             )
+        _require_exact_fields(
+            conversation,
+            {"id", "requests", "metrics", "modelVersionSlug"},
+            role=context,
+        )
+        if conversation["modelVersionSlug"] != DEPRECATED_MODEL_VERSION_SLUG:
+            raise KaggleReceiptError(f"{context} modelVersionSlug marker drifted")
         matching_bases = [
             base
             for base in expected_by_base
@@ -319,19 +430,12 @@ def parse_run_conversations(
                 f"{context} request id drifted: expected {conversation_id}-req-1, "
                 f"found {request_id}"
             )
-        prompt_text = _single_text_content(
-            request["contents"],
-            role="CONTENT_ROLE_USER",
-            context=context,
+        prompt_text, output_text = _strict_request_contents(
+            request["contents"], context=context, model_slug=model_slug
         )
         expected = expected_by_base[base]
         if prompt_text != expected["prompt"]:
             raise KaggleReceiptError(f"prompt text drifted for {base}")
-        output_text = _single_text_content(
-            request["contents"],
-            role="CONTENT_ROLE_ASSISTANT",
-            context=context,
-        )
         metrics = _validate_request_metrics(request["metrics"], context=context)
         conversation_metrics = conversation.get("metrics")
         if conversation_metrics != request["metrics"]:
@@ -361,6 +465,11 @@ def parse_run_conversations(
     rows = [rows_by_base[base] for base in expected_by_base]
     output_tokens = [int(row["usage"]["outputTokens"]) for row in rows]
     empty_row_ids = [row["rowId"] for row in rows if not row["outputText"].strip()]
+    invalid_usage_row_ids = [
+        row["rowId"]
+        for row in rows
+        if row["usage"]["inputTokens"] == 0 or row["usage"]["outputTokens"] == 0
+    ]
     saturation_threshold = max_tokens - saturation_margin_tokens
     near_cap_row_ids = [
         row["rowId"]
@@ -368,8 +477,13 @@ def parse_run_conversations(
         if row["usage"]["outputTokens"] >= saturation_threshold
     ]
     diagnostics = {
-        "status": "blocked" if empty_row_ids or near_cap_row_ids else "valid",
+        "status": (
+            "blocked"
+            if empty_row_ids or invalid_usage_row_ids or near_cap_row_ids
+            else "valid"
+        ),
         "emptyRowIds": empty_row_ids,
+        "invalidUsageRowIds": invalid_usage_row_ids,
         "nearCapRowIds": near_cap_row_ids,
         "outputTokenStats": {
             "count": len(output_tokens),
@@ -383,31 +497,51 @@ def parse_run_conversations(
     return rows, diagnostics
 
 
-def _load_legacy_score_function(package_root: Path) -> Callable[..., dict[str, Any]]:
-    """Execute receipt-anchored scorer sources without creating bytecode files."""
+def _load_legacy_score_function(
+    *,
+    scoring_source: bytes,
+    score_outputs_source: bytes,
+    item_rows: list[dict[str, Any]],
+    prompt_rows: list[dict[str, Any]],
+) -> Callable[..., dict[str, Any]]:
+    """Execute only the already-hashed source snapshot, never an operator path."""
 
-    scoring_path = package_root / "kaggle/_scoring.py"
-    score_outputs_path = package_root / "kaggle/score_outputs.py"
+    scoring_name = "aleph_bench_snapshot/kaggle/_scoring.py"
+    score_outputs_name = "aleph_bench_snapshot/kaggle/score_outputs.py"
     scoring_module = ModuleType("_scoring")
-    scoring_module.__file__ = str(scoring_path)
+    scoring_module.__file__ = scoring_name
     score_module = ModuleType("aleph_bench_v0_1_score_outputs")
-    score_module.__file__ = str(score_outputs_path)
+    score_module.__file__ = score_outputs_name
     previous_scoring = sys.modules.get("_scoring")
+    previous_sys_path = list(sys.path)
     try:
         sys.modules["_scoring"] = scoring_module
         exec(
-            compile(scoring_path.read_bytes(), str(scoring_path), "exec"),
+            compile(scoring_source, scoring_name, "exec"),
             scoring_module.__dict__,
         )
         exec(
-            compile(score_outputs_path.read_bytes(), str(score_outputs_path), "exec"),
+            compile(score_outputs_source, score_outputs_name, "exec"),
             score_module.__dict__,
         )
     finally:
+        sys.path[:] = previous_sys_path
         if previous_scoring is None:
             sys.modules.pop("_scoring", None)
         else:
             sys.modules["_scoring"] = previous_scoring
+
+    def snapshot_jsonl(path: str | Path) -> list[dict[str, Any]]:
+        logical_path = Path(path).as_posix()
+        if logical_path.endswith("data/public_s2_items.jsonl"):
+            return copy.deepcopy(item_rows)
+        if logical_path.endswith("data/public_s2_prompts.jsonl"):
+            return copy.deepcopy(prompt_rows)
+        raise KaggleReceiptError(
+            f"legacy scorer attempted to read an unaudited JSONL path: {logical_path}"
+        )
+
+    score_module.__dict__["_load_jsonl"] = snapshot_jsonl
     score_submission = score_module.__dict__.get("score_submission")
     if not callable(score_submission):
         raise KaggleReceiptError("immutable package lacks callable score_submission")
@@ -429,19 +563,30 @@ def _artifact_map(manifest: dict[str, Any]) -> dict[str, dict[str, Any]]:
     return by_path
 
 
-def _declared_artifact_identity(
+def _snapshot_declared_artifact(
     package_root: Path,
     artifacts: dict[str, dict[str, Any]],
     relative_path: str,
-) -> dict[str, Any]:
+) -> tuple[dict[str, Any], bytes]:
     row = artifacts.get(relative_path)
     if row is None:
         raise KaggleReceiptError(f"package manifest omits {relative_path}")
-    raw = (package_root / relative_path).read_bytes()
-    digest = _sha256(raw)
-    if row.get("sha256") != digest or row.get("bytes") != len(raw):
-        raise KaggleReceiptError(f"package artifact identity drifted: {relative_path}")
-    return {"path": relative_path, "sha256": digest, "bytes": len(raw)}
+    expected_sha256 = _require_string(
+        row.get("sha256"), role=f"package artifact {relative_path} sha256"
+    )
+    expected_bytes = _require_int(
+        row.get("bytes"), role=f"package artifact {relative_path} bytes", minimum=1
+    )
+    raw = _read_pinned_file(
+        package_root / relative_path,
+        expected_sha256=expected_sha256,
+        expected_bytes=expected_bytes,
+        role=f"package artifact {relative_path}",
+    )
+    return (
+        {"path": relative_path, "sha256": expected_sha256, "bytes": expected_bytes},
+        raw,
+    )
 
 
 def _normalize_bench_result(result: dict[str, Any]) -> dict[str, Any]:
@@ -463,29 +608,29 @@ def _load_package_context(package_root: Path) -> dict[str, Any]:
         )
     package_root = requested_root.resolve()
     manifest_path = package_root / "package-manifest.json"
-    manifest_raw = manifest_path.read_bytes()
+    manifest_raw = _read_pinned_file(
+        manifest_path,
+        expected_sha256=AUDITED_PACKAGE_MANIFEST_SHA256,
+        role="audited package manifest",
+    )
     manifest = _load_json_bytes(manifest_raw, role="package manifest")
     if not isinstance(manifest, dict):
         raise KaggleReceiptError("package manifest must be a JSON object")
     artifacts = _artifact_map(manifest)
-    items_identity = _declared_artifact_identity(
+    items_identity, items_raw = _snapshot_declared_artifact(
         package_root, artifacts, "data/public_s2_items.jsonl"
     )
-    prompts_identity = _declared_artifact_identity(
+    prompts_identity, prompts_raw = _snapshot_declared_artifact(
         package_root, artifacts, "data/public_s2_prompts.jsonl"
     )
-    score_identity = _declared_artifact_identity(
+    score_identity, score_source = _snapshot_declared_artifact(
         package_root, artifacts, "kaggle/score_outputs.py"
     )
-    scoring_core_identity = _declared_artifact_identity(
+    scoring_core_identity, scoring_source = _snapshot_declared_artifact(
         package_root, artifacts, "kaggle/_scoring.py"
     )
-    item_rows = _load_jsonl(
-        package_root / items_identity["path"], role="public S2 items"
-    )
-    prompt_rows = _load_jsonl(
-        package_root / prompts_identity["path"], role="public S2 prompts"
-    )
+    item_rows = _load_jsonl_bytes(items_raw, role="public S2 items")
+    prompt_rows = _load_jsonl_bytes(prompts_raw, role="public S2 prompts")
     sendable: list[dict[str, str]] = []
     seen_prompt_keys: set[tuple[str, str]] = set()
     for index, row in enumerate(prompt_rows):
@@ -522,6 +667,8 @@ def _load_package_context(package_root: Path) -> dict[str, Any]:
         "promptsIdentity": prompts_identity,
         "scoreIdentity": score_identity,
         "scoringCoreIdentity": scoring_core_identity,
+        "scoreSource": score_source,
+        "scoringSource": scoring_source,
     }
 
 
@@ -563,12 +710,13 @@ def build_kaggle_receipt(
     if (
         task_name != AUDITED_TASK_NAME
         or task_version != AUDITED_TASK_VERSION
+        or task_description != AUDITED_TASK_DESCRIPTION
         or task_definition_sha256 != AUDITED_TASK_DEFINITION_SHA256
     ):
         raise KaggleReceiptError(
             "unsupported Kaggle task identity: expected "
             f"{AUDITED_TASK_NAME}@{AUDITED_TASK_VERSION}/"
-            f"{AUDITED_TASK_DEFINITION_SHA256}, found "
+            f"{AUDITED_TASK_DEFINITION_SHA256} with audited description, found "
             f"{task_name}@{task_version}/{task_definition_sha256}"
         )
     model_version = run.get("modelVersion")
@@ -578,6 +726,10 @@ def build_kaggle_receipt(
     py_run_id = _require_string(run.get("pyRunId"), role="pyRunId")
     started_at = _require_string(run.get("startTime"), role="startTime")
     ended_at = _require_string(run.get("endTime"), role="endTime")
+    started_timestamp = _parse_utc_timestamp(started_at, role="startTime")
+    ended_timestamp = _parse_utc_timestamp(ended_at, role="endTime")
+    if ended_timestamp < started_timestamp:
+        raise KaggleReceiptError("endTime must not precede startTime")
 
     results = run.get("results")
     if not isinstance(results, list) or len(results) != 1:
@@ -598,6 +750,7 @@ def build_kaggle_receipt(
     rows, diagnostics = parse_run_conversations(
         run,
         expected_prompts=package["sendable"],
+        model_slug=model_slug,
         max_tokens=max_tokens,
         saturation_margin_tokens=saturation_margin_tokens,
     )
@@ -611,10 +764,15 @@ def build_kaggle_receipt(
         }
         for row in rows
     ]
-    score_submission = _load_legacy_score_function(package["root"])
+    score_submission = _load_legacy_score_function(
+        scoring_source=package["scoringSource"],
+        score_outputs_source=package["scoreSource"],
+        item_rows=package["items"],
+        prompt_rows=package["prompts"],
+    )
     replayed = score_submission(
-        items_path=package["root"] / "data/public_s2_items.jsonl",
-        prompts_path=package["root"] / "data/public_s2_prompts.jsonl",
+        items_path="data/public_s2_items.jsonl",
+        prompts_path="data/public_s2_prompts.jsonl",
         submission_rows=submission_rows,
         model_id=model_slug,
     )
@@ -728,3 +886,95 @@ def serialize_kaggle_receipt(receipt: dict[str, Any]) -> bytes:
             f"receipt artifact id mismatch: expected {observed_id}, found {expected_id}"
         )
     return canonical_json_bytes(receipt)
+
+
+def validate_kaggle_replay_output_path(
+    *,
+    run_json_path: Path,
+    package_root: Path,
+    out: Path,
+) -> Path:
+    """Require a fresh output outside both source evidence inputs."""
+
+    requested_out = Path(out).absolute()
+    try:
+        requested_out.lstat()
+    except FileNotFoundError:
+        pass
+    except OSError as exc:
+        raise KaggleReceiptError(f"could not safely inspect output path: {exc}") from exc
+    else:
+        raise KaggleReceiptError(
+            f"refusing to replace existing Kaggle receipt output: {requested_out}"
+        )
+
+    try:
+        run_path = Path(run_json_path).resolve(strict=True)
+        package_path = Path(package_root).resolve(strict=True)
+    except OSError as exc:
+        raise KaggleReceiptError(f"could not resolve Kaggle replay input: {exc}") from exc
+    output_path = requested_out.resolve(strict=False)
+    if output_path == run_path:
+        raise KaggleReceiptError("receipt output must not alias the source run JSON")
+    if output_path == package_path or output_path.is_relative_to(package_path):
+        raise KaggleReceiptError("receipt output must be outside the scorer package")
+    assert_not_v0_1_write(requested_out)
+    return requested_out
+
+
+def write_new_kaggle_receipt(path: Path, receipt: dict[str, Any]) -> None:
+    """Atomically publish a new receipt and fail if its path already exists."""
+
+    content = serialize_kaggle_receipt(receipt)
+    target = Path(path).absolute()
+    assert_not_v0_1_write(target)
+    target.parent.mkdir(parents=True, exist_ok=True)
+    assert_not_v0_1_write(target)
+    directory_flags = os.O_RDONLY | getattr(os, "O_DIRECTORY", 0) | getattr(
+        os, "O_NOFOLLOW", 0
+    )
+    try:
+        parent_descriptor = os.open(target.parent, directory_flags)
+    except OSError as exc:
+        raise KaggleReceiptError(
+            f"could not safely open receipt output directory: {exc}"
+        ) from exc
+    temporary_name = f".{target.name}.{os.getpid()}.{secrets.token_hex(8)}.tmp"
+    temporary_descriptor: int | None = None
+    try:
+        temporary_descriptor = os.open(
+            temporary_name,
+            os.O_WRONLY
+            | os.O_CREAT
+            | os.O_EXCL
+            | getattr(os, "O_NOFOLLOW", 0),
+            0o600,
+            dir_fd=parent_descriptor,
+        )
+        with os.fdopen(temporary_descriptor, "wb") as handle:
+            temporary_descriptor = None
+            handle.write(content)
+            handle.flush()
+            os.fsync(handle.fileno())
+        try:
+            os.link(
+                temporary_name,
+                target.name,
+                src_dir_fd=parent_descriptor,
+                dst_dir_fd=parent_descriptor,
+                follow_symlinks=False,
+            )
+        except FileExistsError as exc:
+            raise KaggleReceiptError(
+                f"refusing to replace existing Kaggle receipt output: {target}"
+            ) from exc
+        os.fsync(parent_descriptor)
+    finally:
+        if temporary_descriptor is not None:
+            os.close(temporary_descriptor)
+        try:
+            os.unlink(temporary_name, dir_fd=parent_descriptor)
+        except FileNotFoundError:
+            pass
+        finally:
+            os.close(parent_descriptor)
