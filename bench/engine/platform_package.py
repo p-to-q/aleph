@@ -15,6 +15,7 @@ from .frozen_ladder import (
     stable_dataset_path,
 )
 from .leakage_gate import DEFAULT_THRESHOLDS, evaluate_leakage
+from .legacy_v0_1 import validated_relative_path, verify_v0_1_package_receipt
 from .metrics import token_count
 from .schema_validation import load_schema, validate
 
@@ -1962,58 +1963,101 @@ def expected_platform_manifest(out_dir: Path) -> tuple[dict[str, Any], dict[str,
 
 
 def write_platform_package(out_dir: Path) -> dict[str, Any]:
-    manifest, artifact_bytes, checksum_bytes = expected_platform_manifest(out_dir)
-    schema = load_schema(REPO_ROOT / "schemas/aleph-bench-platform-package.schema.json")
-    validate(manifest, schema)
-    for relative_path, content in artifact_bytes.items():
-        path = out_dir / relative_path
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_bytes(content)
-    (out_dir / "checksums.sha256").write_bytes(checksum_bytes)
-    (out_dir / "package-manifest.json").write_bytes(_json_bytes(manifest))
-    return manifest
+    del out_dir
+    raise RuntimeError(
+        "Aleph-Bench v0.1 platform bytes are immutable and cannot be regenerated; "
+        "use bench.engine.platform_package_v0_2.write_v0_2_package"
+    )
 
 
 def check_platform_package(manifest_path: Path) -> dict[str, Any]:
+    """Verify the immutable v0.1 package from its checked-in receipt.
+
+    v0.1 package bytes must not be regenerated with the v0.2 scorer. Its
+    historical manifest and checksum file are therefore the authority for a
+    digest-only, closed-world verification.
+    """
+
+    manifest_path = Path(manifest_path)
     errors: list[str] = []
+    if manifest_path.name != "package-manifest.json":
+        errors.append("v0.1 package check requires package-manifest.json")
+    if manifest_path.is_symlink():
+        errors.append("v0.1 package manifest must not be a symlink")
+    if not manifest_path.is_file():
+        return {
+            "status": "failed",
+            "packageManifest": stable_dataset_path(manifest_path),
+            "artifactCount": 0,
+            "targetPlatforms": [],
+            "errors": errors + [f"missing package manifest: {manifest_path}"],
+        }
+
+    out_dir = manifest_path.parent
+    errors.extend(verify_v0_1_package_receipt(out_dir))
     schema = load_schema(REPO_ROOT / "schemas/aleph-bench-platform-package.schema.json")
-    manifest = _load_json(manifest_path)
     try:
+        manifest = _load_json(manifest_path)
         validate(manifest, schema)
     except Exception as exc:
         errors.append(f"{manifest_path}: {exc}")
-    out_dir = manifest_path.parent
-    expected, expected_bytes, expected_checksums = expected_platform_manifest(out_dir)
-    if manifest != expected:
-        errors.append("package manifest does not match current deterministic package contents")
-    for artifact in expected["artifacts"]:
-        path = out_dir / artifact["path"]
-        if not path.exists():
-            errors.append(f"missing artifact: {artifact['path']}")
+        manifest = {}
+    artifacts = manifest.get("artifacts", [])
+    seen_paths: set[str] = set()
+    for artifact in artifacts:
+        raw_path = artifact.get("path")
+        try:
+            relative_path = validated_relative_path(raw_path)
+        except (TypeError, ValueError) as exc:
+            errors.append(f"unsafe artifact path {raw_path!r}: {exc}")
+            continue
+        relative = relative_path.as_posix()
+        if relative in seen_paths:
+            errors.append(f"duplicate artifact path: {relative}")
+            continue
+        seen_paths.add(relative)
+        path = out_dir.joinpath(*relative_path.parts)
+        if path.is_symlink():
+            errors.append(f"artifact must not be a symlink: {relative}")
+            continue
+        if not path.is_file():
+            errors.append(f"missing artifact: {relative}")
             continue
         data = path.read_bytes()
-        if _sha256(data) != artifact["sha256"] or len(data) != artifact["bytes"]:
-            errors.append(f"artifact changed: {artifact['path']}")
-        if data != expected_bytes[artifact["path"]]:
-            errors.append(f"artifact content is stale: {artifact['path']}")
+        if _sha256(data) != artifact.get("sha256") or len(data) != artifact.get("bytes"):
+            errors.append(f"artifact changed: {relative}")
     checksums_path = out_dir / "checksums.sha256"
-    if not checksums_path.exists():
+    expected_checksums = _checksums_text(artifacts)
+    if checksums_path.is_symlink():
+        errors.append("checksums.sha256 must not be a symlink")
+    elif not checksums_path.is_file():
         errors.append("missing checksums.sha256")
     elif checksums_path.read_bytes() != expected_checksums:
         errors.append("checksums.sha256 does not match current package artifacts")
-    allowed_files = {artifact["path"] for artifact in expected["artifacts"]}
+    allowed_files = {artifact["path"] for artifact in artifacts}
     allowed_files.update({"checksums.sha256", "package-manifest.json"})
     for path in sorted(out_dir.rglob("*")):
+        if path.is_symlink():
+            relative = path.relative_to(out_dir).as_posix()
+            errors.append(f"symlink is forbidden in immutable v0.1 package: {relative}")
+            continue
         if not path.is_file():
             continue
         relative = path.relative_to(out_dir).as_posix()
+        relative_path = Path(relative)
+        if (
+            "__pycache__" in relative_path.parts
+            or relative_path.suffix == ".pyc"
+            or relative_path.name == ".DS_Store"
+        ):
+            continue
         if relative not in allowed_files:
             errors.append(f"unexpected package file: {relative}")
     return {
         "status": "ok" if not errors else "failed",
         "packageManifest": stable_dataset_path(manifest_path),
-        "artifactCount": len(expected["artifacts"]),
-        "targetPlatforms": expected["targetPlatforms"],
+        "artifactCount": len(artifacts),
+        "targetPlatforms": manifest.get("targetPlatforms", []),
         "errors": errors,
     }
 

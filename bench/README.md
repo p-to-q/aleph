@@ -2,10 +2,36 @@
 
 Implementation and operations readme for the `bench/` engine. For the full design, research, and
 launch dossier (12 numbered docs + launch kit), see [`docs/benchmark/`](../docs/benchmark/README.md);
-for the M0 result read [`docs/benchmark/m0-evidence.md`](../docs/benchmark/m0-evidence.md).
+for the frozen v0.1 M0 result read
+[`docs/benchmark/m0-evidence.md`](../docs/benchmark/m0-evidence.md).
 
 
 Aleph-Bench turns the Aleph compression workbench into a controlled comparison instrument. Instead of asking for one model's shortest known prompt path, it holds the target set and procedure fixed and compares how much non-leaking prompt coordinate length different models need.
+
+## Protocol versions
+
+The checked-in, unversioned M0 dataset and evidence paths are the immutable **v0.1** record. v0.1
+called its soft normalized-edit score `exact`; that historical meaning remains attached to those bytes
+and results. Do not regenerate v0.1 artifacts with a newer scorer or reinterpret their numbers under a
+newer protocol.
+
+**v0.2 is a breaking scorer protocol**, not a correction that can be applied in place. Its dataset
+and schemas live in v0.2 namespaces; every generated v0.2 result and platform package carries
+`protocolVersion: "0.2.0"` and must be written to a user-selected path, never a legacy v0.1 path. The
+runner rejects missing, mixed, or different protocol versions before scoring. v0.1 and v0.2 scores
+are therefore not directly comparable.
+
+v0.2 scoring is reproducible only under Python 3.13 with Unicode Character Database 15.1.0. Those
+runtime versions are part of the scoring profile and are checked before a run; a mismatched runtime
+fails closed rather than silently changing Unicode behavior.
+
+The public S2 dataset is also a protocol input, not an interchangeable directory. Canonical runs
+require dataset id `aleph-bench-v0.2-public-s2`, exactly 30 items, and the length-framed
+filename-and-content SHA-256 declared in `bench/config/frozen_ladder-v0.2.json`; that identity is
+checked before model calls and repeated in manifests and results. Full runs carry
+`evaluationScope: "canonical"`. A library-only item limit is diagnostic and produces
+`evaluationScope: "smoke"`; the release CLI intentionally exposes no `--limit`, and smoke results
+must not be presented as full benchmark evidence.
 
 ## M0 Shape
 
@@ -23,117 +49,205 @@ BenchItem
 
 M0 uses S2 compositional targets: synthetic, rule-generated outputs that should not be memorized as public text, but can be reconstructed from a sufficiently precise rule prompt.
 
-Each item/model run keeps the canonical `AlephRun` plus a benchmark-only `measurements` receipt. The receipt records every ladder prompt's rung, paraphrase, token count, effective rerun count, fidelity mean, fidelity variance, fidelity standard deviation, and leakage-gate decision. This keeps stochastic-run variance visible without adding benchmark-only fields to product `CandidatePoint` objects.
+Each item/model run keeps the canonical `AlephRun` plus a benchmark-only `measurements` receipt. The receipt records every ladder prompt's rung, paraphrase, measured length, raw decoded outputs, effective rerun count, fidelity mean, fidelity variance, fidelity standard deviation, and leakage-gate decision. Raw model output is captured as a string before any scoring normalization; adapters must not trim whitespace or coerce non-string values. This keeps stochastic-run variance visible without adding benchmark-only fields to product `CandidatePoint` objects.
 
 ## Evidence Modes
 
-The checked-in M0 result is deterministic mock evidence. It validates the benchmark pipeline, not the relative quality of real models.
+The checked-in frozen v0.1 M0 result is deterministic mock evidence. It validates that historical
+benchmark pipeline, not the relative quality of real models. Generated v0.2 mock results have the
+same evidence limitation and are not a real-model leaderboard.
 
 Hosted black-box runs are supported by the adapter path, but require server-side OpenAI-compatible credentials. Black-box rows report generated text behavior only; they do not report logits, token NLL, or model-internal evidence.
 
 The hosted path is covered by offline local `/chat/completions` tests: request path, bearer auth, model id, prompt message, temperature, `max_tokens`, response parsing, HTTP error reporting, bounded retry on 429/5xx failures, and a one-item end-to-end `black_box` `BenchResult`.
 
-Hosted runs can use `--cache-dir` to save per-call responses and resume after interruption. Use an ignored path such as `.cache/aleph-bench/m0-hosted` so provider outputs do not become accidental repository artifacts.
+Hosted runs can use `--cache-dir` to save per-call responses and resume after interruption. Use an
+ignored path such as `.cache/aleph-bench/v0.2-hosted` so provider outputs do not become accidental
+repository artifacts.
+
+The v0.2 cache identity includes the protocol and raw-response capture versions. Cached outputs remain
+raw strings: normalization belongs to a declared metric, not to transport or cache handling.
+Treat a cache directory as a resume namespace for one provider deployment and evidence run. A mutable
+provider model alias does not reveal its backend revision; use a fresh cache namespace when the alias,
+deployment, or intended evidence date may have changed.
+The cache path must be a dedicated private directory: it may be absent (the CLI creates it as `0700`)
+or already have mode `0700`. The CLI rejects broader existing directories and symlinked path
+components under user-controlled paths instead of changing their permissions. Root-owned system
+directory aliases whose parent is not writable, such as macOS `/var`, are resolved as trusted
+ancestors.
+
+The frozen protocol records a seed, but the portable hosted adapter does not send that seed to the
+OpenAI-compatible provider. It is a logical coordinate for bootstrap sampling and cache identity.
+Hosted prompts are called five times even at temperature zero so provider-side nondeterminism remains
+observable; the mock adapters remain single-call deterministic fixtures.
 
 Hosted retries default to two retries with a one-second delay. Override with `ALEPH_CUSTOM_API_MAX_RETRIES` and `ALEPH_CUSTOM_API_RETRY_DELAY_SECONDS` when a provider needs a different policy.
+Retry count is bounded to 0–5. Doctor and manifest distinguish logical generations from the maximum
+HTTP attempts under that retry policy; the latter is still not a billing guarantee because a timed
+out provider request may already have executed.
 
-`ALEPH_CUSTOM_API_BASE_URL` expects an OpenAI-compatible `/chat/completions` endpoint. The M0 hosted adapter speaks one wire format; for cross-vendor coverage (Anthropic, Gemini, Grok) point it at an OpenAI-compatible proxy such as OpenRouter or LiteLLM. Native Anthropic / Gemini / Vertex adapters are M1 scope.
+`ALEPH_CUSTOM_API_BASE_URL` is the OpenAI-compatible API base URL prefix (for example,
+`https://provider.example/v1`); the adapter appends `/chat/completions`. The M0 hosted adapter
+speaks one wire format; for cross-vendor coverage (Anthropic, Gemini, Grok) point it at an
+OpenAI-compatible proxy such as OpenRouter or LiteLLM. Native Anthropic / Gemini / Vertex adapters
+are M1 scope.
+Remote endpoints must use HTTPS so bearer credentials are not sent in cleartext; plain HTTP is
+accepted only for `localhost`, `127.0.0.1`, or `::1` test servers. Redirect responses are rejected
+instead of followed so credentials remain bound to the configured endpoint.
 
 ## Metrics
 
 - **AURC** is the area under the monotone rate-distortion staircase. Lower is better.
-- **ECL@tau** is the shortest non-leaking coordinate length that reaches the fidelity threshold.
+- **ECL@tau** is, per item, the shortest non-leaking coordinate length that reaches the fidelity
+  threshold.
 - **Elicit@k** is the share of items where a non-leaking prompt with measured length at most `k`
   reaches the fidelity threshold. The M0 default is a 16-unit budget, loaded from
-  `bench/config/frozen_ladder.json`.
+  `bench/config/frozen_ladder-v0.2.json` for v0.2.
 - **Leakage** is a gate, not a penalty. Disqualified prompts are excluded from compression metrics.
 
-The default M0 threshold is `tau = 0.9`, with exact-match fidelity using normalized edit distance for near misses.
+The v0.2 threshold is `tau = 0.95`. It accepts exactly three fidelity metric classes:
 
-The default leakage thresholds are `lcsRatio = 0.65`, `trigramOverlap = 0.5`, and `verbatimSpanTokens = 16`. The LCS gate is intentionally high in M0 because S2 rule prompts must be allowed to name parameters without quoting full target spans.
+- `exact`: binary equality of the two raw decoded Python string code-point sequences. It performs no
+  Unicode, newline, case, or whitespace normalization.
+- `normalized_edit_similarity`: replace CRLF and lone CR with LF, normalize to NFC, then compute
+  `1 - Levenshtein / max(code-point lengths)`. Case, whitespace, punctuation, and order remain
+  significant.
+- `unicode_char_ngram`: normalize to NFC, case-fold, normalize to NFC again, collapse Unicode
+  whitespace, form code-point trigram multisets, and report multiset Jaccard similarity. Repeated
+  trigrams retain their multiplicity; punctuation, symbols, and ZWJ code points are retained.
+
+An undeclared or unsupported metric class is an error; v0.2 has no implicit fallback to an older
+metric. The current S2 items declare `normalized_edit_similarity`. The v0.1 near-miss behavior remains
+only a legacy v0.1 fact and is not v0.2 `exact` semantics. Engine and generated-scorer behavior is
+locked by the shared [v0.2 scorer conformance vectors](conformance/scorer-v0.2.json).
+
+The v0.2 leakage unit is `unicode_dual_channel_v1`. Both channels map CRLF and lone CR to LF, apply
+NFKC, case-fold, and apply NFKC again. The lexical channel then keeps Latin-like letter/number runs
+together, emits wide/full-width letters and numbers such as CJK code points individually, and retains
+punctuation and symbols. The boundary-insensitive skeleton channel compares the remaining non-space
+code points directly, so inserting punctuation or splitting a word cannot defeat only the lexical
+segmentation. The gate disqualifies a prompt if any of these six thresholds is reached:
+
+```text
+lexical:   lcsRatio >= 0.65
+        or targetTrigramRecall >= 0.50
+        or verbatimSpanUnits >= 16
+skeleton:  skeletonLcsRatio >= 0.80
+        or skeletonTargetTrigramRecall >= 0.80
+        or skeletonVerbatimSpanUnits >= 32
+```
+
+Shared normalization removes controls, format characters, surrogates, variation selectors, and emoji
+skin-tone modifiers. Private-use (`Co`) and unassigned (`Cn`) code points are deliberately preserved
+rather than erased, because opaque copied payloads must remain visible. The conservative skeleton is
+not a Unicode UTS #39 confusable-skeleton implementation: cross-script homoglyph substitution remains
+a documented manual-audit limitation, as do same-script and multi-code-point visual confusables
+such as `I`/`l` and `rn`/`m`. Both trigram-recall channels count occurrences rather than
+distinct trigram membership, so a short repeated substring cannot claim full recall of a long repeated
+target. Scorer inputs are capped at 16,384 Unicode code points before any quadratic edit/LCS work.
+Normalization output is separately capped at 32,768 code points, and every edit/LCS pair is rejected
+before allocation when its length product exceeds 1,000,000 cells; compatibility expansion therefore
+cannot bypass the raw-input bound.
+
+Before those overlap tests, v0.2 also fails closed on raw prompt bidi-control code points and CJK
+Compatibility Ideographs. Each receipt records `failClosedReason` as `bidi_control`,
+`cjk_compatibility_ideograph`, or `null`; benchmark targets containing either class are invalid.
+
+Length and token measurement are a separate contract. v0.2 hardens output scoring and leakage, but
+does not resolve the cross-provider length/token definition or the aggregate ECL convention tracked
+in [#35](https://github.com/p-to-q/aleph/issues/35). The current result reports mean ECL over only
+the items that reach `tau`, alongside `coverageAtTau`; it is not yet the design document's proposed
+median normalized compression factor. Until #35 lands, do not present the interim length proxy as
+tokenizer-comparable evidence across scripts or providers, or ECL as a settled leaderboard headline.
 
 ## Commands
 
-Check dataset validity, leakage-gate distribution, hosted environment variables, and call budget before a run:
+All v0.2 examples name the versioned dataset explicitly and write generated artifacts outside the
+repository. They do not overwrite the frozen v0.1 evidence.
+
+Check dataset validity, leakage-gate distribution, hosted environment variables, and call budget
+before a run:
 
 ```bash
-./aleph-bench doctor --model hosted:model-a,hosted:model-b,hosted:model-c
+./aleph-bench doctor \
+  --data-dir bench/data/v0.2/public/s2 \
+  --model hosted:model-a,hosted:model-b,hosted:model-c
 ```
 
 Write a no-call manifest of the non-leaking prompts that would be sent:
 
 ```bash
-./aleph-bench manifest --model hosted:model-a,hosted:model-b,hosted:model-c --out bench/results/m0-hosted-manifest.json
+./aleph-bench manifest \
+  --data-dir bench/data/v0.2/public/s2 \
+  --model hosted:model-a,hosted:model-b,hosted:model-c \
+  --out /tmp/aleph-bench-v0.2/hosted-manifest.json
 ```
 
-Manifests validate against [schemas/aleph-bench-manifest.schema.json](../schemas/aleph-bench-manifest.schema.json) before the CLI writes them.
+v0.2 manifests validate against
+[schemas/v0.2/aleph-bench-manifest.schema.json](../schemas/v0.2/aleph-bench-manifest.schema.json)
+before the CLI writes them.
 
-Verify dataset, result, and manifest consistency:
+Run a deterministic mock result and render a report in a temporary directory:
 
 ```bash
-./aleph-bench verify
+./aleph-bench run \
+  --data-dir bench/data/v0.2/public/s2 \
+  --model mock-frontier,mock-mid,mock-small \
+  --seed 0 \
+  --out /tmp/aleph-bench-v0.2/mock-result.json
+./aleph-bench report \
+  --result /tmp/aleph-bench-v0.2/mock-result.json \
+  --out /tmp/aleph-bench-v0.2/mock-report.md
 ```
 
-`verify` also validates every embedded item run against the canonical [schemas/aleph-run.schema.json](../schemas/aleph-run.schema.json), so benchmark aggregates cannot silently drift away from the product run contract.
-
-Verify the full checked-in mock M0 bundle, including the audit receipt:
+Run hosted black-box rows after setting `ALEPH_CUSTOM_API_BASE_URL`,
+`ALEPH_CUSTOM_API_KEY`, and a reviewed `ALEPH_CUSTOM_API_DEPLOYMENT_ID`. The deployment id is a
+non-secret operator receipt for the exact provider snapshot or proxy route; do not put credentials
+in it.
 
 ```bash
-./aleph-bench verify --audit bench/results/m0-audit.json --bundle bench/results/m0-bundle.json
+./aleph-bench run \
+  --data-dir bench/data/v0.2/public/s2 \
+  --model hosted:model-a,hosted:model-b,hosted:model-c \
+  --seed 0 \
+  --cache-dir .cache/aleph-bench/v0.2-hosted \
+  --out /tmp/aleph-bench-v0.2/hosted-result.json
 ```
 
-Run the M0 acceptance-gate audit:
+Build and check a disposable v0.2 scorer-conformance package. A package is not a release merely
+because it was generated successfully:
+
+```bash
+./aleph-bench package-v0.2 --out-dir /tmp/aleph-bench-v0.2-package
+./aleph-bench package-v0.2 --check /tmp/aleph-bench-v0.2-package/package-manifest.json
+python3.13 /tmp/aleph-bench-v0.2-package/kaggle/run_conformance.py
+```
+
+The generated package includes the 30-item JSONL dataset, v0.2 schemas, shared conformance vectors,
+checksums, and the scorer core copied byte-for-byte from the canonical engine module. It is staging
+material for Kaggle integration and scorer conformance, not a complete Kaggle evaluator: it does not
+implement submission I/O, model execution, AURC/ECL aggregation, or leaderboard hosting. It is also
+not model evidence or a publication bundle.
+
+Track, split, stratum, `tau`, `k`, rerun count, bootstrap count, dataset identity, and leakage
+thresholds are frozen in the v0.2 protocol configuration. The release CLI does not expose overrides
+for them and does not expose a smoke-test item limit; change to any of those values requires a new
+protocol rather than another command-line flag. The exact config bytes are independently anchored by
+SHA-256 in the protocol module and rechecked before planning or model calls, so editing the config
+while retaining `protocolVersion: "0.2.0"` fails closed.
+
+### Frozen v0.1 legacy evidence
+
+`bench/data/public/s2`, `bench/results/m0-*`, `bench/results/platform/m0-mock`, the root benchmark
+schemas, and `docs/benchmark/m0-evidence.md` are the frozen v0.1 record. Verification of that package
+is read-only and digest-based:
 
 ```bash
 ./aleph-bench audit
-```
-
-Write the same audit as a durable JSON receipt:
-
-```bash
-./aleph-bench audit --out bench/results/m0-audit.json
-```
-
-Audit receipts validate against [schemas/aleph-bench-audit.schema.json](../schemas/aleph-bench-audit.schema.json).
-
-`audit` repeats that canonical `AlephRun` contract check alongside the M0 acceptance gates. It is intentionally limited to deterministic mock results because it reruns seed 0 and seed 1; use `verify` and `report` for hosted results unless a future audit mode explicitly allows adapter calls.
-
-The audit also checks M0 seed integrity: 30 S2 items, one shared field-level canary kept out of target and prompt text, a 10/10/10 arithmetic/lattice/route family split, and exactly two prompts for each of the four ladder rungs.
-
-Build or check the mock M0 evidence bundle digest manifest:
-
-```bash
-./aleph-bench bundle --out bench/results/m0-bundle.json
 ./aleph-bench bundle --check bench/results/m0-bundle.json
-```
-
-Bundle manifests validate against [schemas/aleph-bench-bundle.schema.json](../schemas/aleph-bench-bundle.schema.json). The bundle records file digests for the checked-in mock result, prompt manifest, audit receipt, generated report, and evidence note; it does not add model evidence.
-
-Render a markdown report from a result JSON:
-
-```bash
-./aleph-bench report --result bench/results/m0-first-run.json --out bench/results/m0-report.md
-```
-
-Run the deterministic mock receipt:
-
-```bash
-./aleph-bench run --track F --model mock-frontier,mock-mid,mock-small --split public --seed 0 --out bench/results/m0-first-run.json
-```
-
-Run hosted black-box rows after setting `ALEPH_CUSTOM_API_BASE_URL` and `ALEPH_CUSTOM_API_KEY`:
-
-```bash
-./aleph-bench run --track F --model hosted:model-a,hosted:model-b,hosted:model-c --split public --seed 0 --cache-dir .cache/aleph-bench/m0-hosted --out bench/results/m0-hosted-run.json
-```
-
-Build the platform release package for Hugging Face Dataset, Kaggle Dataset, Kaggle Community Benchmark review, and Croissant metadata:
-
-```bash
-./aleph-bench package --out-dir bench/results/platform/m0-mock
 ./aleph-bench package --check bench/results/platform/m0-mock/package-manifest.json
-python3 bench/results/platform/m0-mock/kaggle/api_test_smoke.py
-python3 bench/results/platform/m0-mock/huggingface/upload_dataset.py --dry-run
 ```
 
-The checked package includes JSONL and CSV tables, a Hugging Face dataset card, Kaggle `dataset-metadata.json` with resource schemas, Croissant JSON-LD, mock evidence receipts, JSON schemas, checksums, a launch checklist, a Kaggle Community Benchmark scaffold in `kaggle/`, a stubbed Kaggle API-test smoke harness that verifies the 180-row non-leaking prompt/output contract before hosted Kaggle model access exists, and a Hugging Face dry-run/upload helper in `huggingface/`.
+The legacy `audit`, `bundle`, and `package` commands are check-only: they validate frozen receipts and
+digests and never replay the v0.1 scorer or rewrite evidence. Do not point `run`, `manifest`, report
+output, caches, or `package-v0.2` output at legacy paths; write guards reject those destinations.

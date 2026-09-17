@@ -22,6 +22,11 @@ where `distortion = 1 − fidelity ∈ [0, 1]`. This is the same object
 [`search/aleph_search.py`](../../search/aleph_search.py) already computes per target via its
 `monotone()` lower-envelope staircase; the benchmark aggregates it across a corpus and across models.
 
+The construct ultimately requires an explicit, provider-comparable definition of `|p|`. The v0.2
+scorer change below does **not** settle that length/token contract; that work remains tracked in
+[#35](https://github.com/p-to-q/aleph/issues/35). Until it lands, measurements made with the interim
+length proxy must not be presented as tokenizer-comparable evidence across scripts or providers.
+
 **What a high score means:** the model reconstructs intended outputs from terser prompts — it shares
 more prior with the user and needs less instruction to hit a target behavior.
 **What it does not mean:** that the model is more accurate, more capable, or safer. Elicitation
@@ -63,14 +68,59 @@ staircase, the integral is a trivial sum of rectangles.
 ### Interpretable duals — for the leaderboard table
 
 - **ECL@τ** (Elicitation Compression Length): the smallest `L` with `f(L) ≤ 1 − τ`, e.g. τ = 0.9.
-  "Tokens to reach 90% fidelity." Report the median over items, normalized by `|y|` to give a
-  **compression factor** `CF = ECL@τ / L_max` ("you needed X% of the naïve prompt").
+  "Tokens to reach 90% fidelity." The design target is the median over items, normalized by `|y|` to
+  give a **compression factor** `CF = ECL@τ / L_max` ("you needed X% of the naïve prompt"). This is
+  not yet the v0.2 aggregate contract: the current implementation reports mean ECL over successful
+  items plus `coverageAtTau`. Choosing the treatment of unreachable items, aggregation statistic,
+  and normalization is an unresolved part of
+  [issue #35](https://github.com/p-to-q/aleph/issues/35), so ECL is not yet a defensible headline.
 - **Elicit@k**: fidelity (or success rate at `f ≤ 1 − τ`) at a fixed tiny budget `k ∈ {8, 16, 32}`
   tokens. A crisp "can it do it in ≤16 tokens?" column that non-specialists can read.
 - **Transfer gap** (a metric current leaderboards do not report): for the prompt achieving ECL@τ on
   the model under test, the fidelity drop when that same prompt is decoded by a fixed *reference*
   model. Small gap ⇒ a universal short description; large gap ⇒ a model-specific "garden-path"
   coordinate (the repo already studies this; see [`docs/research/garden-path-prompts.md`](../research/garden-path-prompts.md)).
+
+### Versioned scorer contract
+
+The unversioned M0 dataset and evidence files are the immutable **v0.1** record. v0.1 used a soft
+normalized-edit score under the name `exact`. Those bytes and their historical interpretation remain
+together; newer code must not regenerate v0.1 evidence or rescore it in place.
+
+**v0.2 is a breaking protocol.** Its dataset and schemas use v0.2 namespaces. Every generated v0.2
+result and platform package carries `protocolVersion: "0.2.0"` and is written to a user-selected path,
+not a frozen v0.1 location. Missing, mixed, and different protocol versions are rejected before
+scoring, and v0.1 and v0.2 scores are not directly comparable.
+
+A v0.2 adapter captures the model's raw decoded output as a string before normalization. It must not
+trim leading or trailing whitespace or coerce a non-string value. The item then selects one of exactly
+three implemented metric classes:
+
+- `exact` is binary equality of the raw decoded Python string code-point sequences. It performs no
+  Unicode, newline, case, or whitespace normalization.
+- `normalized_edit_similarity` first maps CRLF and lone CR to LF and normalizes to NFC. It then
+  computes code-point Levenshtein similarity as
+  `1 − distance / max(target_length, output_length)`. Case, whitespace, punctuation, and order remain
+  significant.
+- `unicode_char_ngram` normalizes to NFC, case-folds, normalizes to NFC again, collapses Unicode
+  whitespace, then computes multiset Jaccard similarity over code-point trigrams. Punctuation, symbols,
+  and ZWJ code points are retained.
+
+Unsupported metric classes fail closed; there is no semantic, judge, execution, or legacy-edit
+fallback in v0.2. The scorer and its generated platform copy share
+[conformance vectors](../../bench/conformance/scorer-v0.2.json) for Unicode, newline, empty-string,
+punctuation, emoji, and ZWJ cases.
+
+Unicode behavior is part of the protocol, not an ambient runtime choice. v0.2 pins Python 3.13 and
+Unicode Character Database 15.1.0 in the scoring profile and rejects a different runtime before
+scoring.
+
+The canonical public input is identified as `aleph-bench-v0.2-public-s2`, with an exact 30-item
+count and a length-framed filename-and-content SHA-256 in the frozen protocol config. The runner
+checks all three before any model call. Results repeat that identity and declare
+`evaluationScope: "canonical"`; library-only limited diagnostics declare `"smoke"` and are not
+full-release evidence. The release CLI has no `--limit` and exposes no overrides for track, split,
+stratum, `tau`, `k`, reruns, bootstrap samples, dataset identity, or leakage thresholds.
 
 ### Reporting (recommendations 6, 7)
 
@@ -96,7 +146,7 @@ for open-weight models only — the information-theoretic rigor anchor — and i
 black-box ranking**. Track O sits between them for method submissions. Build and ship the black-box
 board first; the white-box table accompanies it.
 
-### Track F — Frozen Ladder (flagship, fully reproducible)
+### Track F — Frozen Ladder (flagship, procedure-fixed and score-replayable)
 
 The dataset ships, per item, a **frozen prompt ladder** audited by maintainers:
 
@@ -108,8 +158,10 @@ p_3  Minimal cue               the shortest hand-found seed (left anchor)
 ```
 
 Every model receives the *identical* ladder; we run each rung through θ under fixed decoding and
-measure fidelity → the model's frontier points. **No search at evaluation time**, so Track F is
-deterministic up to decoding temperature, cheap, contamination-controllable, and trivially hostable on
+measure fidelity → the model's frontier points. **No search at evaluation time**, so Track F has a
+small, reviewable procedure and retained outputs can be rescored offline. Hosted provider outputs are
+not deterministic from a seed: aliases, deployments, and serving stacks can change even at
+temperature zero. Track F is cheap, contamination-auditable, and straightforward to host on
 Kaggle/lm-eval. This is the public leaderboard. `p_0` is excluded from compression claims (it leaks by
 construction); it exists only to anchor `L_max` and to show the model *can* reproduce `y` at all.
 
@@ -153,14 +205,44 @@ can report, but only for models that expose logits, so it is an anchor track rat
 
 ## 4. The leakage gate (hard constraint, not a soft term)
 
-Copying is the dominant way to *fake* elicitation, so we treat it as a validity gate. A measured
-frontier point is **disqualified** if its prompt's overlap with `y` exceeds published thresholds:
+Copying is the dominant way to *fake* elicitation, so we treat it as a validity gate. v0.2 publishes
+the dual-channel unit `unicode_dual_channel_v1`. Both channels map CRLF and lone CR to LF, apply
+NFKC, case-fold, and apply NFKC again. The lexical channel keeps Latin-like letter/number runs
+together, emits wide/full-width letters and numbers such as CJK code points individually, and keeps
+punctuation and symbols. The boundary-insensitive skeleton channel compares non-space code points
+directly, catching copies hidden by word splitting or punctuation insertion.
+
+Shared normalization removes controls, format characters, surrogates, variation selectors, and emoji
+skin-tone modifiers. It deliberately preserves private-use (`Co`) and unassigned (`Cn`) code points
+so opaque copied payloads are not erased. The conservative skeleton is not a UTS #39 confusable
+skeleton; cross-script, same-script, and multi-code-point visual confusables remain a manual
+contamination-audit limitation.
+
+A measured frontier point is **disqualified** if its prompt's overlap with `y` reaches any published
+threshold, or if its raw prompt trips the frozen fail-closed Unicode policy:
 
 ```text
-DISQUALIFY p if  LCS_ratio(p, y) > δ_lcs      # longest common substring / |y|
-            or   trigram_overlap(p, y) > δ_tri
-            or   contains_span(p, y, m)        # any verbatim span ≥ m tokens of y
+DISQUALIFY p if  failClosedReason(p) != null
+            or   lcsRatio(p, y) >= 0.65
+            or   targetTrigramRecall(p, y) >= 0.50
+            or   verbatimSpanUnits(p, y) >= 16
+            or   skeletonLcsRatio(p, y) >= 0.80
+            or   skeletonTargetTrigramRecall(p, y) >= 0.80
+            or   skeletonVerbatimSpanUnits(p, y) >= 32
 ```
+
+`lcsRatio` is longest-common-subsequence length divided by the target's unit length;
+`targetTrigramRecall` is the occurrence-weighted share of target unit trigrams also present in the
+prompt (repeated trigrams retain their multiplicity); and
+`verbatimSpanUnits` is the longest contiguous shared span in those units. The three `skeleton*`
+fields apply the same computations and higher thresholds to the code-point skeleton. Receipts record
+all six measurements, all six thresholds, `unit`, and `failClosedReason`; the latter is
+`bidi_control`, `cjk_compatibility_ideograph`, or `null`. Targets containing either fail-closed class
+are invalid benchmark items. The removed v0.1 names `trigramOverlap` and `verbatimSpanTokens` are not
+v0.2 aliases. Prompt, target, and decoded-output scorer inputs are capped
+at 16,384 code points; normalized text is capped at 32,768 code points; and each edit/LCS input pair
+is rejected before allocation if its length product exceeds 1,000,000 cells. These three frozen
+limits prevent NFKC compatibility expansion from bypassing the resource bound.
 
 This generalizes [`packages/core/src/leakage.ts`](../../packages/core/src/leakage.ts) from a score
 into a gate. Thresholds are published and versioned. The explicit-reconstruction rung `p_0` is the one
@@ -177,11 +259,12 @@ not count, which is far easier to defend to reviewers.
 > to a penalty.
 
 > **AURC normalizer.** The ``aurc(frontier, normalizer_tokens)`` function in
-> [`bench/engine/metrics.py`](../../bench/engine/metrics.py) rescales token budgets into ``[0, 1]``
+> [`bench/engine/metrics.py`](../../bench/engine/metrics.py) rescales measured-length budgets into ``[0, 1]``
 > using the explicit-reconstruction prompt length (or the target text length if it is larger):
 > ``max(token_count(rung0_prompt), token_count(target), 1)``. This matches the ``L_max`` anchor in §2
 > above. Beyond that anchor the curve is held at its last distortion value so a model that never
-> reaches the target within budget degrades smoothly rather than disappearing.
+> reaches the target within budget degrades smoothly rather than disappearing. The current
+> ``token_count`` proxy is not the final cross-provider contract; see issue #35 above.
 
 ## 5. Dataset taxonomy (recommendations 2, 3, 4)
 
@@ -190,11 +273,11 @@ ability. The current `search/targets.py` is exactly one stratum (canonical recal
 
 | Stratum | Target type | Fidelity metric class | Why it is in the benchmark | Contamination posture |
 |---|---|---|---|---|
-| **S1 Canonical recall** | Famous texts (Borges, Gettysburg…) | normalized exact / lexical | The "shared cultural prior" extreme; the demo's strength | High by nature → **bounded share, reported separately** |
-| **S2 Compositional** | Rule-generated outputs (primes table, constrained haiku, derived sequences) | exact / parse / execution | Reconstruction from *generative rules*, not recall | **Freshly generated → non-memorizable** |
-| **S3 Functional / behavioral** | A *task/spec*, scored by held-out test cases or a rubric ("respond to inputs like these, this way") | rubric / test-suite | The enterprise case: recover the *task* from a terse prompt | Fresh specs; private split |
-| **S4 Structured** | Code, JSON, SQL, regex, tables | execution / schema-validate | Objective, checkable fidelity; resists gaming | Fresh → non-memorizable |
-| **S5 Multilingual** | EN + ZH (extensible) targets across S1–S4 | per-class, language-aware | Tests language-independence of elicitation; leverages repo's existing CJK + cross-lingual work | Mixed |
+| **S1 Canonical recall** | Famous texts (Borges, Gettysburg…) | `exact` / Unicode lexical (planned) | The "shared cultural prior" extreme; the demo's strength | High by nature → **bounded share, reported separately** |
+| **S2 Compositional** | Rule-generated outputs (primes table, constrained haiku, derived sequences) | v0.2: `normalized_edit_similarity` | Reconstruction from *generative rules*, not recall | **Freshly generated → non-memorizable** |
+| **S3 Functional / behavioral** | A *task/spec*, scored by held-out test cases or a rubric ("respond to inputs like these, this way") | rubric / test-suite (planned) | The enterprise case: recover the *task* from a terse prompt | Fresh specs; private split |
+| **S4 Structured** | Code, JSON, SQL, regex, tables | execution / schema-validate (planned) | Objective, checkable fidelity; resists gaming | Fresh → non-memorizable |
+| **S5 Multilingual** | EN + ZH (extensible) targets across S1–S4 | declared class; language-aware coverage | Tests language-independence of elicitation; leverages repo's existing CJK + cross-lingual work | Mixed |
 
 Sampling (recommendation 3): each stratum drawn by a **documented protocol** with a target item count
 chosen by a power analysis for tight CIs (recommendation 6), not by convenience. Reused sources
@@ -202,21 +285,15 @@ chosen by a power analysis for tight CIs (recommendation 6), not by convenience.
 existing [`docs/source-ledger.md`](../source-ledger.md) habit.
 
 **The fidelity-metric basket (recommendation 2/8).** A single embedding cosine (the repo's current
-MiniLM metric) is too fragile and gameable for a benchmark. Each item *declares* its metric class:
+MiniLM metric) is too fragile and gameable for a benchmark. Each item *declares* its metric class.
+v0.2 implements only the three versioned classes in §2: binary `exact`,
+`normalized_edit_similarity`, and `unicode_char_ngram`. The S2 release uses
+`normalized_edit_similarity`.
 
-- **Exact / normalized-exact** for S1/S2 reproduction (exact equality ⇒ fidelity 1.0, distortion 0.0
-  — a property the repo's metric plan already demands). The M0 implementation
-  ([`bench/engine/metrics.py::exact_fidelity`](../../bench/engine/metrics.py)) refines the binary
-  reading: exact equality still yields 1.0, but on any mismatch the score falls back to
-  `1 − normalized_edit_distance` instead of a hard 0.0, so a one-character drift is not collapsed to
-  the same value as an empty output. Audit gates assert the exact equality property; the gradient is
-  only the near-miss signal.
-- **Lexical** (ROUGE-L / char-n-gram / edit distance) — transparent, cheap.
-- **Semantic** — a *named, frozen, open* embedding model, version pinned, with results reported under
-  **≥2 embedders** so no single model's geometry is load-bearing.
-- **Rubric / LLM-judge** for S3 open-ended targets — frozen judge model, published rubric, reported
-  judge-agreement and variance.
-- **Execution / schema** for S4 — the gold standard where available.
+Semantic metrics with multiple pinned embedders, rubric/LLM-judge metrics with agreement reporting,
+and execution/schema metrics remain possible future protocol additions for S1/S3/S4. They are design
+directions, not aliases accepted by the v0.2 scorer. Adding one requires a new versioned contract and
+conformance evidence.
 
 Mixing metric classes *within* one aggregate is itself a confound, so the headline AURC is reported
 **per metric class** and only then combined with documented normalization.
@@ -243,8 +320,14 @@ can be generated fresh:
 
 - **Bootstrap CIs** over items on every reported number; "preliminary" labels for models with few
   items or high variance (Chatbot Arena practice).
-- **Decoding is part of the spec**: temperature, max tokens, and seed are pinned and reported;
-  stochastic points carry variance.
+- **Decoding is part of the spec**: temperature and max tokens are pinned and reported. The protocol
+  seed is a bootstrap/cache logical coordinate; the portable hosted adapter does not send it to the
+  provider. Hosted prompts run five times even at temperature zero to measure provider-side
+  nondeterminism, and stochastic points carry variance.
+- **Capture precedes normalization**: every rerun records the raw decoded string before a declared
+  metric transforms it; transport, adapters, and caches do not trim or stringify it.
+- **Unicode runtime is pinned**: v0.2 records and enforces Python 3.13 and Unicode Character Database
+  15.1.0.
 - **Sensitivity analysis**: headline robustness to embedder choice and decoding temperature is
   reported, not assumed.
 - **Limitations section** travels with every results release, and new public claims route through
@@ -257,6 +340,12 @@ can be generated fresh:
 - Not treating S1 canonical recall as the headline — it is the most contaminated stratum.
 - Not shipping a bespoke runner when an lm-eval task + Kaggle task reach more of the community.
 - Not letting fixture/simulated panels enter a leaderboard number — only labeled measured evidence.
+- Not claiming v0.2 solves length/token comparability; that is the separate acceptance gate in
+  [issue #35](https://github.com/p-to-q/aleph/issues/35).
+- Not claiming the current successful-item mean ECL is the design's normalized-median statistic;
+  unreachable-item and aggregation semantics remain open in issue #35.
+- Not claiming the v0.2 scorer-conformance package is a complete Kaggle evaluator. It is integration
+  staging without submission I/O, model execution, AURC/ECL aggregation, or leaderboard hosting.
 
 The implementation that realizes this spec, and how much of it to build first, is in
 [`03-architecture-and-launch.md`](03-architecture-and-launch.md).

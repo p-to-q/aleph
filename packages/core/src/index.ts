@@ -5,3 +5,4 @@ export * from "./frontier.ts";
 export * from "./candidates.ts";
 export * from "./run.ts";
 export * from "./bench.ts";
+export * from "./bench-v0-2.ts";

@@ -99,14 +99,16 @@ The design above is realized in code. M0 (Track F, Frozen Ladder) is implemented
 
 - [`bench/`](../../bench/README.md) — the engine (frozen ladder, leakage gate, metrics, audit, bundle,
   manifest, verify, adapters), 30 S2 seed items, schemas, CLI (`./aleph-bench`), and a deterministic
-  **mock** M0 result with audit/bundle receipts. All M0 acceptance gates pass; 31 unit tests pass.
-- [`m0-evidence.md`](m0-evidence.md) — the first-run evidence note (mock model summary, per-item table,
-  the resolved open-question choices, and the honest "this is mock pipeline evidence, not a real
-  leaderboard" framing).
+  **mock** M0 result with audit/bundle receipts. The current test and artifact gates are the source of
+  truth; this overview intentionally does not freeze a test count.
+- [`m0-evidence.md`](m0-evidence.md) — the immutable archival v0.1 first-run evidence note. Its
+  historical commands are superseded operationally by the current [`bench/` README](../../bench/README.md)
+  and [`hosted-m0-runbook.md`](hosted-m0-runbook.md); do not rewrite it as v0.2 evidence.
 - [`hosted-m0-runbook.md`](hosted-m0-runbook.md) — how to run real black-box models once
   `ALEPH_CUSTOM_API_*` credentials exist.
-- Platform export (`aleph-bench package`) produces the HF Dataset / Kaggle Dataset / Croissant delivery
-  package, plus Kaggle API-test and Hugging Face upload dry-run gates — see
+- The checked-in v0.1 HF/Kaggle/Croissant delivery package is immutable and `aleph-bench package` is
+  check-only. `package-v0.2` builds a disposable scorer-conformance package, not a complete platform
+  evaluator — see
   [`12-platform-feasibility.md`](12-platform-feasibility.md) and
   [`bench/results/platform/m0-mock/package-manifest.json`](../../bench/results/platform/m0-mock/package-manifest.json).
   The concrete launch boundary is tracked in

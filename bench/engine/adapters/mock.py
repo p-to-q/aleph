@@ -23,6 +23,8 @@ PROFILES = {
         3: 0.43,
     },
 }
+MOCK_ADAPTER_ID = "aleph.mock-profile"
+MOCK_ADAPTER_VERSION = "1"
 
 
 class MockAdapter(ModelAdapter):
@@ -37,6 +39,16 @@ class MockAdapter(ModelAdapter):
             raise ValueError(f"unknown mock model: {model_id}")
         super().__init__(model_id=model_id, observation_mode="mock", temperature=0.0)
         self.profile = PROFILES[model_id]
+
+    def cache_identity(self) -> dict[str, Any]:
+        identity = super().cache_identity()
+        identity.update(
+            {
+                "adapterId": MOCK_ADAPTER_ID,
+                "adapterVersion": MOCK_ADAPTER_VERSION,
+            }
+        )
+        return identity
 
     def generate(
         self,
@@ -69,4 +81,3 @@ def degrade(target: str, fidelity: float) -> str:
         return target
     keep = max(0, min(len(target), int(round(len(target) * fidelity))))
     return target[:keep].rstrip()
-

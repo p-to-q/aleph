@@ -14,7 +14,7 @@
     "packages/fixtures"
   ],
   "scripts": {
-    "lint": "node scripts/doctor.mjs && node scripts/check-links.mjs && node scripts/check-placeholders.mjs && node scripts/check-maintenance-routes.mjs && node scripts/check-language.mjs && node scripts/check-core.mjs && node scripts/check-contract.mjs && node scripts/check-fixtures.mjs && node scripts/check-repo.mjs",
+    "lint": "node scripts/doctor.mjs && node scripts/check-links.mjs && node scripts/check-placeholders.mjs && node scripts/check-maintenance-routes.mjs && node scripts/check-language.mjs && node scripts/check-core.mjs && node scripts/check-contract.mjs && node scripts/check-bench-v0-2-contract.mjs && node scripts/check-fixtures.mjs && node scripts/check-repo.mjs",
     "api:smoke": "PYTHONPATH=apps/api apps/api/.venv/bin/python apps/api/smoke.py",
     "api:live-smoke": "PYTHONPATH=apps/api apps/api/.venv/bin/python apps/api/live_smoke.py",
     "bench:audit": "python3 bench/run.py audit",
@@ -25,7 +25,9 @@
     "bench:report": "python3 bench/run.py report",
     "bench:test": "python3 -m unittest discover bench/tests",
     "bench:verify": "python3 bench/run.py verify --audit bench/results/m0-audit.json --bundle bench/results/m0-bundle.json",
+    "bench:verify:v0.1": "python3 bench/run.py verify --audit bench/results/m0-audit.json --bundle bench/results/m0-bundle.json",
     "bench:run": "python3 bench/run.py run",
+    "typecheck:core": "npm --workspace web run typecheck:core",
     "demo:check": "node scripts/demo-check.mjs",
     "search:preflight": "${ALEPH_PY:-python3} search/preflight.py",
     "dev": "npm --workspace web run dev",
