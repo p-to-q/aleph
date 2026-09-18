@@ -24,6 +24,8 @@ are therefore not directly comparable.
 v0.2 scoring is reproducible only under Python 3.13 with Unicode Character Database 15.1.0. Those
 runtime versions are part of the scoring profile and are checked before a run; a mismatched runtime
 fails closed rather than silently changing Unicode behavior.
+The offline [Unicode runtime compatibility proof](proofs/README.md) records the concrete scorer drift
+between that reference runtime and Python 3.11/UCD 14 without weakening the runtime gate.
 
 The public S2 dataset is also a protocol input, not an interchangeable directory. Canonical runs
 require dataset id `aleph-bench-v0.2-public-s2`, exactly 30 items, and the length-framed

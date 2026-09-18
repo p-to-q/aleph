@@ -1,0 +1,316 @@
+{
+  "artifactKind": "aleph-bench-unicode-runtime-compatibility-proof",
+  "conclusion": {
+    "checkedInFixtureEquivalenceAssessed": false,
+    "python311Ucd14EquivalentToV02": false,
+    "runtimeLockMustRemain": true
+  },
+  "counterexamples": [
+    {
+      "coverage": "single-code-point leakage decision",
+      "id": "ucd-15-1-cyrillic-modifier-leakage",
+      "input": {
+        "prompt": "\ud838\udc30",
+        "promptCodepoints": [
+          "U+1E030"
+        ],
+        "target": "\u0430",
+        "targetCodepoints": [
+          "U+0430"
+        ]
+      },
+      "negativeControl": {
+        "normalizedPromptCodepoints": [
+          "U+1E030"
+        ],
+        "normalizedTargetCodepoints": [
+          "U+0430"
+        ],
+        "result": {
+          "disqualified": false,
+          "failClosedReason": null,
+          "lcsRatio": 0.0,
+          "skeletonLcsRatio": 0.0,
+          "skeletonTargetTrigramRecall": 0.0,
+          "skeletonVerbatimSpanUnits": 0,
+          "targetTrigramRecall": 0.0,
+          "thresholds": {
+            "lcsRatio": 0.65,
+            "skeletonLcsRatio": 0.8,
+            "skeletonTargetTrigramRecall": 0.8,
+            "skeletonVerbatimSpanUnits": 32,
+            "targetTrigramRecall": 0.5,
+            "verbatimSpanUnits": 16
+          },
+          "unit": "unicode_dual_channel_v1",
+          "verbatimSpanUnits": 0
+        }
+      },
+      "reference": {
+        "normalizedPromptCodepoints": [
+          "U+0430"
+        ],
+        "normalizedTargetCodepoints": [
+          "U+0430"
+        ],
+        "result": {
+          "disqualified": true,
+          "failClosedReason": null,
+          "lcsRatio": 1.0,
+          "skeletonLcsRatio": 1.0,
+          "skeletonTargetTrigramRecall": 0.0,
+          "skeletonVerbatimSpanUnits": 1,
+          "targetTrigramRecall": 0.0,
+          "thresholds": {
+            "lcsRatio": 0.65,
+            "skeletonLcsRatio": 0.8,
+            "skeletonTargetTrigramRecall": 0.8,
+            "skeletonVerbatimSpanUnits": 32,
+            "targetTrigramRecall": 0.5,
+            "verbatimSpanUnits": 16
+          },
+          "unit": "unicode_dual_channel_v1",
+          "verbatimSpanUnits": 1
+        }
+      }
+    },
+    {
+      "coverage": "multi-code-point NFC fidelity decision",
+      "id": "ucd-15-1-combining-mark-order-fidelity",
+      "input": {
+        "output": "a\ud839\udcec\u035c\u0315\u0300b",
+        "outputCodepoints": [
+          "U+0061",
+          "U+1E4EC",
+          "U+035C",
+          "U+0315",
+          "U+0300",
+          "U+0062"
+        ],
+        "target": "\u00e0\ud839\udcec\u0315\u035cb",
+        "targetCodepoints": [
+          "U+00E0",
+          "U+1E4EC",
+          "U+0315",
+          "U+035C",
+          "U+0062"
+        ]
+      },
+      "negativeControl": {
+        "normalizedEditSimilarity": 0.666667,
+        "normalizedOutputCodepoints": [
+          "U+0061",
+          "U+1E4EC",
+          "U+0300",
+          "U+0315",
+          "U+035C",
+          "U+0062"
+        ],
+        "normalizedTargetCodepoints": [
+          "U+00E0",
+          "U+1E4EC",
+          "U+0315",
+          "U+035C",
+          "U+0062"
+        ]
+      },
+      "reference": {
+        "normalizedEditSimilarity": 1.0,
+        "normalizedOutputCodepoints": [
+          "U+00E0",
+          "U+1E4EC",
+          "U+0315",
+          "U+035C",
+          "U+0062"
+        ],
+        "normalizedTargetCodepoints": [
+          "U+00E0",
+          "U+1E4EC",
+          "U+0315",
+          "U+035C",
+          "U+0062"
+        ]
+      }
+    }
+  ],
+  "id": "aleph-bench-unicode-runtime-proof-v0.2-artifact-c719216439007857785eec0c76f82d1d8dbb5fab6ecf0a58466459c5f4d15287",
+  "limitations": [
+    "The exhaustive table covers each code point independently; it is not exhaustive over multi-code-point normalization sequences.",
+    "Case folding and whitespace observations come from Python str methods, not standalone UCD files.",
+    "The interpreter executable digest does not content-address its standard library, shared libraries, or operating-system image.",
+    "This proof does not execute Unicode conformance files or evaluate the optional unicodedata2 portability candidate.",
+    "Negative-control values are probe observations, not canonical Aleph-Bench results."
+  ],
+  "method": {
+    "canonicalScoringEntryPointsCalledByProbe": false,
+    "codepointRange": {
+      "start": "U+0000",
+      "stopInclusive": "U+10FFFF"
+    },
+    "equalityMethod": "exact field comparison after lossless decoding",
+    "maxPropertyTextCodepoints": 64,
+    "networkCallsMadeByHarness": false,
+    "networkRequired": false,
+    "propertyRecordEncoding": "ASCII metadata plus uint32-length-prefixed UTF-32BE with surrogatepass",
+    "scorerPublicPrimitivesUsed": [
+      "fail_closed_codepoint_reason",
+      "lcs_length",
+      "longest_common_span",
+      "ngrams",
+      "normalize_unicode",
+      "normalized_edit_similarity",
+      "unicode_lexical_units",
+      "unicode_skeleton_codepoints"
+    ],
+    "singleCodepointProperties": [
+      "category",
+      "eastAsianWidth",
+      "isSpace",
+      "casefold",
+      "nfc",
+      "nfkc"
+    ],
+    "streamAndDifferenceHashesUsedForEquality": false,
+    "workerIsolationFlags": [
+      "-B",
+      "-I",
+      "-S"
+    ]
+  },
+  "proofInputs": {
+    "protocolConfig": {
+      "path": "bench/config/frozen_ladder-v0.2.json",
+      "sha256": "c4cc5d97655de91fcf22674d5133a689faee8ac27dd8c60a1a67caccae648ba8"
+    },
+    "protocolModule": {
+      "path": "bench/engine/protocol.py",
+      "sha256": "0f5fcfe2e16003f516de260fba5c6c6fdc19a1ccf2eced7b2b25dbac911887fc"
+    },
+    "runner": {
+      "path": "bench/proofs/unicode_runtime_compatibility.py",
+      "sha256": "c413b289f832d3e89893bf20b5a0fde81306de79cc82b2d923a46c93f6ce5fbc"
+    },
+    "scoringCore": {
+      "path": "bench/engine/scoring_core.py",
+      "sha256": "bf38b1ac35bc1cdb99fb59f26de5d0e6ac953ca7f29a07a2b90e7cf3b028dd01"
+    }
+  },
+  "protocolVersion": "0.2.0",
+  "receiptVersion": "1",
+  "runtimes": {
+    "negativeControl": {
+      "cacheTag": "cpython-311",
+      "compiler": "Clang 13.0.0 (clang-1300.0.29.30)",
+      "executableSha256": "4e28e811a89aeac6eed668ae641c7f85f5831e42e8dc6cd9a85a3bcc032ec46a",
+      "implementation": "CPython",
+      "platform": "macOS-26.5-arm64-arm-64bit",
+      "probeBoundary": {
+        "canonicalScoringEntryPointsCalled": false,
+        "publicPurePrimitivesOnly": true,
+        "runtimeConstantsChanged": false
+      },
+      "propertyTable": {
+        "bytes": 32317584,
+        "sha256": "bf763fbe2f2228db0c0cf5f6973dcfe1481de423a0e3fc3e7a65654d913bf4c8"
+      },
+      "pythonBuild": [
+        "v3.11.9:de54cf5be3",
+        "Apr  2 2024 07:12:50"
+      ],
+      "pythonSeries": "3.11",
+      "pythonVersion": "3.11.9",
+      "runtimeValidation": {
+        "accepted": false,
+        "error": "Aleph-Bench v0.2 scoring requires Python 3.13; found 3.11"
+      },
+      "soabi": "cpython-311-darwin",
+      "sysVersion": "3.11.9 (v3.11.9:de54cf5be3, Apr  2 2024, 07:12:50) [Clang 13.0.0 (clang-1300.0.29.30)]",
+      "unicodeDatabaseVersion": "14.0.0",
+      "unicodeModuleSha256": "bd71d8f7280932239b86ea14f8e1536f5fe495259654c1dc243e88e20c31688c"
+    },
+    "reference": {
+      "cacheTag": "cpython-313",
+      "compiler": "Clang 16.0.0 (clang-1600.0.26.6)",
+      "executableSha256": "866e723f721119dc74a98c62fca2209db6cc9ef3f6b1ad3e6f751c58af2bb095",
+      "implementation": "CPython",
+      "platform": "macOS-26.5-arm64-arm-64bit-Mach-O",
+      "probeBoundary": {
+        "canonicalScoringEntryPointsCalled": false,
+        "publicPurePrimitivesOnly": true,
+        "runtimeConstantsChanged": false
+      },
+      "propertyTable": {
+        "bytes": 32317584,
+        "sha256": "09dd6e51de0b07f2fb2422eb0116b5fdb28e1dc20a5b757277031fbc41dcbd00"
+      },
+      "pythonBuild": [
+        "main",
+        "Feb  4 2025 14:51:09"
+      ],
+      "pythonSeries": "3.13",
+      "pythonVersion": "3.13.2",
+      "runtimeValidation": {
+        "accepted": true,
+        "error": null
+      },
+      "soabi": "cpython-313-darwin",
+      "sysVersion": "3.13.2 (main, Feb  4 2025, 14:51:09) [Clang 16.0.0 (clang-1600.0.26.6)]",
+      "unicodeDatabaseVersion": "15.1.0",
+      "unicodeModuleSha256": "4b12e6fd6755b13d335f955b304ccd0d6e6e61e4f167ab916787ced47c4eda02"
+    }
+  },
+  "singleCodepointComparison": {
+    "categoryTransitions": {
+      "Cn->Cf": 7,
+      "Cn->Ll": 6,
+      "Cn->Lm": 63,
+      "Cn->Lo": 4901,
+      "Cn->Mc": 7,
+      "Cn->Mn": 35,
+      "Cn->Nd": 20,
+      "Cn->No": 20,
+      "Cn->Po": 23,
+      "Cn->So": 34
+    },
+    "comparedCodepoints": 1114112,
+    "differenceSetSha256": "965e6bac08bcf174a0c33085e058492329b8918417cf84a396d54bc1b98b67d5",
+    "differingCodepointCount": 829834,
+    "eastAsianWidthTransitions": {
+      "F->N": 764510,
+      "F->W": 65324
+    },
+    "firstDifferenceByProperty": {
+      "casefold": null,
+      "category": "U+0CF3",
+      "eastAsianWidth": "U+0378",
+      "isSpace": null,
+      "nfc": null,
+      "nfkc": "U+1E030"
+    },
+    "lastDifferenceByProperty": {
+      "casefold": null,
+      "category": "U+323AF",
+      "eastAsianWidth": "U+10FFFF",
+      "isSpace": null,
+      "nfc": null,
+      "nfkc": "U+1E06D"
+    },
+    "propertyDifferenceCounts": {
+      "casefold": 0,
+      "category": 5116,
+      "eastAsianWidth": 829834,
+      "isSpace": 0,
+      "nfc": 0,
+      "nfkc": 62
+    },
+    "propertyDifferenceSetSha256": {
+      "casefold": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "category": "c359a644a2067411bc5a141ffe6013fd948627d0b1f26ac58dfc89ca1ae720ad",
+      "eastAsianWidth": "965e6bac08bcf174a0c33085e058492329b8918417cf84a396d54bc1b98b67d5",
+      "isSpace": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "nfc": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "nfkc": "18f7a1ec3d36c3d14305f52e60259144dd1a9d126cad050f9acfcb06ba777b35"
+    },
+    "whitespaceTransitions": {}
+  }
+}
