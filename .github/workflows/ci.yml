@@ -34,6 +34,8 @@ jobs:
           python-version: "3.13"
       - name: Verify v0.2 S2 seed dataset byte-stability
         run: python3 bench/data/generate_s2.py --check
+      - name: Verify generated v0.2 Kaggle diagnostic task
+        run: python3 bench/tasks/kaggle/generate_v0_2_diagnostic.py --check
       - name: Run bench unit tests
         run: python3 -m unittest discover bench/tests
       - name: Verify immutable v0.1 platform package

@@ -229,6 +229,46 @@ material for Kaggle integration and scorer conformance, not a complete Kaggle ev
 implement submission I/O, model execution, AURC/ECL aggregation, or leaderboard hosting. It is also
 not model evidence or a publication bundle.
 
+### Diagnose the Kaggle deployment path without creating a score
+
+The generated task at
+`bench/tasks/kaggle/aleph_bench_v0_2_diagnostic.py` is a separate deployment canary. It is not part
+of the scorer-conformance package and must never be selected for an Aleph-Bench leaderboard. Check
+that its bytes still match the canonical v0.2 data and package identities with:
+
+```bash
+python3.13 bench/tasks/kaggle/generate_v0_2_diagnostic.py --check
+```
+
+The task returns a structured dictionary and writes
+`aleph-bench-v0.2-kaggle-diagnostic-receipt.json`; it deliberately has no numeric result. Its first
+helper action requires Python 3.13 and Unicode database 15.1.0. A mismatch produces a blocked receipt
+with zero attempted model calls before the helper reads an attached package, invokes the model, or
+opens a per-prompt named chat. Kaggle's SDK still creates its empty root task chat before entering the
+helper. A conformant runtime then verifies the attached scorer-conformance package and runs only the
+literal six-prompt set `s2-001/002/003 × r1-p0/p1`, with one isolated named chat per prompt,
+`reasoning="none"`, a 2,048-token output cap, and no retries. Empty output, invalid usage, a near-cap
+response, a non-string output, or a proxy exception stops the canary and preserves a blocked partial
+receipt. The task records a call-ahead state before every dispatch, and its Kaggle assertion marks any
+blocked dictionary as not passed without discarding the diagnostic payload.
+
+"No retries" is enforced at both layers used by the supported Kaggle transports: the task sets the
+OpenAI client retry count to zero or verifies the GenAI retry controller permits one attempt, then
+reads that setting back before any call. Task creation has a separate one-shot journaled helper
+because released Kaggle CLI push retries the non-idempotent create request. The runbook binds the
+result to the exact returned task version and source kernel and downloads that creation output
+without scheduling another model run. The helper also reads the latest remote task version and
+fails closed when its creation is non-terminal; operators must still serialize task creation because
+the remote API exposes no idempotency key.
+It accepts only the reviewed Python 3.13 / Kaggle CLI 2.2.4 / Kaggle SDK 0.1.37 / Jupytext 1.19.5
+client matrix and fails before authentication when that local environment drifts.
+
+Even a complete receipt has `evidenceMode: "none"`, `protocolConformant: false`,
+`leaderboardEligible: false`, `publicationEligible: false`, and `diagnosticScalar: null`. It proves
+only that this small transport-and-capture path worked; it is not AURC, a model rank, or permission
+to schedule a canonical v0.2 run. See the
+[Kaggle deployment diagnostic runbook](../docs/benchmark/kaggle-diagnostic-runbook.md).
+
 ### Replay a retained legacy Kaggle run
 
 A completed legacy Kaggle `*.run.json` retains the named conversations, raw assistant strings, and

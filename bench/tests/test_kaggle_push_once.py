@@ -1,0 +1,339 @@
+from __future__ import annotations
+
+import json
+import tempfile
+import unittest
+from pathlib import Path
+from types import SimpleNamespace
+from unittest import mock
+
+from bench.engine import kaggle_push_once as push_once
+from bench.engine.kaggle_push_once import (
+    KagglePushOnceError,
+    KagglePushOutcomeAmbiguous,
+    _normalize_response,
+    dispatch_create_once,
+    preflight_and_dispatch_once,
+    push_diagnostic_once,
+)
+
+
+def _task_response(
+    *,
+    task: str = "aleph-bench-deployment-diagnostic-2048-none",
+    version: int = 2,
+    source_kernel_id: int = 12345,
+    datasets: tuple[str, ...] = (),
+    state: str = "BENCHMARK_TASK_VERSION_CREATION_STATE_COMPLETED",
+) -> SimpleNamespace:
+    return SimpleNamespace(
+        slug=SimpleNamespace(
+            owner_slug="owner",
+            task_slug=task,
+            version_number=version,
+        ),
+        source_kernel_id=source_kernel_id,
+        creation_state=state,
+        error=None,
+        url=(
+            "https://www.kaggle.com/benchmarks/owner/"
+            f"{task}/{version}"
+        ),
+        options=SimpleNamespace(dataset_data_sources=list(datasets)),
+    )
+
+
+class HardStop(BaseException):
+    """A synthetic process-level interruption, not a normal Exception."""
+
+
+class KagglePushOnceTests(unittest.TestCase):
+    def test_client_version_mismatch_blocks_before_remote_read_or_journal(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            journal_path = Path(tmp) / "push.json"
+            with (
+                mock.patch.object(
+                    push_once,
+                    "_distribution_version",
+                    return_value="unreviewed",
+                ),
+                mock.patch.object(
+                    push_once, "_source_and_notebook"
+                ) as source_and_notebook,
+                mock.patch.object(
+                    push_once, "preflight_and_dispatch_once"
+                ) as remote_preflight,
+                self.assertRaisesRegex(
+                    KagglePushOnceError, "no remote request was made"
+                ),
+            ):
+                push_diagnostic_once(
+                    source_path=Path(tmp) / "diagnostic.py",
+                    datasets=(),
+                    gate="zero-call",
+                    journal_path=journal_path,
+                )
+
+            source_and_notebook.assert_not_called()
+            remote_preflight.assert_not_called()
+            self.assertFalse(journal_path.exists())
+
+    def test_pending_remote_creation_blocks_before_journal_and_create(self) -> None:
+        create_calls = 0
+
+        def create(_request: object) -> object:
+            nonlocal create_calls
+            create_calls += 1
+            return _task_response()
+
+        pending_states = (
+            "BENCHMARK_TASK_VERSION_CREATION_STATE_QUEUED",
+            "BENCHMARK_TASK_VERSION_CREATION_STATE_RUNNING",
+            "BENCHMARK_TASK_VERSION_CREATION_STATE_UNSPECIFIED",
+        )
+        for state in pending_states:
+            with self.subTest(state=state), tempfile.TemporaryDirectory() as tmp:
+                journal_path = Path(tmp) / "push.json"
+                with self.assertRaisesRegex(
+                    KagglePushOnceError, "pending or has an unknown state"
+                ):
+                    preflight_and_dispatch_once(
+                        fetch_latest_task=lambda: _task_response(state=state),
+                        create_task=create,
+                        request=object(),
+                        journal_path=journal_path,
+                        prepared_journal={"operationId": "test-operation"},
+                        response_record=lambda response: response,
+                    )
+                self.assertFalse(journal_path.exists())
+        self.assertEqual(create_calls, 0)
+
+    def test_terminal_remote_preflight_is_bound_into_journal(self) -> None:
+        calls: list[object] = []
+        prior = _task_response(
+            version=1,
+            source_kernel_id=111,
+            datasets=("owner/prior-dataset",),
+        )
+        with tempfile.TemporaryDirectory() as tmp:
+            journal = preflight_and_dispatch_once(
+                fetch_latest_task=lambda: prior,
+                create_task=(
+                    lambda request: calls.append(request) or _task_response()
+                ),
+                request=object(),
+                journal_path=Path(tmp) / "push.json",
+                prepared_journal={"operationId": "test-operation"},
+                response_record=lambda response: _normalize_response(
+                    response, expected_datasets=()
+                ),
+                clock=lambda: "2026-09-18T00:00:00Z",
+            )
+
+            self.assertEqual(len(calls), 1)
+            self.assertEqual(
+                journal["remotePreflight"]["priorTask"],
+                {
+                    "owner": "owner",
+                    "task": "aleph-bench-deployment-diagnostic-2048-none",
+                    "version": 1,
+                    "creationState": (
+                        "BENCHMARK_TASK_VERSION_CREATION_STATE_COMPLETED"
+                    ),
+                    "sourceKernelId": 111,
+                    "datasets": ["owner/prior-dataset"],
+                },
+            )
+
+    def test_success_dispatches_exactly_once_and_records_server_identity(self) -> None:
+        calls: list[object] = []
+        prepared = {"operationId": "test-operation", "task": "diagnostic"}
+        with tempfile.TemporaryDirectory() as tmp:
+            journal_path = Path(tmp) / "push.json"
+            journal = dispatch_create_once(
+                create_task=(
+                    lambda request: calls.append(request) or _task_response()
+                ),
+                request=object(),
+                journal_path=journal_path,
+                prepared_journal=prepared,
+                response_record=lambda response: _normalize_response(
+                    response, expected_datasets=()
+                ),
+                clock=lambda: "2026-09-18T00:00:00Z",
+            )
+
+            self.assertEqual(len(calls), 1)
+            self.assertEqual(journal["state"], "returned")
+            self.assertEqual(journal["response"]["version"], 2)
+            self.assertEqual(journal["response"]["sourceKernelId"], 12345)
+            self.assertEqual(
+                json.loads(journal_path.read_text(encoding="utf-8")), journal
+            )
+
+    def test_connection_failure_is_ambiguous_without_retry(self) -> None:
+        calls = 0
+
+        def fail(_request: object) -> object:
+            nonlocal calls
+            calls += 1
+            raise ConnectionError("response lost")
+
+        with tempfile.TemporaryDirectory() as tmp:
+            journal_path = Path(tmp) / "push.json"
+            with self.assertRaisesRegex(
+                KagglePushOutcomeAmbiguous, "do not retry"
+            ):
+                dispatch_create_once(
+                    create_task=fail,
+                    request=object(),
+                    journal_path=journal_path,
+                    prepared_journal={"operationId": "test-operation"},
+                    response_record=lambda response: response,
+                    clock=lambda: "2026-09-18T00:00:00Z",
+                )
+
+            self.assertEqual(calls, 1)
+            retained = json.loads(journal_path.read_text(encoding="utf-8"))
+            self.assertEqual(retained["state"], "ambiguous")
+            self.assertEqual(retained["failure"]["type"], "ConnectionError")
+
+    def test_hard_stop_is_journaled_and_propagated_without_retry(self) -> None:
+        calls = 0
+
+        def stop(_request: object) -> object:
+            nonlocal calls
+            calls += 1
+            raise HardStop("process interrupted")
+
+        with tempfile.TemporaryDirectory() as tmp:
+            journal_path = Path(tmp) / "push.json"
+            with self.assertRaisesRegex(HardStop, "process interrupted"):
+                dispatch_create_once(
+                    create_task=stop,
+                    request=object(),
+                    journal_path=journal_path,
+                    prepared_journal={"operationId": "test-operation"},
+                    response_record=lambda response: response,
+                    clock=lambda: "2026-09-18T00:00:00Z",
+                )
+
+            self.assertEqual(calls, 1)
+            retained = json.loads(journal_path.read_text(encoding="utf-8"))
+            self.assertEqual(retained["state"], "ambiguous")
+            self.assertEqual(retained["failure"]["type"], "HardStop")
+
+    def test_existing_journal_blocks_before_dispatch(self) -> None:
+        calls = 0
+
+        def create(_request: object) -> object:
+            nonlocal calls
+            calls += 1
+            return _task_response()
+
+        with tempfile.TemporaryDirectory() as tmp:
+            journal_path = Path(tmp) / "push.json"
+            journal_path.write_text("existing evidence\n", encoding="utf-8")
+            with self.assertRaisesRegex(KagglePushOnceError, "already exists"):
+                dispatch_create_once(
+                    create_task=create,
+                    request=object(),
+                    journal_path=journal_path,
+                    prepared_journal={"operationId": "test-operation"},
+                    response_record=lambda response: response,
+                )
+
+            self.assertEqual(calls, 0)
+            self.assertEqual(
+                journal_path.read_text(encoding="utf-8"), "existing evidence\n"
+            )
+
+    def test_invalid_server_response_is_ambiguous_without_retry(self) -> None:
+        calls = 0
+
+        def create(_request: object) -> object:
+            nonlocal calls
+            calls += 1
+            return _task_response(task="wrong-task")
+
+        with tempfile.TemporaryDirectory() as tmp:
+            journal_path = Path(tmp) / "push.json"
+            with self.assertRaisesRegex(
+                KagglePushOutcomeAmbiguous, "do not retry"
+            ):
+                dispatch_create_once(
+                    create_task=create,
+                    request=object(),
+                    journal_path=journal_path,
+                    prepared_journal={"operationId": "test-operation"},
+                    response_record=lambda response: _normalize_response(
+                        response, expected_datasets=()
+                    ),
+                    clock=lambda: "2026-09-18T00:00:00Z",
+                )
+
+            self.assertEqual(calls, 1)
+            retained = json.loads(journal_path.read_text(encoding="utf-8"))
+            self.assertEqual(retained["state"], "ambiguous")
+            self.assertEqual(retained["failure"]["type"], "KagglePushOnceError")
+
+    def test_source_mismatch_blocks_before_journal_or_dispatch(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            source_path = Path(tmp) / "diagnostic.py"
+            source_path.write_text("# stale diagnostic\n", encoding="utf-8")
+            journal_path = Path(tmp) / "push.json"
+
+            with (
+                mock.patch.object(
+                    push_once,
+                    "_verified_client_versions",
+                    return_value={
+                        "python": "3.13.2",
+                        "kaggle": "2.2.4",
+                        "kagglesdk": "0.1.37",
+                        "jupytext": "1.19.5",
+                    },
+                ),
+                self.assertRaisesRegex(
+                    KagglePushOnceError, "current checked-in generated"
+                ),
+            ):
+                push_diagnostic_once(
+                    source_path=source_path,
+                    datasets=(),
+                    gate="zero-call",
+                    journal_path=journal_path,
+                )
+
+            self.assertFalse(journal_path.exists())
+
+    def test_invalid_gate_and_dataset_block_before_source_or_dispatch(self) -> None:
+        cases = {
+            "gate": ("unknown", (), "unknown diagnostic gate"),
+            "dataset-shape": (
+                "six-call",
+                ("not-an-owner-dataset",),
+                "OWNER/DATASET",
+            ),
+            "zero-call-attachment": (
+                "zero-call",
+                ("owner/dataset",),
+                "must not attach",
+            ),
+            "six-call-count": ("six-call", (), "exactly one"),
+        }
+        for name, (gate, datasets, message) in cases.items():
+            with self.subTest(name=name), tempfile.TemporaryDirectory() as tmp:
+                journal_path = Path(tmp) / "push.json"
+                with self.assertRaisesRegex(KagglePushOnceError, message):
+                    push_diagnostic_once(
+                        source_path=Path(tmp) / "missing.py",
+                        datasets=datasets,
+                        gate=gate,
+                        journal_path=journal_path,
+                    )
+                self.assertFalse(journal_path.exists())
+
+
+if __name__ == "__main__":
+    unittest.main()
