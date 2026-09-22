@@ -351,7 +351,7 @@ class KaggleCaptureTaskV02Tests(unittest.TestCase):
         self.addCleanup(output_tmp.cleanup)
         self.assertTrue(payload["captureComplete"])
 
-    def test_current_sdk_missing_finish_reason_is_explicit_and_runtime_portable(self) -> None:
+    def test_current_sdk_missing_finish_reason_is_explicit_and_replayable(self) -> None:
         observations = []
         temporary_directories = []
         for runtime in (RUNTIME_311, RUNTIME_313):
@@ -361,14 +361,13 @@ class KaggleCaptureTaskV02Tests(unittest.TestCase):
             temporary_directories.append(output_tmp)
             observations.append(payload)
             self.assertTrue(payload["captureComplete"])
-            self.assertFalse(payload["canonicalReplayEligible"])
+            self.assertTrue(payload["canonicalReplayEligible"])
             self.assertEqual(
-                payload["diagnostics"]["missingUsageRowIds"],
+                payload["diagnostics"]["missingFinishReasonRowIds"],
                 [row["rowId"] for row in payload["rows"]],
             )
-            self.assertEqual(
-                payload["diagnostics"]["replayBlockedReasons"], ["missingUsage"]
-            )
+            self.assertEqual(payload["diagnostics"]["missingUsageRowIds"], [])
+            self.assertEqual(payload["diagnostics"]["replayBlockedReasons"], [])
         for output_tmp in temporary_directories:
             self.addCleanup(output_tmp.cleanup)
         left, right = observations

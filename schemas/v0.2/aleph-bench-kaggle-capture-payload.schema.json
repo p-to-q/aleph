@@ -27,7 +27,7 @@
     "id"
   ],
   "properties": {
-    "captureSchemaVersion": {"const": "1.0.0"},
+    "captureSchemaVersion": {"const": "1.1.0"},
     "artifactKind": {"const": "aleph_bench_kaggle_raw_capture"},
     "targetProtocolVersion": {"const": "0.2.0"},
     "leaderboardEligible": {"const": false},
@@ -516,6 +516,7 @@
         "lifecycleFailureRowIds",
         "scoringTextTooLongRowIds",
         "missingUsageRowIds",
+        "missingFinishReasonRowIds",
         "zeroUsageRowIds",
         "nearCapOutputRowIds",
         "tokenLimitTerminationRowIds",
@@ -534,6 +535,7 @@
         "lifecycleFailureRowIds": {"$ref": "#/$defs/rowIdArray"},
         "scoringTextTooLongRowIds": {"$ref": "#/$defs/rowIdArray"},
         "missingUsageRowIds": {"$ref": "#/$defs/rowIdArray"},
+        "missingFinishReasonRowIds": {"$ref": "#/$defs/rowIdArray"},
         "zeroUsageRowIds": {"$ref": "#/$defs/rowIdArray"},
         "nearCapOutputRowIds": {"$ref": "#/$defs/rowIdArray"},
         "tokenLimitTerminationRowIds": {"$ref": "#/$defs/rowIdArray"},

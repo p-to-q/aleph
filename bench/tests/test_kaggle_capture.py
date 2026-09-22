@@ -152,6 +152,7 @@ def _diagnostics(
     lifecycle_failure: list[str] | None = None,
     scoring_too_long: list[str] | None = None,
     missing_usage: list[str] | None = None,
+    missing_finish_reason: list[str] | None = None,
     zero_usage: list[str] | None = None,
     near_cap: list[str] | None = None,
     token_limit: list[str] | None = None,
@@ -170,6 +171,7 @@ def _diagnostics(
         "lifecycleFailureRowIds": lifecycle_failure or [],
         "scoringTextTooLongRowIds": scoring_too_long or [],
         "missingUsageRowIds": missing_usage or [],
+        "missingFinishReasonRowIds": missing_finish_reason or [],
         "zeroUsageRowIds": zero_usage or [],
         "nearCapOutputRowIds": near_cap or [],
         "tokenLimitTerminationRowIds": token_limit or [],
@@ -201,7 +203,7 @@ def _payload(
     )
     full_plan_sha = "b" * 64
     payload: dict[str, Any] = {
-        "captureSchemaVersion": "1.0.0",
+        "captureSchemaVersion": "1.1.0",
         "artifactKind": "aleph_bench_kaggle_raw_capture",
         "targetProtocolVersion": "0.2.0",
         "leaderboardEligible": False,
@@ -550,6 +552,7 @@ class KaggleCaptureContractTests(unittest.TestCase):
             diagnostics=_diagnostics(
                 terminal_failure=[call["rowId"]],
                 missing_usage=[call["rowId"]],
+                missing_finish_reason=[call["rowId"]],
                 blockers=["terminalFailure", "missingUsage"],
             ),
             replay_eligible=False,
@@ -569,6 +572,7 @@ class KaggleCaptureContractTests(unittest.TestCase):
             diagnostics=_diagnostics(
                 terminal_failure=[call["rowId"]],
                 missing_usage=[call["rowId"]],
+                missing_finish_reason=[call["rowId"]],
                 blockers=["terminalFailure", "missingUsage"],
             ),
             replay_eligible=False,
@@ -601,6 +605,7 @@ class KaggleCaptureContractTests(unittest.TestCase):
             diagnostics=_diagnostics(
                 terminal_failure=[call["rowId"]],
                 missing_usage=[call["rowId"]],
+                missing_finish_reason=[call["rowId"]],
                 blockers=["terminalFailure", "missingUsage"],
             ),
             replay_eligible=False,
@@ -770,6 +775,17 @@ class KaggleCaptureContractTests(unittest.TestCase):
         )
         optional = _payload(rows=[optional_row])
         self.assertEqual(verify_capture_payload(optional), optional)
+
+    def test_missing_finish_reason_is_explicit_but_not_a_replay_blocker(self) -> None:
+        call = _call(0)
+        row = _returned_row(call)
+        row["usage"]["finishReason"] = None
+        payload = _payload(
+            rows=[row],
+            diagnostics=_diagnostics(missing_finish_reason=[call["rowId"]]),
+        )
+        self.assertEqual(verify_capture_payload(payload), payload)
+        self.assertTrue(payload["canonicalReplayEligible"])
 
     def test_rows_are_an_ordered_prefix(self) -> None:
         planned = [_call(0), _call(1)]

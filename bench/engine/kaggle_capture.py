@@ -17,7 +17,7 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 CAPTURE_SCHEMA_PATH = (
     REPO_ROOT / "schemas/v0.2/aleph-bench-kaggle-capture-payload.schema.json"
 )
-CAPTURE_SCHEMA_VERSION = "1.0.0"
+CAPTURE_SCHEMA_VERSION = "1.1.0"
 ARTIFACT_KIND = "aleph_bench_kaggle_raw_capture"
 TARGET_PROTOCOL_VERSION = "0.2.0"
 ARTIFACT_ID_PREFIX = "aleph-bench-kaggle-capture-v1-artifact-"
@@ -550,7 +550,11 @@ def _expected_diagnostics(
         for row in rows
         if row["usage"]["inputTokens"] is None
         or row["usage"]["outputTokens"] is None
-        or row["usage"]["finishReason"] is None
+    ]
+    missing_finish_reason_ids = [
+        row["rowId"]
+        for row in rows
+        if row["usage"]["finishReason"] is None
     ]
     zero_usage_ids = [
         row["rowId"]
@@ -611,6 +615,7 @@ def _expected_diagnostics(
         "lifecycleFailureRowIds": lifecycle_failure_ids,
         "scoringTextTooLongRowIds": scoring_too_long_ids,
         "missingUsageRowIds": missing_usage_ids,
+        "missingFinishReasonRowIds": missing_finish_reason_ids,
         "zeroUsageRowIds": zero_usage_ids,
         "nearCapOutputRowIds": near_cap_ids,
         "tokenLimitTerminationRowIds": token_limit_ids,
