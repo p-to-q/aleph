@@ -29,8 +29,8 @@ import kaggle_benchmarks as kbench
 TASK_NAME = 'aleph_bench_v0_2_capture_canary'
 TASK_VERSION = 2
 TASK_DESCRIPTION = 'Capture the fixed Aleph-Bench v0.2 six-call Kaggle canary without scoring.'
-DEFINITION_SHA256 = 'f5d99217bf21eb158001fcc35ca51c5b1f42ae1460c31d7ca29655635f3c6c36'
-IMPLEMENTATION_SHA256 = '9bd14178276268477966556cc035e8716a7542c2ba1f16d98dcb6a4d4e4e470d'
+DEFINITION_SHA256 = 'd3ffff9b337c23709aef618f6ac520f199c1a4d112e66d0beae1bc8328e69562'
+IMPLEMENTATION_SHA256 = '698262adfd4bf63eacd1a586730353936439fcfe7db165e753dcef479f1116cf'
 DEFAULT_PACKAGE_ROOT = Path('/kaggle/input/aleph-bench-v02-scorer-conformance')
 DEFAULT_CAPTURE_PATH = Path.cwd() / 'aleph-bench-v0.2-kaggle-capture-canary.json'
 DATASET_IDENTITY = json.loads(r'''{"hashAlgorithm":"sha256-length-framed-filename-and-content-v1","id":"aleph-bench-v0.2-public-s2","itemCount":30,"sha256":"6f3a03400ec16405414afb94c7c639f2df07f7f0797c3b58ad1c4229e52f2041"}''')
@@ -319,12 +319,10 @@ def _transport_retry_preflight(llm, model_type):
             api_client = getattr(client, "_api_client", None)
             http_options = getattr(api_client, "_http_options", None)
             retry_options = getattr(http_options, "retry_options", object())
-            retry_controller = getattr(api_client, "_retry", None)
-            stop_strategy = getattr(retry_controller, "stop", None)
-            if (
-                retry_options is not None
-                or getattr(stop_strategy, "max_attempt_number", None) != 1
-            ):
+            # google-genai's public retry contract defines None as one attempt.
+            # Do not depend on the private tenacity controller: its layout is
+            # not stable across the SDK versions used by Kaggle images.
+            if retry_options is not None:
                 return "transportRetryPolicyUnverified"
             return None
     except Exception:

@@ -510,12 +510,10 @@ def _transport_retry_preflight(llm, model_type):
             api_client = getattr(client, "_api_client", None)
             http_options = getattr(api_client, "_http_options", None)
             retry_options = getattr(http_options, "retry_options", object())
-            retry_controller = getattr(api_client, "_retry", None)
-            stop_strategy = getattr(retry_controller, "stop", None)
-            if (
-                retry_options is not None
-                or getattr(stop_strategy, "max_attempt_number", None) != 1
-            ):
+            # google-genai's public retry contract defines None as one attempt.
+            # Do not depend on the private tenacity controller: its layout is
+            # not stable across the SDK versions used by Kaggle images.
+            if retry_options is not None:
                 return "transportRetryPolicyUnverified"
             return None
     except Exception:

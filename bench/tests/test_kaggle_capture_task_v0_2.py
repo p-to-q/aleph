@@ -236,6 +236,27 @@ class OpenAI:
 OpenAI.__module__ = "kaggle_benchmarks.actors.proxy_openai"
 
 
+class _GenAIClient:
+    def __init__(self, *, retry_options: Any = None) -> None:
+        self._api_client = types.SimpleNamespace(
+            _http_options=types.SimpleNamespace(retry_options=retry_options)
+        )
+
+
+class GoogleGenAI(OpenAI):
+    def __init__(
+        self,
+        outputs: list[Any] | None = None,
+        *,
+        retry_options: Any = None,
+    ) -> None:
+        super().__init__(outputs=outputs)
+        self.client = _GenAIClient(retry_options=retry_options)
+
+
+GoogleGenAI.__module__ = "kaggle_benchmarks.actors.llms"
+
+
 class _Bomb:
     def __getattribute__(self, name: str) -> Any:
         raise AssertionError(f"unexpected access: {name}")
@@ -468,6 +489,26 @@ class KaggleCaptureTaskV02Tests(unittest.TestCase):
                 self.assertNotIn("open secret", serialized)
                 self.assertNotIn("model secret", serialized)
                 self.assertNotIn("close secret", serialized)
+
+    def test_genai_default_no_retry_contract_does_not_require_private_controller(self) -> None:
+        llm = GoogleGenAI()
+        payload, _, output_tmp = self._run(llm=llm, chats=_Chats())
+        self.addCleanup(output_tmp.cleanup)
+
+        self.assertTrue(payload["captureComplete"])
+        self.assertEqual(payload["calls"]["attemptedCallCount"], 6)
+        self.assertEqual(
+            llm.calls[0]["extra_api_params"], {"max_output_tokens": 2048}
+        )
+
+    def test_genai_explicit_retry_options_block_before_model_call(self) -> None:
+        llm = GoogleGenAI(retry_options=object())
+        payload, _, output_tmp = self._run(llm=llm, chats=_Chats())
+        self.addCleanup(output_tmp.cleanup)
+
+        self.assertFalse(payload["captureComplete"])
+        self.assertEqual(payload["calls"]["attemptedCallCount"], 0)
+        self.assertEqual(llm.calls, [])
 
     def test_non_string_oversized_and_lone_surrogate_outputs_fail_closed(self) -> None:
         cases = [
