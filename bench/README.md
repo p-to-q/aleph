@@ -256,10 +256,13 @@ blocked dictionary as not passed without discarding the diagnostic payload.
 OpenAI client retry count to zero or verifies the GenAI retry controller permits one attempt, then
 reads that setting back before any call. Task creation has a separate one-shot journaled helper
 because released Kaggle CLI push retries the non-idempotent create request. The runbook binds the
-result to the exact returned task version and source kernel and downloads that creation output
-without scheduling another model run. The helper also reads the latest remote task version and
-fails closed when its creation is non-terminal; operators must still serialize task creation because
-the remote API exposes no idempotency key.
+result to the exact returned task version and the unique task run for that version, then downloads
+the run output without scheduling another model run. Kaggle's create acknowledgement may omit the
+backing-kernel ID while creation is still pending; this is recorded as `null`, then observed by the
+later exact-version readback when Kaggle exposes it. Artifact retrieval is independently bound to
+the unique run instead of treating a missing kernel ID as a lost create response. The helper reads
+the latest remote task version and fails closed when its creation is non-terminal; operators must
+still serialize task creation because the remote API exposes no idempotency key.
 It accepts only the reviewed Python 3.13 / Kaggle CLI 2.2.4 / Kaggle SDK 0.1.37 / Jupytext 1.19.5
 client matrix and fails before authentication when that local environment drifts.
 

@@ -101,11 +101,14 @@ has four possible states:
 | `prepared` | The durable journal exists but the create call was not entered | Stop; retain the journal and review before authorizing any new operation |
 | `dispatching` | The request boundary was crossed or may be crossed | Treat the outcome as ambiguous; reconcile task versions, source kernels, and quota; never retry automatically |
 | `ambiguous` | Dispatch or response validation raised after the boundary | Treat the server operation as possibly accepted; reconcile it; never retry automatically |
-| `returned` | Kaggle acknowledged one exact task version and source kernel | Use only those recorded identifiers for status and artifact download |
+| `returned` | Kaggle acknowledged one exact task version | Use only that version for status and artifact download; `sourceKernelId` may remain `null` when Kaggle does not expose it |
 
 An existing journal always blocks the helper, including after a process restart. Its source and
-notebook hashes, gate, dataset attachment, client versions, returned task version, and source kernel
-make the operation auditable.
+notebook hashes, gate, dataset attachment, client versions, and returned task version make the
+operation auditable. Kaggle `2.2.4` can omit the source-kernel ID from a successful create
+acknowledgement while the backing notebook is still being created. A response that still binds the
+exact task/version is `returned`, not ambiguous; the later exact-version readback records the
+source kernel when Kaggle exposes it.
 
 Use a single operator and serialize all UI, CLI, and repository-helper actions for this task slug.
 Immediately before writing the journal, the helper performs a retryable read of the latest remote
@@ -140,34 +143,41 @@ zero-call gate; do not schedule a separate model run:
 
 The helper accepts only the current generator-exact source. Do not delete or edit its journal. If
 the state is not `returned`, stop and reconcile it; no later command in this section is authorized.
-For a returned journal, copy its exact `response.version` and `response.sourceKernelId` values—do
-not infer them from the latest task. Polling status is read-only:
+For a returned journal, copy its exact `response.version`; do not infer a version from the latest
+task. Polling status is read-only:
 
 ```bash
 "$ALEPH_KAGGLE_PY" -m kaggle benchmarks tasks status \
   aleph-bench-deployment-diagnostic-2048-none
 ```
 
-After creation reaches a terminal state, download and validate the exact backing creation kernel.
-Replace `OWNER`, `VERSION`, and `SOURCE_KERNEL_ID` only with values bound by the returned journal:
+After creation reaches a terminal state, download and validate the unique task run for that exact
+version. Replace `OWNER` and `VERSION` only with the returned identity. The helper refuses to choose
+when the exact version has zero or multiple runs:
 
 ```bash
 "$ALEPH_KAGGLE_PY" -m bench.engine.kaggle_creation_output \
   OWNER/aleph-bench-deployment-diagnostic-2048-none \
   --version VERSION \
-  --source-kernel-id SOURCE_KERNEL_ID \
   --gate zero-call \
   --expect-no-datasets \
   --output "$ALEPH_KAGGLE_EVIDENCE_DIR/zero-call"
 ```
 
-The command refuses non-terminal state, task/version/kernel/dataset drift, unsafe or oversized zip
-content, an invalid receipt, and existing output files. Exit `0` proves the missing package blocked
-in `package_preflight` with no active, attempted, or completed model call. Exit `2` means evidence
-was retained but the gate failed; exit `1` means the artifact could not be bound or validated. Stop
-on either non-zero exit. Also stop if Model Proxy balance changed or any named per-prompt
-conversation exists. A `COMPLETED` task state alone is not evidence, and `tasks run` must not be used
-to repeat this gate.
+If `response.sourceKernelId` in the returned journal is a positive integer, the command **must**
+also include `--source-kernel-id SOURCE_KERNEL_ID`. Omit that argument only when the journal recorded
+`null`; if a separately retained exact-version readback later supplies a positive ID, pass that
+value instead. A separately retained `--run-id RUN_ID` may also be supplied as a cross-check. Neither
+argument authorizes choosing among multiple runs: the exact version must still have exactly one run.
+
+The command refuses non-terminal task or run state, task/version/run/dataset drift, an ambiguous run
+set, unsafe or oversized zip content, an invalid receipt, and existing output files. Exit `0` proves
+the missing package blocked in `package_preflight` with no active, attempted, or completed model
+call. A valid `runtime_preflight` receipt with zero calls is retained with exit `2`: it proves no
+model dispatch occurred, but it also proves the runtime is incompatible and the package gate was
+never reached. Exit `1` means the artifact could not be bound or validated. Stop on either non-zero
+exit. Also stop if Model Proxy balance changed or any named per-prompt conversation exists. A
+`COMPLETED` task state alone is not evidence, and `tasks run` must not be used to repeat this gate.
 
 ### Six-call canary
 
@@ -184,29 +194,35 @@ new diagnostic version with that exact private dataset attached:
 ```
 
 If and only if the journal is `returned`, wait for terminal status and bind the exact returned
-version, source kernel, and dataset while downloading its creation output:
+version, unique task run, and dataset while downloading its creation output:
 
 ```bash
 "$ALEPH_KAGGLE_PY" -m bench.engine.kaggle_creation_output \
   OWNER/aleph-bench-deployment-diagnostic-2048-none \
   --version VERSION \
-  --source-kernel-id SOURCE_KERNEL_ID \
   --gate six-call \
   --expect-dataset OWNER/aleph-bench-v02-scorer-conformance \
   --output "$ALEPH_KAGGLE_EVIDENCE_DIR/six-call"
 ```
+
+Apply the same source-kernel rule as the zero-call gate: pass the journal's positive
+`response.sourceKernelId` with `--source-kernel-id`, and omit it only when the journal recorded
+`null` and no separately retained exact-version readback supplies a positive value.
 
 That creation is the one reviewed canary and may make all six model calls. Do **not** follow it with
 `tasks run`: that can repeat the task and spend up to six additional logical calls. Audit the saved
 creation archive, strict receipt, metadata, named conversations, assertion outcome, and post-creation
 Model Proxy balance before any other hosted action. Stop after this creation even when it succeeds.
 
-Kaggle CLI `2.2.4` exposes `tasks download` and `tasks log` only for separately scheduled model runs.
-The repository downloader instead follows the task version's exact `source_kernel_id` through the
-read-only SDK endpoint; it checks the ID before reading output. If automation cannot retain the
-creation receipt and six raw rows, use the authenticated Task Details UI only for reconciliation,
-classify the canary as inconclusive, and stop. Never schedule another run merely to make the
-artifact easier to fetch.
+The task file's bottom-level `.run(kbench.llm)` creates a benchmark task run during creation. Kaggle
+CLI `2.2.4` exposes that same run through `tasks status`, `tasks log`, and `tasks download`. The
+repository downloader uses the supported benchmark task-run output endpoint, scopes the list request
+to the exact task version, filters listed runs to that requested identity, and validates the one
+unique selected run before downloading by its positive run ID. It does not use the backing-kernel
+output endpoint, which may be
+forbidden even to the task owner. If automation cannot retain the creation receipt and raw rows, use
+the authenticated Task Details UI only for reconciliation, classify the canary as inconclusive, and
+stop. Never schedule another run merely to make the artifact easier to fetch.
 
 The task also writes `aleph-bench-v0.2-kaggle-diagnostic-receipt.json` in the Kaggle working
 directory. The creation-output helper retains the original zip, extracted receipt, and binding

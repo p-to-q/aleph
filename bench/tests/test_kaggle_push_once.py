@@ -145,6 +145,30 @@ class KagglePushOnceTests(unittest.TestCase):
                 },
             )
 
+    def test_malformed_prior_kernel_identity_blocks_before_create(self) -> None:
+        calls = 0
+
+        def create(_request: object) -> object:
+            nonlocal calls
+            calls += 1
+            return _task_response()
+
+        with tempfile.TemporaryDirectory() as tmp, self.assertRaisesRegex(
+            KagglePushOnceError, "invalid source kernel ID"
+        ):
+            preflight_and_dispatch_once(
+                fetch_latest_task=lambda: _task_response(
+                    source_kernel_id=False
+                ),
+                create_task=create,
+                request=object(),
+                journal_path=Path(tmp) / "push.json",
+                prepared_journal={"operationId": "test-operation"},
+                response_record=lambda response: response,
+            )
+
+        self.assertEqual(calls, 0)
+
     def test_success_dispatches_exactly_once_and_records_server_identity(self) -> None:
         calls: list[object] = []
         prepared = {"operationId": "test-operation", "task": "diagnostic"}
@@ -170,6 +194,42 @@ class KagglePushOnceTests(unittest.TestCase):
             self.assertEqual(
                 json.loads(journal_path.read_text(encoding="utf-8")), journal
             )
+
+    def test_acknowledged_version_may_defer_source_kernel_identity(self) -> None:
+        calls = 0
+
+        def create(_request: object) -> object:
+            nonlocal calls
+            calls += 1
+            return _task_response(source_kernel_id=0)
+
+        with tempfile.TemporaryDirectory() as tmp:
+            journal = dispatch_create_once(
+                create_task=create,
+                request=object(),
+                journal_path=Path(tmp) / "push.json",
+                prepared_journal={"operationId": "test-operation"},
+                response_record=lambda response: _normalize_response(
+                    response, expected_datasets=()
+                ),
+                clock=lambda: "2026-09-18T00:00:00Z",
+            )
+
+        self.assertEqual(calls, 1)
+        self.assertEqual(journal["state"], "returned")
+        self.assertEqual(journal["response"]["task"], push_once.TASK_SLUG)
+        self.assertEqual(journal["response"]["version"], 2)
+        self.assertIsNone(journal["response"]["sourceKernelId"])
+
+    def test_malformed_source_kernel_identity_is_not_treated_as_missing(self) -> None:
+        for value in (False, 0.0, -1, "12345"):
+            with self.subTest(value=value), self.assertRaisesRegex(
+                KagglePushOnceError, "invalid source kernel ID"
+            ):
+                _normalize_response(
+                    _task_response(source_kernel_id=value),
+                    expected_datasets=(),
+                )
 
     def test_connection_failure_is_ambiguous_without_retry(self) -> None:
         calls = 0

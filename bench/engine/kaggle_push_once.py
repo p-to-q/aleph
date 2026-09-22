@@ -161,6 +161,18 @@ def _enum_name(value: Any) -> str:
     return str(value).rsplit(".", 1)[-1]
 
 
+def _optional_positive_id(value: Any, *, label: str) -> int | None:
+    if value is None:
+        return None
+    if isinstance(value, bool) or not isinstance(value, int):
+        raise KagglePushOnceError(f"Kaggle response has an invalid {label}")
+    if value == 0:
+        return None
+    if value < 0:
+        raise KagglePushOnceError(f"Kaggle response has an invalid {label}")
+    return value
+
+
 def _prior_task_record(task_info: Any | None) -> dict[str, Any] | None:
     if task_info is None:
         return None
@@ -181,13 +193,10 @@ def _prior_task_record(task_info: Any | None) -> dict[str, Any] | None:
             "latest Kaggle task creation is pending or has an unknown state; "
             f"reconcile it before creating another version ({state})"
         )
-    source_kernel_id = getattr(task_info, "source_kernel_id", None)
-    if (
-        isinstance(source_kernel_id, bool)
-        or not isinstance(source_kernel_id, int)
-        or source_kernel_id <= 0
-    ):
-        source_kernel_id = None
+    source_kernel_id = _optional_positive_id(
+        getattr(task_info, "source_kernel_id", None),
+        label="source kernel ID",
+    )
     options = getattr(task_info, "options", None)
     datasets = tuple(sorted(getattr(options, "dataset_data_sources", None) or ()))
     return {
@@ -318,12 +327,14 @@ def _normalize_response(
         )
     if isinstance(version, bool) or not isinstance(version, int) or version <= 0:
         raise KagglePushOnceError("Kaggle response has no positive task version")
-    if (
-        isinstance(source_kernel_id, bool)
-        or not isinstance(source_kernel_id, int)
-        or source_kernel_id <= 0
-    ):
-        raise KagglePushOnceError("Kaggle response has no positive source kernel ID")
+    # Kaggle 2.2.4 can acknowledge the exact task version before its backing
+    # kernel ID is populated. The task/version pair is the durable create
+    # acknowledgement; the read-only output step resolves and verifies the
+    # eventual kernel and the unique run for that exact version.
+    source_kernel_id = _optional_positive_id(
+        source_kernel_id,
+        label="source kernel ID",
+    )
     options = getattr(response, "options", None)
     actual_datasets = tuple(
         sorted(getattr(options, "dataset_data_sources", None) or ())
@@ -394,7 +405,7 @@ def push_diagnostic_once(
 
     created_at = _utc_now()
     prepared = {
-        "journalVersion": 1,
+        "journalVersion": 2,
         "artifactKind": "kaggle_task_creation_dispatch",
         "operationId": str(uuid.uuid4()),
         "createdAt": created_at,
@@ -472,9 +483,14 @@ def main(argv: list[str] | None = None) -> int:
         print(f"Kaggle one-shot push failed: {exc}", file=sys.stderr)
         return 1
     response = journal["response"]
+    source_note = (
+        f"source kernel {response['sourceKernelId']}"
+        if response["sourceKernelId"] is not None
+        else "source kernel pending exact-version readback"
+    )
     print(
         f"submitted {response['task']} v{response['version']} once; "
-        f"source kernel {response['sourceKernelId']}"
+        f"{source_note}"
     )
     return 0
 

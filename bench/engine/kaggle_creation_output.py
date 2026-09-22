@@ -22,7 +22,17 @@ RECEIPT_FILENAME = "aleph-bench-v0.2-kaggle-diagnostic-receipt.json"
 MAX_ARCHIVE_BYTES = 268_435_456
 MAX_ARCHIVE_ENTRIES = 4_096
 MAX_ARCHIVE_UNCOMPRESSED_BYTES = 1_073_741_824
+MAX_RUNS_TO_INSPECT = 100
+MAX_RUN_PAGES_TO_INSPECT = 10
 _SLUG_SEGMENT = re.compile(r"^[a-z0-9](?:[a-z0-9-]{0,98}[a-z0-9])?$")
+_TERMINAL_TASK_STATES = {
+    "BENCHMARK_TASK_VERSION_CREATION_STATE_COMPLETED",
+    "BENCHMARK_TASK_VERSION_CREATION_STATE_ERRORED",
+}
+_TERMINAL_RUN_STATES = {
+    "BENCHMARK_TASK_RUN_STATE_COMPLETED",
+    "BENCHMARK_TASK_RUN_STATE_ERRORED",
+}
 
 
 class KaggleCreationOutputError(ValueError):
@@ -64,12 +74,24 @@ def _enum_name(value: Any) -> str:
     return str(value).rsplit(".", 1)[-1]
 
 
+def _optional_positive_id(value: Any, *, label: str) -> int | None:
+    if value is None:
+        return None
+    if isinstance(value, bool) or not isinstance(value, int):
+        _fail(f"Kaggle {label} is invalid")
+    if value == 0:
+        return None
+    if value < 0:
+        _fail(f"Kaggle {label} is invalid")
+    return value
+
+
 def _task_metadata(
     task_info: Any,
     *,
     requested_task: str,
     expected_version: int,
-    expected_source_kernel_id: int,
+    expected_source_kernel_id: int | None,
     expected_datasets: tuple[str, ...],
 ) -> dict[str, Any]:
     requested_owner, requested_slug = _parse_task_slug(requested_task)
@@ -87,6 +109,12 @@ def _task_metadata(
         _fail(
             f"Kaggle returned owner {actual_owner!r}, expected {requested_owner!r}"
         )
+    if (
+        isinstance(actual_version, bool)
+        or not isinstance(actual_version, int)
+        or actual_version <= 0
+    ):
+        _fail("Kaggle task response has no positive integer version")
     if actual_version != expected_version:
         _fail(
             f"Kaggle returned task version {actual_version!r}, "
@@ -94,24 +122,21 @@ def _task_metadata(
         )
 
     state = _enum_name(getattr(task_info, "creation_state", None))
-    if state not in {
-        "BENCHMARK_TASK_VERSION_CREATION_STATE_COMPLETED",
-        "BENCHMARK_TASK_VERSION_CREATION_STATE_ERRORED",
-    }:
+    if state not in _TERMINAL_TASK_STATES:
         error = getattr(task_info, "creation_error_message", None) or getattr(
             task_info, "error", None
         )
         suffix = f": {error}" if error else ""
         _fail(f"task creation is not complete ({state}){suffix}")
 
-    source_kernel_id = getattr(task_info, "source_kernel_id", None)
+    source_kernel_id = _optional_positive_id(
+        getattr(task_info, "source_kernel_id", None),
+        label="source kernel ID",
+    )
     if (
-        isinstance(source_kernel_id, bool)
-        or not isinstance(source_kernel_id, int)
-        or source_kernel_id <= 0
+        expected_source_kernel_id is not None
+        and source_kernel_id != expected_source_kernel_id
     ):
-        _fail("completed task version has no positive source_kernel_id")
-    if source_kernel_id != expected_source_kernel_id:
         _fail(
             f"Kaggle returned source kernel {source_kernel_id}, "
             f"expected {expected_source_kernel_id}"
@@ -151,6 +176,120 @@ def _task_metadata(
         "url": getattr(task_info, "url", None) or None,
         "datasets": list(actual_datasets),
     }
+
+
+def _datetime_value(value: Any) -> str | None:
+    if isinstance(value, datetime):
+        return value.isoformat()
+    if value is None:
+        return None
+    return str(value)
+
+
+def _run_identity(run_info: Any) -> tuple[str | None, str | None, Any]:
+    slug = getattr(run_info, "task_slug", None)
+    if slug is None:
+        return None, None, None
+    owner = getattr(slug, "owner_slug", None) or None
+    task = getattr(slug, "task_slug", None)
+    version = getattr(slug, "version_number", None)
+    return owner, task, version
+
+
+def _run_metadata(
+    run_info: Any,
+    *,
+    requested_task: str,
+    expected_version: int,
+    expected_run_id: int | None,
+) -> dict[str, Any]:
+    requested_owner, requested_slug = _parse_task_slug(requested_task)
+    actual_owner, actual_slug, actual_version = _run_identity(run_info)
+    if actual_slug != requested_slug:
+        _fail(
+            f"Kaggle returned run task {actual_slug!r}, "
+            f"expected {requested_slug!r}"
+        )
+    if requested_owner is not None and actual_owner != requested_owner:
+        _fail(
+            f"Kaggle returned run owner {actual_owner!r}, "
+            f"expected {requested_owner!r}"
+        )
+    if (
+        isinstance(actual_version, bool)
+        or not isinstance(actual_version, int)
+        or actual_version <= 0
+    ):
+        _fail("Kaggle task run has no positive integer task version")
+    if actual_version != expected_version:
+        _fail(
+            f"Kaggle returned run task version {actual_version!r}, "
+            f"expected {expected_version}"
+        )
+
+    run_id = getattr(run_info, "id", None)
+    if isinstance(run_id, bool) or not isinstance(run_id, int) or run_id <= 0:
+        _fail("Kaggle task run has no positive run ID")
+    if expected_run_id is not None and run_id != expected_run_id:
+        _fail(f"Kaggle returned run {run_id}, expected {expected_run_id}")
+
+    state = _enum_name(getattr(run_info, "state", None))
+    if state not in _TERMINAL_RUN_STATES:
+        _fail(
+            "task run is not terminal; wait and retry this read-only "
+            f"download ({state})"
+        )
+    model = getattr(run_info, "model_version_slug", None)
+    if not isinstance(model, str) or not model.strip():
+        _fail("Kaggle task run has no model version slug")
+    return {
+        "id": run_id,
+        "owner": actual_owner,
+        "task": actual_slug,
+        "version": actual_version,
+        "modelVersionSlug": model,
+        "state": state,
+        "error": getattr(run_info, "error_message", None) or None,
+        "startTime": _datetime_value(getattr(run_info, "start_time", None)),
+        "endTime": _datetime_value(getattr(run_info, "end_time", None)),
+    }
+
+
+def _select_exact_run(
+    runs: list[Any],
+    *,
+    requested_task: str,
+    expected_version: int,
+    expected_run_id: int | None,
+) -> Any:
+    requested_owner, requested_slug = _parse_task_slug(requested_task)
+    matches: list[Any] = []
+    for run in runs:
+        owner, task, version = _run_identity(run)
+        if (
+            task == requested_slug
+            and isinstance(version, int)
+            and not isinstance(version, bool)
+            and version == expected_version
+            and (requested_owner is None or owner == requested_owner)
+        ):
+            matches.append(run)
+
+    if len(matches) != 1:
+        _fail(
+            "expected exactly one task run for the creation version; "
+            f"found {len(matches)}. Do not guess which run is authoritative."
+        )
+    selected = matches[0]
+    if (
+        expected_run_id is not None
+        and getattr(selected, "id", None) != expected_run_id
+    ):
+        _fail(
+            f"Kaggle returned run {getattr(selected, 'id', None)!r}, "
+            f"expected {expected_run_id}"
+        )
+    return selected
 
 
 def _safe_archive_entry(info: zipfile.ZipInfo) -> None:
@@ -206,13 +345,26 @@ def _extract_verified_receipt(
 def _gate_result(receipt: dict[str, Any], mode: str) -> tuple[bool, str]:
     calls = receipt["calls"]
     if mode == "zero-call":
-        passed = (
-            receipt["status"] == "blocked"
-            and receipt["phase"] == "package_preflight"
-            and calls["attempted"] == 0
+        zero_calls_proven = (
+            calls["attempted"] == 0
             and calls["completed"] == 0
             and calls["activeCall"] is None
             and receipt["rows"] == []
+        )
+        if (
+            receipt["status"] == "blocked"
+            and receipt["phase"] == "runtime_preflight"
+            and zero_calls_proven
+        ):
+            return (
+                False,
+                "zero calls proven, but runtime is incompatible and the "
+                "package gate was not reached",
+            )
+        passed = (
+            receipt["status"] == "blocked"
+            and receipt["phase"] == "package_preflight"
+            and zero_calls_proven
         )
         return passed, (
             "package preflight blocked before every model call"
@@ -245,35 +397,6 @@ def _validate_gate_datasets(mode: str, datasets: tuple[str, ...]) -> None:
             _fail("six-call gate must expect exactly one attached dataset")
         return
     _fail(f"unknown gate mode: {mode!r}")
-
-
-def _source_kernel_for_download(
-    task_info: Any, expected_source_kernel_id: int
-) -> int:
-    """Bind a terminal task response to the journaled creation kernel."""
-
-    creation_state = _enum_name(getattr(task_info, "creation_state", None))
-    if creation_state not in {
-        "BENCHMARK_TASK_VERSION_CREATION_STATE_COMPLETED",
-        "BENCHMARK_TASK_VERSION_CREATION_STATE_ERRORED",
-    }:
-        _fail(
-            "task creation is not terminal; wait and retry this read-only "
-            f"download ({creation_state})"
-        )
-    source_kernel_id = getattr(task_info, "source_kernel_id", None)
-    if (
-        isinstance(source_kernel_id, bool)
-        or not isinstance(source_kernel_id, int)
-        or source_kernel_id <= 0
-    ):
-        _fail("task version has no downloadable source kernel")
-    if source_kernel_id != expected_source_kernel_id:
-        _fail(
-            f"Kaggle returned source kernel {source_kernel_id}, "
-            f"expected {expected_source_kernel_id}"
-        )
-    return source_kernel_id
 
 
 def _read_bounded_download(response: Any) -> bytes:
@@ -327,9 +450,11 @@ def _read_bounded_download(response: Any) -> bytes:
 def write_creation_bundle(
     *,
     task_info: Any,
+    run_info: Any,
     requested_task: str,
     expected_version: int,
-    expected_source_kernel_id: int,
+    expected_source_kernel_id: int | None,
+    expected_run_id: int | None,
     expected_datasets: tuple[str, ...],
     archive_bytes: bytes,
     gate_mode: str,
@@ -345,6 +470,12 @@ def write_creation_bundle(
         expected_source_kernel_id=expected_source_kernel_id,
         expected_datasets=expected_datasets,
     )
+    run = _run_metadata(
+        run_info,
+        requested_task=requested_task,
+        expected_version=expected_version,
+        expected_run_id=expected_run_id,
+    )
     receipt_bytes, receipt, receipt_entry = _extract_verified_receipt(
         archive_bytes
     )
@@ -354,7 +485,10 @@ def write_creation_bundle(
         gate_message = (
             "creation kernel errored; receipt retained for manual review"
         )
-    stem = f"{task['slug']}-v{expected_version}-creation-{task['sourceKernelId']}"
+    if run["state"] != "BENCHMARK_TASK_RUN_STATE_COMPLETED":
+        gate_passed = False
+        gate_message = "creation task run errored; receipt retained for manual review"
+    stem = f"{task['slug']}-v{expected_version}-run-{run['id']}"
     output_dir.mkdir(parents=True, exist_ok=True)
     archive_path = output_dir / f"{stem}.zip"
     receipt_path = output_dir / f"{stem}-receipt.json"
@@ -366,6 +500,7 @@ def write_creation_bundle(
     metadata = {
         "artifactKind": "kaggle_task_creation_bundle",
         "task": task,
+        "run": run,
         "archive": {
             "file": archive_path.name,
             "bytes": len(archive_bytes),
@@ -383,6 +518,7 @@ def write_creation_bundle(
             "manualReviewRequired": (
                 task["creationState"]
                 != "BENCHMARK_TASK_VERSION_CREATION_STATE_COMPLETED"
+                or run["state"] != "BENCHMARK_TASK_RUN_STATE_COMPLETED"
                 or receipt["calls"]["activeCall"] is not None
                 or (
                     receipt["status"] == "blocked"
@@ -420,22 +556,44 @@ def write_creation_bundle(
     return metadata, gate_passed
 
 
-def _download_creation_archive(
-    task: str, version: int, expected_source_kernel_id: int
-) -> tuple[Any, bytes]:
+def _load_kaggle_sdk() -> tuple[Any, Any, Any, Any, Any]:
+    """Load the optional Kaggle client only when the CLI path is used."""
+
     try:
         from kaggle.api.kaggle_api_extended import KaggleApi
         from kagglesdk.benchmarks.types.benchmark_tasks_api_service import (
             ApiBenchmarkTaskSlug,
+            ApiDownloadBenchmarkTaskRunOutputRequest,
             ApiGetBenchmarkTaskRequest,
-        )
-        from kagglesdk.kernels.types.kernels_api_service import (
-            ApiDownloadKernelOutputZipRequest,
+            ApiListBenchmarkTaskRunsRequest,
         )
     except ImportError as exc:
         raise KaggleCreationOutputError(
             "Kaggle CLI 2.2.4 or newer is required to download creation output"
         ) from exc
+    return (
+        KaggleApi,
+        ApiBenchmarkTaskSlug,
+        ApiDownloadBenchmarkTaskRunOutputRequest,
+        ApiGetBenchmarkTaskRequest,
+        ApiListBenchmarkTaskRunsRequest,
+    )
+
+
+def _download_creation_archive(
+    task: str,
+    version: int,
+    expected_run_id: int | None,
+    expected_source_kernel_id: int | None,
+    expected_datasets: tuple[str, ...],
+) -> tuple[Any, Any, bytes]:
+    (
+        KaggleApi,
+        ApiBenchmarkTaskSlug,
+        ApiDownloadBenchmarkTaskRunOutputRequest,
+        ApiGetBenchmarkTaskRequest,
+        ApiListBenchmarkTaskRunsRequest,
+    ) = _load_kaggle_sdk()
 
     owner, task_slug = _parse_task_slug(task)
     slug = ApiBenchmarkTaskSlug()
@@ -449,28 +607,111 @@ def _download_creation_archive(
     api = KaggleApi()
     api.authenticate()
     with api.build_kaggle_client() as client:
-        get_task = client.benchmarks.benchmark_tasks_api_client.get_benchmark_task
+        task_client = client.benchmarks.benchmark_tasks_api_client
+        get_task = task_client.get_benchmark_task
         task_info = api.with_retry(get_task)(get_request)
-        source_kernel_id = _source_kernel_for_download(
-            task_info, expected_source_kernel_id
+        task_record = _task_metadata(
+            task_info,
+            requested_task=task,
+            expected_version=version,
+            expected_source_kernel_id=expected_source_kernel_id,
+            expected_datasets=expected_datasets,
         )
-        output_request = ApiDownloadKernelOutputZipRequest()
-        output_request.kernel_session_id = source_kernel_id
-        download = client.kernels.kernels_api_client.download_kernel_output_zip
+        resolved_task = (
+            f"{task_record['owner']}/{task_record['slug']}"
+            if task_record["owner"] is not None
+            else task_record["slug"]
+        )
+
+        list_request = ApiListBenchmarkTaskRunsRequest()
+        list_request.task_slug = slug
+        list_request.page_size = MAX_RUNS_TO_INSPECT
+        runs: list[Any] = []
+        seen_page_tokens: set[str] = set()
+        pages_inspected = 0
+        while True:
+            pages_inspected += 1
+            if pages_inspected > MAX_RUN_PAGES_TO_INSPECT:
+                _fail(
+                    "too many task-run pages to bind creation output safely; "
+                    "manual reconciliation is required"
+                )
+            # These calls are read-only. Retrying them cannot create another
+            # task version or schedule another model execution.
+            response = api.with_retry(task_client.list_benchmark_task_runs)(
+                list_request
+            )
+            runs.extend(list(getattr(response, "runs", None) or ()))
+            if len(runs) > MAX_RUNS_TO_INSPECT:
+                _fail(
+                    "too many task runs to bind creation output safely; "
+                    "manual reconciliation is required"
+                )
+            next_page_token = getattr(response, "next_page_token", None) or ""
+            if not next_page_token:
+                break
+            if next_page_token in seen_page_tokens:
+                _fail("Kaggle task-run pagination repeated a page token")
+            if pages_inspected >= MAX_RUN_PAGES_TO_INSPECT:
+                _fail(
+                    "too many task-run pages to bind creation output safely; "
+                    "manual reconciliation is required"
+                )
+            if len(runs) >= MAX_RUNS_TO_INSPECT:
+                _fail(
+                    "too many task runs to bind creation output safely; "
+                    "manual reconciliation is required"
+                )
+            seen_page_tokens.add(next_page_token)
+            list_request.page_token = next_page_token
+
+        run_info = _select_exact_run(
+            runs,
+            requested_task=resolved_task,
+            expected_version=version,
+            expected_run_id=expected_run_id,
+        )
+        _run_metadata(
+            run_info,
+            requested_task=resolved_task,
+            expected_version=version,
+            expected_run_id=expected_run_id,
+        )
+        output_request = ApiDownloadBenchmarkTaskRunOutputRequest()
+        output_request.run_id = getattr(run_info, "id")
+        # Retain the executed notebook beside the receipt so a later audit can
+        # compare its code cells with the submitted, content-addressed source.
+        output_request.include_source = True
+        download = task_client.download_benchmark_task_run_output
         response = api.with_retry(download)(output_request)
-        return task_info, _read_bounded_download(response)
+        return task_info, run_info, _read_bounded_download(response)
 
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         description=(
-            "Download and verify the backing kernel output for one exact "
-            "Kaggle benchmark task version without scheduling a model run."
+            "Download and verify the unique creation-triggered run output for "
+            "one exact Kaggle benchmark task version without scheduling a run."
         )
     )
     parser.add_argument("task", help="TASK or OWNER/TASK slug")
     parser.add_argument("--version", type=int, required=True)
-    parser.add_argument("--source-kernel-id", type=int, required=True)
+    parser.add_argument(
+        "--source-kernel-id",
+        type=int,
+        help=(
+            "Optional backing-kernel ID to cross-check. Kaggle's create "
+            "response may omit it; the exact version readback remains required."
+        ),
+    )
+    parser.add_argument(
+        "--run-id",
+        type=int,
+        help=(
+            "Optional run ID to cross-check. Without it, exactly one run must "
+            "exist for the requested task version."
+        ),
+    )
     parser.add_argument(
         "--gate", choices=("zero-call", "six-call"), required=True
     )
@@ -485,20 +726,28 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(sys.argv[1:] if argv is None else argv)
     if args.version <= 0:
         parser.error("--version must be positive")
-    if args.source_kernel_id <= 0:
+    if args.source_kernel_id is not None and args.source_kernel_id <= 0:
         parser.error("--source-kernel-id must be positive")
+    if args.run_id is not None and args.run_id <= 0:
+        parser.error("--run-id must be positive")
     expected_datasets = (
         () if args.expect_no_datasets else tuple(args.expect_dataset)
     )
     try:
-        task_info, archive_bytes = _download_creation_archive(
-            args.task, args.version, args.source_kernel_id
+        task_info, run_info, archive_bytes = _download_creation_archive(
+            args.task,
+            args.version,
+            args.run_id,
+            args.source_kernel_id,
+            expected_datasets,
         )
         metadata, passed = write_creation_bundle(
             task_info=task_info,
+            run_info=run_info,
             requested_task=args.task,
             expected_version=args.version,
             expected_source_kernel_id=args.source_kernel_id,
+            expected_run_id=args.run_id,
             expected_datasets=expected_datasets,
             archive_bytes=archive_bytes,
             gate_mode=args.gate,
@@ -509,7 +758,8 @@ def main(argv: list[str] | None = None) -> int:
         return 1
     print(
         f"retained task {metadata['task']['slug']} v{metadata['task']['version']} "
-        f"creation kernel {metadata['task']['sourceKernelId']}: "
+        f"run {metadata['run']['id']} (creation kernel "
+        f"{metadata['task']['sourceKernelId']}): "
         f"{metadata['gate']['message']}"
     )
     return 0 if passed else 2
