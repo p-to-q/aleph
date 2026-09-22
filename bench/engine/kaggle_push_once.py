@@ -13,6 +13,10 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable
 
+from bench.tasks.kaggle.generate_v0_2_capture import (
+    OUTPUT_PATH as CAPTURE_OUTPUT_PATH,
+    render_task_source as render_capture_task_source,
+)
 from bench.tasks.kaggle.generate_v0_2_diagnostic import (
     OUTPUT_PATH,
     render_task_source,
@@ -20,6 +24,7 @@ from bench.tasks.kaggle.generate_v0_2_diagnostic import (
 
 
 TASK_SLUG = "aleph-bench-deployment-diagnostic-2048-none"
+CAPTURE_TASK_SLUG = "aleph-bench-v0-2-capture-canary"
 MAX_SOURCE_BYTES = 2_097_152
 REQUIRED_PYTHON_MAJOR_MINOR = (3, 13)
 REQUIRED_CLIENT_VERSIONS = {
@@ -173,15 +178,17 @@ def _optional_positive_id(value: Any, *, label: str) -> int | None:
     return value
 
 
-def _prior_task_record(task_info: Any | None) -> dict[str, Any] | None:
+def _prior_task_record(
+    task_info: Any | None, *, expected_task: str = TASK_SLUG
+) -> dict[str, Any] | None:
     if task_info is None:
         return None
     slug = getattr(task_info, "slug", None)
     actual_task = getattr(slug, "task_slug", None)
     version = getattr(slug, "version_number", None)
-    if actual_task != TASK_SLUG:
+    if actual_task != expected_task:
         raise KagglePushOnceError(
-            f"Kaggle preflight returned task {actual_task!r}, expected {TASK_SLUG!r}"
+            f"Kaggle preflight returned task {actual_task!r}, expected {expected_task!r}"
         )
     if isinstance(version, bool) or not isinstance(version, int) or version <= 0:
         raise KagglePushOnceError(
@@ -217,11 +224,14 @@ def preflight_and_dispatch_once(
     journal_path: Path,
     prepared_journal: dict[str, Any],
     response_record: Callable[[Any], dict[str, Any]],
+    expected_task: str = TASK_SLUG,
     clock: Callable[[], str] = _utc_now,
 ) -> dict[str, Any]:
     """Require a terminal prior version, then cross one create boundary."""
 
-    prior_task = _prior_task_record(fetch_latest_task())
+    prior_task = _prior_task_record(
+        fetch_latest_task(), expected_task=expected_task
+    )
     prepared = dict(prepared_journal)
     prepared["remotePreflight"] = {
         "observedAt": clock(),
@@ -284,16 +294,33 @@ def dispatch_create_once(
 
 
 def _source_and_notebook(source_path: Path) -> tuple[bytes, str]:
+    return _exact_source_and_notebook(
+        source_path,
+        expected_path=OUTPUT_PATH,
+        expected_source=render_task_source(),
+        source_label="diagnostic",
+    )
+
+
+def _exact_source_and_notebook(
+    source_path: Path,
+    *,
+    expected_path: Path,
+    expected_source: str,
+    source_label: str,
+) -> tuple[bytes, str]:
     try:
         source = source_path.read_bytes()
     except OSError as exc:
-        raise KagglePushOnceError(f"could not read diagnostic source: {exc}") from exc
-    if len(source) > MAX_SOURCE_BYTES:
-        raise KagglePushOnceError("diagnostic source exceeds the safety limit")
-    expected = render_task_source().encode("utf-8")
-    if source != expected or source_path.resolve() != OUTPUT_PATH.resolve():
         raise KagglePushOnceError(
-            "only the current checked-in generated diagnostic source may be pushed"
+            f"could not read {source_label} source: {exc}"
+        ) from exc
+    if len(source) > MAX_SOURCE_BYTES:
+        raise KagglePushOnceError(f"{source_label} source exceeds the safety limit")
+    expected = expected_source.encode("utf-8")
+    if source != expected or source_path.resolve() != expected_path.resolve():
+        raise KagglePushOnceError(
+            f"only the current checked-in generated {source_label} source may be pushed"
         )
     try:
         import jupytext
@@ -312,7 +339,10 @@ def _source_and_notebook(source_path: Path) -> tuple[bytes, str]:
 
 
 def _normalize_response(
-    response: Any, *, expected_datasets: tuple[str, ...]
+    response: Any,
+    *,
+    expected_datasets: tuple[str, ...],
+    expected_task: str = TASK_SLUG,
 ) -> dict[str, Any]:
     error = getattr(response, "error", None)
     if error:
@@ -321,9 +351,9 @@ def _normalize_response(
     actual_task = getattr(slug, "task_slug", None)
     version = getattr(slug, "version_number", None)
     source_kernel_id = getattr(response, "source_kernel_id", None)
-    if actual_task != TASK_SLUG:
+    if actual_task != expected_task:
         raise KagglePushOnceError(
-            f"Kaggle returned task {actual_task!r}, expected {TASK_SLUG!r}"
+            f"Kaggle returned task {actual_task!r}, expected {expected_task!r}"
         )
     if isinstance(version, bool) or not isinstance(version, int) or version <= 0:
         raise KagglePushOnceError("Kaggle response has no positive task version")
@@ -458,6 +488,105 @@ def push_diagnostic_once(
         )
 
 
+def push_capture_once(
+    *,
+    source_path: Path,
+    datasets: tuple[str, ...],
+    journal_path: Path,
+) -> dict[str, Any]:
+    """Submit the fixed six-call capture canary exactly once."""
+
+    if any(not _DATASET_SLUG.fullmatch(dataset) for dataset in datasets):
+        raise KagglePushOnceError(
+            "each Kaggle dataset must use a lowercase OWNER/DATASET slug"
+        )
+    if len(datasets) != 1:
+        raise KagglePushOnceError(
+            "capture canary requires exactly one reviewed private dataset"
+        )
+    client_versions = _verified_client_versions()
+    source, notebook_text = _exact_source_and_notebook(
+        source_path,
+        expected_path=CAPTURE_OUTPUT_PATH,
+        expected_source=render_capture_task_source(),
+        source_label="capture",
+    )
+    try:
+        from kaggle.api.kaggle_api_extended import KaggleApi
+        from kagglesdk.benchmarks.types.benchmark_types import BenchmarkTaskOptions
+        from kagglesdk.benchmarks.types.benchmark_tasks_api_service import (
+            ApiBenchmarkTaskSlug,
+            ApiCreateBenchmarkTaskRequest,
+            ApiGetBenchmarkTaskRequest,
+        )
+        from requests.exceptions import HTTPError
+    except ImportError as exc:
+        raise KagglePushOnceError(
+            "Kaggle CLI 2.2.4 or newer is required for one-shot push"
+        ) from exc
+
+    request = ApiCreateBenchmarkTaskRequest()
+    request.slug = CAPTURE_TASK_SLUG
+    request.text = notebook_text
+    options = BenchmarkTaskOptions()
+    options.dataset_data_sources = list(datasets)
+    request.options = options
+
+    prepared = {
+        "journalVersion": 2,
+        "artifactKind": "kaggle_task_creation_dispatch",
+        "operationId": str(uuid.uuid4()),
+        "createdAt": _utc_now(),
+        "task": CAPTURE_TASK_SLUG,
+        "gate": "six-call-capture",
+        "datasets": list(datasets),
+        "client": client_versions,
+        "source": {
+            "path": str(source_path.resolve()),
+            "bytes": len(source),
+            "sha256": hashlib.sha256(source).hexdigest(),
+            "notebookSha256": hashlib.sha256(
+                notebook_text.encode("utf-8")
+            ).hexdigest(),
+        },
+    }
+
+    api = KaggleApi()
+    api.authenticate()
+    with api.build_kaggle_client() as client:
+        slug = ApiBenchmarkTaskSlug()
+        slug.task_slug = CAPTURE_TASK_SLUG
+        get_request = ApiGetBenchmarkTaskRequest()
+        get_request.slug = slug
+        get_task = client.benchmarks.benchmark_tasks_api_client.get_benchmark_task
+
+        def fetch_latest_task() -> Any | None:
+            try:
+                return api.with_retry(get_task)(get_request)
+            except HTTPError as exc:
+                status_code = getattr(
+                    getattr(exc, "response", None), "status_code", None
+                )
+                if status_code in {403, 404}:
+                    return None
+                raise
+
+        create = client.benchmarks.benchmark_tasks_api_client.create_benchmark_task
+        return preflight_and_dispatch_once(
+            fetch_latest_task=fetch_latest_task,
+            create_task=create,
+            request=request,
+            journal_path=journal_path,
+            prepared_journal=prepared,
+            response_record=lambda response: _normalize_response(
+                response,
+                expected_datasets=datasets,
+                expected_task=CAPTURE_TASK_SLUG,
+            ),
+            expected_task=CAPTURE_TASK_SLUG,
+        )
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         description=(
@@ -468,17 +597,34 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--source", type=Path, default=OUTPUT_PATH
     )
+    parser.add_argument(
+        "--task-kind", choices=("diagnostic", "capture"), default="diagnostic"
+    )
     parser.add_argument("--gate", choices=("zero-call", "six-call"), required=True)
     parser.add_argument("--dataset", action="append", default=[])
     parser.add_argument("--journal", type=Path, required=True)
     args = parser.parse_args(sys.argv[1:] if argv is None else argv)
     try:
-        journal = push_diagnostic_once(
-            source_path=args.source,
-            datasets=tuple(args.dataset),
-            gate=args.gate,
-            journal_path=args.journal,
-        )
+        if args.task_kind == "capture":
+            if args.gate != "six-call":
+                raise KagglePushOnceError(
+                    "capture task-kind requires the six-call gate"
+                )
+            source_path = (
+                CAPTURE_OUTPUT_PATH if args.source == OUTPUT_PATH else args.source
+            )
+            journal = push_capture_once(
+                source_path=source_path,
+                datasets=tuple(args.dataset),
+                journal_path=args.journal,
+            )
+        else:
+            journal = push_diagnostic_once(
+                source_path=args.source,
+                datasets=tuple(args.dataset),
+                gate=args.gate,
+                journal_path=args.journal,
+            )
     except (OSError, ValueError) as exc:
         print(f"Kaggle one-shot push failed: {exc}", file=sys.stderr)
         return 1

@@ -14,6 +14,7 @@ from bench.engine.kaggle_push_once import (
     _normalize_response,
     dispatch_create_once,
     preflight_and_dispatch_once,
+    push_capture_once,
     push_diagnostic_once,
 )
 
@@ -48,6 +49,72 @@ class HardStop(BaseException):
 
 
 class KagglePushOnceTests(unittest.TestCase):
+    def test_capture_task_identity_is_supported_without_weakening_diagnostic_default(self) -> None:
+        response = _task_response(
+            task=push_once.CAPTURE_TASK_SLUG,
+            datasets=("owner/capture-package",),
+        )
+        observed = _normalize_response(
+            response,
+            expected_datasets=("owner/capture-package",),
+            expected_task=push_once.CAPTURE_TASK_SLUG,
+        )
+
+        self.assertEqual(observed["task"], push_once.CAPTURE_TASK_SLUG)
+        with self.assertRaisesRegex(KagglePushOnceError, "expected"):
+            _normalize_response(
+                response,
+                expected_datasets=("owner/capture-package",),
+            )
+
+    def test_capture_requires_one_reviewed_dataset_before_client_or_source(self) -> None:
+        for datasets in ((), ("owner/one", "owner/two")):
+            with self.subTest(datasets=datasets), tempfile.TemporaryDirectory() as tmp:
+                with (
+                    mock.patch.object(push_once, "_verified_client_versions") as clients,
+                    mock.patch.object(push_once, "_exact_source_and_notebook") as source,
+                    self.assertRaisesRegex(KagglePushOnceError, "exactly one"),
+                ):
+                    push_capture_once(
+                        source_path=Path(tmp) / "capture.py",
+                        datasets=datasets,
+                        journal_path=Path(tmp) / "push.json",
+                    )
+                clients.assert_not_called()
+                source.assert_not_called()
+
+    def test_capture_cli_routes_default_source_to_capture_generator(self) -> None:
+        journal = {
+            "response": {
+                "task": push_once.CAPTURE_TASK_SLUG,
+                "version": 1,
+                "sourceKernelId": None,
+            }
+        }
+        with tempfile.TemporaryDirectory() as tmp, mock.patch.object(
+            push_once, "push_capture_once", return_value=journal
+        ) as submit:
+            status = push_once.main(
+                [
+                    "--task-kind",
+                    "capture",
+                    "--gate",
+                    "six-call",
+                    "--dataset",
+                    "owner/capture-package",
+                    "--journal",
+                    str(Path(tmp) / "push.json"),
+                ]
+            )
+
+        self.assertEqual(status, 0)
+        self.assertEqual(
+            submit.call_args.kwargs["source_path"], push_once.CAPTURE_OUTPUT_PATH
+        )
+        self.assertEqual(
+            submit.call_args.kwargs["datasets"], ("owner/capture-package",)
+        )
+
     def test_client_version_mismatch_blocks_before_remote_read_or_journal(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             journal_path = Path(tmp) / "push.json"
