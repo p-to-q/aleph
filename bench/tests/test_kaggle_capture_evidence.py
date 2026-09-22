@@ -223,14 +223,14 @@ class KaggleCaptureEvidenceTests(unittest.TestCase):
             evidence,
         )
 
-    def test_missing_finish_reason_is_bound_but_not_assembly_eligible(self) -> None:
+    def test_missing_finish_reason_is_bound_and_assembly_eligible(self) -> None:
         payload_bytes = self._payload_bytes(finish_reason=None)
         evidence, _, output_tmp = self._write(
             archive_bytes=_archive(payload_bytes, self.source_bytes)
         )
         self.assertIsNotNone(output_tmp)
-        self.assertFalse(evidence["assemblyEligible"])
-        self.assertFalse(evidence["payload"]["canonicalReplayEligible"])
+        self.assertTrue(evidence["assemblyEligible"])
+        self.assertTrue(evidence["payload"]["canonicalReplayEligible"])
 
     def test_zero_call_preflight_block_is_retained_as_ineligible_evidence(self) -> None:
         payload_bytes = self._blocked_payload_bytes()

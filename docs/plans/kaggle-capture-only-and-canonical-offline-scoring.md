@@ -49,6 +49,14 @@ results durable before an implementation or publication claim relies on them.
 The existing design already provides the useful separation point: adapters retain the raw decoded
 string before normalization, and the verifier can recompute item runs from retained outputs.
 
+A follow-up SDK audit at Kaggle `kaggle-benchmarks` commit
+`6df5cef8750afc2b7aad084202575daaa5e49b4c` found that the public `Usage` contract exposes input
+tokens, output tokens, input/output cost, and backend latency, but no finish reason. The message and
+protobuf serialization paths likewise do not retain a finish reason. Capture schema 1.1 therefore
+records a missing finish reason as an explicit diagnostic rather than treating an unavailable SDK
+field as a failed run. Missing input/output token counts, a known token-limit finish reason, an
+unknown finish reason, or output usage within the frozen near-cap margin remain replay blockers.
+
 ## Decision
 
 1. The v0.2 scorer, dataset, normalization, leakage policy, rerun policy, Python 3.13 requirement,
@@ -136,6 +144,9 @@ keeps its leaderboard isolated.
   failed call.
 - Treat usage fields as observations. Preserve the distinction between missing and integer zero; do
   not synthesize usage from text length.
+- Record finish reason when the SDK exposes one. Its absence is a non-blocking observability warning
+  only when input/output token counts are present and the observed output is below the frozen
+  near-cap threshold; known limit or unknown non-null reasons still block replay.
 
 ### Recoverable call state
 

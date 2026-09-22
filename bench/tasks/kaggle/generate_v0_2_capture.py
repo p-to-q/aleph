@@ -32,7 +32,7 @@ from bench.engine.scoring_core import validate_scoring_runtime
 
 OUTPUT_PATH = ROOT / "bench/tasks/kaggle/aleph_bench_v0_2_capture.py"
 TASK_NAME = "aleph_bench_v0_2_capture_canary"
-TASK_VERSION = 1
+TASK_VERSION = 2
 TASK_DESCRIPTION = (
     "Capture the fixed Aleph-Bench v0.2 six-call Kaggle canary without scoring."
 )
@@ -238,7 +238,7 @@ def _generation_context() -> dict[str, Any]:
 
 TASK_BODY = r'''
 
-CAPTURE_SCHEMA_VERSION = "1.0.0"
+CAPTURE_SCHEMA_VERSION = "1.1.0"
 ARTIFACT_KIND = "aleph_bench_kaggle_raw_capture"
 TARGET_PROTOCOL_VERSION = "0.2.0"
 ARTIFACT_ID_PREFIX = "aleph-bench-kaggle-capture-v1-artifact-"
@@ -688,7 +688,9 @@ def _derive_diagnostics(rows, active):
     missing_usage = ids(
         lambda row: row["usage"]["inputTokens"] is None
         or row["usage"]["outputTokens"] is None
-        or row["usage"]["finishReason"] is None
+    )
+    missing_finish_reason = ids(
+        lambda row: row["usage"]["finishReason"] is None
     )
     zero_usage = ids(
         lambda row: row["usage"]["inputTokens"] == 0
@@ -737,6 +739,7 @@ def _derive_diagnostics(rows, active):
         "lifecycleFailureRowIds": lifecycle_failure,
         "scoringTextTooLongRowIds": scoring_too_long,
         "missingUsageRowIds": missing_usage,
+        "missingFinishReasonRowIds": missing_finish_reason,
         "zeroUsageRowIds": zero_usage,
         "nearCapOutputRowIds": near_cap,
         "tokenLimitTerminationRowIds": token_limit,
