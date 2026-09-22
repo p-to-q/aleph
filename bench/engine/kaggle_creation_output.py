@@ -275,21 +275,22 @@ def _select_exact_run(
         ):
             matches.append(run)
 
+    if expected_run_id is not None:
+        matches = [
+            run for run in matches if getattr(run, "id", None) == expected_run_id
+        ]
+
     if len(matches) != 1:
+        authority = (
+            f"run ID {expected_run_id} for the creation version"
+            if expected_run_id is not None
+            else "task run for the creation version"
+        )
         _fail(
-            "expected exactly one task run for the creation version; "
+            f"expected exactly one {authority}; "
             f"found {len(matches)}. Do not guess which run is authoritative."
         )
-    selected = matches[0]
-    if (
-        expected_run_id is not None
-        and getattr(selected, "id", None) != expected_run_id
-    ):
-        _fail(
-            f"Kaggle returned run {getattr(selected, 'id', None)!r}, "
-            f"expected {expected_run_id}"
-        )
-    return selected
+    return matches[0]
 
 
 def _safe_archive_entry(info: zipfile.ZipInfo) -> None:
