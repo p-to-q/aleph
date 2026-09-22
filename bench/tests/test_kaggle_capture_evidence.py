@@ -87,6 +87,7 @@ def _archive(
     source_bytes: bytes,
     *,
     notebook: bool = False,
+    strip_notebook_shebang: bool = False,
     extra_payload: bool = False,
     extra_source: bool = False,
 ) -> bytes:
@@ -96,6 +97,12 @@ def _archive(
         if extra_payload:
             archive.writestr(f"duplicate/{CAPTURE_FILENAME}", payload_bytes)
         if notebook:
+            notebook_source = source_bytes.decode("utf-8")
+            if strip_notebook_shebang:
+                self_contained_shebang = "#!/usr/bin/env python3\n"
+                if not notebook_source.startswith(self_contained_shebang):
+                    raise AssertionError("test source is missing the expected shebang")
+                notebook_source = notebook_source[len(self_contained_shebang) :]
             notebook_bytes = (
                 json.dumps(
                     {
@@ -103,7 +110,7 @@ def _archive(
                             {
                                 "cell_type": "code",
                                 "metadata": {},
-                                "source": source_bytes.decode("utf-8"),
+                                "source": notebook_source,
                             }
                         ],
                         "metadata": {},
@@ -257,6 +264,21 @@ class KaggleCaptureEvidenceTests(unittest.TestCase):
         self.assertIsNotNone(output_tmp)
         self.assertEqual(evidence["source"]["archiveKind"], "notebookCodeCell")
         self.assertEqual(evidence["source"]["notebookCellIndex"], 0)
+
+    def test_jupytext_shebang_elision_is_accepted_and_full_source_retained(self) -> None:
+        payload_bytes = self._payload_bytes()
+        evidence, output_dir, output_tmp = self._write(
+            archive_bytes=_archive(
+                payload_bytes,
+                self.source_bytes,
+                notebook=True,
+                strip_notebook_shebang=True,
+            )
+        )
+        self.assertIsNotNone(output_tmp)
+        self.assertEqual(evidence["source"]["archiveKind"], "notebookCodeCell")
+        retained = (output_dir / evidence["source"]["file"]).read_bytes()
+        self.assertEqual(retained, self.source_bytes)
 
     def test_archive_confusion_fails_closed(self) -> None:
         payload_bytes = self._payload_bytes()

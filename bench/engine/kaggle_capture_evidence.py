@@ -197,7 +197,15 @@ def _notebook_source_candidates(
             source_bytes = text.encode("utf-8", errors="strict")
         except UnicodeEncodeError:
             continue
-        if source_bytes == expected_source:
+        # Jupytext intentionally removes a Python shebang when converting the
+        # exact percent-script source into a notebook code cell. Accept only
+        # that single deterministic transformation; all other bytes remain
+        # bound to the checked-in generated source.
+        notebook_expected_source = expected_source
+        shebang = b"#!/usr/bin/env python3\n"
+        if notebook_expected_source.startswith(shebang):
+            notebook_expected_source = notebook_expected_source[len(shebang) :]
+        if source_bytes in {expected_source, notebook_expected_source}:
             matches.append(
                 {
                     "sourceContainerEntry": entry,
