@@ -18,6 +18,7 @@ from bench.engine.kaggle_creation_output import (
     _read_bounded_download,
     _run_metadata,
     _select_exact_run,
+    _task_metadata,
     _validate_gate_datasets,
     write_creation_bundle,
 )
@@ -472,6 +473,22 @@ class KaggleCreationOutputTests(unittest.TestCase):
 
         self.assertEqual(metadata["startTime"], "2026-09-18T01:00:00+00:00")
         self.assertEqual(metadata["endTime"], "2026-09-18T01:01:00+00:00")
+
+    def test_task_metadata_restores_sdk_naive_timestamp_as_utc(self) -> None:
+        task_info = _task_info()
+        task_info.create_time = datetime(2026, 9, 18)
+
+        metadata = _task_metadata(
+            task_info,
+            requested_task=(
+                "owner/aleph-bench-deployment-diagnostic-2048-none"
+            ),
+            expected_version=2,
+            expected_source_kernel_id=12345,
+            expected_datasets=(),
+        )
+
+        self.assertEqual(metadata["createTime"], "2026-09-18T00:00:00+00:00")
 
     def test_task_metadata_rejects_boolean_version_one(self) -> None:
         with self.assertRaisesRegex(
