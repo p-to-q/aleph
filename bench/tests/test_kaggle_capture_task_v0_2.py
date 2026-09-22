@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import copy
+import contextlib
+import io
 import importlib.util
 import json
 import sys
@@ -432,16 +434,20 @@ class KaggleCaptureTaskV02Tests(unittest.TestCase):
         readme = package_root / "README.md"
         readme.write_bytes(readme.read_bytes() + b"drift")
 
-        payload, _, output_tmp = self._run(
-            llm=_Bomb(),
-            chats=_Bomb(),
-            package_root=package_root,
-            verify_package=True,
-        )
+        stdout = io.StringIO()
+        with contextlib.redirect_stdout(stdout):
+            payload, _, output_tmp = self._run(
+                llm=_Bomb(),
+                chats=_Bomb(),
+                package_root=package_root,
+                verify_package=True,
+            )
         self.addCleanup(output_tmp.cleanup)
         self.assertEqual(payload["rows"], [])
         self.assertEqual(payload["calls"]["attemptedCallCount"], 0)
         self.assertFalse(payload["captureComplete"])
+        self.assertIn("stage=package", stdout.getvalue())
+        self.assertIn("package artifact size mismatch", stdout.getvalue())
 
     def test_chat_open_model_call_and_close_failures_are_distinct(self) -> None:
         cases = [
@@ -503,12 +509,16 @@ class KaggleCaptureTaskV02Tests(unittest.TestCase):
 
     def test_genai_explicit_retry_options_block_before_model_call(self) -> None:
         llm = GoogleGenAI(retry_options=object())
-        payload, _, output_tmp = self._run(llm=llm, chats=_Chats())
+        stdout = io.StringIO()
+        with contextlib.redirect_stdout(stdout):
+            payload, _, output_tmp = self._run(llm=llm, chats=_Chats())
         self.addCleanup(output_tmp.cleanup)
 
         self.assertFalse(payload["captureComplete"])
         self.assertEqual(payload["calls"]["attemptedCallCount"], 0)
         self.assertEqual(llm.calls, [])
+        self.assertIn("stage=model", stdout.getvalue())
+        self.assertIn("transportRetryPolicyUnverified", stdout.getvalue())
 
     def test_non_string_oversized_and_lone_surrogate_outputs_fail_closed(self) -> None:
         cases = [

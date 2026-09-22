@@ -103,6 +103,9 @@ def _archive(
                 if not notebook_source.startswith(self_contained_shebang):
                     raise AssertionError("test source is missing the expected shebang")
                 notebook_source = notebook_source[len(self_contained_shebang) :]
+                if not notebook_source.endswith("\n"):
+                    raise AssertionError("test source is missing the expected final newline")
+                notebook_source = notebook_source[:-1]
             notebook_bytes = (
                 json.dumps(
                     {

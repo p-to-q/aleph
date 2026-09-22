@@ -205,6 +205,8 @@ def _notebook_source_candidates(
         shebang = b"#!/usr/bin/env python3\n"
         if notebook_expected_source.startswith(shebang):
             notebook_expected_source = notebook_expected_source[len(shebang) :]
+        if notebook_expected_source.endswith(b"\n"):
+            notebook_expected_source = notebook_expected_source[:-1]
         if source_bytes in {expected_source, notebook_expected_source}:
             matches.append(
                 {

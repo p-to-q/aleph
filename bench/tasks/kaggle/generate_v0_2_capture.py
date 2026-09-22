@@ -879,13 +879,24 @@ def run_capture_canary(
 
     try:
         _verify_package(package_root)
-    except Exception:
+    except Exception as exc:
+        # Preflight failures occur before model dispatch. Emit only the
+        # controlled exception class and bounded message so hosted operators
+        # can distinguish package from model compatibility without guessing.
+        print(
+            "ALEPH_CAPTURE_PREFLIGHT_FAILED "
+            f"stage=package type={type(exc).__name__} message={str(exc)[:240]}"
+        )
         return publish(unavailable_model)
     try:
         model, token_parameter = _model_preflight(llm)
         if not hasattr(chats, "new") or not callable(chats.new):
             raise ValueError("Kaggle chats API is incompatible")
-    except Exception:
+    except Exception as exc:
+        print(
+            "ALEPH_CAPTURE_PREFLIGHT_FAILED "
+            f"stage=model type={type(exc).__name__} message={str(exc)[:240]}"
+        )
         return publish(unavailable_model)
 
     publish(model)

@@ -29,8 +29,8 @@ import kaggle_benchmarks as kbench
 TASK_NAME = 'aleph_bench_v0_2_capture_canary'
 TASK_VERSION = 2
 TASK_DESCRIPTION = 'Capture the fixed Aleph-Bench v0.2 six-call Kaggle canary without scoring.'
-DEFINITION_SHA256 = 'd3ffff9b337c23709aef618f6ac520f199c1a4d112e66d0beae1bc8328e69562'
-IMPLEMENTATION_SHA256 = '698262adfd4bf63eacd1a586730353936439fcfe7db165e753dcef479f1116cf'
+DEFINITION_SHA256 = '731b735426e2ee3b8ac07d34f992ddb2183af50a2ae7b74b0e3ad03458a2c743'
+IMPLEMENTATION_SHA256 = 'd10ec72472dd1f8ddd97b68f39892470c002f9a0802f58b74463be1b06c45300'
 DEFAULT_PACKAGE_ROOT = Path('/kaggle/input/aleph-bench-v02-scorer-conformance')
 DEFAULT_CAPTURE_PATH = Path.cwd() / 'aleph-bench-v0.2-kaggle-capture-canary.json'
 DATASET_IDENTITY = json.loads(r'''{"hashAlgorithm":"sha256-length-framed-filename-and-content-v1","id":"aleph-bench-v0.2-public-s2","itemCount":30,"sha256":"6f3a03400ec16405414afb94c7c639f2df07f7f0797c3b58ad1c4229e52f2041"}''')
@@ -688,13 +688,24 @@ def run_capture_canary(
 
     try:
         _verify_package(package_root)
-    except Exception:
+    except Exception as exc:
+        # Preflight failures occur before model dispatch. Emit only the
+        # controlled exception class and bounded message so hosted operators
+        # can distinguish package from model compatibility without guessing.
+        print(
+            "ALEPH_CAPTURE_PREFLIGHT_FAILED "
+            f"stage=package type={type(exc).__name__} message={str(exc)[:240]}"
+        )
         return publish(unavailable_model)
     try:
         model, token_parameter = _model_preflight(llm)
         if not hasattr(chats, "new") or not callable(chats.new):
             raise ValueError("Kaggle chats API is incompatible")
-    except Exception:
+    except Exception as exc:
+        print(
+            "ALEPH_CAPTURE_PREFLIGHT_FAILED "
+            f"stage=model type={type(exc).__name__} message={str(exc)[:240]}"
+        )
         return publish(unavailable_model)
 
     publish(model)
