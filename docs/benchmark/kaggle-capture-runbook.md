@@ -85,6 +85,10 @@ the runtime actor and ATIF preserve the provider-qualified slug (`google/gemini-
 binder accepts only this exact suffix relationship and retains both raw values; a different
 provider-qualified slug still fails closed.
 
+`kagglesdk==0.1.37` also drops `tzinfo` while deserializing Benchmark API timestamps whose service
+semantics are UTC. The binder restores UTC only for those typed SDK `datetime` values; arbitrary
+timestamp strings still pass through strict offset-aware validation.
+
 ## Claim boundary
 
 The capture payload and envelope are not scores, benchmark results, or leaderboard evidence. They
