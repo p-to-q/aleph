@@ -153,13 +153,7 @@ def _task_metadata(
             f"expected {list(expected_sorted)!r}, found {list(actual_datasets)!r}"
         )
 
-    create_time = getattr(task_info, "create_time", None)
-    if isinstance(create_time, datetime):
-        create_time_value: str | None = create_time.isoformat()
-    elif create_time is None:
-        create_time_value = None
-    else:
-        create_time_value = str(create_time)
+    create_time_value = _datetime_value(getattr(task_info, "create_time", None))
     return {
         "requested": requested_task,
         "owner": actual_owner,
