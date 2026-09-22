@@ -80,6 +80,11 @@ row; `captureComplete: true`; and `canonicalReplayEligible: true`. Any partial, 
 usage, near-token-cap, unknown-finish, dataset-drift, or source-drift state is evidence of that
 failure, not authorization to rerun.
 
+Kaggle's task-run API may return only the model basename (for example, `gemini-3.7-flash`) while
+the runtime actor and ATIF preserve the provider-qualified slug (`google/gemini-3.7-flash`). The
+binder accepts only this exact suffix relationship and retains both raw values; a different
+provider-qualified slug still fails closed.
+
 ## Claim boundary
 
 The capture payload and envelope are not scores, benchmark results, or leaderboard evidence. They
