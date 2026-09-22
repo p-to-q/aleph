@@ -5,7 +5,9 @@ This task captures raw model observations only. It does not import or execute
 the v0.2 scorer and cannot emit a leaderboard or publication-eligible score.
 """
 
-from __future__ import annotations
+# Keep runtime annotations enabled here. Kaggle Benchmarks 0.6.1 reads the
+# decorated function's ``__annotations__`` directly instead of resolving
+# postponed strings, so ``-> dict`` must remain the actual built-in type.
 
 import copy
 import hashlib
@@ -27,8 +29,8 @@ import kaggle_benchmarks as kbench
 TASK_NAME = 'aleph_bench_v0_2_capture_canary'
 TASK_VERSION = 2
 TASK_DESCRIPTION = 'Capture the fixed Aleph-Bench v0.2 six-call Kaggle canary without scoring.'
-DEFINITION_SHA256 = 'c8bc42f1b2cba4285850fd5c62128da02293921f0aa759ec5e2dda18a61aa2f6'
-IMPLEMENTATION_SHA256 = '60237f5d82d2d1c10e548b8f77f7a02d392a2ea322cb78630c52250dcb06e349'
+DEFINITION_SHA256 = 'f5d99217bf21eb158001fcc35ca51c5b1f42ae1460c31d7ca29655635f3c6c36'
+IMPLEMENTATION_SHA256 = '9bd14178276268477966556cc035e8716a7542c2ba1f16d98dcb6a4d4e4e470d'
 DEFAULT_PACKAGE_ROOT = Path('/kaggle/input/aleph-bench-v02-scorer-conformance')
 DEFAULT_CAPTURE_PATH = Path.cwd() / 'aleph-bench-v0.2-kaggle-capture-canary.json'
 DATASET_IDENTITY = json.loads(r'''{"hashAlgorithm":"sha256-length-framed-filename-and-content-v1","id":"aleph-bench-v0.2-public-s2","itemCount":30,"sha256":"6f3a03400ec16405414afb94c7c639f2df07f7f0797c3b58ad1c4229e52f2041"}''')
