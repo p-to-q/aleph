@@ -399,10 +399,21 @@ class KaggleCreationOutputTests(unittest.TestCase):
             ),
             run,
         )
+        second_run = _run_info(run_id=24681)
+        self.assertIs(
+            _select_exact_run(
+                [run, second_run],
+                requested_task=requested,
+                expected_version=2,
+                expected_run_id=24681,
+            ),
+            second_run,
+        )
         cases = {
             "missing": ([], None, "found 0"),
             "multiple": ([run, _run_info(run_id=24681)], None, "found 2"),
-            "wrong-id": ([run], 999, "expected 999"),
+            "wrong-id": ([run], 999, "run ID 999.*found 0"),
+            "duplicate-id": ([run, _run_info()], 24680, "run ID 24680.*found 2"),
         }
         for name, (runs, run_id, message) in cases.items():
             with self.subTest(name=name), self.assertRaisesRegex(
