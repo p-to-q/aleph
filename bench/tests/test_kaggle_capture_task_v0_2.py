@@ -63,6 +63,10 @@ def _fake_kaggle_module() -> types.ModuleType:
 
     def task(**metadata: Any):
         def decorate(function: Any) -> _TaskWrapper:
+            # Match Kaggle Benchmarks 0.6.1 result inference closely enough to
+            # reject postponed string annotations before a hosted run starts.
+            if function.__annotations__.get("return") is not dict:
+                raise TypeError("task return annotation is not the built-in dict type")
             return _TaskWrapper(function, metadata)
 
         return decorate

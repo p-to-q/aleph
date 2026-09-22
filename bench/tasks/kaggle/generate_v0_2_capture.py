@@ -1021,7 +1021,9 @@ This task captures raw model observations only. It does not import or execute
 the v0.2 scorer and cannot emit a leaderboard or publication-eligible score.
 """
 
-from __future__ import annotations
+# Keep runtime annotations enabled here. Kaggle Benchmarks 0.6.1 reads the
+# decorated function's ``__annotations__`` directly instead of resolving
+# postponed strings, so ``-> dict`` must remain the actual built-in type.
 
 import copy
 import hashlib
