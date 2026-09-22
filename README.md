@@ -141,6 +141,12 @@ The release is intentionally honest about evidence:
 - Hosted black-box runs do not expose logits or token NLL; token-loss panels only claim model-internal evidence when those fields are present.
 - Aleph-Bench M0 has a checked-in deterministic mock evidence bundle for the benchmark pipeline; it is not a real model leaderboard.
 
+Aleph Bench has one long-lived public Kaggle entry at
+[kaggle.com/benchmarks/jahyee/aleph-bench](https://www.kaggle.com/benchmarks/jahyee/aleph-bench).
+Private capture and diagnostic tasks are engineering surfaces, not additional public benchmarks.
+Only canonically replayed, verified release results may be promoted there or mirrored to Hugging Face;
+see the [platform release policy](docs/benchmark/platform-release-policy.md).
+
 ## Repository map
 
 ```text
