@@ -334,6 +334,23 @@ def _redacted_run(record: dict[str, Any]) -> dict[str, Any]:
     return value
 
 
+def _run_model_matches_observation(run_slug: str, observed_slug: str) -> bool:
+    if run_slug == observed_slug:
+        return True
+    # Kaggle's task-run API currently returns the model basename while the
+    # runtime actor and downloaded ATIF preserve the provider-qualified slug.
+    # Accept only that one lossy representation. A conflicting qualified
+    # provider remains a hard failure, and both raw values stay in evidence.
+    if "/" in run_slug:
+        return False
+    observed_parts = observed_slug.split("/")
+    return (
+        len(observed_parts) >= 2
+        and all(observed_parts)
+        and observed_parts[-1] == run_slug
+    )
+
+
 def _verify_platform_binding(
     *,
     task: dict[str, Any],
@@ -354,7 +371,9 @@ def _verify_platform_binding(
             or payload["canonicalReplayEligible"]
         ):
             _fail("unavailable capture model cannot claim a dispatched call")
-    elif run["modelVersionSlug"] != observed_model:
+    elif not _run_model_matches_observation(
+        run["modelVersionSlug"], observed_model
+    ):
         _fail("Kaggle run model differs from the capture model observation")
 
     capture_start = _parse_time(payload["startedAt"], role="capture.startedAt")
