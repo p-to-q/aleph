@@ -15,6 +15,10 @@ the exact task version, run, dataset, and quota first.
 - Build and check the deterministic v0.2 scorer-conformance package.
 - Attach exactly one private Kaggle dataset with mount slug
   `aleph-bench-v02-scorer-conformance`; its file paths and bytes must match the package manifest.
+  The generated task supports both Kaggle's flat `/kaggle/input/<slug>` layout and its
+  fully-qualified `/kaggle/input/datasets/<owner>/<slug>` layout. Resolution is bounded to two
+  directory levels and succeeds only when exactly one candidate matches every embedded file hash
+  and the closed-world file set.
 - Confirm no task named `aleph-bench-v0-2-capture-canary` is queued or running.
 - Retain a Model Proxy quota snapshot. The task makes at most six logical calls and the generated
   source disables transport retry.

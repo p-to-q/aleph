@@ -37,7 +37,8 @@ TASK_DESCRIPTION = (
     "Capture the fixed Aleph-Bench v0.2 six-call Kaggle canary without scoring."
 )
 TASK_SOURCE_PATH = "bench/tasks/kaggle/aleph_bench_v0_2_capture.py"
-PACKAGE_MOUNT = "/kaggle/input/aleph-bench-v02-scorer-conformance"
+PACKAGE_SLUG = "aleph-bench-v02-scorer-conformance"
+KAGGLE_INPUT_ROOT = "/kaggle/input"
 CAPTURE_FILENAME = "aleph-bench-v0.2-kaggle-capture-canary.json"
 CANARY_PROMPT_IDS = (
     "s2-001-r1-p0",
@@ -247,6 +248,7 @@ MAX_RAW_OUTPUT_CODEPOINTS = 65_536
 MAX_SCORING_TEXT_CODEPOINTS = 16_384
 MAX_PACKAGE_FILES = 32
 MAX_PACKAGE_BYTES = 32 * 1024 * 1024
+MAX_KAGGLE_INPUT_ENTRIES = 256
 _CLEAN_FINISH_REASONS = frozenset({"stop", "end_turn", "eos", "completed"})
 _TOKEN_LIMIT_FINISH_REASONS = frozenset(
     {"length", "max_tokens", "max_output_tokens", "token_limit", "MAX_TOKENS"}
@@ -492,6 +494,64 @@ def _verify_package(package_root):
             "promptText": call["promptText"],
         }:
             raise ValueError("package canary prompt mismatch")
+
+
+def _bounded_child_directories(root):
+    root = Path(root)
+    try:
+        entries = sorted(os.scandir(root), key=lambda entry: entry.name)
+    except FileNotFoundError:
+        return []
+    if len(entries) > MAX_KAGGLE_INPUT_ENTRIES:
+        raise ValueError("Kaggle input directory entry limit exceeded")
+    return [
+        Path(entry.path)
+        for entry in entries
+        if entry.is_dir(follow_symlinks=False)
+    ]
+
+
+def _kaggle_package_candidates(input_root=KAGGLE_INPUT_ROOT):
+    root = Path(input_root)
+    candidates = [root / PACKAGE_SLUG]
+    # Kaggle has used both /kaggle/input/<slug> and the fully-qualified
+    # /kaggle/input/datasets/<owner>/<slug> layout. Inspect at most two bounded
+    # directory levels; the package hash and closed-world file set remain the
+    # authority, never a directory name discovered at runtime.
+    for parent in (root, root / "datasets"):
+        for child in _bounded_child_directories(parent):
+            candidates.append(child / PACKAGE_SLUG)
+    unique = []
+    seen = set()
+    for candidate in candidates:
+        key = os.fspath(candidate)
+        if key not in seen:
+            seen.add(key)
+            unique.append(candidate)
+    return unique
+
+
+def _resolve_and_verify_package(package_root, *, input_root=KAGGLE_INPUT_ROOT):
+    if package_root is not None:
+        root = Path(package_root)
+        _verify_package(root)
+        return root
+
+    matches = []
+    inspected = 0
+    for candidate in _kaggle_package_candidates(input_root):
+        try:
+            _verify_package(candidate)
+        except (FileNotFoundError, NotADirectoryError, ValueError):
+            inspected += 1
+            continue
+        matches.append(candidate)
+    if len(matches) != 1:
+        raise ValueError(
+            "expected exactly one hash-verified package mount in supported "
+            f"Kaggle layouts; found {len(matches)} across {inspected + len(matches)} candidates"
+        )
+    return matches[0]
 
 
 def _transport_retry_preflight(llm, model_type):
@@ -853,7 +913,7 @@ def run_capture_canary(
     llm,
     *,
     chats,
-    package_root=DEFAULT_PACKAGE_ROOT,
+    package_root=None,
     capture_path=DEFAULT_CAPTURE_PATH,
     observed_runtime=None,
     clock=None,
@@ -878,7 +938,7 @@ def run_capture_canary(
         return payload
 
     try:
-        _verify_package(package_root)
+        _resolve_and_verify_package(package_root)
     except Exception as exc:
         # Preflight failures occur before model dispatch. Emit only the
         # controlled exception class and bounded message so hosted operators
@@ -1056,7 +1116,8 @@ TASK_VERSION = {TASK_VERSION}
 TASK_DESCRIPTION = {TASK_DESCRIPTION!r}
 DEFINITION_SHA256 = {definition_sha256!r}
 IMPLEMENTATION_SHA256 = {implementation_sha256!r}
-DEFAULT_PACKAGE_ROOT = Path({PACKAGE_MOUNT!r})
+PACKAGE_SLUG = {PACKAGE_SLUG!r}
+KAGGLE_INPUT_ROOT = Path({KAGGLE_INPUT_ROOT!r})
 DEFAULT_CAPTURE_PATH = Path.cwd() / {CAPTURE_FILENAME!r}
 DATASET_IDENTITY = json.loads(r\'''{literal(dataset_identity)}\''')
 PACKAGE_IDENTITY = json.loads(r\'''{literal(package_identity)}\''')

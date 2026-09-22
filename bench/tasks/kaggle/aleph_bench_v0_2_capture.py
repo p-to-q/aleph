@@ -29,9 +29,10 @@ import kaggle_benchmarks as kbench
 TASK_NAME = 'aleph_bench_v0_2_capture_canary'
 TASK_VERSION = 2
 TASK_DESCRIPTION = 'Capture the fixed Aleph-Bench v0.2 six-call Kaggle canary without scoring.'
-DEFINITION_SHA256 = '731b735426e2ee3b8ac07d34f992ddb2183af50a2ae7b74b0e3ad03458a2c743'
-IMPLEMENTATION_SHA256 = 'd10ec72472dd1f8ddd97b68f39892470c002f9a0802f58b74463be1b06c45300'
-DEFAULT_PACKAGE_ROOT = Path('/kaggle/input/aleph-bench-v02-scorer-conformance')
+DEFINITION_SHA256 = 'd95b8218892cb582ddf1b7b8282625b9a10f643384996523d27e36fcece75cdf'
+IMPLEMENTATION_SHA256 = '778df43b492a4ce3d535e8e4bbd74d9bc2e25038fc5888582d3115b76bbb6318'
+PACKAGE_SLUG = 'aleph-bench-v02-scorer-conformance'
+KAGGLE_INPUT_ROOT = Path('/kaggle/input')
 DEFAULT_CAPTURE_PATH = Path.cwd() / 'aleph-bench-v0.2-kaggle-capture-canary.json'
 DATASET_IDENTITY = json.loads(r'''{"hashAlgorithm":"sha256-length-framed-filename-and-content-v1","id":"aleph-bench-v0.2-public-s2","itemCount":30,"sha256":"6f3a03400ec16405414afb94c7c639f2df07f7f0797c3b58ad1c4229e52f2041"}''')
 PACKAGE_IDENTITY = json.loads(r'''{"bytes":3427,"files":[{"bytes":1153,"path":"README.md","sha256":"0d31f66335c9ed1c69e2bce45a5fe97657b2bef7802a860815eb42e7a6012179"},{"bytes":764,"path":"checksums.sha256","sha256":"58bda3626fc21a0071ddeb89c97438b61f991bcf52bb5222b37e951a52f9e1d0"},{"bytes":18057,"path":"conformance/scorer-v0.2.json","sha256":"044925b055db9051329e1556ed524f165d6c8e1e47f02eaf9bdb129aeadf67c6"},{"bytes":89395,"path":"data/public_s2_items.jsonl","sha256":"53334e3e0394631ec128d7c7d2bd364ad0bc7d44b030c66cb3cc91b432e04747"},{"bytes":16621,"path":"kaggle/_scoring.py","sha256":"bf38b1ac35bc1cdb99fb59f26de5d0e6ac953ca7f29a07a2b90e7cf3b028dd01"},{"bytes":6119,"path":"kaggle/run_conformance.py","sha256":"75117c1ea0c23c675ab1e20a376dab0e461938b0b5397cb164a4d14600ba1cd8"},{"bytes":3427,"path":"package-manifest.json","sha256":"7a7aad7ae4f3fcc0bebb23cb3f3d11abe842385cc8b94e9c56a806c3c7d6089d"},{"bytes":2446,"path":"schemas/aleph-bench-item.schema.json","sha256":"ad2b014b897084552b481aa73eb0e399f137f16edbd2248a2c8a1578fd8a1bc9"},{"bytes":3494,"path":"schemas/aleph-bench-platform-package.schema.json","sha256":"48a395a6ba930785556fe356c8eb2a142a8042ba12a38c4e5fdd9649ffc765bf"},{"bytes":20453,"path":"schemas/aleph-bench-result.schema.json","sha256":"05414d02ef0d12a678e22387777adab4fb720967f8dafc58faa908b4b57f9bfb"}],"id":"aleph-bench-v0.2-scorer-conformance","manifest":{"artifacts":[{"bytes":1153,"encodingFormat":"text/markdown","path":"README.md","role":"docs","sha256":"0d31f66335c9ed1c69e2bce45a5fe97657b2bef7802a860815eb42e7a6012179"},{"bytes":18057,"encodingFormat":"application/json","path":"conformance/scorer-v0.2.json","role":"conformance","sha256":"044925b055db9051329e1556ed524f165d6c8e1e47f02eaf9bdb129aeadf67c6"},{"bytes":89395,"encodingFormat":"application/x-ndjson","path":"data/public_s2_items.jsonl","role":"data","sha256":"53334e3e0394631ec128d7c7d2bd364ad0bc7d44b030c66cb3cc91b432e04747"},{"bytes":16621,"encodingFormat":"text/x-python","path":"kaggle/_scoring.py","role":"kaggle","sha256":"bf38b1ac35bc1cdb99fb59f26de5d0e6ac953ca7f29a07a2b90e7cf3b028dd01"},{"bytes":6119,"encodingFormat":"text/x-python","path":"kaggle/run_conformance.py","role":"kaggle","sha256":"75117c1ea0c23c675ab1e20a376dab0e461938b0b5397cb164a4d14600ba1cd8"},{"bytes":2446,"encodingFormat":"application/json","path":"schemas/aleph-bench-item.schema.json","role":"schemas","sha256":"ad2b014b897084552b481aa73eb0e399f137f16edbd2248a2c8a1578fd8a1bc9"},{"bytes":3494,"encodingFormat":"application/json","path":"schemas/aleph-bench-platform-package.schema.json","role":"schemas","sha256":"48a395a6ba930785556fe356c8eb2a142a8042ba12a38c4e5fdd9649ffc765bf"},{"bytes":20453,"encodingFormat":"application/json","path":"schemas/aleph-bench-result.schema.json","role":"schemas","sha256":"05414d02ef0d12a678e22387777adab4fb720967f8dafc58faa908b4b57f9bfb"}],"createdAt":"2026-09-17T00:00:00Z","datasetHashAlgorithm":"sha256-length-framed-filename-and-content-v1","datasetId":"aleph-bench-v0.2-public-s2","datasetItemCount":30,"datasetSha256":"6f3a03400ec16405414afb94c7c639f2df07f7f0797c3b58ad1c4229e52f2041","evidenceMode":"none","id":"aleph-bench-v0.2-scorer-conformance","notes":["The vendored scorer is byte-identical to bench/engine/scoring_core.py.","This scorer-core package is integration and conformance staging, not a complete Kaggle evaluator.","Submission I/O, model execution, AURC/ECL aggregation, and leaderboard hosting are out of scope.","This package is not model evidence or a leaderboard."],"packageKind":"scorer_conformance","packageVersion":"0.2.0","protocolVersion":"0.2.0","scoringProfile":{"leakageFailClosedPolicy":"bidi_controls_and_cjk_compatibility_ideographs_v1","leakageUnit":"unicode_dual_channel_v1","lexicalProfile":"unicode_nfc_casefold_whitespace_char3_multiset_jaccard_v1","maxNormalizedTextCharacters":32768,"maxQuadraticCells":1000000,"maxScoringTextCharacters":16384,"normalizationProfile":"unicode_nfc_newline_v1","pythonVersion":"3.13","responseCaptureVersion":"raw-v1","schemaVersion":"0.2.0","scorerId":"aleph-unicode","scorerVersion":"0.2.0","unicodeDatabaseVersion":"15.1.0"},"targetPlatforms":["kaggle_community_benchmark"],"validationCommands":["python3 kaggle/run_conformance.py"]},"manifestPath":"package-manifest.json","sha256":"7a7aad7ae4f3fcc0bebb23cb3f3d11abe842385cc8b94e9c56a806c3c7d6089d"}''')
@@ -56,6 +57,7 @@ MAX_RAW_OUTPUT_CODEPOINTS = 65_536
 MAX_SCORING_TEXT_CODEPOINTS = 16_384
 MAX_PACKAGE_FILES = 32
 MAX_PACKAGE_BYTES = 32 * 1024 * 1024
+MAX_KAGGLE_INPUT_ENTRIES = 256
 _CLEAN_FINISH_REASONS = frozenset({"stop", "end_turn", "eos", "completed"})
 _TOKEN_LIMIT_FINISH_REASONS = frozenset(
     {"length", "max_tokens", "max_output_tokens", "token_limit", "MAX_TOKENS"}
@@ -301,6 +303,64 @@ def _verify_package(package_root):
             "promptText": call["promptText"],
         }:
             raise ValueError("package canary prompt mismatch")
+
+
+def _bounded_child_directories(root):
+    root = Path(root)
+    try:
+        entries = sorted(os.scandir(root), key=lambda entry: entry.name)
+    except FileNotFoundError:
+        return []
+    if len(entries) > MAX_KAGGLE_INPUT_ENTRIES:
+        raise ValueError("Kaggle input directory entry limit exceeded")
+    return [
+        Path(entry.path)
+        for entry in entries
+        if entry.is_dir(follow_symlinks=False)
+    ]
+
+
+def _kaggle_package_candidates(input_root=KAGGLE_INPUT_ROOT):
+    root = Path(input_root)
+    candidates = [root / PACKAGE_SLUG]
+    # Kaggle has used both /kaggle/input/<slug> and the fully-qualified
+    # /kaggle/input/datasets/<owner>/<slug> layout. Inspect at most two bounded
+    # directory levels; the package hash and closed-world file set remain the
+    # authority, never a directory name discovered at runtime.
+    for parent in (root, root / "datasets"):
+        for child in _bounded_child_directories(parent):
+            candidates.append(child / PACKAGE_SLUG)
+    unique = []
+    seen = set()
+    for candidate in candidates:
+        key = os.fspath(candidate)
+        if key not in seen:
+            seen.add(key)
+            unique.append(candidate)
+    return unique
+
+
+def _resolve_and_verify_package(package_root, *, input_root=KAGGLE_INPUT_ROOT):
+    if package_root is not None:
+        root = Path(package_root)
+        _verify_package(root)
+        return root
+
+    matches = []
+    inspected = 0
+    for candidate in _kaggle_package_candidates(input_root):
+        try:
+            _verify_package(candidate)
+        except (FileNotFoundError, NotADirectoryError, ValueError):
+            inspected += 1
+            continue
+        matches.append(candidate)
+    if len(matches) != 1:
+        raise ValueError(
+            "expected exactly one hash-verified package mount in supported "
+            f"Kaggle layouts; found {len(matches)} across {inspected + len(matches)} candidates"
+        )
+    return matches[0]
 
 
 def _transport_retry_preflight(llm, model_type):
@@ -662,7 +722,7 @@ def run_capture_canary(
     llm,
     *,
     chats,
-    package_root=DEFAULT_PACKAGE_ROOT,
+    package_root=None,
     capture_path=DEFAULT_CAPTURE_PATH,
     observed_runtime=None,
     clock=None,
@@ -687,7 +747,7 @@ def run_capture_canary(
         return payload
 
     try:
-        _verify_package(package_root)
+        _resolve_and_verify_package(package_root)
     except Exception as exc:
         # Preflight failures occur before model dispatch. Emit only the
         # controlled exception class and bounded message so hosted operators
