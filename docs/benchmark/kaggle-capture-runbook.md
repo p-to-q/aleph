@@ -1,0 +1,84 @@
+# Kaggle capture canary runbook
+
+This runbook executes the fixed six-call Aleph-Bench v0.2 capture canary. Kaggle is only the model
+transport and raw-output capture surface: it does not score v0.2. Canonical scoring remains locked
+to Python 3.13 / Unicode 15.1 and is not implemented for partial canary evidence.
+
+The task-creation request starts the task. Never follow creation with `tasks run`; that would create
+another model run. Never retry an ambiguous creation. Preserve the dispatch journal and reconcile
+the exact task version, run, dataset, and quota first.
+
+## Preconditions
+
+- Use a clean checkout of the reviewed benchmark authority branch.
+- Use Python 3.13 with `kaggle==2.2.4`, `kagglesdk==0.1.37`, and `jupytext==1.19.5`.
+- Build and check the deterministic v0.2 scorer-conformance package.
+- Attach exactly one private Kaggle dataset with mount slug
+  `aleph-bench-v02-scorer-conformance`; its file paths and bytes must match the package manifest.
+- Confirm no task named `aleph-bench-v0-2-capture-canary` is queued or running.
+- Retain a Model Proxy quota snapshot. The task makes at most six logical calls and the generated
+  source disables transport retry.
+- Choose a new durable private evidence directory outside the repository and ephemeral directories.
+
+The generated source must be exact before any remote write:
+
+```bash
+python3.13 bench/tasks/kaggle/generate_v0_2_capture.py --check
+python3.13 -m unittest \
+  bench.tests.test_kaggle_capture \
+  bench.tests.test_kaggle_capture_task_v0_2 \
+  bench.tests.test_kaggle_capture_evidence \
+  bench.tests.test_kaggle_push_once
+```
+
+## One-shot creation
+
+Set `ALEPH_KAGGLE_PY` to the reviewed environment and use an absolute, new journal path:
+
+```bash
+"$ALEPH_KAGGLE_PY" -m bench.engine.kaggle_push_once \
+  --task-kind capture \
+  --gate six-call \
+  --dataset OWNER/aleph-bench-v02-scorer-conformance \
+  --journal /absolute/private/evidence/capture-canary/push-journal.json
+```
+
+The helper validates the exact checked-in generated source, client versions, dataset count, and
+latest remote task state. It fsyncs `prepared` and `dispatching` journal states before crossing the
+single non-idempotent create boundary. It calls the create API exactly once without Kaggle CLI's
+generic retry wrapper.
+
+If the journal state is not `returned`, stop. Do not select a new journal path and do not call the
+helper again. A `returned` journal supplies the only authorized task version for read-only status
+and evidence download.
+
+## Exact-run binding
+
+Wait for the returned version to reach a terminal state using read-only status. Then bind and
+download its unique run:
+
+```bash
+"$ALEPH_KAGGLE_PY" -m bench.engine.kaggle_capture_evidence \
+  OWNER/aleph-bench-v0-2-capture-canary \
+  --version VERSION \
+  --expect-dataset OWNER/aleph-bench-v02-scorer-conformance \
+  --output /absolute/private/evidence/capture-canary
+```
+
+If the journal records a positive `sourceKernelId`, also pass
+`--source-kernel-id SOURCE_KERNEL_ID`. An independently retained run id may be supplied with
+`--run-id RUN_ID` only as a cross-check; it never authorizes choosing between multiple runs.
+
+The binder must retain the original archive, exact capture payload, and evidence envelope without
+overwriting existing files. A successful six-call transport canary has six planned, attempted,
+completed, and returned rows; no active call; exact prompt and output strings; token usage for each
+row; `captureComplete: true`; and `canonicalReplayEligible: true`. Any partial, duplicate, missing-
+usage, near-token-cap, unknown-finish, dataset-drift, or source-drift state is evidence of that
+failure, not authorization to rerun.
+
+## Claim boundary
+
+The capture payload and envelope are not scores, benchmark results, or leaderboard evidence. They
+must remain private until a separate reviewed capture-set assembler and Python 3.13 canonical replay
+produce a verified `BenchManifest` and `BenchResult`. A public Kaggle or Hugging Face score requires
+a separate publication gate.
