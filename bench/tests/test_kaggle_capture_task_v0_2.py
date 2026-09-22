@@ -378,6 +378,76 @@ class KaggleCaptureTaskV02Tests(unittest.TestCase):
         self.addCleanup(output_tmp.cleanup)
         self.assertTrue(payload["captureComplete"])
 
+    @unittest.skipUnless(
+        sys.version_info[:2] == (3, 13),
+        "canonical package construction requires the authority runtime",
+    )
+    def test_package_resolver_accepts_fully_qualified_kaggle_layout(self) -> None:
+        input_tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(input_tmp.cleanup)
+        input_root = Path(input_tmp.name)
+        package_root = (
+            input_root
+            / "datasets"
+            / "owner"
+            / self.generated.PACKAGE_SLUG
+        )
+        package_root.mkdir(parents=True)
+        _write_package(package_root)
+
+        resolved = self.generated._resolve_and_verify_package(
+            None, input_root=input_root
+        )
+
+        self.assertEqual(resolved, package_root)
+
+    @unittest.skipUnless(
+        sys.version_info[:2] == (3, 13),
+        "canonical package construction requires the authority runtime",
+    )
+    def test_package_resolver_accepts_flat_kaggle_layout(self) -> None:
+        input_tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(input_tmp.cleanup)
+        input_root = Path(input_tmp.name)
+        package_root = input_root / self.generated.PACKAGE_SLUG
+        package_root.mkdir()
+        _write_package(package_root)
+
+        resolved = self.generated._resolve_and_verify_package(
+            None, input_root=input_root
+        )
+
+        self.assertEqual(resolved, package_root)
+
+    @unittest.skipUnless(
+        sys.version_info[:2] == (3, 13),
+        "canonical package construction requires the authority runtime",
+    )
+    def test_package_resolver_rejects_ambiguous_exact_mounts(self) -> None:
+        input_tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(input_tmp.cleanup)
+        input_root = Path(input_tmp.name)
+        package_roots = (
+            input_root / self.generated.PACKAGE_SLUG,
+            input_root / "datasets" / "owner" / self.generated.PACKAGE_SLUG,
+        )
+        for package_root in package_roots:
+            package_root.mkdir(parents=True)
+            _write_package(package_root)
+
+        with self.assertRaisesRegex(ValueError, "found 2"):
+            self.generated._resolve_and_verify_package(None, input_root=input_root)
+
+    def test_package_resolver_bounds_kaggle_directory_inspection(self) -> None:
+        input_tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(input_tmp.cleanup)
+        input_root = Path(input_tmp.name)
+        for index in range(self.generated.MAX_KAGGLE_INPUT_ENTRIES + 1):
+            (input_root / f"source-{index:03d}").mkdir()
+
+        with self.assertRaisesRegex(ValueError, "entry limit exceeded"):
+            self.generated._resolve_and_verify_package(None, input_root=input_root)
+
     def test_current_sdk_missing_finish_reason_is_explicit_and_replayable(self) -> None:
         observations = []
         temporary_directories = []
