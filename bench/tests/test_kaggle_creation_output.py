@@ -456,6 +456,23 @@ class KaggleCreationOutputTests(unittest.TestCase):
                 expected_run_id=24680,
             )
 
+    def test_run_metadata_restores_sdk_naive_timestamps_as_utc(self) -> None:
+        run_info = _run_info()
+        run_info.start_time = datetime(2026, 9, 18, 1)
+        run_info.end_time = datetime(2026, 9, 18, 1, 1)
+
+        metadata = _run_metadata(
+            run_info,
+            requested_task=(
+                "owner/aleph-bench-deployment-diagnostic-2048-none"
+            ),
+            expected_version=2,
+            expected_run_id=24680,
+        )
+
+        self.assertEqual(metadata["startTime"], "2026-09-18T01:00:00+00:00")
+        self.assertEqual(metadata["endTime"], "2026-09-18T01:01:00+00:00")
+
     def test_task_metadata_rejects_boolean_version_one(self) -> None:
         with self.assertRaisesRegex(
             KaggleCreationOutputError, "positive integer version"

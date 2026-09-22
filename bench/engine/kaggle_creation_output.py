@@ -8,7 +8,7 @@ import os
 import re
 import sys
 import zipfile
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path, PurePosixPath
 from typing import Any
 
@@ -180,7 +180,13 @@ def _task_metadata(
 
 def _datetime_value(value: Any) -> str | None:
     if isinstance(value, datetime):
-        return value.isoformat()
+        # kagglesdk 0.1.37 deserializes benchmark API UTC timestamps into
+        # naive datetime objects even though the service values are UTC.
+        # Restore that documented transport context only for typed datetimes;
+        # arbitrary strings remain untrusted and are validated downstream.
+        if value.tzinfo is None or value.utcoffset() is None:
+            value = value.replace(tzinfo=timezone.utc)
+        return value.astimezone(timezone.utc).isoformat()
     if value is None:
         return None
     return str(value)
