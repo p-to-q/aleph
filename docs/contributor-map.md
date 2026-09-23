@@ -37,12 +37,14 @@ Read this file when you are new to the repository and need to know where work be
 ## Research and framing
 
 - `docs/research/research-process.md` — research receipts and how each source changes the project.
+- `docs/research/benchmark-platform-engineering.md` — benchmark engineering and public-platform comparison.
 - `docs/research/prior-art.md` — relationship to ARCA, GCG, inversion, and instrumentation references.
 - `docs/research/implementation-routes.md` — staged implementation options.
 - `docs/research/compression-definition.md` — model-relative description-length framing.
 - `docs/research/research-directions.md` — which research families matter now, later, or only as contrast.
 - `docs/claim-ledger.md` — claim-to-evidence map for convergence between accounts.
 - `docs/benchmark/README.md` — Aleph-Bench shape and metric definitions.
+- `docs/plans/kaggle-canonical-numeric-release.md` — current single-public-entry release plan.
 - `docs/benchmark/m0-evidence.md` — first deterministic M0 benchmark receipt.
 - `bench/` — M0 seed data, frozen-ladder engine, adapters, CLI, tests, and checked-in result.
 
