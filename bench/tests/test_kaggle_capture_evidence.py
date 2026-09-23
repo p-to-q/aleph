@@ -151,12 +151,19 @@ class KaggleCaptureEvidenceTests(unittest.TestCase):
         else:
             sys.modules["kaggle_benchmarks"] = cls.previous_kaggle_module
 
-    def _payload_bytes(self, *, finish_reason: str | None = "stop") -> bytes:
+    def _payload_bytes(
+        self,
+        *,
+        finish_reason: str | None = "stop",
+        model_slug: str = "google/gemini-2.5-flash",
+    ) -> bytes:
         output_tmp = tempfile.TemporaryDirectory()
         self.addCleanup(output_tmp.cleanup)
         capture_path = Path(output_tmp.name) / "capture.json"
+        llm = OpenAI()
+        llm.model = model_slug
         self.generated.run_capture_canary(
-            OpenAI(),
+            llm,
             chats=_Chats(finish_reason=finish_reason),
             package_root=self.package_root,
             capture_path=capture_path,
@@ -235,7 +242,7 @@ class KaggleCaptureEvidenceTests(unittest.TestCase):
 
     def test_missing_finish_reason_is_bound_and_assembly_eligible(self) -> None:
         payload_bytes = self._payload_bytes(finish_reason=None)
-        evidence, _, output_tmp = self._write(
+        evidence, output_dir, output_tmp = self._write(
             archive_bytes=_archive(payload_bytes, self.source_bytes)
         )
         self.assertIsNotNone(output_tmp)
@@ -253,6 +260,28 @@ class KaggleCaptureEvidenceTests(unittest.TestCase):
         self.assertEqual(
             evidence["run"]["modelVersionSlug"],
             "gemini-2.5-flash",
+        )
+
+    def test_versioned_providerless_run_alias_is_bound_without_rewriting(self) -> None:
+        payload_bytes = self._payload_bytes(
+            model_slug="anthropic/claude-haiku-4-5@20251001"
+        )
+        evidence, output_dir, output_tmp = self._write(
+            archive_bytes=_archive(payload_bytes, self.source_bytes),
+            run_info=_run_info(model="claude-haiku-4-5-20251001"),
+        )
+        self.assertIsNotNone(output_tmp)
+        self.assertTrue(evidence["assemblyEligible"])
+        self.assertEqual(
+            evidence["run"]["modelVersionSlug"],
+            "claude-haiku-4-5-20251001",
+        )
+        retained_payload = json.loads(
+            (output_dir / evidence["payload"]["file"]).read_text(encoding="utf-8")
+        )
+        self.assertEqual(
+            retained_payload["modelObservation"]["slug"],
+            "anthropic/claude-haiku-4-5@20251001",
         )
 
     def test_zero_call_preflight_block_is_retained_as_ineligible_evidence(self) -> None:
@@ -352,6 +381,18 @@ class KaggleCaptureEvidenceTests(unittest.TestCase):
             self._write(
                 archive_bytes=_archive(payload_bytes, self.source_bytes),
                 run_info=_run_info(model="other/gemini-2.5-flash"),
+            )
+        with self.assertRaisesRegex(
+            KaggleCaptureEvidenceError, "run model differs"
+        ):
+            self._write(
+                archive_bytes=_archive(
+                    self._payload_bytes(
+                        model_slug="anthropic/claude-haiku-4-5@20251001"
+                    ),
+                    self.source_bytes,
+                ),
+                run_info=_run_info(model="claude-haiku-4-5-default"),
             )
 
     def test_terminal_error_is_retained_without_raw_platform_message(self) -> None:

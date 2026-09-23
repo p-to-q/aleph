@@ -344,11 +344,19 @@ def _run_model_matches_observation(run_slug: str, observed_slug: str) -> bool:
     if "/" in run_slug:
         return False
     observed_parts = observed_slug.split("/")
-    return (
-        len(observed_parts) >= 2
-        and all(observed_parts)
-        and observed_parts[-1] == run_slug
-    )
+    if len(observed_parts) < 2 or not all(observed_parts):
+        return False
+    observed_basename = observed_parts[-1]
+    if observed_basename == run_slug:
+        return True
+    # For versioned proxy aliases, the runtime actor retains `model@revision`
+    # while the task-run API serializes the same identity as `model-revision`.
+    # Accept only one non-empty revision suffix and one exact transformation;
+    # never normalize arbitrary punctuation or conflicting providers.
+    if observed_basename.count("@") != 1:
+        return False
+    model, revision = observed_basename.split("@", 1)
+    return bool(model and revision and f"{model}-{revision}" == run_slug)
 
 
 def _verify_platform_binding(
