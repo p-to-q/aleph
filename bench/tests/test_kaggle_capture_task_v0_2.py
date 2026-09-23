@@ -364,6 +364,30 @@ class KaggleCaptureTaskV02Tests(unittest.TestCase):
         )
         self.assertEqual(llm.client.max_retries, 0)
 
+    def test_provider_revision_model_slug_is_preserved(self) -> None:
+        llm = OpenAI()
+        llm.model = "anthropic/claude-haiku-4-5@20251001"
+
+        payload, _, output_tmp = self._run(llm=llm, chats=_Chats())
+        self.addCleanup(output_tmp.cleanup)
+
+        self.assertTrue(payload["captureComplete"])
+        self.assertEqual(
+            payload["modelObservation"]["slug"],
+            "anthropic/claude-haiku-4-5@20251001",
+        )
+
+    def test_malformed_provider_revision_model_slug_fails_before_dispatch(self) -> None:
+        llm = OpenAI()
+        llm.model = "anthropic/claude-haiku-4-5@@20251001"
+
+        payload, _, output_tmp = self._run(llm=llm, chats=_Chats())
+        self.addCleanup(output_tmp.cleanup)
+
+        self.assertFalse(payload["captureComplete"])
+        self.assertEqual(payload["calls"]["attemptedCallCount"], 0)
+        self.assertEqual(llm.calls, [])
+
     @unittest.skipUnless(
         sys.version_info[:2] == (3, 13),
         "canonical package construction requires the authority runtime",
