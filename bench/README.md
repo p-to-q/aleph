@@ -266,6 +266,28 @@ still serialize task creation because the remote API exposes no idempotency key.
 It accepts only the reviewed Python 3.13 / Kaggle CLI 2.2.4 / Kaggle SDK 0.1.37 / Jupytext 1.19.5
 client matrix and fails before authentication when that local environment drifts.
 
+Additional model runs on an already-created Task version must use the exact-version one-shot
+scheduler, not `kaggle benchmarks tasks run`. The released Kaggle CLI command targets the latest
+version, wraps the paid scheduling request in generic retry, and returns no run id. Aleph's helper
+requires the exact owner, Task, positive version, and canonical model-version slug; snapshots the
+complete run set and daily/monthly quota; fsyncs a durable retry barrier; crosses the paid API once;
+then binds exactly one new run id by read-only run-set difference:
+
+```bash
+python3.13 -m bench.engine.kaggle_run_once \
+  --owner OWNER \
+  --task TASK \
+  --version VERSION \
+  --model CANONICAL-MODEL-VERSION \
+  --journal /absolute/private/evidence/run-journal.json
+```
+
+List canonical model-version slugs with `kaggle benchmarks tasks models`. Never use a provider path
+or mutable `@` alias as the scheduler input. A `reconciled` journal is the only successful outcome.
+`ambiguous`, `not_scheduled`, an existing journal, a conflicting active run, model-catalog drift,
+parent-version redirection, or a non-unique run-set difference is a hard stop. Inspect and reconcile
+read-only; do not choose a new journal and dispatch the same run again.
+
 Even a complete receipt has `evidenceMode: "none"`, `protocolConformant: false`,
 `leaderboardEligible: false`, `publicationEligible: false`, and `diagnosticScalar: null`. It proves
 only that this small transport-and-capture path worked; it is not AURC, a model rank, or permission
