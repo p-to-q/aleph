@@ -5,7 +5,12 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-from .adapters import MockAdapter, normalize_model_id, validate_deployment_id
+from .adapters import (
+    MockAdapter,
+    RetainedOutputReplayAdapter,
+    normalize_model_id,
+    validate_deployment_id,
+)
 from .adapters.hosted_black_box import (
     DEFAULT_MAX_TOKENS,
     DEFAULT_TIMEOUT_SECONDS,
@@ -16,7 +21,6 @@ from .adapters.hosted_black_box import (
     MAX_HOSTED_RETRIES,
     MAX_RETRY_DELAY_SECONDS,
 )
-from .adapters.base import ModelAdapter
 from .bundle import build_m0_bundle, compare_bundle
 from .frozen_ladder import (
     FIXED_CREATED_AT as RESULT_FIXED_CREATED_AT,
@@ -61,65 +65,6 @@ def _load_json(path: Path) -> Any:
 
 
 LEGACY_PROTOCOL = "0.1-legacy"
-
-
-class _ReceiptAdapter(ModelAdapter):
-    """Replay retained raw strings through the canonical scorer without I/O."""
-
-    def __init__(
-        self,
-        *,
-        model_id: str,
-        observation_mode: str,
-        effective_reruns: int,
-        outputs: dict[tuple[str, str], list[str]],
-        receipts: dict[tuple[str, str], list[dict[str, str]]],
-    ) -> None:
-        super().__init__(
-            model_id=model_id,
-            observation_mode=observation_mode,
-            temperature=0.0,
-        )
-        self.effective_reruns = effective_reruns
-        self.outputs = outputs
-        self.receipts = receipts
-        self._last_response_receipt: dict[str, str] | None = None
-
-    def reruns(self, configured: int) -> int:
-        if configured != DEFAULT_RERUNS:
-            raise ValueError("receipt replay requires the frozen rerun count")
-        return self.effective_reruns
-
-    def generate(
-        self,
-        prompt: str,
-        item: dict[str, Any],
-        ladder_prompt: dict[str, Any],
-        *,
-        seed: int,
-        rerun_index: int,
-    ) -> str:
-        del prompt, seed
-        key = (item["id"], ladder_prompt["id"])
-        try:
-            output = self.outputs[key][rerun_index]
-            self._last_response_receipt = (
-                dict(self.receipts[key][rerun_index])
-                if self.observation_mode == "black_box"
-                else None
-            )
-            return output
-        except (KeyError, IndexError) as exc:
-            raise ValueError(
-                f"raw-output receipt is incomplete for {self.model_id}:{key[0]}:{key[1]}"
-            ) from exc
-
-    def last_response_receipt(self) -> dict[str, str] | None:
-        return (
-            dict(self._last_response_receipt)
-            if self._last_response_receipt is not None
-            else None
-        )
 
 
 def _expected_model_receipt(model: str) -> tuple[str, int]:
@@ -520,7 +465,7 @@ def _verify_v0_2_result_receipts(
         if not replayable:
             continue
 
-        adapter = _ReceiptAdapter(
+        adapter = RetainedOutputReplayAdapter(
             model_id=model,
             observation_mode=evidence_mode,
             effective_reruns=effective_reruns,
