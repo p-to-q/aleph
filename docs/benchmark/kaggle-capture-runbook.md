@@ -91,6 +91,46 @@ provider-qualified slug still fails closed.
 semantics are UTC. The binder restores UTC only for those typed SDK `datetime` values; arbitrary
 timestamp strings still pass through strict offset-aware validation.
 
+## Add one model to an existing exact version
+
+Task creation starts its first model run. For every deliberately added model after that, use the
+reviewed one-shot scheduler. Do not use `kaggle benchmarks tasks run`: Kaggle CLI 2.2.4 targets the
+latest version, retries the paid schedule request, and does not return the new run id.
+
+First list the platform's canonical model-version slugs without scheduling anything:
+
+```bash
+"$ALEPH_KAGGLE_PY" -m kaggle benchmarks tasks models
+```
+
+Then provide the exact Task version from the retained creation journal and a new absolute journal
+path:
+
+```bash
+"$ALEPH_KAGGLE_PY" -m bench.engine.kaggle_run_once \
+  --owner OWNER \
+  --task aleph-bench-v0-2-capture-canary \
+  --version VERSION \
+  --model CANONICAL-MODEL-VERSION \
+  --journal /absolute/private/evidence/capture-canary/MODEL/run-journal.json
+```
+
+The helper independently resolves the exact canonical model-version id, reads the exact Task and
+complete pre-dispatch run set, rejects unresolved runs, and retains daily and monthly quota. It then
+fsyncs `prepared` and `dispatching`, calls the scheduling API once without paid-call retry, and uses
+read-only polling to accept exactly one new run id for the requested model and version.
+
+Only `state: "reconciled"` authorizes evidence download with that retained run id. These states do
+not authorize another schedule request:
+
+- `ambiguous`: the request may have reached Kaggle, or the response/run-set identity contradicted;
+- `not_scheduled`: Kaggle explicitly skipped the request; and
+- `returned_unreconciled`: the paid request returned, but its unique run id was not yet proved.
+
+Do not delete or overwrite a failed or ambiguous journal. It is the permanent attempt receipt.
+Quota movement is supporting evidence, not run identity; an unavailable quota-after read does not
+erase an otherwise unique exact-version run binding.
+
 ## Claim boundary
 
 The capture payload and envelope are not scores, benchmark results, or leaderboard evidence. They
