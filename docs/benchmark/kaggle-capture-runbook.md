@@ -70,8 +70,10 @@ download its unique run:
 ```
 
 If the journal records a positive `sourceKernelId`, also pass
-`--source-kernel-id SOURCE_KERNEL_ID`. An independently retained run id may be supplied with
-`--run-id RUN_ID` only as a cross-check; it never authorizes choosing between multiple runs.
+`--source-kernel-id SOURCE_KERNEL_ID`. For the creation-triggered run, omitting `--run-id` keeps the
+original exactly-one-run rule. Once a reviewed operator deliberately adds model runs to the same
+task version, every evidence download must pass the independently retained `--run-id RUN_ID`; the
+binder selects that exact ID and still rejects missing or duplicate matches.
 
 The binder must retain the original archive, exact capture payload, and evidence envelope without
 overwriting existing files. A successful six-call transport canary has six planned, attempted,
