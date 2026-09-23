@@ -585,7 +585,10 @@ def _model_preflight(llm):
     model_type = f"{type(llm).__module__}.{type(llm).__name__}"
     slug = getattr(llm, "model", None)
     if not isinstance(slug, str) or not re.fullmatch(
-        r"[A-Za-z0-9][A-Za-z0-9._-]*(/[A-Za-z0-9][A-Za-z0-9._-]*)+", slug
+        r"[A-Za-z0-9][A-Za-z0-9._-]*"
+        r"(?:/[A-Za-z0-9][A-Za-z0-9._-]*)+"
+        r"(?:@[A-Za-z0-9][A-Za-z0-9._-]*)?",
+        slug,
     ):
         raise ValueError("model identity unavailable or unsafe")
     if model_type in _SUPPORTED_OPENAI_TYPES:

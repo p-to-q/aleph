@@ -29,8 +29,8 @@ import kaggle_benchmarks as kbench
 TASK_NAME = 'aleph_bench_v0_2_capture_canary'
 TASK_VERSION = 2
 TASK_DESCRIPTION = 'Capture the fixed Aleph-Bench v0.2 six-call Kaggle canary without scoring.'
-DEFINITION_SHA256 = 'd95b8218892cb582ddf1b7b8282625b9a10f643384996523d27e36fcece75cdf'
-IMPLEMENTATION_SHA256 = '778df43b492a4ce3d535e8e4bbd74d9bc2e25038fc5888582d3115b76bbb6318'
+DEFINITION_SHA256 = '7d3ba224860244a95c94e3ad370a725a8700a3a3433460e019b93154a0e60df6'
+IMPLEMENTATION_SHA256 = 'edfb237153b582ab0b48ee2e3a2d4b07246e424ae4cc30d2055f7a591df3199c'
 PACKAGE_SLUG = 'aleph-bench-v02-scorer-conformance'
 KAGGLE_INPUT_ROOT = Path('/kaggle/input')
 DEFAULT_CAPTURE_PATH = Path.cwd() / 'aleph-bench-v0.2-kaggle-capture-canary.json'
@@ -394,7 +394,10 @@ def _model_preflight(llm):
     model_type = f"{type(llm).__module__}.{type(llm).__name__}"
     slug = getattr(llm, "model", None)
     if not isinstance(slug, str) or not re.fullmatch(
-        r"[A-Za-z0-9][A-Za-z0-9._-]*(/[A-Za-z0-9][A-Za-z0-9._-]*)+", slug
+        r"[A-Za-z0-9][A-Za-z0-9._-]*"
+        r"(?:/[A-Za-z0-9][A-Za-z0-9._-]*)+"
+        r"(?:@[A-Za-z0-9][A-Za-z0-9._-]*)?",
+        slug,
     ):
         raise ValueError("model identity unavailable or unsafe")
     if model_type in _SUPPORTED_OPENAI_TYPES:
