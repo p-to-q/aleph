@@ -94,7 +94,7 @@ Required identity:
   },
   "source": {
     "githubRepository": "p-to-q/aleph",
-    "gitCommit": "...",
+    "implementationCommit": "...",
     "releaseTag": "aleph-bench-v0.3.0"
   },
   "kaggle": {
@@ -105,7 +105,6 @@ Required identity:
   },
   "huggingFace": {
     "datasetRepository": "...",
-    "contentRevision": "<exact-commit>",
     "taskId": "aleph_bench_0_3"
   },
   "artifacts": [],
@@ -121,13 +120,22 @@ Required identity:
 The manifest excludes model run ids and scores. Adding a model appends run and result records; it
 does not mutate the semantic release.
 
-Avoid circular hashes. The semantic manifest digest binds the Task/package inputs. A later
-publication envelope binds the exact HF commit and GitHub release assets.
+Avoid circular hashes. `source.implementationCommit` identifies the already-existing source tree
+used to build the release; it is not the later commit or tag that publishes this manifest. The
+semantic manifest digest binds the Task/package inputs and stable target repository names only. A
+later publication envelope and `result_published` event bind the exact HF commit, GitHub release
+assets, and other immutable public locators. Those publication locators never get written back into
+the self-hashed manifest.
 
 ### 2. RunReceipt
 
 Every attempt gets a receipt, including preflight rejection, skipped scheduling, lost responses,
 platform errors, incomplete evidence, and valid completion.
+
+A receipt is an immutable snapshot, not a mutable status file. Later knowledge about the same
+`attemptId` creates a new receipt whose `supersedes` points to the prior receipt. An explicit retry
+uses a new `attemptId` and points `attemptOf` to the earlier attempt instead. The two lineage fields
+must not be conflated.
 
 Required fields:
 
@@ -156,8 +164,11 @@ It binds:
 - denominator, coverage and bootstrap method;
 - item/rerun/aggregate digests;
 - independent replay environment and verifier commit;
-- public-safe evidence location; and
-- GitHub, Kaggle and HF immutable locators.
+- public-safe evidence identity and planned stable relative location.
+
+Publication happens after verification, so exact GitHub, Kaggle and HF immutable locators belong in
+the publication envelope and `result_published` event. They are not backfilled into a verified
+ResultRecord.
 
 Incomplete, failed, ambiguous or withdrawn attempts have a RunReceipt and no ResultRecord.
 

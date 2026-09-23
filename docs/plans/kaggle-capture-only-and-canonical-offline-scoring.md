@@ -316,7 +316,9 @@ state or a model credential.
 - Download and verify the exact run artifact, then replay it under the canonical runtime.
 
 Gate: six planned calls, six uniquely keyed completed rows each retaining its raw string, no retry,
-no extra run, exact identities, and a verified offline result explicitly labeled as canary-only.
+no extra run, exact identities, and a verified `CanaryReplayReceipt` explicitly labeled as
+transport-canary-only. It is never a `BenchManifest`, `BenchResult`, leaderboard row, or publication
+candidate because it does not cover complete canonical items or the frozen 900-call plan.
 
 ## Acceptance gates
 
