@@ -42,9 +42,13 @@ Read this file when you are new to the repository and need to know where work be
 - `docs/research/implementation-routes.md` — staged implementation options.
 - `docs/research/compression-definition.md` — model-relative description-length framing.
 - `docs/research/research-directions.md` — which research families matter now, later, or only as contrast.
+- `docs/research/model-release-benchmark-engineering.md` — detailed model-release benchmark,
+  Berkeley/BAIR, harness, portability, and evidence survey.
 - `docs/claim-ledger.md` — claim-to-evidence map for convergence between accounts.
 - `docs/benchmark/README.md` — Aleph-Bench shape and metric definitions.
 - `docs/plans/kaggle-canonical-numeric-release.md` — current single-public-entry release plan.
+- `docs/plans/benchmark-release-records-and-kaggle-harness.md` — immutable release records,
+  Kaggle runtime harness, cross-surface retention, and implementation gates.
 - `docs/benchmark/m0-evidence.md` — first deterministic M0 benchmark receipt.
 - `bench/` — M0 seed data, frozen-ladder engine, adapters, CLI, tests, and checked-in result.
 
