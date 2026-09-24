@@ -234,9 +234,26 @@ its verified members into a new, nonexistent `bundle/` directory:
 
 The migration accepts exactly one extra `run-journal.json`, requires its bytes to equal the
 dispatch-journal copy already bound by the envelope, snapshots and re-verifies every named source
-member, writes byte-identical files exclusively, and finally reopens the destination through the
-closed-world loader. Any unrelated extra, symlink, hard link, journal drift, existing destination,
-or evidence failure stops without modifying the source directory.
+member, writes byte-identical files exclusively, and verifies the destination through the held
+directory descriptor pinned immediately after `mkdir`. Any unrelated extra, symlink, hard link,
+journal drift, existing destination, directory swap after that pin, or evidence failure stops
+without changing an original source file. Portable POSIX `mkdir` cannot atomically return a
+directory descriptor: keep the private destination parent free of uncooperative same-UID namespace
+writers for that single `mkdir`-to-`open` syscall boundary. After the immediate no-follow open, the
+helper rechecks both destination and parent path identities and never cleans up a replacement inode.
+
+This is only a layout migration for evidence that already passes the current version-2
+creation-authority verifier. It never adds authority or changes `assemblyEligible`. In particular,
+the five retained Task-v7 envelopes bind version-1 dispatch journals without creation authority
+and cannot be migrated or promoted by this command. Run 3022882 has no evidence envelope and is
+outside the migration path. Historical recovery, if ever approved, requires a separate authority
+migration review.
+
+The documented nested destination adds one new `bundle/` directory member to the legacy `MODEL/`
+directory. Every original flat file retains its bytes, inode, ownership, mode, link count, size,
+mtime, and ctime. Access time is controlled by the filesystem and is not benchmark provenance.
+The destination copies have new filesystem timestamps; authoritative remote timestamps, hashes,
+and the explicit task source path remain in the byte-identical evidence envelope.
 
 ## Claim boundary
 

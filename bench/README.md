@@ -317,7 +317,21 @@ Write the final evidence files to a separate `MODEL/bundle/` directory. The bind
 content-bound copy of the dispatch journal there; the original `dispatch/run-journal.json` must
 remain outside because the closed-world loader rejects every file not named by the envelope. Use
 `python3.13 -m bench.engine.kaggle_capture_bundle` to non-destructively materialize an older flat
-layout whose sole extra file is an identical original `run-journal.json`.
+layout whose sole extra file is an identical original `run-journal.json`. The materializer is only
+a layout copy for a bundle that already passes the current version-2 creation-authority verifier.
+It does not migrate authority, change `assemblyEligible`, or rescue any retained Task-v7 evidence:
+those five envelopes bind version-1 journals without creation authority, while run 3022882 has no
+evidence envelope at all.
+
+For a nested `MODEL/bundle/` destination, the original flat files retain their bytes, inode,
+ownership, mode, link count, size, mtime, and ctime; creating `bundle/` necessarily adds that one
+directory member to `MODEL/`. File access time is filesystem policy, not benchmark provenance.
+Destination filesystem timestamps are new-copy metadata; authoritative remote timestamps,
+content hashes, and the task source path remain in the byte-identical evidence envelope. The
+portable POSIX `mkdir` call cannot atomically return a directory descriptor, so the destination
+parent must remain private from uncooperative same-UID namespace writers for the single
+`mkdir`-to-`open` syscall boundary. After the immediate no-follow open, writes, verification, and
+cleanup stay pinned to held descriptors and recheck both destination and parent path identities.
 
 Even a complete receipt has `evidenceMode: "none"`, `protocolConformant: false`,
 `leaderboardEligible: false`, `publicationEligible: false`, and `diagnosticScalar: null`. It proves

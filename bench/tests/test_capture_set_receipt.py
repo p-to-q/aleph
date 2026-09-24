@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import Any
 from unittest import mock
 
+from bench.engine import kaggle_capture_evidence as capture_evidence
 from bench.engine.capture_set_receipt import (
     CaptureSetReceiptError,
     MODEL_MAPPING_ARTIFACT_KIND,
@@ -748,6 +749,262 @@ class CaptureSetReceiptIntegrationTests(unittest.TestCase):
             load_verified_capture_bundle(migrated.evidence_path),
             migrated,
         )
+
+    def test_documented_nested_legacy_layout_preserves_original_files(self) -> None:
+        legacy_dir, legacy_evidence = self._copy_bundle("legacy-nested")
+        dispatch_name = self.evidence["modelCatalogBinding"][
+            "dispatchJournal"
+        ]["file"]
+        (legacy_dir / "run-journal.json").write_bytes(
+            (legacy_dir / dispatch_name).read_bytes()
+        )
+
+        def file_record(path: Path) -> tuple[Any, ...]:
+            observed = path.stat(follow_symlinks=False)
+            return (
+                hashlib.sha256(path.read_bytes()).hexdigest(),
+                observed.st_dev,
+                observed.st_ino,
+                observed.st_mode,
+                observed.st_nlink,
+                observed.st_uid,
+                observed.st_gid,
+                observed.st_size,
+                observed.st_mtime_ns,
+                observed.st_ctime_ns,
+            )
+
+        original_names = sorted(path.name for path in legacy_dir.iterdir())
+        original_records = {
+            name: file_record(legacy_dir / name) for name in original_names
+        }
+        destination = legacy_dir / "bundle"
+        migrated = materialize_legacy_capture_bundle(
+            legacy_evidence,
+            destination,
+        )
+
+        self.assertEqual(
+            sorted(path.name for path in legacy_dir.iterdir()),
+            sorted([*original_names, "bundle"]),
+        )
+        self.assertEqual(
+            {name: file_record(legacy_dir / name) for name in original_names},
+            original_records,
+        )
+        self.assertEqual(
+            load_verified_capture_bundle(migrated.evidence_path),
+            migrated,
+        )
+
+    def test_legacy_materializer_rejects_v1_journal_before_writing(self) -> None:
+        legacy_dir, legacy_evidence = self._copy_bundle("legacy-v1-journal")
+        dispatch_binding = self.evidence["modelCatalogBinding"][
+            "dispatchJournal"
+        ]
+        dispatch_path = legacy_dir / dispatch_binding["file"]
+        journal = json.loads(dispatch_path.read_bytes())
+        journal["journalVersion"] = 1
+        journal.pop("creationAuthority")
+        journal_bytes = (
+            json.dumps(
+                journal,
+                allow_nan=False,
+                ensure_ascii=True,
+                separators=(",", ":"),
+                sort_keys=True,
+            ).encode("ascii")
+            + b"\n"
+        )
+        dispatch_path.write_bytes(journal_bytes)
+        (legacy_dir / "run-journal.json").write_bytes(journal_bytes)
+
+        evidence = json.loads(legacy_evidence.read_bytes())
+        evidence["modelCatalogBinding"]["dispatchJournal"].update(
+            {
+                "bytes": len(journal_bytes),
+                "sha256": hashlib.sha256(journal_bytes).hexdigest(),
+            }
+        )
+        evidence["id"] = capture_evidence._artifact_id(evidence)
+        legacy_evidence.write_text(
+            json.dumps(
+                evidence,
+                allow_nan=False,
+                ensure_ascii=True,
+                indent=2,
+                sort_keys=True,
+            )
+            + "\n",
+            encoding="ascii",
+        )
+
+        destination = self.root / "legacy-v1-output"
+        with mock.patch.object(
+            capture_evidence,
+            "_write_bundle_member",
+            wraps=capture_evidence._write_bundle_member,
+        ) as writer, self.assertRaisesRegex(
+            KaggleCaptureEvidenceError,
+            "journal version is unsupported",
+        ):
+            materialize_legacy_capture_bundle(legacy_evidence, destination)
+        writer.assert_not_called()
+        self.assertFalse(destination.exists())
+
+    def test_legacy_materializer_rejects_swap_at_post_mkdir_fsync_hook(
+        self,
+    ) -> None:
+        legacy_dir, legacy_evidence = self._copy_bundle("legacy-mkdir-swap")
+        dispatch_name = self.evidence["modelCatalogBinding"][
+            "dispatchJournal"
+        ]["file"]
+        (legacy_dir / "run-journal.json").write_bytes(
+            (legacy_dir / dispatch_name).read_bytes()
+        )
+        destination = self.root / "mkdir-swap-output"
+        displaced = self.root / "mkdir-swap-created-by-helper"
+        marker = destination / "replacement-marker.txt"
+        original_fsync = os.fsync
+        swapped = False
+
+        def swap_after_first_fsync(descriptor: int) -> None:
+            # This is the exact injection hook from the pre-fix exploit. The
+            # implementation now reaches it only after the destination fd is
+            # pinned, so the later pathname identity check must reject it.
+            nonlocal swapped
+            original_fsync(descriptor)
+            if not swapped:
+                swapped = True
+                destination.rename(displaced)
+                destination.mkdir()
+                marker.write_text("replacement", encoding="utf-8")
+
+        with mock.patch.object(
+            capture_evidence.os,
+            "fsync",
+            side_effect=swap_after_first_fsync,
+        ), self.assertRaisesRegex(
+            KaggleCaptureEvidenceError,
+            "changed before final readback",
+        ):
+            materialize_legacy_capture_bundle(legacy_evidence, destination)
+
+        self.assertTrue(swapped)
+        self.assertEqual(marker.read_text(encoding="utf-8"), "replacement")
+        self.assertEqual(list(displaced.iterdir()), [])
+
+    def test_legacy_materializer_rejects_destination_swap_after_fd_readback(
+        self,
+    ) -> None:
+        legacy_dir, legacy_evidence = self._copy_bundle("legacy-readback-swap")
+        dispatch_name = self.evidence["modelCatalogBinding"][
+            "dispatchJournal"
+        ]["file"]
+        (legacy_dir / "run-journal.json").write_bytes(
+            (legacy_dir / dispatch_name).read_bytes()
+        )
+        destination = self.root / "readback-swap-output"
+        displaced = self.root / "readback-swap-created-by-helper"
+        marker = destination / "replacement-marker.txt"
+        original_snapshot = (
+            capture_evidence._snapshot_capture_bundle_from_open_directory
+        )
+        swapped = False
+
+        def swap_after_readback(
+            directory_fd: int,
+            evidence_name: str,
+            evidence_path: Path,
+            *,
+            legacy_duplicate_dispatch_journal: bool,
+        ) -> tuple[VerifiedCaptureBundle, os.stat_result]:
+            nonlocal swapped
+            result = original_snapshot(
+                directory_fd,
+                evidence_name,
+                evidence_path,
+                legacy_duplicate_dispatch_journal=(
+                    legacy_duplicate_dispatch_journal
+                ),
+            )
+            if evidence_path.parent == destination:
+                destination.rename(displaced)
+                destination.mkdir()
+                marker.write_text("replacement", encoding="utf-8")
+                swapped = True
+            return result
+
+        with mock.patch.object(
+            capture_evidence,
+            "_snapshot_capture_bundle_from_open_directory",
+            side_effect=swap_after_readback,
+        ), self.assertRaisesRegex(
+            KaggleCaptureEvidenceError,
+            "changed before final readback",
+        ):
+            materialize_legacy_capture_bundle(legacy_evidence, destination)
+
+        self.assertTrue(swapped)
+        self.assertEqual(marker.read_text(encoding="utf-8"), "replacement")
+        self.assertEqual(list(displaced.iterdir()), [])
+
+    def test_legacy_materializer_rejects_parent_path_swap_after_readback(
+        self,
+    ) -> None:
+        legacy_dir, legacy_evidence = self._copy_bundle("legacy-parent-swap")
+        dispatch_name = self.evidence["modelCatalogBinding"][
+            "dispatchJournal"
+        ]["file"]
+        (legacy_dir / "run-journal.json").write_bytes(
+            (legacy_dir / dispatch_name).read_bytes()
+        )
+        destination_parent = self.root / "parent-swap-output"
+        destination_parent.mkdir()
+        destination = destination_parent / "bundle"
+        displaced_parent = self.root / "parent-swap-created-by-helper"
+        marker = destination_parent / "replacement-marker.txt"
+        original_snapshot = (
+            capture_evidence._snapshot_capture_bundle_from_open_directory
+        )
+        swapped = False
+
+        def swap_parent_after_readback(
+            directory_fd: int,
+            evidence_name: str,
+            evidence_path: Path,
+            *,
+            legacy_duplicate_dispatch_journal: bool,
+        ) -> tuple[VerifiedCaptureBundle, os.stat_result]:
+            nonlocal swapped
+            result = original_snapshot(
+                directory_fd,
+                evidence_name,
+                evidence_path,
+                legacy_duplicate_dispatch_journal=(
+                    legacy_duplicate_dispatch_journal
+                ),
+            )
+            if evidence_path.parent == destination:
+                destination_parent.rename(displaced_parent)
+                destination_parent.mkdir()
+                marker.write_text("replacement", encoding="utf-8")
+                swapped = True
+            return result
+
+        with mock.patch.object(
+            capture_evidence,
+            "_snapshot_capture_bundle_from_open_directory",
+            side_effect=swap_parent_after_readback,
+        ), self.assertRaisesRegex(
+            KaggleCaptureEvidenceError,
+            "parent path changed",
+        ):
+            materialize_legacy_capture_bundle(legacy_evidence, destination)
+
+        self.assertTrue(swapped)
+        self.assertEqual(marker.read_text(encoding="utf-8"), "replacement")
+        self.assertEqual(list(displaced_parent.iterdir()), [])
 
     def test_legacy_materializer_rejects_drift_and_existing_destination(self) -> None:
         legacy_dir, legacy_evidence = self._copy_bundle("legacy-invalid")
