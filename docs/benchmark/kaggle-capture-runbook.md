@@ -91,6 +91,17 @@ the runtime actor and ATIF preserve the provider-qualified slug (`google/gemini-
 binder accepts only this exact suffix relationship and retains both raw values; a different
 provider-qualified slug still fails closed.
 
+Some official catalog entries use different scheduled and Model Proxy slugs. This is not a reason
+to normalize names. For a run created by `kaggle_run_once`, pass its exact reconciled journal with
+`--dispatch-journal`. The binder verifies the journal's owner, task, version, run, scheduled model,
+numeric catalog IDs, and exact `modelProxySlug`, then retains an exact byte-for-byte journal copy
+and content-addressed binding. Without that journal, only the existing exact basename and frozen
+`model@revision` relationship are accepted.
+
+Catalog-bound envelopes use evidence schema `1.1.0`; unbound envelopes continue to use `1.0.0`.
+The verifier accepts both versions, but `1.0.0` cannot contain a `modelCatalogBinding`. The optional
+field is absent, never `null`.
+
 `kagglesdk==0.1.37` also drops `tzinfo` while deserializing Benchmark API timestamps whose service
 semantics are UTC. The binder restores UTC only for those typed SDK `datetime` values; arbitrary
 timestamp strings still pass through strict offset-aware validation.
@@ -131,9 +142,35 @@ not authorize another schedule request:
 - `not_scheduled`: Kaggle explicitly skipped the request; and
 - `returned_unreconciled`: the paid request returned, but its unique run id was not yet proved.
 
+A reconciled journal has exactly one of two scheduler-authored success shapes: either the schedule
+response is present and `dispatchFailure` is absent, or the response was lost, `dispatchFailure`
+retains that transport exception, and the final successful read-only observation proves one exact
+new run equal to `reconciliation.run`. The binder accepts both shapes. It still rejects
+`responseFailure`, a non-null terminal `failure`, any non-reconciled state, and any mismatch in the
+task, run, model, or catalog record. It also replays the journal's run-set proof: preflight IDs must
+be ordered and unique, read failures may precede recovery, every successful observation's
+`newRuns` must equal its exact delta from preflight, and the final `runIds` must be precisely
+preflight plus the bound run.
+
 Do not delete or overwrite a failed or ambiguous journal. It is the permanent attempt receipt.
 Quota movement is supporting evidence, not run identity; an unavailable quota-after read does not
 erase an otherwise unique exact-version run binding.
+
+Bind a scheduled run with both independently retained identities:
+
+```bash
+"$ALEPH_KAGGLE_PY" -m bench.engine.kaggle_capture_evidence \
+  OWNER/aleph-bench-v0-2-capture-canary \
+  --version VERSION \
+  --run-id RUN_ID \
+  --dispatch-journal /absolute/private/evidence/capture-canary/MODEL/run-journal.json \
+  --expect-dataset OWNER/aleph-bench-v02-scorer-conformance \
+  --output /absolute/private/evidence/capture-canary/MODEL
+```
+
+Do not hand-author aliases or reuse a journal from another run. The runtime-observed slug must be
+byte-for-byte equal to the journal's retained `modelProxySlug`; provider guessing, case folding,
+punctuation normalization, and suffix stripping remain forbidden.
 
 ## Claim boundary
 

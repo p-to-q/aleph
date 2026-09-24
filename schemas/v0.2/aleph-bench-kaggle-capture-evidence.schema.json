@@ -19,7 +19,7 @@
     "id"
   ],
   "properties": {
-    "evidenceSchemaVersion": {"const": "1.0.0"},
+    "evidenceSchemaVersion": {"enum": ["1.0.0", "1.1.0"]},
     "artifactKind": {"const": "aleph_bench_kaggle_capture_evidence"},
     "targetProtocolVersion": {"const": "0.2.0"},
     "leaderboardEligible": {"const": false},
@@ -31,11 +31,38 @@
     "archive": {"$ref": "#/$defs/archive"},
     "payload": {"$ref": "#/$defs/payload"},
     "source": {"$ref": "#/$defs/source"},
+    "modelCatalogBinding": {"$ref": "#/$defs/modelCatalogBinding"},
     "id": {
       "type": "string",
       "pattern": "^aleph-bench-kaggle-capture-evidence-v1-artifact-[0-9a-f]{64}$"
     }
   },
+  "allOf": [
+    {
+      "if": {
+        "type": "object",
+        "properties": {"evidenceSchemaVersion": {"const": "1.0.0"}},
+        "required": ["evidenceSchemaVersion"]
+      },
+      "then": {
+        "not": {
+          "type": "object",
+          "required": ["modelCatalogBinding"]
+        }
+      }
+    },
+    {
+      "if": {
+        "type": "object",
+        "properties": {"evidenceSchemaVersion": {"const": "1.1.0"}},
+        "required": ["evidenceSchemaVersion"]
+      },
+      "then": {
+        "type": "object",
+        "required": ["modelCatalogBinding"]
+      }
+    }
+  ],
   "$defs": {
     "sha256": {
       "type": "string",
@@ -214,6 +241,38 @@
             {"type": "integer", "minimum": 0, "maximum": 10000},
             {"type": "null"}
           ]
+        }
+      }
+    },
+    "modelCatalogBinding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "operationId",
+        "benchmarkModelId",
+        "benchmarkModelVersionId",
+        "scheduledSlug",
+        "modelProxySlug",
+        "dispatchJournal"
+      ],
+      "properties": {
+        "operationId": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+        },
+        "benchmarkModelId": {"type": "integer", "minimum": 1},
+        "benchmarkModelVersionId": {"type": "integer", "minimum": 1},
+        "scheduledSlug": {"type": "string", "minLength": 1, "maxLength": 256},
+        "modelProxySlug": {"type": "string", "minLength": 1, "maxLength": 256},
+        "dispatchJournal": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["file", "bytes", "sha256"],
+          "properties": {
+            "file": {"$ref": "#/$defs/logicalPath"},
+            "bytes": {"type": "integer", "minimum": 1, "maximum": 16777216},
+            "sha256": {"$ref": "#/$defs/sha256"}
+          }
         }
       }
     }
