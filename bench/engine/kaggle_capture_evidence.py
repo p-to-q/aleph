@@ -28,6 +28,11 @@ from .kaggle_creation_output import (
     _task_metadata,
     _write_exclusive,
 )
+from .kaggle_run_once import (
+    KaggleRunOnceError,
+    current_capture_source_identity,
+    verify_creation_authority_binding,
+)
 from .schema_validation import SchemaValidationError, load_schema, validate
 
 
@@ -358,7 +363,7 @@ def _dispatch_journal_catalog_record(
     if (
         isinstance(journal_version, bool)
         or not isinstance(journal_version, int)
-        or journal_version != 1
+        or journal_version != 2
     ):
         _fail("dispatch journal version is unsupported")
     if (
@@ -368,6 +373,23 @@ def _dispatch_journal_catalog_record(
         _fail("dispatch journal artifact kind is invalid")
     if _dispatch_journal_field(journal, "state", role="root") != "reconciled":
         _fail("dispatch journal is not reconciled")
+    try:
+        verify_creation_authority_binding(
+            _dispatch_journal_field(
+                journal, "creationAuthority", role="root"
+            ),
+            task_record={
+                "owner": task["owner"],
+                "task": task["slug"],
+                "version": task["version"],
+                "creationState": task["creationState"],
+                "sourceKernelId": task["sourceKernelId"],
+                "datasets": task["datasets"],
+            },
+            current_source=current_capture_source_identity(),
+        )
+    except KaggleRunOnceError as exc:
+        _fail(f"dispatch journal creation authority is invalid: {exc}")
     dispatch_failure = _dispatch_journal_field(
         journal, "dispatchFailure", role="root"
     )
@@ -870,10 +892,15 @@ def _verify_platform_binding(
 
 
 def _assembly_eligible(
-    task: dict[str, Any], run: dict[str, Any], payload: dict[str, Any]
+    task: dict[str, Any],
+    run: dict[str, Any],
+    payload: dict[str, Any],
+    *,
+    authority_bound: bool,
 ) -> bool:
     return (
-        task["creationState"]
+        authority_bound
+        and task["creationState"]
         == "BENCHMARK_TASK_VERSION_CREATION_STATE_COMPLETED"
         and run["state"] == "BENCHMARK_TASK_RUN_STATE_COMPLETED"
         and payload["canonicalReplayEligible"]
@@ -1007,9 +1034,15 @@ def verify_capture_evidence(
     } != expected_payload_summary:
         _fail("payload summary disagrees with retained payload bytes")
     if evidence["assemblyEligible"] is not _assembly_eligible(
-        evidence["task"], evidence["run"], payload
+        evidence["task"],
+        evidence["run"],
+        payload,
+        authority_bound=catalog_record is not None,
     ):
-        _fail("assemblyEligible disagrees with platform and capture state")
+        _fail(
+            "assemblyEligible disagrees with platform, capture state, "
+            "or authority binding"
+        )
     if evidence["id"] != _artifact_id(evidence):
         _fail("capture evidence artifact id mismatch")
     return evidence
@@ -1031,6 +1064,11 @@ def write_capture_evidence_bundle(
 ) -> dict[str, Any]:
     """Bind and exclusively persist one exact Kaggle capture run."""
 
+    if (expected_run_id is None) != (dispatch_journal_bytes is None):
+        _fail(
+            "explicit run ID and authority-bearing dispatch journal "
+            "must be provided together"
+        )
     if len(expected_datasets) != 1:
         _fail("capture evidence requires exactly one attached dataset")
     dataset_owner, dataset_slug = _parse_task_slug(expected_datasets[0])
@@ -1086,7 +1124,12 @@ def write_capture_evidence_bundle(
         "targetProtocolVersion": TARGET_PROTOCOL_VERSION,
         "leaderboardEligible": False,
         "publicationEligible": False,
-        "assemblyEligible": _assembly_eligible(task, run, payload),
+        "assemblyEligible": _assembly_eligible(
+            task,
+            run,
+            payload,
+            authority_bound=catalog_record is not None,
+        ),
         "downloadedAt": observed_downloaded_at,
         "task": task,
         "run": run,
@@ -1586,6 +1629,10 @@ def main(argv: list[str] | None = None) -> int:
         parser.error("--source-kernel-id must be positive")
     if args.run_id is not None and args.run_id <= 0:
         parser.error("--run-id must be positive")
+    if (args.run_id is None) != (args.dispatch_journal is None):
+        parser.error(
+            "--run-id and --dispatch-journal must be provided together"
+        )
     expected_datasets = (args.expect_dataset,)
     try:
         dispatch_journal_bytes = (

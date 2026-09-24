@@ -1,24 +1,38 @@
 from __future__ import annotations
 
 import argparse
+import copy
+import hashlib
+import json
 import math
+import os
 import re
+import stat
 import sys
 import time
 import uuid
+from dataclasses import dataclass
 from datetime import datetime, timezone
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from typing import Any, Callable, Iterable, Sequence
 
 from bench.engine.kaggle_push_once import (
+    CAPTURE_OUTPUT_PATH,
+    CAPTURE_TASK_SLUG,
     KagglePushOnceError,
+    REQUIRED_CLIENT_VERSIONS,
+    _canonical_json_bytes,
     _enum_name,
+    _exact_source_and_notebook,
     _exception_record,
+    _fsync_parent_directory,
     _replace_journal,
     _utc_now,
     _verified_client_versions,
     _write_initial_journal,
+    render_capture_task_source,
 )
+from bench.tasks.kaggle.generate_v0_2_capture import TASK_SOURCE_PATH
 
 
 _SLUG_PART = re.compile(
@@ -32,7 +46,62 @@ _TERMINAL_RUN_STATES = {
     "BENCHMARK_TASK_RUN_STATE_COMPLETED",
     "BENCHMARK_TASK_RUN_STATE_ERRORED",
 }
+_ACKNOWLEDGED_CREATION_STATES = {
+    "BENCHMARK_TASK_VERSION_CREATION_STATE_UNSPECIFIED",
+    "BENCHMARK_TASK_VERSION_CREATION_STATE_QUEUED",
+    "BENCHMARK_TASK_VERSION_CREATION_STATE_RUNNING",
+    "BENCHMARK_TASK_VERSION_CREATION_STATE_COMPLETED",
+}
 DEFAULT_RECONCILE_DELAYS_SECONDS = (0.0, 1.0, 2.0, 4.0, 8.0)
+MAX_CREATION_JOURNAL_BYTES = 2_097_152
+_DISPATCH_CLAIM_DIRECTORY = ".aleph-kaggle-run-claims"
+_CREATION_JOURNAL_ROOT_FIELDS = {
+    "artifactKind",
+    "client",
+    "createdAt",
+    "datasets",
+    "failure",
+    "gate",
+    "journalVersion",
+    "operationId",
+    "remotePreflight",
+    "response",
+    "source",
+    "state",
+    "task",
+    "updatedAt",
+}
+_CREATION_RESPONSE_FIELDS = {
+    "creationState",
+    "datasets",
+    "owner",
+    "sourceKernelId",
+    "task",
+    "url",
+    "version",
+}
+_CREATION_SOURCE_FIELDS = {"bytes", "notebookSha256", "path", "sha256"}
+_CREATION_AUTHORITY_FIELDS = {
+    "canonicalBytes",
+    "canonicalSha256",
+    "journal",
+    "source",
+    "task",
+}
+_CREATION_AUTHORITY_TASK_FIELDS = {
+    "acknowledgedSourceKernelId",
+    "datasets",
+    "owner",
+    "resolvedSourceKernelId",
+    "task",
+    "version",
+}
+_SHA256 = re.compile(r"^[0-9a-f]{64}$")
+_PYTHON_313 = re.compile(r"^3\.13(?:\.\d+)(?:[+._-][A-Za-z0-9._-]+)?$")
+_DATASET_SLUG = re.compile(
+    r"^[a-z0-9](?:[a-z0-9_-]{0,98}[a-z0-9])?/"
+    r"[a-z0-9](?:[a-z0-9_-]{0,98}[a-z0-9])?$"
+)
 
 
 class KaggleRunOnceError(KagglePushOnceError):
@@ -41,6 +110,594 @@ class KaggleRunOnceError(KagglePushOnceError):
 
 class KaggleRunOutcomeAmbiguous(KaggleRunOnceError):
     """Raised after dispatch when the unique paid run cannot be proved."""
+
+
+@dataclass(frozen=True, slots=True)
+class VerifiedCreationAuthority:
+    """One strict canonical capture-task creation receipt."""
+
+    journal: dict[str, Any]
+    canonical_bytes: bytes
+    source: dict[str, Any]
+    response: dict[str, Any]
+
+
+def _authority_object(value: Any, *, role: str) -> dict[str, Any]:
+    if not isinstance(value, dict):
+        raise KaggleRunOnceError(f"creation authority {role} must be an object")
+    return value
+
+
+def _authority_exact_fields(
+    value: dict[str, Any], expected: set[str], *, role: str
+) -> None:
+    if set(value) != expected:
+        raise KaggleRunOnceError(
+            f"creation authority {role} has invalid fields"
+        )
+
+
+def _authority_positive_int(value: Any, *, role: str) -> int:
+    if isinstance(value, bool) or not isinstance(value, int) or value <= 0:
+        raise KaggleRunOnceError(
+            f"creation authority {role} must be a positive integer"
+        )
+    return value
+
+
+def _authority_optional_positive_int(value: Any, *, role: str) -> int | None:
+    if value is None:
+        return None
+    return _authority_positive_int(value, role=role)
+
+
+def _authority_string(
+    value: Any, *, role: str, maximum: int = 2_000
+) -> str:
+    if (
+        not isinstance(value, str)
+        or not value
+        or len(value) > maximum
+        or any(ord(character) < 32 or ord(character) == 127 for character in value)
+    ):
+        raise KaggleRunOnceError(
+            f"creation authority {role} must be a bounded string"
+        )
+    return value
+
+
+def _authority_time(value: Any, *, role: str) -> datetime:
+    if not isinstance(value, str):
+        raise KaggleRunOnceError(
+            f"creation authority {role} is not a valid timestamp"
+        )
+    try:
+        parsed = datetime.fromisoformat(
+            value[:-1] + "+00:00" if value.endswith("Z") else value
+        )
+        if parsed.utcoffset() is None:
+            raise ValueError
+        parsed = parsed.astimezone(timezone.utc)
+    except (ValueError, OverflowError):
+        raise KaggleRunOnceError(
+            f"creation authority {role} is not a valid timestamp"
+        ) from None
+    return parsed
+
+
+def _authority_datasets(value: Any, *, role: str) -> list[str]:
+    if not isinstance(value, list) or len(value) != 1:
+        raise KaggleRunOnceError(
+            f"creation authority {role} must contain exactly one dataset"
+        )
+    datasets = [
+        _authority_string(dataset, role=f"{role} dataset", maximum=200)
+        for dataset in value
+    ]
+    if any(not _DATASET_SLUG.fullmatch(dataset) for dataset in datasets):
+        raise KaggleRunOnceError(
+            f"creation authority {role} contains an invalid dataset slug"
+        )
+    if PurePosixPath(datasets[0]).name != "aleph-bench-v02-scorer-conformance":
+        raise KaggleRunOnceError(
+            "creation authority dataset is not the frozen capture package"
+        )
+    return datasets
+
+
+def _reject_creation_authority_duplicate_pairs(
+    pairs: list[tuple[str, Any]],
+) -> dict[str, Any]:
+    value: dict[str, Any] = {}
+    for key, child in pairs:
+        if key in value:
+            raise KaggleRunOnceError(
+                "creation authority contains a duplicate JSON key"
+            )
+        value[key] = child
+    return value
+
+
+def _reject_creation_authority_json_constant(_value: str) -> None:
+    raise KaggleRunOnceError(
+        "creation authority contains a non-finite JSON constant"
+    )
+
+
+def current_capture_source_identity() -> dict[str, Any]:
+    """Return the exact reviewed source and deterministic notebook identity."""
+
+    try:
+        source, notebook_text = _exact_source_and_notebook(
+            CAPTURE_OUTPUT_PATH,
+            expected_path=CAPTURE_OUTPUT_PATH,
+            expected_source=render_capture_task_source(),
+            source_label="capture",
+        )
+    except KagglePushOnceError as exc:
+        raise KaggleRunOnceError(str(exc)) from exc
+    return {
+        "path": TASK_SOURCE_PATH,
+        "bytes": len(source),
+        "sha256": hashlib.sha256(source).hexdigest(),
+        "notebookSha256": hashlib.sha256(
+            notebook_text.encode("utf-8")
+        ).hexdigest(),
+    }
+
+
+def _validate_current_source_identity(value: Any) -> dict[str, Any]:
+    source = _authority_object(value, role="current source")
+    _authority_exact_fields(
+        source, _CREATION_SOURCE_FIELDS, role="current source"
+    )
+    if source["path"] != TASK_SOURCE_PATH:
+        raise KaggleRunOnceError(
+            "creation authority current source path is invalid"
+        )
+    _authority_positive_int(source["bytes"], role="current source bytes")
+    for field in ("sha256", "notebookSha256"):
+        if not isinstance(source[field], str) or not _SHA256.fullmatch(
+            source[field]
+        ):
+            raise KaggleRunOnceError(
+                f"creation authority current source {field} is invalid"
+            )
+    return source
+
+
+def _validate_prior_task(value: Any) -> None:
+    if value is None:
+        return
+    prior = _authority_object(value, role="prior task")
+    _authority_exact_fields(
+        prior,
+        {
+            "creationState",
+            "datasets",
+            "owner",
+            "sourceKernelId",
+            "task",
+            "version",
+        },
+        role="prior task",
+    )
+    if prior["owner"] is not None:
+        _authority_string(prior["owner"], role="prior task owner", maximum=100)
+    _authority_string(prior["task"], role="prior task slug", maximum=100)
+    _authority_positive_int(prior["version"], role="prior task version")
+    _authority_string(
+        prior["creationState"], role="prior task creation state", maximum=200
+    )
+    _authority_optional_positive_int(
+        prior["sourceKernelId"], role="prior task source kernel ID"
+    )
+    datasets = prior["datasets"]
+    if not isinstance(datasets, list) or len(datasets) > 100:
+        raise KaggleRunOnceError(
+            "creation authority prior task datasets are invalid"
+        )
+    parsed = [
+        _authority_string(
+            dataset, role="prior task dataset", maximum=200
+        )
+        for dataset in datasets
+    ]
+    if parsed != sorted(set(parsed)) or any(
+        not _DATASET_SLUG.fullmatch(dataset) for dataset in parsed
+    ):
+        raise KaggleRunOnceError(
+            "creation authority prior task datasets are invalid"
+        )
+
+
+def verify_creation_authority_bytes(
+    data: bytes,
+    *,
+    expected_owner: str,
+    expected_task: str,
+    expected_version: int,
+    current_source: dict[str, Any] | None = None,
+) -> VerifiedCreationAuthority:
+    """Strictly verify one canonical creation journal against current source."""
+
+    if not data or len(data) > MAX_CREATION_JOURNAL_BYTES:
+        raise KaggleRunOnceError(
+            "creation authority journal exceeds the safety limit"
+        )
+    try:
+        journal = json.loads(
+            data.decode("utf-8", errors="strict"),
+            object_pairs_hook=_reject_creation_authority_duplicate_pairs,
+            parse_constant=_reject_creation_authority_json_constant,
+        )
+    except KaggleRunOnceError:
+        raise
+    except (UnicodeDecodeError, json.JSONDecodeError, ValueError, RecursionError):
+        raise KaggleRunOnceError(
+            "creation authority journal is not bounded strict JSON"
+        ) from None
+    journal = _authority_object(journal, role="journal")
+    _authority_exact_fields(
+        journal, _CREATION_JOURNAL_ROOT_FIELDS, role="journal"
+    )
+    try:
+        canonical_bytes = _canonical_json_bytes(journal)
+    except (TypeError, ValueError, UnicodeError, RecursionError):
+        raise KaggleRunOnceError(
+            "creation authority journal cannot be canonically encoded"
+        ) from None
+    if data != canonical_bytes:
+        raise KaggleRunOnceError(
+            "creation authority journal bytes are not canonical"
+        )
+    if journal["journalVersion"] != 2 or isinstance(
+        journal["journalVersion"], bool
+    ):
+        raise KaggleRunOnceError(
+            "creation authority journal version is unsupported"
+        )
+    if journal["artifactKind"] != "kaggle_task_creation_dispatch":
+        raise KaggleRunOnceError(
+            "creation authority journal artifact kind is invalid"
+        )
+    if journal["task"] != expected_task or expected_task != CAPTURE_TASK_SLUG:
+        raise KaggleRunOnceError(
+            "creation authority journal targets a different task"
+        )
+    if journal["gate"] != "six-call-capture":
+        raise KaggleRunOnceError(
+            "creation authority journal is not a capture creation receipt"
+        )
+    if journal["state"] != "returned" or journal["failure"] is not None:
+        raise KaggleRunOnceError(
+            "creation authority journal is not a returned creation receipt"
+        )
+    operation_id = _authority_string(
+        journal["operationId"], role="operation ID", maximum=36
+    )
+    try:
+        if str(uuid.UUID(operation_id)) != operation_id:
+            raise ValueError
+    except ValueError:
+        raise KaggleRunOnceError(
+            "creation authority operation ID is invalid"
+        ) from None
+    created_at = _authority_time(journal["createdAt"], role="createdAt")
+    updated_at = _authority_time(journal["updatedAt"], role="updatedAt")
+    if updated_at < created_at:
+        raise KaggleRunOnceError(
+            "creation authority timestamps are reversed"
+        )
+
+    client = _authority_object(journal["client"], role="client")
+    _authority_exact_fields(
+        client, {"python", *REQUIRED_CLIENT_VERSIONS}, role="client"
+    )
+    if not isinstance(client["python"], str) or not _PYTHON_313.fullmatch(
+        client["python"]
+    ):
+        raise KaggleRunOnceError(
+            "creation authority client Python version is invalid"
+        )
+    for name, expected in REQUIRED_CLIENT_VERSIONS.items():
+        if client[name] != expected:
+            raise KaggleRunOnceError(
+                f"creation authority client {name} version drifted"
+            )
+
+    datasets = _authority_datasets(journal["datasets"], role="datasets")
+    expected_source = _validate_current_source_identity(
+        current_capture_source_identity()
+        if current_source is None
+        else current_source
+    )
+    source = _authority_object(journal["source"], role="source")
+    _authority_exact_fields(source, _CREATION_SOURCE_FIELDS, role="source")
+    source_path = _authority_string(
+        source["path"], role="source path", maximum=4_096
+    )
+    pure_source_path = PurePosixPath(source_path)
+    expected_parts = PurePosixPath(TASK_SOURCE_PATH).parts
+    if (
+        not pure_source_path.is_absolute()
+        or any(part in {".", ".."} for part in pure_source_path.parts)
+        or pure_source_path.parts[-len(expected_parts) :] != expected_parts
+    ):
+        raise KaggleRunOnceError(
+            "creation authority source path is not the generated capture source"
+        )
+    for field in ("bytes", "sha256", "notebookSha256"):
+        if source[field] != expected_source[field]:
+            raise KaggleRunOnceError(
+                f"creation authority current source {field} drifted"
+            )
+
+    remote = _authority_object(
+        journal["remotePreflight"], role="remote preflight"
+    )
+    _authority_exact_fields(
+        remote, {"observedAt", "priorTask"}, role="remote preflight"
+    )
+    _authority_time(remote["observedAt"], role="remote preflight observedAt")
+    _validate_prior_task(remote["priorTask"])
+
+    response = _authority_object(journal["response"], role="response")
+    _authority_exact_fields(
+        response, _CREATION_RESPONSE_FIELDS, role="response"
+    )
+    if (
+        response["owner"] != expected_owner
+        or response["task"] != expected_task
+        or response["version"] != expected_version
+        or isinstance(response["version"], bool)
+    ):
+        raise KaggleRunOnceError(
+            "creation authority response targets a different task version"
+        )
+    _authority_string(response["owner"], role="response owner", maximum=100)
+    _authority_string(response["task"], role="response task", maximum=100)
+    _authority_positive_int(response["version"], role="response version")
+    response_state = _authority_string(
+        response["creationState"], role="response creation state", maximum=200
+    )
+    if response_state not in _ACKNOWLEDGED_CREATION_STATES:
+        raise KaggleRunOnceError(
+            "creation authority response did not acknowledge a viable creation"
+        )
+    acknowledged_kernel = _authority_optional_positive_int(
+        response["sourceKernelId"], role="acknowledged source kernel ID"
+    )
+    if response["url"] is not None:
+        _authority_string(response["url"], role="response URL", maximum=4_096)
+    response_datasets = _authority_datasets(
+        response["datasets"], role="response datasets"
+    )
+    if response_datasets != datasets:
+        raise KaggleRunOnceError(
+            "creation authority response datasets differ from the request"
+        )
+    response["sourceKernelId"] = acknowledged_kernel
+    return VerifiedCreationAuthority(
+        journal=journal,
+        canonical_bytes=canonical_bytes,
+        source=expected_source,
+        response=response,
+    )
+
+
+def read_creation_authority(path: Path) -> bytes:
+    """Snapshot one bounded receipt without leaf aliases or extra links."""
+
+    required_flags = ("O_NOFOLLOW", "O_NONBLOCK", "O_CLOEXEC")
+    if any(not hasattr(os, flag) for flag in required_flags):
+        raise KaggleRunOnceError(
+            "creation authority reader requires fail-closed file flags"
+        )
+    try:
+        before = os.stat(path, follow_symlinks=False)
+    except OSError as exc:
+        raise KaggleRunOnceError(
+            f"cannot read creation authority journal: {exc}"
+        ) from exc
+    if before.st_size > MAX_CREATION_JOURNAL_BYTES:
+        raise KaggleRunOnceError(
+            "creation authority journal exceeds the safety limit"
+        )
+    if (
+        not stat.S_ISREG(before.st_mode)
+        or before.st_nlink != 1
+        or before.st_size <= 0
+    ):
+        raise KaggleRunOnceError(
+            "creation authority journal must be one bounded single-link regular file"
+        )
+    flags = os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK | os.O_CLOEXEC
+    descriptor: int | None = None
+    try:
+        descriptor = os.open(path, flags)
+        with os.fdopen(descriptor, "rb", closefd=True) as handle:
+            descriptor = None
+            opened = os.fstat(handle.fileno())
+            if (
+                not stat.S_ISREG(opened.st_mode)
+                or opened.st_nlink != 1
+                or (opened.st_dev, opened.st_ino)
+                != (before.st_dev, before.st_ino)
+                or opened.st_size != before.st_size
+                or opened.st_mtime_ns != before.st_mtime_ns
+                or opened.st_ctime_ns != before.st_ctime_ns
+            ):
+                raise KaggleRunOnceError(
+                    "creation authority journal changed while it was opened"
+                )
+            data = handle.read(MAX_CREATION_JOURNAL_BYTES + 1)
+            after = os.fstat(handle.fileno())
+    except KaggleRunOnceError:
+        raise
+    except OSError as exc:
+        raise KaggleRunOnceError(
+            f"cannot read creation authority journal: {exc}"
+        ) from exc
+    finally:
+        if descriptor is not None:
+            os.close(descriptor)
+    try:
+        final = os.stat(path, follow_symlinks=False)
+    except OSError:
+        raise KaggleRunOnceError(
+            "creation authority journal changed while it was read"
+        ) from None
+    identity = (opened.st_dev, opened.st_ino)
+    if (
+        not data
+        or len(data) > MAX_CREATION_JOURNAL_BYTES
+        or after.st_size != len(data)
+        or after.st_nlink != 1
+        or final.st_nlink != 1
+        or (after.st_dev, after.st_ino) != identity
+        or (final.st_dev, final.st_ino) != identity
+        or after.st_mtime_ns != opened.st_mtime_ns
+        or final.st_mtime_ns != opened.st_mtime_ns
+        or after.st_ctime_ns != opened.st_ctime_ns
+        or final.st_ctime_ns != opened.st_ctime_ns
+    ):
+        raise KaggleRunOnceError(
+            "creation authority journal changed while it was read"
+        )
+    return data
+
+
+def bind_creation_authority(
+    authority: VerifiedCreationAuthority,
+    *,
+    task_record: dict[str, Any],
+) -> dict[str, Any]:
+    """Bind a verified create receipt to one completed exact-version readback."""
+
+    try:
+        canonical_bytes = _canonical_json_bytes(authority.journal)
+    except (TypeError, ValueError, UnicodeError, RecursionError):
+        raise KaggleRunOnceError(
+            "creation authority journal cannot be canonically encoded"
+        ) from None
+    if canonical_bytes != authority.canonical_bytes:
+        raise KaggleRunOnceError(
+            "creation authority changed after verification"
+        )
+    response = authority.response
+    identity = (
+        task_record.get("owner"),
+        task_record.get("task"),
+        task_record.get("version"),
+    )
+    expected_identity = (
+        response["owner"],
+        response["task"],
+        response["version"],
+    )
+    if identity != expected_identity:
+        raise KaggleRunOnceError(
+            "exact task readback differs from creation authority"
+        )
+    if task_record.get("datasets") != response["datasets"]:
+        raise KaggleRunOnceError(
+            "exact task datasets differ from creation authority"
+        )
+    resolved_kernel = _authority_positive_int(
+        task_record.get("sourceKernelId"),
+        role="resolved source kernel ID",
+    )
+    acknowledged_kernel = response["sourceKernelId"]
+    if (
+        acknowledged_kernel is not None
+        and acknowledged_kernel != resolved_kernel
+    ):
+        raise KaggleRunOnceError(
+            "exact task source kernel differs from creation authority"
+        )
+    return {
+        "canonicalBytes": len(canonical_bytes),
+        "canonicalSha256": hashlib.sha256(canonical_bytes).hexdigest(),
+        "journal": copy.deepcopy(authority.journal),
+        "source": copy.deepcopy(authority.source),
+        "task": {
+            "owner": identity[0],
+            "task": identity[1],
+            "version": identity[2],
+            "datasets": list(response["datasets"]),
+            "acknowledgedSourceKernelId": acknowledged_kernel,
+            "resolvedSourceKernelId": resolved_kernel,
+        },
+    }
+
+
+def verify_creation_authority_binding(
+    value: Any,
+    *,
+    task_record: dict[str, Any],
+    current_source: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Rebuild and compare an embedded creation-authority binding."""
+
+    binding = _authority_object(value, role="binding")
+    _authority_exact_fields(
+        binding, _CREATION_AUTHORITY_FIELDS, role="binding"
+    )
+    canonical_size = _authority_positive_int(
+        binding["canonicalBytes"], role="binding canonical bytes"
+    )
+    digest = binding["canonicalSha256"]
+    if not isinstance(digest, str) or not _SHA256.fullmatch(digest):
+        raise KaggleRunOnceError(
+            "creation authority binding digest is invalid"
+        )
+    journal = _authority_object(binding["journal"], role="binding journal")
+    try:
+        canonical_bytes = _canonical_json_bytes(journal)
+    except (TypeError, ValueError, UnicodeError, RecursionError):
+        raise KaggleRunOnceError(
+            "creation authority binding journal cannot be encoded"
+        ) from None
+    if (
+        canonical_size != len(canonical_bytes)
+        or digest != hashlib.sha256(canonical_bytes).hexdigest()
+    ):
+        raise KaggleRunOnceError(
+            "creation authority binding byte identity drifted"
+        )
+    identity = _authority_object(binding["task"], role="binding task")
+    _authority_exact_fields(
+        identity, _CREATION_AUTHORITY_TASK_FIELDS, role="binding task"
+    )
+    expected_identity = (
+        task_record.get("owner"),
+        task_record.get("task"),
+        task_record.get("version"),
+    )
+    if (
+        identity.get("owner"),
+        identity.get("task"),
+        identity.get("version"),
+    ) != expected_identity:
+        raise KaggleRunOnceError(
+            "creation authority binding targets a different task version"
+        )
+    authority = verify_creation_authority_bytes(
+        canonical_bytes,
+        expected_owner=expected_identity[0],
+        expected_task=expected_identity[1],
+        expected_version=expected_identity[2],
+        current_source=current_source,
+    )
+    expected_binding = bind_creation_authority(
+        authority, task_record=task_record
+    )
+    if binding != expected_binding:
+        raise KaggleRunOnceError(
+            "creation authority binding disagrees with its journal or readback"
+        )
+    return binding
 
 
 def _validate_target(
@@ -61,6 +718,94 @@ def _validate_target(
         raise KaggleRunOnceError(
             f"run journal already exists; inspect it and do not retry: {journal_path}"
         )
+
+
+def _dispatch_claim_path(
+    *,
+    creation_journal_path: Path,
+    creation_authority: VerifiedCreationAuthority,
+    owner: str,
+    task: str,
+    version: int,
+    model: str,
+) -> Path:
+    """Return the receipt-local, journal-path-independent paid-call claim."""
+
+    key = b"\0".join(
+        (
+            creation_authority.canonical_bytes,
+            owner.encode("ascii"),
+            task.encode("ascii"),
+            str(version).encode("ascii"),
+            model.encode("ascii"),
+        )
+    )
+    return (
+        creation_journal_path.parent
+        / _DISPATCH_CLAIM_DIRECTORY
+        / f"{hashlib.sha256(key).hexdigest()}.json"
+    )
+
+
+def _write_dispatch_claim(path: Path, claim: dict[str, Any]) -> None:
+    """Durably claim one receipt/task/model boundary with atomic creation."""
+
+    required_flags = ("O_NOFOLLOW", "O_CLOEXEC", "O_DIRECTORY")
+    if any(not hasattr(os, flag) for flag in required_flags) or not hasattr(
+        os, "geteuid"
+    ):
+        raise KaggleRunOnceError(
+            "dispatch claim requires fail-closed filesystem flags"
+        )
+    try:
+        path.parent.mkdir(mode=0o700)
+        _fsync_parent_directory(path.parent)
+    except FileExistsError:
+        pass
+    except OSError as exc:
+        raise KaggleRunOnceError(
+            f"cannot create dispatch-claim directory: {exc}"
+        ) from exc
+    try:
+        directory = os.stat(path.parent, follow_symlinks=False)
+    except OSError as exc:
+        raise KaggleRunOnceError(
+            f"cannot inspect dispatch-claim directory: {exc}"
+        ) from exc
+    if (
+        not stat.S_ISDIR(directory.st_mode)
+        or directory.st_uid != os.geteuid()
+        or stat.S_IMODE(directory.st_mode) & 0o077
+    ):
+        raise KaggleRunOnceError(
+            "dispatch-claim directory must be a private owned directory"
+        )
+
+    data = _canonical_json_bytes(claim)
+    flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW | os.O_CLOEXEC
+    descriptor: int | None = None
+    try:
+        descriptor = os.open(path, flags, 0o600)
+        with os.fdopen(descriptor, "wb", closefd=True) as handle:
+            descriptor = None
+            handle.write(data)
+            handle.flush()
+            os.fsync(handle.fileno())
+        _fsync_parent_directory(path)
+    except FileExistsError as exc:
+        raise KaggleRunOnceError(
+            "a durable dispatch claim already exists for this exact "
+            f"creation receipt, task version, and model: {path}"
+        ) from exc
+    except OSError as exc:
+        # A partial claim is intentionally retained as a hard stop. Removing it
+        # could turn an uncertain local write into a second paid API attempt.
+        raise KaggleRunOnceError(
+            f"cannot durably write dispatch claim; inspect {path}: {exc}"
+        ) from exc
+    finally:
+        if descriptor is not None:
+            os.close(descriptor)
 
 
 def _positive_int(value: Any, *, label: str) -> int:
@@ -107,19 +852,31 @@ def _task_record(
             "exact Kaggle task version is not ready to run "
             f"({state})"
         )
+    source_kernel_id = _positive_int(
+        getattr(task_info, "source_kernel_id", None),
+        label="source kernel ID",
+    )
+    options = getattr(task_info, "options", None)
+    datasets = list(getattr(options, "dataset_data_sources", None) or ())
+    if (
+        not datasets
+        or datasets != sorted(set(datasets))
+        or any(
+            not isinstance(dataset, str)
+            or not _DATASET_SLUG.fullmatch(dataset)
+            for dataset in datasets
+        )
+    ):
+        raise KaggleRunOnceError(
+            "Kaggle returned invalid or unordered exact task datasets"
+        )
     return {
         "owner": owner,
         "task": task,
         "version": version,
         "creationState": state,
-        "sourceKernelId": (
-            _positive_int(
-                getattr(task_info, "source_kernel_id", None),
-                label="source kernel ID",
-            )
-            if getattr(task_info, "source_kernel_id", None)
-            else None
-        ),
+        "sourceKernelId": source_kernel_id,
+        "datasets": datasets,
         "url": getattr(task_info, "url", None) or None,
     }
 
@@ -325,10 +1082,13 @@ def schedule_and_reconcile_once(
     version: int,
     model: str,
     journal_path: Path,
+    creation_journal_path: Path,
+    creation_authority: VerifiedCreationAuthority,
     fetch_task: Callable[[], Any],
     fetch_model: Callable[[], Any],
     fetch_runs: Callable[[], Iterable[Any]],
     fetch_quota: Callable[[], Any],
+    fetch_current_source: Callable[[], dict[str, Any]],
     schedule_run: Callable[[], Any],
     client_versions: dict[str, str],
     reconcile_delays: Sequence[float] = DEFAULT_RECONCILE_DELAYS_SECONDS,
@@ -353,12 +1113,30 @@ def schedule_and_reconcile_once(
     ):
         raise KaggleRunOnceError("reconciliation delays must be finite and non-negative")
 
+    retained_authority_bytes = read_creation_authority(creation_journal_path)
+    if retained_authority_bytes != creation_authority.canonical_bytes:
+        raise KaggleRunOnceError(
+            "creation authority does not match the retained original journal"
+        )
+    locally_verified_authority = verify_creation_authority_bytes(
+        creation_authority.canonical_bytes,
+        expected_owner=owner,
+        expected_task=task,
+        expected_version=version,
+        current_source=creation_authority.source,
+    )
+    if locally_verified_authority != creation_authority:
+        raise KaggleRunOnceError(
+            "creation authority changed after initial verification"
+        )
+
     exact_task = _task_record(
         fetch_task(),
         expected_owner=owner,
         expected_task=task,
         expected_version=version,
     )
+    bind_creation_authority(creation_authority, task_record=exact_task)
     exact_model = _model_record(fetch_model(), expected_model=model)
     before_runs = _run_set(
         fetch_runs(),
@@ -375,10 +1153,82 @@ def schedule_and_reconcile_once(
         raise KaggleRunOnceError(
             "exact task version has unresolved queued, running, or unknown runs"
         )
+    if any(record["model"] == model for record in before_runs):
+        raise KaggleRunOnceError(
+            "exact task version already has a run for the requested model; "
+            "inspect the retained run instead of choosing another journal"
+        )
     quota_before = _quota_record(fetch_quota())
+    current_source = _validate_current_source_identity(fetch_current_source())
+    creation_authority = verify_creation_authority_bytes(
+        creation_authority.canonical_bytes,
+        expected_owner=owner,
+        expected_task=task,
+        expected_version=version,
+        current_source=current_source,
+    )
+    creation_binding = bind_creation_authority(
+        creation_authority, task_record=exact_task
+    )
+    confirmed_runs = _run_set(
+        fetch_runs(),
+        expected_owner=owner,
+        expected_task=task,
+        expected_version=version,
+    )
+    if confirmed_runs != before_runs:
+        raise KaggleRunOnceError(
+            "exact task run set changed during preflight; inspect it before "
+            "choosing any journal or scheduling again"
+        )
+
+    final_source = _validate_current_source_identity(fetch_current_source())
+    creation_authority = verify_creation_authority_bytes(
+        creation_authority.canonical_bytes,
+        expected_owner=owner,
+        expected_task=task,
+        expected_version=version,
+        current_source=final_source,
+    )
+    creation_binding = bind_creation_authority(
+        creation_authority, task_record=exact_task
+    )
+    if read_creation_authority(
+        creation_journal_path
+    ) != creation_authority.canonical_bytes:
+        raise KaggleRunOnceError(
+            "creation authority changed during remote preflight"
+        )
+
+    claim_path = _dispatch_claim_path(
+        creation_journal_path=creation_journal_path,
+        creation_authority=creation_authority,
+        owner=owner,
+        task=task,
+        version=version,
+        model=model,
+    )
+    _write_dispatch_claim(
+        claim_path,
+        {
+            "claimVersion": 1,
+            "artifactKind": "kaggle_benchmark_model_dispatch_claim",
+            "createdAt": clock(),
+            "target": {
+                "owner": owner,
+                "task": task,
+                "version": version,
+                "model": model,
+            },
+            "creationAuthoritySha256": hashlib.sha256(
+                creation_authority.canonical_bytes
+            ).hexdigest(),
+            "runJournal": str(journal_path.resolve(strict=False)),
+        },
+    )
 
     journal: dict[str, Any] = {
-        "journalVersion": 1,
+        "journalVersion": 2,
         "artifactKind": "kaggle_benchmark_run_dispatch",
         "operationId": str(uuid.uuid4()),
         "createdAt": clock(),
@@ -391,6 +1241,7 @@ def schedule_and_reconcile_once(
             "model": model,
         },
         "client": dict(client_versions),
+        "creationAuthority": creation_binding,
         "remotePreflight": {
             "observedAt": clock(),
             "task": exact_task,
@@ -575,6 +1426,7 @@ def run_once(
     version: int,
     model: str,
     journal_path: Path,
+    creation_journal_path: Path,
     reconcile_delays: Sequence[float] = DEFAULT_RECONCILE_DELAYS_SECONDS,
 ) -> dict[str, Any]:
     """Schedule one exact Kaggle Task/model pair without paid-call retry."""
@@ -587,6 +1439,14 @@ def run_once(
         journal_path=journal_path,
     )
     client_versions = _verified_client_versions()
+    source_identity = current_capture_source_identity()
+    creation_authority = verify_creation_authority_bytes(
+        read_creation_authority(creation_journal_path),
+        expected_owner=owner,
+        expected_task=task,
+        expected_version=version,
+        current_source=source_identity,
+    )
     try:
         from kaggle.api.kaggle_api_extended import KaggleApi
         from kagglesdk.benchmarks.types.benchmark_tasks_api_service import (
@@ -692,10 +1552,13 @@ def run_once(
             version=version,
             model=model,
             journal_path=journal_path,
+            creation_journal_path=creation_journal_path.resolve(strict=True),
+            creation_authority=creation_authority,
             fetch_task=fetch_task,
             fetch_model=fetch_model,
             fetch_runs=fetch_runs,
             fetch_quota=fetch_quota,
+            fetch_current_source=current_capture_source_identity,
             # Deliberately never wrap this paid, non-idempotent POST in
             # KaggleApi.with_retry.
             schedule_run=lambda: schedule(schedule_request),
@@ -715,6 +1578,9 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--task", required=True)
     parser.add_argument("--version", required=True, type=int)
     parser.add_argument("--model", required=True)
+    parser.add_argument(
+        "--creation-journal", required=True, type=Path
+    )
     parser.add_argument("--journal", required=True, type=Path)
     args = parser.parse_args(sys.argv[1:] if argv is None else argv)
     try:
@@ -724,6 +1590,7 @@ def main(argv: list[str] | None = None) -> int:
             version=args.version,
             model=args.model,
             journal_path=args.journal,
+            creation_journal_path=args.creation_journal,
         )
     except (OSError, ValueError) as exc:
         print(f"Kaggle one-shot run failed: {exc}", file=sys.stderr)

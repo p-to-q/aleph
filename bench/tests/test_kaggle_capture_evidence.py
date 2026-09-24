@@ -17,6 +17,7 @@ from bench.engine.kaggle_capture import (
     artifact_id_for,
     serialize_capture_payload,
 )
+from bench.engine import kaggle_capture_evidence as capture_evidence
 from bench.engine.kaggle_capture_evidence import (
     CAPTURE_FILENAME,
     KaggleCaptureEvidenceError,
@@ -24,6 +25,7 @@ from bench.engine.kaggle_capture_evidence import (
     verify_capture_evidence,
     write_capture_evidence_bundle,
 )
+from bench.engine import kaggle_run_once as run_once
 from bench.engine.kaggle_run_once import schedule_and_reconcile_once
 from bench.tasks.kaggle.generate_v0_2_capture import OUTPUT_PATH
 from bench.tests.test_kaggle_capture_task_v0_2 import (
@@ -42,6 +44,70 @@ DOWNLOADED_AT = "2026-09-22T00:02:00Z"
 GEMMA_SCHEDULED_SLUG = "gemma-4-26b-a4b-it"
 GEMMA_PROXY_SLUG = "google/gemma-4-26b-a4b"
 OPERATION_ID = "01234567-89ab-4def-8123-456789abcdef"
+
+
+def _test_source_identity() -> dict[str, Any]:
+    source_bytes = OUTPUT_PATH.read_bytes()
+    return {
+        "path": run_once.TASK_SOURCE_PATH,
+        "bytes": len(source_bytes),
+        "sha256": hashlib.sha256(source_bytes).hexdigest(),
+        "notebookSha256": "2" * 64,
+    }
+
+
+def _creation_authority(
+    *,
+    owner: str = "owner",
+    version: int = 3,
+    source_kernel_id: int | None = 12345,
+) -> run_once.VerifiedCreationAuthority:
+    source = _test_source_identity()
+    journal = {
+        "journalVersion": 2,
+        "artifactKind": "kaggle_task_creation_dispatch",
+        "operationId": "12345678-1234-4abc-8123-123456789abc",
+        "createdAt": "2026-09-21T23:57:00Z",
+        "updatedAt": "2026-09-21T23:57:01Z",
+        "task": TASK_SLUG,
+        "gate": "six-call-capture",
+        "datasets": [DATASET],
+        "client": {
+            "python": "3.13.7",
+            "kaggle": "2.2.4",
+            "kagglesdk": "0.1.37",
+            "jupytext": "1.19.5",
+        },
+        "source": {
+            **source,
+            "path": "/reviewed/checkout/" + source["path"],
+        },
+        "remotePreflight": {
+            "observedAt": "2026-09-21T23:57:00Z",
+            "priorTask": None,
+        },
+        "state": "returned",
+        "response": {
+            "owner": owner,
+            "task": TASK_SLUG,
+            "version": version,
+            "sourceKernelId": source_kernel_id,
+            "creationState": "BENCHMARK_TASK_VERSION_CREATION_STATE_COMPLETED",
+            "url": (
+                f"https://www.kaggle.com/benchmarks/{owner}/"
+                f"{TASK_SLUG}/{version}"
+            ),
+            "datasets": [DATASET],
+        },
+        "failure": None,
+    }
+    return run_once.verify_creation_authority_bytes(
+        run_once._canonical_json_bytes(journal),
+        expected_owner=owner,
+        expected_task=TASK_SLUG,
+        expected_version=version,
+        current_source=source,
+    )
 
 
 def _task_info(
@@ -162,7 +228,7 @@ def _dispatch_journal_bytes(
         "errorMessage": None,
     }
     journal = {
-        "journalVersion": 1,
+        "journalVersion": 2,
         "artifactKind": "kaggle_benchmark_run_dispatch",
         "operationId": OPERATION_ID,
         "state": state,
@@ -222,7 +288,22 @@ def _dispatch_journal_bytes(
         "responseFailure": response_failure,
         "failure": failure,
     }
-    return (json.dumps(journal, sort_keys=True) + "\n").encode("utf-8")
+    journal["creationAuthority"] = run_once.bind_creation_authority(
+        _creation_authority(),
+        task_record={
+            "owner": "owner",
+            "task": TASK_SLUG,
+            "version": 3,
+            "creationState": "BENCHMARK_TASK_VERSION_CREATION_STATE_COMPLETED",
+            "sourceKernelId": 12345,
+            "datasets": [DATASET],
+        },
+    )
+    return run_once._canonical_json_bytes(journal)
+
+
+def _authority_dispatch_journal_bytes() -> bytes:
+    return _dispatch_journal_bytes()
 
 
 class KaggleCaptureEvidenceTests(unittest.TestCase):
@@ -242,6 +323,15 @@ class KaggleCaptureEvidenceTests(unittest.TestCase):
             sys.modules.pop("kaggle_benchmarks", None)
         else:
             sys.modules["kaggle_benchmarks"] = cls.previous_kaggle_module
+
+    def setUp(self) -> None:
+        source_patch = mock.patch.object(
+            capture_evidence,
+            "current_capture_source_identity",
+            return_value=_test_source_identity(),
+        )
+        source_patch.start()
+        self.addCleanup(source_patch.stop)
 
     def _payload_bytes(
         self,
@@ -288,25 +378,35 @@ class KaggleCaptureEvidenceTests(unittest.TestCase):
         run_info: SimpleNamespace | None = None,
         output_dir: Path | None = None,
         dispatch_journal_bytes: bytes | None = None,
+        expected_run_id: int | None = None,
     ) -> tuple[dict[str, Any], Path, tempfile.TemporaryDirectory[str] | None]:
         output_tmp = None
         if output_dir is None:
             output_tmp = tempfile.TemporaryDirectory()
             self.addCleanup(output_tmp.cleanup)
             output_dir = Path(output_tmp.name) / "evidence"
-        evidence = write_capture_evidence_bundle(
-            task_info=task_info or _task_info(),
-            run_info=run_info or _run_info(),
-            requested_task=f"owner/{TASK_SLUG}",
-            expected_version=3,
-            expected_source_kernel_id=12345,
-            expected_run_id=24680,
-            expected_datasets=(DATASET,),
-            archive_bytes=archive_bytes,
-            output_dir=output_dir,
-            downloaded_at=DOWNLOADED_AT,
-            dispatch_journal_bytes=dispatch_journal_bytes,
-        )
+        with mock.patch.object(
+            capture_evidence,
+            "current_capture_source_identity",
+            return_value=_test_source_identity(),
+        ):
+            evidence = write_capture_evidence_bundle(
+                task_info=task_info or _task_info(),
+                run_info=run_info or _run_info(),
+                requested_task=f"owner/{TASK_SLUG}",
+                expected_version=3,
+                expected_source_kernel_id=12345,
+                expected_run_id=(
+                    24680
+                    if dispatch_journal_bytes is not None
+                    else expected_run_id
+                ),
+                expected_datasets=(DATASET,),
+                archive_bytes=archive_bytes,
+                output_dir=output_dir,
+                downloaded_at=DOWNLOADED_AT,
+                dispatch_journal_bytes=dispatch_journal_bytes,
+            )
         return evidence, output_dir, output_tmp
 
     def test_exact_run_bundle_preserves_and_verifies_all_bytes(self) -> None:
@@ -316,7 +416,7 @@ class KaggleCaptureEvidenceTests(unittest.TestCase):
         self.assertIsNotNone(output_tmp)
 
         self.assertEqual(evidence["evidenceSchemaVersion"], "1.0.0")
-        self.assertTrue(evidence["assemblyEligible"])
+        self.assertFalse(evidence["assemblyEligible"])
         self.assertNotIn("modelCatalogBinding", evidence)
         self.assertIsNone(evidence["task"]["creationErrorStringSha256"])
         self.assertIsNone(evidence["run"]["errorStringSha256"])
@@ -362,13 +462,13 @@ class KaggleCaptureEvidenceTests(unittest.TestCase):
                 source_bytes=source_copy,
             )
 
-    def test_missing_finish_reason_is_bound_and_assembly_eligible(self) -> None:
+    def test_missing_finish_reason_is_retained_but_unbound(self) -> None:
         payload_bytes = self._payload_bytes(finish_reason=None)
         evidence, output_dir, output_tmp = self._write(
             archive_bytes=_archive(payload_bytes, self.source_bytes)
         )
         self.assertIsNotNone(output_tmp)
-        self.assertTrue(evidence["assemblyEligible"])
+        self.assertFalse(evidence["assemblyEligible"])
         self.assertTrue(evidence["payload"]["canonicalReplayEligible"])
 
     def test_providerless_run_api_model_alias_is_bound_without_rewriting(self) -> None:
@@ -378,7 +478,7 @@ class KaggleCaptureEvidenceTests(unittest.TestCase):
             run_info=_run_info(model="gemini-2.5-flash"),
         )
         self.assertIsNotNone(output_tmp)
-        self.assertTrue(evidence["assemblyEligible"])
+        self.assertFalse(evidence["assemblyEligible"])
         self.assertEqual(
             evidence["run"]["modelVersionSlug"],
             "gemini-2.5-flash",
@@ -393,7 +493,7 @@ class KaggleCaptureEvidenceTests(unittest.TestCase):
             run_info=_run_info(model="claude-haiku-4-5-20251001"),
         )
         self.assertIsNotNone(output_tmp)
-        self.assertTrue(evidence["assemblyEligible"])
+        self.assertFalse(evidence["assemblyEligible"])
         self.assertEqual(
             evidence["run"]["modelVersionSlug"],
             "claude-haiku-4-5-20251001",
@@ -465,6 +565,38 @@ class KaggleCaptureEvidenceTests(unittest.TestCase):
                 dispatch_journal_bytes=journal_bytes,
             )
 
+        downgraded = json.loads(json.dumps(evidence))
+        downgraded.pop("modelCatalogBinding")
+        downgraded["evidenceSchemaVersion"] = "1.0.0"
+        # A self-authored legacy envelope can also rewrite its unbound run
+        # alias to the runtime basename. Reach the authority gate rather than
+        # relying on the independent model-alias check to reject the attack.
+        downgraded["run"]["modelVersionSlug"] = GEMMA_PROXY_SLUG.rsplit(
+            "/", 1
+        )[-1]
+        downgraded["id"] = _artifact_id(downgraded)
+        with self.assertRaisesRegex(
+            KaggleCaptureEvidenceError, "assemblyEligible disagrees"
+        ):
+            verify_capture_evidence(
+                downgraded,
+                archive_bytes=archive_bytes,
+                payload_bytes=payload_bytes,
+                source_bytes=self.source_bytes,
+            )
+
+        downgraded["assemblyEligible"] = False
+        downgraded["id"] = _artifact_id(downgraded)
+        self.assertEqual(
+            verify_capture_evidence(
+                downgraded,
+                archive_bytes=archive_bytes,
+                payload_bytes=payload_bytes,
+                source_bytes=self.source_bytes,
+            ),
+            downgraded,
+        )
+
     def test_lost_schedule_response_reconciled_by_scheduler_is_bindable(self) -> None:
         task_slug = SimpleNamespace(
             owner_slug="owner",
@@ -475,6 +607,7 @@ class KaggleCaptureEvidenceTests(unittest.TestCase):
             slug=task_slug,
             creation_state="BENCHMARK_TASK_VERSION_CREATION_STATE_COMPLETED",
             source_kernel_id=12345,
+            options=SimpleNamespace(dataset_data_sources=[DATASET]),
             url=f"https://www.kaggle.com/benchmarks/owner/{TASK_SLUG}/3",
         )
         scheduler_model = SimpleNamespace(
@@ -510,7 +643,9 @@ class KaggleCaptureEvidenceTests(unittest.TestCase):
                 for period, allowance in (("DAILY", 10.0), ("MONTHLY", 100.0))
             ]
         )
-        run_snapshots = iter([[], OSError("read failed"), [scheduler_run]])
+        run_snapshots = iter(
+            [[], [], OSError("read failed"), [scheduler_run]]
+        )
 
         def fetch_runs() -> list[SimpleNamespace]:
             snapshot = next(run_snapshots)
@@ -522,16 +657,22 @@ class KaggleCaptureEvidenceTests(unittest.TestCase):
         journal_tmp = tempfile.TemporaryDirectory()
         self.addCleanup(journal_tmp.cleanup)
         journal_path = Path(journal_tmp.name) / "run-journal.json"
+        authority = _creation_authority()
+        creation_path = journal_path.parent / "creation.json"
+        creation_path.write_bytes(authority.canonical_bytes)
         journal = schedule_and_reconcile_once(
             owner="owner",
             task=TASK_SLUG,
             version=3,
             model=GEMMA_SCHEDULED_SLUG,
             journal_path=journal_path,
+            creation_journal_path=creation_path,
+            creation_authority=authority,
             fetch_task=lambda: scheduler_task,
             fetch_model=lambda: scheduler_model,
             fetch_runs=fetch_runs,
             fetch_quota=lambda: quota,
+            fetch_current_source=_test_source_identity,
             schedule_run=schedule,
             client_versions={"python": "3.13.7", "kaggle": "2.2.4"},
             reconcile_delays=(0, 0),
@@ -560,6 +701,89 @@ class KaggleCaptureEvidenceTests(unittest.TestCase):
             evidence["modelCatalogBinding"]["scheduledSlug"],
             GEMMA_SCHEDULED_SLUG,
         )
+
+    def test_creation_authority_is_reverified_from_dispatch_journal(self) -> None:
+        payload_bytes = self._payload_bytes(model_slug=GEMMA_PROXY_SLUG)
+        archive_bytes = _archive(payload_bytes, self.source_bytes)
+        journal_bytes = _authority_dispatch_journal_bytes()
+        evidence, _, output_tmp = self._write(
+            archive_bytes=archive_bytes,
+            run_info=_run_info(model=GEMMA_SCHEDULED_SLUG),
+            dispatch_journal_bytes=journal_bytes,
+        )
+        self.assertIsNotNone(output_tmp)
+        self.assertTrue(evidence["assemblyEligible"])
+
+        cases: dict[str, tuple[dict[str, Any], str]] = {}
+        missing = json.loads(journal_bytes)
+        del missing["creationAuthority"]
+        cases["missing"] = (missing, "missing creationAuthority")
+
+        bad_digest = json.loads(journal_bytes)
+        bad_digest["creationAuthority"]["canonicalSha256"] = "0" * 64
+        cases["digest"] = (bad_digest, "byte identity drifted")
+
+        bad_kernel = json.loads(journal_bytes)
+        bad_kernel["creationAuthority"]["task"][
+            "resolvedSourceKernelId"
+        ] = 54321
+        cases["kernel"] = (bad_kernel, "disagrees with its journal")
+
+        bad_source = json.loads(journal_bytes)
+        bad_source["creationAuthority"]["source"]["sha256"] = "0" * 64
+        cases["source"] = (bad_source, "disagrees with its journal")
+
+        bad_embedded_source = json.loads(journal_bytes)
+        embedded_journal = bad_embedded_source["creationAuthority"]["journal"]
+        embedded_journal["source"]["sha256"] = "0" * 64
+        embedded_bytes = run_once._canonical_json_bytes(embedded_journal)
+        bad_embedded_source["creationAuthority"]["canonicalBytes"] = len(
+            embedded_bytes
+        )
+        bad_embedded_source["creationAuthority"]["canonicalSha256"] = (
+            hashlib.sha256(embedded_bytes).hexdigest()
+        )
+        cases["embedded-source"] = (
+            bad_embedded_source,
+            "current source sha256 drifted",
+        )
+
+        for name, (journal, message) in cases.items():
+            with self.subTest(name=name), self.assertRaisesRegex(
+                KaggleCaptureEvidenceError, message
+            ):
+                self._write(
+                    archive_bytes=archive_bytes,
+                    run_info=_run_info(model=GEMMA_SCHEDULED_SLUG),
+                    dispatch_journal_bytes=run_once._canonical_json_bytes(
+                        journal
+                    ),
+                )
+
+        downgraded = json.loads(journal_bytes)
+        downgraded["journalVersion"] = 1
+        del downgraded["creationAuthority"]
+        with self.assertRaisesRegex(
+            KaggleCaptureEvidenceError, "version is unsupported"
+        ):
+            self._write(
+                archive_bytes=archive_bytes,
+                run_info=_run_info(model=GEMMA_SCHEDULED_SLUG),
+                dispatch_journal_bytes=run_once._canonical_json_bytes(
+                    downgraded
+                ),
+            )
+
+    def test_explicit_run_id_requires_authority_bearing_dispatch_journal(self) -> None:
+        payload_bytes = self._payload_bytes()
+        with self.assertRaisesRegex(
+            KaggleCaptureEvidenceError,
+            "explicit run ID and authority-bearing dispatch journal",
+        ):
+            self._write(
+                archive_bytes=_archive(payload_bytes, self.source_bytes),
+                expected_run_id=24680,
+            )
 
     def test_catalog_alias_requires_one_exact_runtime_proxy_slug(self) -> None:
         with self.assertRaisesRegex(

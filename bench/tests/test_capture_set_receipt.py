@@ -48,6 +48,7 @@ from bench.tests.test_kaggle_capture_evidence import (
     _dispatch_journal_bytes,
     _run_info,
     _task_info,
+    _test_source_identity,
 )
 from bench.tests.test_kaggle_capture_task_v0_2 import (
     OpenAI,
@@ -482,6 +483,12 @@ class CaptureSetPureContractTests(unittest.TestCase):
 class CaptureSetReceiptIntegrationTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:
+        cls.source_identity_patch = mock.patch(
+            "bench.engine.kaggle_capture_evidence.current_capture_source_identity",
+            return_value=_test_source_identity(),
+        )
+        cls.source_identity_patch.start()
+        cls.addClassCleanup(cls.source_identity_patch.stop)
         cls.generated, cls.previous_kaggle_module = _load_generated_task()
         cls.temp = tempfile.TemporaryDirectory()
         cls.root = Path(cls.temp.name)

@@ -20,6 +20,9 @@ the exact task version, run, dataset, and quota first.
   directory levels and succeeds only when exactly one candidate matches every embedded file hash
   and the closed-world file set.
 - Confirm no task named `aleph-bench-v0-2-capture-canary` is queued or running.
+- Retain the exact canonical `kaggle_push_once` creation journal for the Task
+  version. Additional-model scheduling requires that receipt; a Task URL,
+  version number, downloaded notebook, or payload is not a substitute.
 - Retain a Model Proxy quota snapshot. The task makes at most six logical calls and the generated
   source disables transport retry.
 - The cross-provider capture profile records `reasoning: null` and omits the optional Kaggle
@@ -95,8 +98,13 @@ Some official catalog entries use different scheduled and Model Proxy slugs. Thi
 to normalize names. For a run created by `kaggle_run_once`, pass its exact reconciled journal with
 `--dispatch-journal`. The binder verifies the journal's owner, task, version, run, scheduled model,
 numeric catalog IDs, and exact `modelProxySlug`, then retains an exact byte-for-byte journal copy
-and content-addressed binding. Without that journal, only the existing exact basename and frozen
-`model@revision` relationship are accepted.
+and content-addressed binding. An explicit `--run-id` and `--dispatch-journal` must be supplied
+together. The current binder accepts only a version-2 dispatch journal carrying verified creation
+authority; it does not silently downgrade to a legacy v1 scheduler receipt. The no-journal path is
+reserved for retaining the creation-triggered run as diagnostic history while it is still the sole
+run on the exact Task version. Unbound evidence-schema 1.0 bundles are always
+`assemblyEligible: false`; only an authority-bound bundle can enter a capture set. Historical v1
+recovery requires a separate reviewed authority migration.
 
 Catalog-bound envelopes use evidence schema `1.1.0`; unbound envelopes continue to use `1.0.0`.
 The verifier accepts both versions, but `1.0.0` cannot contain a `modelCatalogBinding`. The optional
@@ -127,13 +135,43 @@ path:
   --task aleph-bench-v0-2-capture-canary \
   --version VERSION \
   --model CANONICAL-MODEL-VERSION \
+  --creation-journal /absolute/private/evidence/capture-canary/push-journal.json \
   --journal /absolute/private/evidence/capture-canary/MODEL/run-journal.json
 ```
 
-The helper independently resolves the exact canonical model-version id, reads the exact Task and
-complete pre-dispatch run set, rejects unresolved runs, and retains daily and monthly quota. It then
-fsyncs `prepared` and `dispatching`, calls the scheduling API once without paid-call retry, and uses
-read-only polling to accept exactly one new run id for the requested model and version.
+Before it creates the run journal, the helper strictly parses the retained creation journal and
+requires its canonical bytes, returned state, exact owner/Task/version/dataset set, source bytes,
+source SHA-256, and deterministic Jupytext notebook SHA-256 to match the current checked-in
+generated capture source. It then reads the exact Task version and resolves the source-kernel ID.
+When creation acknowledged a positive kernel ID, readback must match it; when creation recorded
+`null`, the completed exact-version readback must supply the positive ID. The resolved identity and
+the complete canonical creation receipt are content-bound into the run journal.
+
+Any generated capture-source change requires a new one-shot private Task version created with
+`kaggle_push_once` before another model may be scheduled. Do not point the current scheduler at an
+older immutable Task version, hand-author a replacement receipt, accept source identity from the
+payload, or add a historical v7 exception. A mismatch stops before both the dispatch journal and
+the paid scheduling call.
+
+After that authority gate, the helper independently resolves the exact canonical model-version id,
+reads the complete pre-dispatch run set, rejects unresolved runs, and retains daily and monthly
+quota. It then fsyncs `prepared` and `dispatching`, calls the scheduling API once without paid-call
+retry, and uses read-only polling to accept exactly one new run id for the requested model and
+version. A pre-existing run for the same exact model version is also a hard stop, including a
+terminal run. Immediately before creating the run journal, it atomically writes a durable claim
+beside the original creation journal, keyed by that receipt, Task version, and model. Concurrent
+same-host attempts for the same exact model that share the original receipt therefore cannot both
+cross the paid boundary, and selecting another run-journal path does not create another local
+claim. Different models still require strict one-at-a-time scheduling. Retain this sidecar claim
+even after success or interruption. The current generated source and original receipt bytes
+are both revalidated after the final remote run-set read and before the claim is written; drift at
+that boundary leaves no claim, run journal, or paid call.
+
+The claim is deliberately not described as a global distributed lock. Separate hosts or copied
+creation receipts do not share a local filesystem claim, and Kaggle exposes no idempotency key for
+this paid scheduling API. Keep one original creation receipt, one control directory, and one writer
+host for a Task version; if that invariant was violated, stop and reconcile the remote run set
+read-only.
 
 Only `state: "reconciled"` authorizes evidence download with that retained run id. These states do
 not authorize another schedule request:
@@ -155,6 +193,11 @@ preflight plus the bound run.
 Do not delete or overwrite a failed or ambiguous journal. It is the permanent attempt receipt.
 Quota movement is supporting evidence, not run identity; an unavailable quota-after read does not
 erase an otherwise unique exact-version run binding.
+
+Separating original dispatch journals from closed-world evidence bundles and migrating the old
+flat evidence layout are tracked independently in
+[issue #83](https://github.com/p-to-q/aleph/issues/83); they are not part of this source-authority
+gate.
 
 Bind a scheduled run with both independently retained identities:
 
