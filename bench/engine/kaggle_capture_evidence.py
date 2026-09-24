@@ -1480,7 +1480,7 @@ def _write_bundle_member(
     directory_fd: int,
     name: str,
     data: bytes,
-) -> tuple[int, int]:
+) -> os.stat_result:
     """Durably create one bounded bundle member relative to an open directory."""
 
     name = _bundle_basename(name, role="destination bundle member")
@@ -1492,16 +1492,13 @@ def _write_bundle_member(
         or os.open not in os.supports_dir_fd
         or os.stat not in os.supports_dir_fd
         or os.stat not in os.supports_follow_symlinks
-        or os.unlink not in os.supports_dir_fd
     ):
         _fail("capture evidence writer requires fail-closed file operations")
     flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW | os.O_CLOEXEC
     descriptor: int | None = None
-    created = False
     created_identity: tuple[int, int] | None = None
     try:
         descriptor = os.open(name, flags, 0o600, dir_fd=directory_fd)
-        created = True
         created_stat = os.fstat(descriptor)
         created_identity = (created_stat.st_dev, created_stat.st_ino)
         if not stat.S_ISREG(created_stat.st_mode) or created_stat.st_nlink != 1:
@@ -1522,45 +1519,62 @@ def _write_bundle_member(
             or (final_stat.st_dev, final_stat.st_ino) != created_identity
             or written_stat.st_size != len(data)
             or final_stat.st_size != len(data)
-            or final_stat.st_mtime_ns != written_stat.st_mtime_ns
-            or final_stat.st_ctime_ns != written_stat.st_ctime_ns
+            or _stable_bundle_member_metadata(final_stat)
+            != _stable_bundle_member_metadata(written_stat)
         ):
             _fail("destination bundle member changed while it was written")
-        return created_identity
+        return final_stat
     except BaseException:
         if descriptor is not None:
             os.close(descriptor)
-        if created and created_identity is not None:
-            try:
-                _unlink_bundle_member_if_identity(
-                    directory_fd,
-                    name,
-                    created_identity,
-                )
-            except OSError:
-                pass
         raise
 
 
-def _unlink_bundle_member_if_identity(
-    directory_fd: int,
-    name: str,
-    expected_identity: tuple[int, int],
-) -> bool:
-    """Remove only the exact regular-file inode created by this operation."""
+def _stable_bundle_member_metadata(value: os.stat_result) -> tuple[int, ...]:
+    """Return metadata that must stay fixed across one materialization."""
 
-    name = _bundle_basename(name, role="destination bundle member")
-    try:
-        current = os.stat(name, dir_fd=directory_fd, follow_symlinks=False)
-    except OSError:
-        return False
-    if (
-        not stat.S_ISREG(current.st_mode)
-        or (current.st_dev, current.st_ino) != expected_identity
-    ):
-        return False
-    os.unlink(name, dir_fd=directory_fd)
-    return True
+    return (
+        value.st_dev,
+        value.st_ino,
+        value.st_mode,
+        value.st_nlink,
+        value.st_uid,
+        value.st_gid,
+        value.st_size,
+        value.st_mtime_ns,
+        value.st_ctime_ns,
+    )
+
+
+def _reverify_materialized_members(
+    directory_fd: int,
+    written: list[tuple[str, bytes, os.stat_result]],
+) -> None:
+    """Re-read exact bytes and stable metadata before reporting success."""
+
+    for name, expected_bytes, expected_stat in written:
+        observed_bytes = _read_bundle_member(
+            directory_fd,
+            name,
+            maximum_bytes=len(expected_bytes),
+            role="destination bundle member",
+        )
+        try:
+            observed_stat = os.stat(
+                name,
+                dir_fd=directory_fd,
+                follow_symlinks=False,
+            )
+        except OSError:
+            _fail("destination bundle member changed before final success")
+        if (
+            observed_bytes != expected_bytes
+            or not stat.S_ISREG(observed_stat.st_mode)
+            or observed_stat.st_nlink != 1
+            or _stable_bundle_member_metadata(observed_stat)
+            != _stable_bundle_member_metadata(expected_stat)
+        ):
+            _fail("destination bundle member changed before final success")
 
 
 def _check_open_bundle_directory_unchanged(
@@ -1787,6 +1801,53 @@ def load_verified_capture_bundle(
     )
 
 
+def _check_materialized_path_bindings(
+    *,
+    destination: Path,
+    destination_name: str,
+    destination_fd: int,
+    destination_identity: tuple[int, int],
+    verified_directory: os.stat_result,
+    parent_fd: int,
+    parent_identity: tuple[int, int],
+) -> None:
+    """Recheck held and pathname directory identities without following links."""
+
+    try:
+        destination_held = os.fstat(destination_fd)
+        destination_path = os.stat(
+            destination_name,
+            dir_fd=parent_fd,
+            follow_symlinks=False,
+        )
+    except OSError:
+        _fail("destination bundle directory changed before final success")
+    if (
+        not stat.S_ISDIR(destination_held.st_mode)
+        or not stat.S_ISDIR(destination_path.st_mode)
+        or _directory_identity(destination_held) != destination_identity
+        or _directory_identity(destination_path) != destination_identity
+        or _directory_identity(destination_path)
+        != _directory_identity(verified_directory)
+        or destination_held.st_mtime_ns != verified_directory.st_mtime_ns
+        or destination_held.st_ctime_ns != verified_directory.st_ctime_ns
+        or destination_path.st_mtime_ns != verified_directory.st_mtime_ns
+        or destination_path.st_ctime_ns != verified_directory.st_ctime_ns
+    ):
+        _fail("destination bundle directory changed before final success")
+
+    parent_recheck_fd = _open_bundle_directory(destination.parent)
+    try:
+        if (
+            _directory_identity(os.fstat(parent_fd)) != parent_identity
+            or _directory_identity(os.fstat(parent_recheck_fd))
+            != parent_identity
+        ):
+            _fail("destination bundle parent path changed during migration")
+    finally:
+        os.close(parent_recheck_fd)
+
+
 def materialize_legacy_capture_bundle(
     evidence_path: str | Path,
     output_dir: str | Path,
@@ -1797,6 +1858,8 @@ def materialize_legacy_capture_bundle(
     its bytes must equal the dispatch-journal copy already bound by the
     evidence envelope. Source files are never moved, deleted, or rewritten.
     The destination must not exist and receives byte-identical members only.
+    A failure may leave that exclusive destination partially populated; it is
+    never cleaned up automatically and must not be reused or overwritten.
     """
 
     source = _snapshot_capture_bundle(
@@ -1808,10 +1871,7 @@ def materialize_legacy_capture_bundle(
         destination.name,
         role="destination bundle directory",
     )
-    if (
-        os.mkdir not in os.supports_dir_fd
-        or os.rmdir not in os.supports_dir_fd
-    ):
+    if os.mkdir not in os.supports_dir_fd:
         _fail("capture evidence writer requires fail-closed directory operations")
     evidence_name = source.evidence_path.name
     members: list[tuple[str, bytes]] = [
@@ -1830,17 +1890,15 @@ def materialize_legacy_capture_bundle(
     )
     parent_fd: int | None = None
     destination_fd: int | None = None
-    written: list[tuple[str, tuple[int, int]]] = []
-    created_directory = False
+    written: list[tuple[str, bytes, os.stat_result]] = []
     created_directory_identity: tuple[int, int] | None = None
     try:
         parent_fd = _open_bundle_directory(destination.parent)
         parent_identity = _directory_identity(os.fstat(parent_fd))
         os.mkdir(destination_name, mode=0o700, dir_fd=parent_fd)
-        created_directory = True
         # POSIX mkdirat does not return an fd. Open immediately; the guarantee
         # below begins at this pinning point, then every later write, readback,
-        # and cleanup uses the held descriptors plus pathname identity checks.
+        # and final check uses held descriptors plus pathname identity checks.
         flags = os.O_RDONLY | os.O_NOFOLLOW | os.O_CLOEXEC | os.O_DIRECTORY
         destination_fd = os.open(
             destination_name,
@@ -1870,12 +1928,12 @@ def materialize_legacy_capture_bundle(
             canonical_name = _bundle_basename(
                 name, role="destination bundle member"
             )
-            member_identity = _write_bundle_member(
+            member_stat = _write_bundle_member(
                 destination_fd,
                 canonical_name,
                 data,
             )
-            written.append((canonical_name, member_identity))
+            written.append((canonical_name, data, member_stat))
         os.fsync(destination_fd)
         bundle, verified_directory = (
             _snapshot_capture_bundle_from_open_directory(
@@ -1885,85 +1943,26 @@ def materialize_legacy_capture_bundle(
                 legacy_duplicate_dispatch_journal=False,
             )
         )
-        for name, identity in written:
-            current_member = os.stat(
-                name,
-                dir_fd=destination_fd,
-                follow_symlinks=False,
-            )
-            if (
-                not stat.S_ISREG(current_member.st_mode)
-                or current_member.st_nlink != 1
-                or (current_member.st_dev, current_member.st_ino) != identity
-            ):
-                _fail("destination bundle member changed before final readback")
-        destination_path_after = os.stat(
-            destination_name,
-            dir_fd=parent_fd,
-            follow_symlinks=False,
+        _check_materialized_path_bindings(
+            destination=destination,
+            destination_name=destination_name,
+            destination_fd=destination_fd,
+            destination_identity=created_directory_identity,
+            verified_directory=verified_directory,
+            parent_fd=parent_fd,
+            parent_identity=parent_identity,
         )
-        if (
-            not stat.S_ISDIR(destination_path_after.st_mode)
-            or _directory_identity(destination_path_after)
-            != created_directory_identity
-            or _directory_identity(destination_path_after)
-            != _directory_identity(verified_directory)
-            or destination_path_after.st_mtime_ns
-            != verified_directory.st_mtime_ns
-            or destination_path_after.st_ctime_ns
-            != verified_directory.st_ctime_ns
-        ):
-            _fail("destination bundle directory changed before final readback")
-
-        parent_recheck_fd = _open_bundle_directory(destination.parent)
-        try:
-            if (
-                _directory_identity(os.fstat(parent_fd)) != parent_identity
-                or _directory_identity(os.fstat(parent_recheck_fd))
-                != parent_identity
-            ):
-                _fail("destination bundle parent path changed during migration")
-        finally:
-            os.close(parent_recheck_fd)
+        _reverify_materialized_members(destination_fd, written)
+        _check_materialized_path_bindings(
+            destination=destination,
+            destination_name=destination_name,
+            destination_fd=destination_fd,
+            destination_identity=created_directory_identity,
+            verified_directory=verified_directory,
+            parent_fd=parent_fd,
+            parent_identity=parent_identity,
+        )
         return bundle
-    except BaseException:
-        if destination_fd is not None:
-            for name, identity in reversed(written):
-                try:
-                    _unlink_bundle_member_if_identity(
-                        destination_fd,
-                        name,
-                        identity,
-                    )
-                except OSError:
-                    pass
-            try:
-                os.fsync(destination_fd)
-            except OSError:
-                pass
-            os.close(destination_fd)
-            destination_fd = None
-        if (
-            created_directory
-            and created_directory_identity is not None
-            and parent_fd is not None
-        ):
-            try:
-                current_destination = os.stat(
-                    destination_name,
-                    dir_fd=parent_fd,
-                    follow_symlinks=False,
-                )
-                if (
-                    stat.S_ISDIR(current_destination.st_mode)
-                    and _directory_identity(current_destination)
-                    == created_directory_identity
-                ):
-                    os.rmdir(destination_name, dir_fd=parent_fd)
-                    os.fsync(parent_fd)
-            except OSError:
-                pass
-        raise
     finally:
         if destination_fd is not None:
             os.close(destination_fd)

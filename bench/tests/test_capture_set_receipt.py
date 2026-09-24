@@ -852,6 +852,43 @@ class CaptureSetReceiptIntegrationTests(unittest.TestCase):
         writer.assert_not_called()
         self.assertFalse(destination.exists())
 
+    def test_legacy_materializer_rejects_unbound_bundle_before_writing(
+        self,
+    ) -> None:
+        legacy_dir = self.root / "legacy-unbound"
+        evidence = write_capture_evidence_bundle(
+            task_info=_task_info(),
+            run_info=_run_info(model=GEMMA_PROXY_SLUG),
+            requested_task=f"owner/{TASK_SLUG}",
+            expected_version=3,
+            expected_source_kernel_id=12345,
+            expected_run_id=None,
+            expected_datasets=(DATASET,),
+            archive_bytes=_archive(self.payload_bytes, self.source_bytes),
+            output_dir=legacy_dir,
+            downloaded_at=DOWNLOADED_AT,
+            dispatch_journal_bytes=None,
+        )
+        legacy_evidence = legacy_dir / (
+            f"{TASK_SLUG}-v3-run-24680-evidence.json"
+        )
+        self.assertEqual(evidence["evidenceSchemaVersion"], "1.0.0")
+        self.assertFalse(evidence["assemblyEligible"])
+        (legacy_dir / "run-journal.json").write_bytes(b"unbound history\n")
+
+        destination = self.root / "legacy-unbound-output"
+        with mock.patch.object(
+            capture_evidence,
+            "_write_bundle_member",
+            wraps=capture_evidence._write_bundle_member,
+        ) as writer, self.assertRaisesRegex(
+            KaggleCaptureEvidenceError,
+            "requires a bound dispatch journal",
+        ):
+            materialize_legacy_capture_bundle(legacy_evidence, destination)
+        writer.assert_not_called()
+        self.assertFalse(destination.exists())
+
     def test_legacy_materializer_rejects_swap_at_post_mkdir_fsync_hook(
         self,
     ) -> None:
@@ -886,13 +923,13 @@ class CaptureSetReceiptIntegrationTests(unittest.TestCase):
             side_effect=swap_after_first_fsync,
         ), self.assertRaisesRegex(
             KaggleCaptureEvidenceError,
-            "changed before final readback",
+            "changed before final success",
         ):
             materialize_legacy_capture_bundle(legacy_evidence, destination)
 
         self.assertTrue(swapped)
         self.assertEqual(marker.read_text(encoding="utf-8"), "replacement")
-        self.assertEqual(list(displaced.iterdir()), [])
+        load_verified_capture_bundle(displaced / legacy_evidence.name)
 
     def test_legacy_materializer_rejects_destination_swap_after_fd_readback(
         self,
@@ -941,13 +978,111 @@ class CaptureSetReceiptIntegrationTests(unittest.TestCase):
             side_effect=swap_after_readback,
         ), self.assertRaisesRegex(
             KaggleCaptureEvidenceError,
-            "changed before final readback",
+            "changed before final success",
         ):
             materialize_legacy_capture_bundle(legacy_evidence, destination)
 
         self.assertTrue(swapped)
         self.assertEqual(marker.read_text(encoding="utf-8"), "replacement")
-        self.assertEqual(list(displaced.iterdir()), [])
+        load_verified_capture_bundle(displaced / legacy_evidence.name)
+
+    def test_legacy_materializer_rejects_in_place_drift_after_fd_readback(
+        self,
+    ) -> None:
+        legacy_dir, legacy_evidence = self._copy_bundle("legacy-content-drift")
+        dispatch_name = self.evidence["modelCatalogBinding"][
+            "dispatchJournal"
+        ]["file"]
+        (legacy_dir / "run-journal.json").write_bytes(
+            (legacy_dir / dispatch_name).read_bytes()
+        )
+        destination = self.root / "content-drift-output"
+        original_snapshot = (
+            capture_evidence._snapshot_capture_bundle_from_open_directory
+        )
+        mutated = False
+
+        def mutate_after_readback(
+            directory_fd: int,
+            evidence_name: str,
+            evidence_path: Path,
+            *,
+            legacy_duplicate_dispatch_journal: bool,
+        ) -> tuple[VerifiedCaptureBundle, os.stat_result]:
+            nonlocal mutated
+            result = original_snapshot(
+                directory_fd,
+                evidence_name,
+                evidence_path,
+                legacy_duplicate_dispatch_journal=(
+                    legacy_duplicate_dispatch_journal
+                ),
+            )
+            if evidence_path.parent == destination:
+                dispatch_path = destination / dispatch_name
+                changed = bytearray(dispatch_path.read_bytes())
+                changed[-1] = 32 if changed[-1] != 32 else 10
+                dispatch_path.write_bytes(changed)
+                mutated = True
+            return result
+
+        with mock.patch.object(
+            capture_evidence,
+            "_snapshot_capture_bundle_from_open_directory",
+            side_effect=mutate_after_readback,
+        ), self.assertRaisesRegex(
+            KaggleCaptureEvidenceError,
+            "destination bundle member changed",
+        ):
+            materialize_legacy_capture_bundle(legacy_evidence, destination)
+
+        self.assertTrue(mutated)
+        self.assertTrue(destination.exists())
+        with self.assertRaises(KaggleCaptureEvidenceError):
+            load_verified_capture_bundle(destination / legacy_evidence.name)
+
+    def test_failed_write_preserves_replacement_and_partial_destination(
+        self,
+    ) -> None:
+        legacy_dir, legacy_evidence = self._copy_bundle("legacy-write-race")
+        dispatch_name = self.evidence["modelCatalogBinding"][
+            "dispatchJournal"
+        ]["file"]
+        (legacy_dir / "run-journal.json").write_bytes(
+            (legacy_dir / dispatch_name).read_bytes()
+        )
+        destination = self.root / "write-race-output"
+        displaced_member = self.root / "write-race-created-member"
+        competitor_bytes = b"competitor-owned replacement\n"
+        original_fsync = os.fsync
+        fsync_calls = 0
+
+        def replace_member_then_fail(descriptor: int) -> None:
+            nonlocal fsync_calls
+            fsync_calls += 1
+            original_fsync(descriptor)
+            if fsync_calls == 2:
+                created_member = destination / legacy_evidence.name
+                created_member.rename(displaced_member)
+                created_member.write_bytes(competitor_bytes)
+                raise OSError("injected write failure")
+
+        with mock.patch.object(
+            capture_evidence.os,
+            "fsync",
+            side_effect=replace_member_then_fail,
+        ), self.assertRaisesRegex(OSError, "injected write failure"):
+            materialize_legacy_capture_bundle(legacy_evidence, destination)
+
+        self.assertEqual(
+            (destination / legacy_evidence.name).read_bytes(),
+            competitor_bytes,
+        )
+        self.assertEqual(
+            displaced_member.read_bytes(),
+            legacy_evidence.read_bytes(),
+        )
+        self.assertEqual(fsync_calls, 2)
 
     def test_legacy_materializer_rejects_parent_path_swap_after_readback(
         self,
@@ -1004,7 +1139,9 @@ class CaptureSetReceiptIntegrationTests(unittest.TestCase):
 
         self.assertTrue(swapped)
         self.assertEqual(marker.read_text(encoding="utf-8"), "replacement")
-        self.assertEqual(list(displaced_parent.iterdir()), [])
+        load_verified_capture_bundle(
+            displaced_parent / "bundle" / legacy_evidence.name
+        )
 
     def test_legacy_materializer_rejects_drift_and_existing_destination(self) -> None:
         legacy_dir, legacy_evidence = self._copy_bundle("legacy-invalid")

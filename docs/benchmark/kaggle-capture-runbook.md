@@ -237,10 +237,19 @@ dispatch-journal copy already bound by the envelope, snapshots and re-verifies e
 member, writes byte-identical files exclusively, and verifies the destination through the held
 directory descriptor pinned immediately after `mkdir`. Any unrelated extra, symlink, hard link,
 journal drift, existing destination, directory swap after that pin, or evidence failure stops
-without changing an original source file. Portable POSIX `mkdir` cannot atomically return a
-directory descriptor: keep the private destination parent free of uncooperative same-UID namespace
-writers for that single `mkdir`-to-`open` syscall boundary. After the immediate no-follow open, the
-helper rechecks both destination and parent path identities and never cleans up a replacement inode.
+without changing an original source file. A failure after destination creation deliberately leaves
+that exclusive directory partially or fully populated. Treat it as a retained failure artifact:
+do not reuse or overwrite it, and audit its exact path and provenance before any explicit removal.
+The helper performs no automatic failure cleanup because portable POSIX path deletion cannot bind
+an unlink or rmdir atomically to a previously observed inode.
+
+Portable POSIX `mkdir` cannot atomically return a directory descriptor, and held descriptors do not
+exclude another process running under the same UID from changing names or file contents. Keep the
+destination parent private from uncooperative same-UID writers for the entire materialization,
+including the `mkdir`-to-`open` boundary, writes, readback, and final checks. The helper holds the
+opened destination, rechecks destination and parent path identities, then re-reads every member's
+exact bytes and stable metadata before reporting success. These are point-in-time fail-closed
+checks, not an atomic transaction or a same-UID security boundary.
 
 This is only a layout migration for evidence that already passes the current version-2
 creation-authority verifier. It never adds authority or changes `assemblyEligible`. In particular,

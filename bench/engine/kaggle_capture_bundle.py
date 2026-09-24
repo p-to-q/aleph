@@ -24,6 +24,12 @@ def main(argv: list[str] | None = None) -> int:
         )
     except (OSError, ValueError) as exc:
         print(f"cannot materialize capture bundle: {exc}", file=sys.stderr)
+        print(
+            "the exclusive output may now contain a partial artifact; "
+            "do not reuse or overwrite it, and audit it manually before "
+            "any explicit removal",
+            file=sys.stderr,
+        )
         return 1
     print(
         f"materialized verified capture bundle {bundle.evidence['id']} "
