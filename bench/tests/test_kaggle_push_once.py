@@ -1,10 +1,11 @@
 from __future__ import annotations
 
 import json
+import sys
 import tempfile
 import unittest
 from pathlib import Path
-from types import SimpleNamespace
+from types import ModuleType, SimpleNamespace
 from unittest import mock
 
 from bench.engine import kaggle_push_once as push_once
@@ -12,6 +13,7 @@ from bench.engine.kaggle_push_once import (
     KagglePushOnceError,
     KagglePushOutcomeAmbiguous,
     _normalize_response,
+    _is_http_not_found,
     dispatch_create_once,
     preflight_and_dispatch_once,
     push_capture_once,
@@ -49,6 +51,123 @@ class HardStop(BaseException):
 
 
 class KagglePushOnceTests(unittest.TestCase):
+    def test_only_http_404_means_remote_task_is_missing(self) -> None:
+        for status_code in (401, 403, 429, 500, None):
+            with self.subTest(status_code=status_code):
+                error = RuntimeError("remote preflight failed")
+                error.response = SimpleNamespace(status_code=status_code)  # type: ignore[attr-defined]
+                self.assertFalse(_is_http_not_found(error))
+
+        missing = RuntimeError("not found")
+        missing.response = SimpleNamespace(status_code=404)  # type: ignore[attr-defined]
+        self.assertTrue(_is_http_not_found(missing))
+
+    def test_public_preflights_propagate_http_403_without_dispatch(self) -> None:
+        class HTTPError(Exception):
+            pass
+
+        class Request:
+            pass
+
+        class Options:
+            pass
+
+        forbidden = HTTPError("forbidden")
+        forbidden.response = SimpleNamespace(status_code=403)  # type: ignore[attr-defined]
+        task_client = SimpleNamespace(
+            get_benchmark_task=mock.Mock(side_effect=forbidden),
+            create_benchmark_task=mock.Mock(),
+        )
+        client = SimpleNamespace(
+            benchmarks=SimpleNamespace(
+                benchmark_tasks_api_client=task_client
+            )
+        )
+        context = mock.MagicMock()
+        context.__enter__.return_value = client
+        api = mock.Mock()
+        api.build_kaggle_client.return_value = context
+        api.with_retry.side_effect = lambda function: function
+
+        modules: dict[str, ModuleType] = {}
+        for name in (
+            "kaggle",
+            "kaggle.api",
+            "kaggle.api.kaggle_api_extended",
+            "kagglesdk",
+            "kagglesdk.benchmarks",
+            "kagglesdk.benchmarks.types",
+            "kagglesdk.benchmarks.types.benchmark_types",
+            "kagglesdk.benchmarks.types.benchmark_tasks_api_service",
+            "requests",
+            "requests.exceptions",
+        ):
+            modules[name] = ModuleType(name)
+        modules["kaggle.api.kaggle_api_extended"].KaggleApi = mock.Mock(
+            return_value=api
+        )
+        modules[
+            "kagglesdk.benchmarks.types.benchmark_types"
+        ].BenchmarkTaskOptions = Options
+        task_types = modules[
+            "kagglesdk.benchmarks.types.benchmark_tasks_api_service"
+        ]
+        task_types.ApiBenchmarkTaskSlug = Request
+        task_types.ApiCreateBenchmarkTaskRequest = Request
+        task_types.ApiGetBenchmarkTaskRequest = Request
+        modules["requests.exceptions"].HTTPError = HTTPError
+
+        cases = (
+            (
+                "diagnostic",
+                push_diagnostic_once,
+                {
+                    "datasets": (),
+                    "gate": "zero-call",
+                },
+            ),
+            (
+                "capture",
+                push_capture_once,
+                {
+                    "datasets": ("owner/capture-package",),
+                },
+            ),
+        )
+        for name, caller, arguments in cases:
+            with (
+                self.subTest(name=name),
+                tempfile.TemporaryDirectory() as tmp,
+                mock.patch.dict(sys.modules, modules),
+                mock.patch.object(
+                    push_once, "_verified_client_versions", return_value={}
+                ),
+                mock.patch.object(
+                    push_once,
+                    "_source_and_notebook",
+                    return_value=(b"# source\n", "# notebook"),
+                ),
+                mock.patch.object(
+                    push_once,
+                    "_exact_source_and_notebook",
+                    return_value=(b"# source\n", "# notebook"),
+                ),
+                mock.patch.object(
+                    push_once,
+                    "render_capture_task_source",
+                    return_value="# source\n",
+                ),
+                mock.patch.object(push_once, "dispatch_create_once") as dispatch,
+                self.assertRaisesRegex(HTTPError, "forbidden"),
+            ):
+                caller(
+                    source_path=Path(tmp) / f"{name}.py",
+                    journal_path=Path(tmp) / "push.json",
+                    **arguments,
+                )
+            dispatch.assert_not_called()
+            task_client.create_benchmark_task.assert_not_called()
+
     def test_capture_task_identity_is_supported_without_weakening_diagnostic_default(self) -> None:
         response = _task_response(
             task=push_once.CAPTURE_TASK_SLUG,

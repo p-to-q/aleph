@@ -46,10 +46,21 @@ def _fail(message: str) -> None:
 def _write_exclusive(path: Path, data: bytes) -> None:
     # Exclusive creation closes the race between a preflight exists check and
     # the write; an older task version must never be silently overwritten.
-    with path.open("xb") as handle:
-        handle.write(data)
-        handle.flush()
-        os.fsync(handle.fileno())
+    handle = path.open("xb")
+    try:
+        with handle:
+            handle.write(data)
+            handle.flush()
+            os.fsync(handle.fileno())
+    except BaseException:
+        # A failed durable write is not evidence. Remove the file created by
+        # this call so an operator can retry after addressing the I/O failure.
+        # Opening an existing path fails before this block and is never unlinked.
+        try:
+            path.unlink()
+        except OSError:
+            pass
+        raise
 
 
 def _parse_task_slug(value: str) -> tuple[str | None, str]:
@@ -545,7 +556,7 @@ def write_creation_bundle(
         ):
             _write_exclusive(path, data)
             written.append(path)
-    except Exception:
+    except BaseException:
         # Only remove files created by this invocation; pre-existing evidence
         # is protected by exclusive creation above.
         for path in reversed(written):

@@ -29,8 +29,8 @@ import kaggle_benchmarks as kbench
 TASK_NAME = 'aleph_bench_v0_2_capture_canary'
 TASK_VERSION = 3
 TASK_DESCRIPTION = 'Capture the fixed Aleph-Bench v0.2 six-call Kaggle canary without scoring.'
-DEFINITION_SHA256 = '9962556ab66800c82b6ca338537e726cd363e95c427bfb42e66aea607cca20d3'
-IMPLEMENTATION_SHA256 = 'c89d3f4cdc3ac71a0a1e1aa2888a14b2db9c69ba6a67765d254d34848526a04f'
+DEFINITION_SHA256 = '093a824cae9ae66b15df0cda23bf2debc48e2e6140c0ec979e62e5b17c418b0e'
+IMPLEMENTATION_SHA256 = '66c8c3cab54a05c6a2503956e7855b847b2e087189e7a72f271b96a40c012fd4'
 PACKAGE_SLUG = 'aleph-bench-v02-scorer-conformance'
 KAGGLE_INPUT_ROOT = Path('/kaggle/input')
 DEFAULT_CAPTURE_PATH = Path.cwd() / 'aleph-bench-v0.2-kaggle-capture-canary.json'
@@ -58,6 +58,7 @@ MAX_SCORING_TEXT_CODEPOINTS = 16_384
 MAX_PACKAGE_FILES = 32
 MAX_PACKAGE_BYTES = 32 * 1024 * 1024
 MAX_KAGGLE_INPUT_ENTRIES = 256
+MAX_PACKAGE_DISCOVERY_REASON_CODEPOINTS = 240
 _CLEAN_FINISH_REASONS = frozenset({"stop", "end_turn", "eos", "completed"})
 _TOKEN_LIMIT_FINISH_REASONS = frozenset(
     {"length", "max_tokens", "max_output_tokens", "token_limit", "MAX_TOKENS"}
@@ -348,17 +349,30 @@ def _resolve_and_verify_package(package_root, *, input_root=KAGGLE_INPUT_ROOT):
 
     matches = []
     inspected = 0
+    first_validation_error = None
     for candidate in _kaggle_package_candidates(input_root):
         try:
             _verify_package(candidate)
-        except (FileNotFoundError, NotADirectoryError, ValueError):
+        except (FileNotFoundError, NotADirectoryError):
             inspected += 1
+            continue
+        except ValueError as exc:
+            inspected += 1
+            reason = str(exc)
+            if first_validation_error is None and reason:
+                first_validation_error = reason[:MAX_PACKAGE_DISCOVERY_REASON_CODEPOINTS]
             continue
         matches.append(candidate)
     if len(matches) != 1:
+        validation_detail = (
+            f"; first validation error: {first_validation_error}"
+            if first_validation_error is not None
+            else ""
+        )
         raise ValueError(
             "expected exactly one hash-verified package mount in supported "
-            f"Kaggle layouts; found {len(matches)} across {inspected + len(matches)} candidates"
+            f"Kaggle layouts; found {len(matches)} across "
+            f"{inspected + len(matches)} candidates{validation_detail}"
         )
     return matches[0]
 

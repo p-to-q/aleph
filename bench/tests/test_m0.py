@@ -858,14 +858,17 @@ class M0BenchTests(unittest.TestCase):
         with self.assertRaises(SchemaValidationError):
             validate(incomplete, schema)
 
-        with patch.dict(os.environ, {}, clear=True):
-            blocked = build_manifest(
+        with (
+            patch.dict(os.environ, {}, clear=True),
+            self.assertRaisesRegex(
+                ValueError,
+                "hosted:fixture-model.*missing env: ALEPH_CUSTOM_API_BASE_URL",
+            ),
+        ):
+            build_manifest(
                 data_dir=DATA_DIR,
                 models=["hosted:fixture-model"],
             )
-        self.assertEqual(blocked["models"][0]["status"], "blocked")
-        self.assertIsNone(blocked["models"][0]["adapterIdentity"])
-        validate(blocked, schema)
 
     def test_checked_in_manifest_validates(self) -> None:
         manifest = json.loads((ROOT / "bench/results/m0-call-manifest.json").read_text(encoding="utf-8"))

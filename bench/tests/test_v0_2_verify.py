@@ -186,6 +186,24 @@ class V02ReceiptVerificationTests(unittest.TestCase):
                 with self.assertRaises(ValueError):
                     build_manifest(data_dir=DATA_DIR, models=[model])
 
+    def test_manifest_rejects_every_non_ready_model_row(self) -> None:
+        blocked = {
+            "model": "hosted:fixture-model",
+            "evidenceMode": "black_box",
+            "status": "blocked",
+            "missingEnv": ["ALEPH_CUSTOM_API_KEY"],
+            "effectiveReruns": 5,
+            "adapterIdentity": None,
+        }
+        with (
+            patch("bench.engine.manifest.model_readiness", return_value=blocked),
+            self.assertRaisesRegex(
+                ValueError,
+                "hosted:fixture-model.*missing env: ALEPH_CUSTOM_API_KEY",
+            ),
+        ):
+            build_manifest(data_dir=DATA_DIR, models=["hosted:fixture-model"])
+
     def test_manifest_model_readiness_cannot_be_rewritten(self) -> None:
         tampered = copy.deepcopy(self.manifest)
         tampered["models"][0]["status"] = "blocked"

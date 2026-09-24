@@ -25,6 +25,7 @@ from bench.engine.kaggle_capture import (
     prompt_utf8_sha256,
     serialize_capture_payload,
     verify_capture_payload,
+    _verify_usage,
 )
 from bench.engine.schema_validation import SchemaValidationError, load_schema, validate
 
@@ -775,6 +776,25 @@ class KaggleCaptureContractTests(unittest.TestCase):
         )
         optional = _payload(rows=[optional_row])
         self.assertEqual(verify_capture_payload(optional), optional)
+
+    def test_usage_cost_strings_reject_non_ascii_digits(self) -> None:
+        for field in ("inputCostNanodollars", "outputCostNanodollars"):
+            for value in ("\u0661\u0662\u0663", "\uff11\uff12\uff13"):
+                with self.subTest(field=field, value=value):
+                    self.assertTrue(value.isdigit())
+                    usage = _usage()
+                    usage[field] = value
+                    with self.assertRaisesRegex(
+                        KaggleCaptureError, "bounded unsigned integer string"
+                    ):
+                        _verify_usage(usage, role="rows[0].usage")
+
+        for value in ("0", "9" * 40, None):
+            with self.subTest(accepted=value):
+                usage = _usage()
+                usage["inputCostNanodollars"] = value
+                usage["outputCostNanodollars"] = value
+                _verify_usage(usage, role="rows[0].usage")
 
     def test_missing_finish_reason_is_explicit_but_not_a_replay_blocker(self) -> None:
         call = _call(0)

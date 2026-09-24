@@ -96,10 +96,21 @@ def build_manifest(
     if len(set(canonical_models)) != len(canonical_models):
         raise ValueError("model ids must have unique canonical identities")
     model_rows = [model_readiness(model, reruns=reruns) for model in canonical_models]
-    planning_errors = [
-        row["error"] for row in model_rows if isinstance(row.get("error"), str)
-    ]
-    if planning_errors:
+    blocked_rows = [row for row in model_rows if row.get("status") != "ready"]
+    if blocked_rows:
+        planning_errors: list[str] = []
+        for row in blocked_rows:
+            details: list[str] = []
+            if isinstance(row.get("error"), str) and row["error"]:
+                details.append(row["error"])
+            missing_env = row.get("missingEnv")
+            if isinstance(missing_env, list) and missing_env:
+                details.append("missing env: " + ", ".join(missing_env))
+            if not details:
+                details.append(f"status={row.get('status')!r}")
+            planning_errors.append(
+                f"{row.get('model', '<unknown model>')}: " + "; ".join(details)
+            )
         raise ValueError("manifest planning failed: " + "; ".join(planning_errors))
     items = load_items(data_dir, require_canonical=True)
     prompts, gated_prompts = build_prompt_receipts(

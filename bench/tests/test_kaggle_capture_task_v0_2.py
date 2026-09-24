@@ -471,6 +471,59 @@ class KaggleCaptureTaskV02Tests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "entry limit exceeded"):
             self.generated._resolve_and_verify_package(None, input_root=input_root)
 
+    def test_package_resolver_retains_first_bounded_validation_error(self) -> None:
+        candidates = [Path("candidate-one"), Path("candidate-two")]
+        first_reason = "first-invalid-package-" + "x" * 300
+
+        def reject(candidate: Path) -> None:
+            if candidate == candidates[0]:
+                raise ValueError(first_reason)
+            raise ValueError("second-invalid-package")
+
+        with (
+            mock.patch.object(
+                self.generated,
+                "_kaggle_package_candidates",
+                return_value=candidates,
+            ),
+            mock.patch.object(self.generated, "_verify_package", side_effect=reject),
+            self.assertRaises(ValueError) as raised,
+        ):
+            self.generated._resolve_and_verify_package(None)
+
+        expected_reason = first_reason[
+            : self.generated.MAX_PACKAGE_DISCOVERY_REASON_CODEPOINTS
+        ]
+        self.assertEqual(
+            str(raised.exception),
+            "expected exactly one hash-verified package mount in supported "
+            "Kaggle layouts; found 0 across 2 candidates; "
+            f"first validation error: {expected_reason}",
+        )
+        self.assertNotIn("second-invalid-package", str(raised.exception))
+
+    def test_package_resolver_does_not_invent_an_absence_reason(self) -> None:
+        with (
+            mock.patch.object(
+                self.generated,
+                "_kaggle_package_candidates",
+                return_value=[Path("missing-package")],
+            ),
+            mock.patch.object(
+                self.generated,
+                "_verify_package",
+                side_effect=FileNotFoundError("not mounted"),
+            ),
+            self.assertRaises(ValueError) as raised,
+        ):
+            self.generated._resolve_and_verify_package(None)
+
+        self.assertEqual(
+            str(raised.exception),
+            "expected exactly one hash-verified package mount in supported "
+            "Kaggle layouts; found 0 across 1 candidates",
+        )
+
     def test_current_sdk_missing_finish_reason_is_explicit_and_replayable(self) -> None:
         observations = []
         temporary_directories = []

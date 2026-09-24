@@ -27,6 +27,10 @@ from bench.engine.kaggle_creation_output import (
 COMPLETED = "BENCHMARK_TASK_VERSION_CREATION_STATE_COMPLETED"
 
 
+class HardStop(BaseException):
+    """Synthetic process-level interruption used to verify bundle cleanup."""
+
+
 def _task_info(
     *,
     owner: str = "owner",
@@ -194,6 +198,73 @@ class _SdkHarness:
 
 
 class KaggleCreationOutputTests(unittest.TestCase):
+    def test_exclusive_write_removes_file_after_durability_failure(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "artifact.json"
+            failure = OSError("synthetic fsync failure")
+            with (
+                mock.patch.object(creation_output.os, "fsync", side_effect=failure),
+                self.assertRaises(OSError) as raised,
+            ):
+                creation_output._write_exclusive(path, b"partial")
+
+            self.assertIs(raised.exception, failure)
+            self.assertFalse(path.exists())
+
+    def test_exclusive_write_never_removes_preexisting_file(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "artifact.json"
+            path.write_bytes(b"retained evidence")
+
+            with self.assertRaises(FileExistsError):
+                creation_output._write_exclusive(path, b"replacement")
+
+            self.assertEqual(path.read_bytes(), b"retained evidence")
+
+    def test_bundle_removes_prior_files_after_process_level_interruption(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp, mock.patch.object(
+            creation_output,
+            "parse_kaggle_diagnostic_receipt_bytes",
+            return_value=_receipt(complete=False),
+        ):
+            original_write = creation_output._write_exclusive
+            interruption = HardStop("synthetic interruption")
+            call_count = 0
+
+            def interrupt_third_write(path: Path, data: bytes) -> None:
+                nonlocal call_count
+                call_count += 1
+                if call_count == 3:
+                    raise interruption
+                original_write(path, data)
+
+            with (
+                mock.patch.object(
+                    creation_output,
+                    "_write_exclusive",
+                    side_effect=interrupt_third_write,
+                ),
+                self.assertRaises(HardStop) as raised,
+            ):
+                write_creation_bundle(
+                    task_info=_task_info(),
+                    run_info=_run_info(),
+                    requested_task=(
+                        "owner/aleph-bench-deployment-diagnostic-2048-none"
+                    ),
+                    expected_version=2,
+                    expected_source_kernel_id=12345,
+                    expected_run_id=24680,
+                    expected_datasets=(),
+                    archive_bytes=_archive(),
+                    gate_mode="zero-call",
+                    output_dir=Path(tmp),
+                )
+
+            self.assertIs(raised.exception, interruption)
+            self.assertEqual(call_count, 3)
+            self.assertEqual(list(Path(tmp).iterdir()), [])
+
     def test_gate_dataset_contract_is_fail_closed(self) -> None:
         _validate_gate_datasets("zero-call", ())
         _validate_gate_datasets("six-call", ("owner/dataset",))

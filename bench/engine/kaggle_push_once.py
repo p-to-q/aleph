@@ -178,6 +178,14 @@ def _optional_positive_id(value: Any, *, label: str) -> int | None:
     return value
 
 
+def _is_http_not_found(exc: BaseException) -> bool:
+    """Return whether a Kaggle request failed because the task does not exist."""
+
+    return (
+        getattr(getattr(exc, "response", None), "status_code", None) == 404
+    )
+
+
 def _prior_task_record(
     task_info: Any | None, *, expected_task: str = TASK_SLUG
 ) -> dict[str, Any] | None:
@@ -467,10 +475,7 @@ def push_diagnostic_once(
                 # Retrying this read is safe; only the create below is one-shot.
                 return api.with_retry(get_task)(get_request)
             except HTTPError as exc:
-                status_code = getattr(
-                    getattr(exc, "response", None), "status_code", None
-                )
-                if status_code in {403, 404}:
+                if _is_http_not_found(exc):
                     return None
                 raise
 
@@ -564,10 +569,7 @@ def push_capture_once(
             try:
                 return api.with_retry(get_task)(get_request)
             except HTTPError as exc:
-                status_code = getattr(
-                    getattr(exc, "response", None), "status_code", None
-                )
-                if status_code in {403, 404}:
+                if _is_http_not_found(exc):
                     return None
                 raise
 
