@@ -174,7 +174,26 @@ punctuation normalization, and suffix stripping remain forbidden.
 
 ## Claim boundary
 
-The capture payload and envelope are not scores, benchmark results, or leaderboard evidence. They
-must remain private until a separate reviewed capture-set assembler and Python 3.13 canonical replay
-produce a verified `BenchManifest` and `BenchResult`. A public Kaggle or Hugging Face score requires
-a separate publication gate.
+The capture payload, evidence envelope, and `CaptureSetReceipt` are not scores, benchmark results,
+or leaderboard evidence. Load a bundle only by its explicit evidence filename with
+`load_verified_capture_bundle`; the loader accepts an exact closed-world directory, rejects
+symlinks and hard links, snapshots bounded member bytes, and reruns the full envelope verifier.
+`assemble_capture_set_receipt` then compares the exact union with a content-addressed scope plan.
+It never selects a latest or best run.
+
+The current generated authority defines only the six-call `transportCanary` scope. Its 2,048-token
+request policy is intentionally different from the v0.2 hosted decoding cap of 512, so its receipt
+always has `canonicalScoringInputEligible: false`, zero complete canonical items, and fixed false
+leaderboard/result/publication flags. The checked-in canonical authority registry is empty: even a
+synthetic 900-row set and a self-consistent model mapping remain ineligible until a separate review
+adds the exact formal 512-token scope-plan id, request-policy digest, and content-addressed model-
+mapping id. Do not hand-author those values or reinterpret the current full-shard-plan digest.
+
+`serialize_capture_set_receipt` checks schema, content identity, and internal consistency only. A
+serialized receipt is not authoritative on its own because it does not carry the full scope-plan
+body or the retained bundle bytes. Before scorer use, call `verify_capture_set_receipt` with the
+exact bundles, scope plan, and model mapping; it reassembles the receipt and compares every field.
+
+A later reviewed canonical replay must consume an exact registered `canonicalFull` receipt under
+Python 3.13 / UCD 15.1 and produce a separately verified `BenchManifest` and `BenchResult`. A public
+Kaggle or Hugging Face score still requires the separate publication gate.

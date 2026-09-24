@@ -1,0 +1,415 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Aleph-Bench score-free capture-set receipt",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "receiptSchemaVersion",
+    "artifactKind",
+    "targetProtocolVersion",
+    "scoreFree",
+    "scopeKind",
+    "scopePlan",
+    "authorityRegistry",
+    "canonicalModelMapping",
+    "canonicalScoringInputEligible",
+    "canonicalScoringInputBlockers",
+    "leaderboardEligible",
+    "resultEligible",
+    "publicationEligible",
+    "identities",
+    "coverage",
+    "members",
+    "id"
+  ],
+  "properties": {
+    "receiptSchemaVersion": {"const": "1.0.0"},
+    "artifactKind": {"const": "aleph_bench_capture_set_receipt"},
+    "targetProtocolVersion": {"const": "0.2.0"},
+    "scoreFree": {"const": true},
+    "scopeKind": {"enum": ["transportCanary", "canonicalFull"]},
+    "scopePlan": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "orderedCallCount", "authorityStatus"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^aleph-bench-capture-scope-plan-v1-artifact-[0-9a-f]{64}$"
+        },
+        "orderedCallCount": {"type": "integer", "enum": [6, 900]},
+        "authorityStatus": {
+          "enum": [
+            "frozenTransportCanary",
+            "candidateUnregistered",
+            "registeredCanonical"
+          ]
+        }
+      }
+    },
+    "authorityRegistry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["file", "bytes", "sha256", "matched"],
+      "properties": {
+        "file": {"const": "bench/config/capture_set_authority-v0.2.json"},
+        "bytes": {"type": "integer", "minimum": 1, "maximum": 1048576},
+        "sha256": {"$ref": "#/$defs/sha256"},
+        "matched": {"type": "boolean"}
+      }
+    },
+    "canonicalModelMapping": {
+      "anyOf": [
+        {"$ref": "#/$defs/canonicalModelMapping"},
+        {"type": "null"}
+      ]
+    },
+    "canonicalScoringInputEligible": {"type": "boolean"},
+    "canonicalScoringInputBlockers": {
+      "type": "array",
+      "maxItems": 8,
+      "uniqueItems": true,
+      "items": {
+        "enum": [
+          "scopeIsNotCanonicalFull",
+          "requestPolicyIsNotProtocolCompatible",
+          "canonicalModelMappingMissing",
+          "canonicalAuthorityNotRegistered"
+        ]
+      }
+    },
+    "leaderboardEligible": {"const": false},
+    "resultEligible": {"const": false},
+    "publicationEligible": {"const": false},
+    "identities": {"$ref": "#/$defs/identities"},
+    "coverage": {"$ref": "#/$defs/coverage"},
+    "members": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 900,
+      "items": {"$ref": "#/$defs/member"}
+    },
+    "id": {
+      "type": "string",
+      "pattern": "^aleph-bench-capture-set-receipt-v1-artifact-[0-9a-f]{64}$"
+    }
+  },
+  "$defs": {
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "identifier": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 300,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:@+/-]{0,299}$"
+    },
+    "nullableIdentifier": {
+      "anyOf": [
+        {"$ref": "#/$defs/identifier"},
+        {"type": "null"}
+      ]
+    },
+    "nullablePositiveInteger": {
+      "anyOf": [
+        {"type": "integer", "minimum": 1},
+        {"type": "null"}
+      ]
+    },
+    "fileBinding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["file", "bytes", "sha256"],
+      "properties": {
+        "file": {"type": "string", "minLength": 1, "maxLength": 1024},
+        "bytes": {"type": "integer", "minimum": 1, "maximum": 268435456},
+        "sha256": {"$ref": "#/$defs/sha256"}
+      }
+    },
+    "artifactFileBinding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "file", "bytes", "sha256"],
+      "properties": {
+        "id": {"$ref": "#/$defs/identifier"},
+        "file": {"type": "string", "minLength": 1, "maxLength": 1024},
+        "bytes": {"type": "integer", "minimum": 1, "maximum": 268435456},
+        "sha256": {"$ref": "#/$defs/sha256"}
+      }
+    },
+    "datasetIdentity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "itemCount", "sha256", "hashAlgorithm"],
+      "properties": {
+        "id": {"$ref": "#/$defs/identifier"},
+        "itemCount": {"type": "integer", "minimum": 1, "maximum": 1000000},
+        "sha256": {"$ref": "#/$defs/sha256"},
+        "hashAlgorithm": {"$ref": "#/$defs/identifier"}
+      }
+    },
+    "packageIdentity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "manifestPath", "sha256", "bytes"],
+      "properties": {
+        "id": {"$ref": "#/$defs/identifier"},
+        "manifestPath": {"type": "string", "minLength": 1, "maxLength": 1024},
+        "sha256": {"$ref": "#/$defs/sha256"},
+        "bytes": {"type": "integer", "minimum": 1, "maximum": 1073741824}
+      }
+    },
+    "callPlanIdentity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "sha256",
+        "fullShardPlanSha256",
+        "totalPlannedCallCount",
+        "rerunsPerPrompt"
+      ],
+      "properties": {
+        "id": {"$ref": "#/$defs/identifier"},
+        "sha256": {"$ref": "#/$defs/sha256"},
+        "fullShardPlanSha256": {"$ref": "#/$defs/sha256"},
+        "totalPlannedCallCount": {"type": "integer", "minimum": 1, "maximum": 900},
+        "rerunsPerPrompt": {"type": "integer", "minimum": 1, "maximum": 5}
+      }
+    },
+    "requestPolicy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "conversationIsolation",
+        "transportRetries",
+        "maxAttemptsPerCall",
+        "temperature",
+        "maxOutputTokens",
+        "nearCapMarginTokens",
+        "seed",
+        "reasoning"
+      ],
+      "properties": {
+        "conversationIsolation": {"const": "oneNamedChatPerPromptAndRerun"},
+        "transportRetries": {"type": "integer", "minimum": 0, "maximum": 100},
+        "maxAttemptsPerCall": {"type": "integer", "minimum": 1, "maximum": 100},
+        "temperature": {"type": "number", "minimum": 0, "maximum": 2},
+        "maxOutputTokens": {"type": "integer", "minimum": 1, "maximum": 1000000},
+        "nearCapMarginTokens": {"type": "integer", "minimum": 0, "maximum": 999999},
+        "seed": {
+          "anyOf": [
+            {"type": "integer", "minimum": 0, "maximum": 2147483647},
+            {"type": "null"}
+          ]
+        },
+        "reasoning": {
+          "anyOf": [
+            {"type": "string", "minLength": 1, "maxLength": 512},
+            {"type": "null"}
+          ]
+        }
+      }
+    },
+    "taskPlatform": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "owner",
+        "slug",
+        "version",
+        "sourceKernelId",
+        "datasets",
+        "taskReadbackSha256"
+      ],
+      "properties": {
+        "owner": {"$ref": "#/$defs/identifier"},
+        "slug": {"$ref": "#/$defs/identifier"},
+        "version": {"type": "integer", "minimum": 1},
+        "sourceKernelId": {"$ref": "#/$defs/nullablePositiveInteger"},
+        "datasets": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 16,
+          "uniqueItems": true,
+          "items": {"$ref": "#/$defs/identifier"}
+        },
+        "taskReadbackSha256": {"$ref": "#/$defs/sha256"}
+      }
+    },
+    "taskSource": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "version", "sourcePath", "definitionSha256", "implementationSha256"],
+      "properties": {
+        "name": {"$ref": "#/$defs/identifier"},
+        "version": {"$ref": "#/$defs/identifier"},
+        "sourcePath": {"type": "string", "minLength": 1, "maxLength": 1024},
+        "definitionSha256": {"$ref": "#/$defs/sha256"},
+        "implementationSha256": {"$ref": "#/$defs/sha256"}
+      }
+    },
+    "modelIdentity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "platform",
+        "taskRunModelSlug",
+        "scheduledSlug",
+        "runtimeProxySlug",
+        "benchmarkModelId",
+        "benchmarkModelVersionId",
+        "modelObservationSha256"
+      ],
+      "properties": {
+        "platform": {"const": "kaggle"},
+        "taskRunModelSlug": {"$ref": "#/$defs/identifier"},
+        "scheduledSlug": {"$ref": "#/$defs/nullableIdentifier"},
+        "runtimeProxySlug": {"$ref": "#/$defs/identifier"},
+        "benchmarkModelId": {"$ref": "#/$defs/nullablePositiveInteger"},
+        "benchmarkModelVersionId": {"$ref": "#/$defs/nullablePositiveInteger"},
+        "modelObservationSha256": {"$ref": "#/$defs/sha256"}
+      }
+    },
+    "runtimeIdentity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["pythonVersion", "pythonFullVersion", "unicodeDatabaseVersion", "platform"],
+      "properties": {
+        "pythonVersion": {"type": "string", "minLength": 1, "maxLength": 32},
+        "pythonFullVersion": {"type": "string", "minLength": 1, "maxLength": 256},
+        "unicodeDatabaseVersion": {"type": "string", "minLength": 1, "maxLength": 32},
+        "platform": {"type": "string", "minLength": 1, "maxLength": 512}
+      }
+    },
+    "identities": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "dataset",
+        "package",
+        "callPlan",
+        "requestPolicy",
+        "taskPlatform",
+        "taskSource",
+        "model",
+        "runtime"
+      ],
+      "properties": {
+        "dataset": {"$ref": "#/$defs/datasetIdentity"},
+        "package": {"$ref": "#/$defs/packageIdentity"},
+        "callPlan": {"$ref": "#/$defs/callPlanIdentity"},
+        "requestPolicy": {"$ref": "#/$defs/requestPolicy"},
+        "taskPlatform": {"$ref": "#/$defs/taskPlatform"},
+        "taskSource": {"$ref": "#/$defs/taskSource"},
+        "model": {"$ref": "#/$defs/modelIdentity"},
+        "runtime": {"$ref": "#/$defs/runtimeIdentity"}
+      }
+    },
+    "coverage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "callCount",
+        "uniquePromptCount",
+        "touchedItemCount",
+        "completeCanonicalItemCount",
+        "rerunIndices",
+        "orderedRowIds"
+      ],
+      "properties": {
+        "callCount": {"type": "integer", "enum": [6, 900]},
+        "uniquePromptCount": {"type": "integer", "enum": [6, 180]},
+        "touchedItemCount": {"type": "integer", "enum": [3, 30]},
+        "completeCanonicalItemCount": {"type": "integer", "enum": [0, 30]},
+        "rerunIndices": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 5,
+          "uniqueItems": true,
+          "items": {"type": "integer", "minimum": 0, "maximum": 4}
+        },
+        "orderedRowIds": {
+          "type": "array",
+          "minItems": 6,
+          "maxItems": 900,
+          "uniqueItems": true,
+          "items": {"$ref": "#/$defs/identifier"}
+        }
+      }
+    },
+    "canonicalModelMapping": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "platform",
+        "scheduledSlug",
+        "runtimeObservedProxySlug",
+        "canonicalModelId",
+        "providerRevision"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^aleph-bench-canonical-model-mapping-v1-artifact-[0-9a-f]{64}$"
+        },
+        "platform": {"const": "kaggle"},
+        "scheduledSlug": {"$ref": "#/$defs/identifier"},
+        "runtimeObservedProxySlug": {"$ref": "#/$defs/identifier"},
+        "canonicalModelId": {"$ref": "#/$defs/identifier"},
+        "providerRevision": {"$ref": "#/$defs/nullableIdentifier"}
+      }
+    },
+    "member": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "evidence",
+        "payload",
+        "archive",
+        "source",
+        "dispatchJournal",
+        "runId",
+        "operationId",
+        "modelCatalogBindingSha256",
+        "shard"
+      ],
+      "properties": {
+        "evidence": {"$ref": "#/$defs/artifactFileBinding"},
+        "payload": {"$ref": "#/$defs/artifactFileBinding"},
+        "archive": {"$ref": "#/$defs/fileBinding"},
+        "source": {"$ref": "#/$defs/fileBinding"},
+        "dispatchJournal": {
+          "anyOf": [
+            {"$ref": "#/$defs/fileBinding"},
+            {"type": "null"}
+          ]
+        },
+        "runId": {"type": "integer", "minimum": 1},
+        "operationId": {"$ref": "#/$defs/nullableIdentifier"},
+        "modelCatalogBindingSha256": {
+          "anyOf": [
+            {"$ref": "#/$defs/sha256"},
+            {"type": "null"}
+          ]
+        },
+        "shard": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["id", "fullShardPlanSha256", "coverageSha256", "rowIds"],
+          "properties": {
+            "id": {"$ref": "#/$defs/identifier"},
+            "fullShardPlanSha256": {"$ref": "#/$defs/sha256"},
+            "coverageSha256": {"$ref": "#/$defs/sha256"},
+            "rowIds": {
+              "type": "array",
+              "minItems": 1,
+              "maxItems": 900,
+              "uniqueItems": true,
+              "items": {"$ref": "#/$defs/identifier"}
+            }
+          }
+        }
+      }
+    }
+  }
+}

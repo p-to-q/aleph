@@ -6,9 +6,12 @@ import hashlib
 import io
 import json
 import math
+import os
+import stat
 import sys
 import uuid
 import zipfile
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path, PurePosixPath
 from typing import Any
@@ -49,10 +52,27 @@ EXPECTED_DATASET_SLUG = "aleph-bench-v02-scorer-conformance"
 MAX_SOURCE_BYTES = 1_048_576
 MAX_NOTEBOOK_BYTES = 16_777_216
 MAX_DISPATCH_JOURNAL_BYTES = 16_777_216
+MAX_EVIDENCE_BYTES = 1_048_576
+MAX_BUNDLE_FILES = 6
+_MAX_TRUSTED_ROOT_ALIAS_EXPANSIONS = 16
 
 
 class KaggleCaptureEvidenceError(ValueError):
     """Raised when a Kaggle capture cannot be bound to one exact run."""
+
+
+@dataclass(frozen=True, slots=True)
+class VerifiedCaptureBundle:
+    """One closed-world capture bundle after byte and semantic verification."""
+
+    evidence_path: Path
+    evidence: dict[str, Any]
+    payload: dict[str, Any]
+    evidence_bytes: bytes
+    archive_bytes: bytes
+    payload_bytes: bytes
+    source_bytes: bytes
+    dispatch_journal_bytes: bytes | None
 
 
 def _fail(message: str) -> None:
@@ -1153,6 +1173,392 @@ def write_capture_evidence_bundle(
                 pass
         raise
     return evidence
+
+
+def _bundle_json_duplicate_pairs(
+    pairs: list[tuple[str, Any]],
+) -> dict[str, Any]:
+    value: dict[str, Any] = {}
+    for key, child in pairs:
+        if key in value:
+            _fail("capture evidence file contains a duplicate JSON key")
+        value[key] = child
+    return value
+
+
+def _bundle_json_constant(_value: str) -> None:
+    _fail("capture evidence file contains a non-finite JSON constant")
+
+
+def _bundle_json_float(value: str) -> float:
+    parsed = float(value)
+    if not math.isfinite(parsed):
+        _fail("capture evidence file contains a non-finite JSON number")
+    return parsed
+
+
+def _parse_evidence_bytes(data: bytes) -> dict[str, Any]:
+    if not data or len(data) > MAX_EVIDENCE_BYTES:
+        _fail("capture evidence file exceeds the safety limit")
+    try:
+        evidence = json.loads(
+            data.decode("utf-8", errors="strict"),
+            object_pairs_hook=_bundle_json_duplicate_pairs,
+            parse_constant=_bundle_json_constant,
+            parse_float=_bundle_json_float,
+        )
+    except KaggleCaptureEvidenceError:
+        raise
+    except (
+        UnicodeDecodeError,
+        json.JSONDecodeError,
+        ValueError,
+        RecursionError,
+        OverflowError,
+    ):
+        _fail("capture evidence file is not bounded strict JSON")
+    if not isinstance(evidence, dict):
+        _fail("capture evidence file must contain one JSON object")
+    try:
+        validate(evidence, load_schema(EVIDENCE_SCHEMA_PATH))
+    except (SchemaValidationError, OSError, json.JSONDecodeError, RecursionError):
+        _fail("capture evidence schema validation failed")
+    return evidence
+
+
+def _bundle_basename(value: str, *, role: str) -> str:
+    if (
+        not isinstance(value, str)
+        or not value
+        or value in {".", ".."}
+        or PurePosixPath(value).name != value
+        or "/" in value
+        or "\\" in value
+        or any(ord(character) < 32 or ord(character) == 127 for character in value)
+    ):
+        _fail(f"{role} must be one canonical bundle basename")
+    return value
+
+
+def _directory_identity(value: os.stat_result) -> tuple[int, int]:
+    return value.st_dev, value.st_ino
+
+
+def _absolute_directory_components(path: Path) -> list[str]:
+    raw = os.fspath(path)
+    if not isinstance(raw, str) or not raw or "\x00" in raw:
+        _fail("capture evidence bundle directory path is invalid")
+    absolute = os.path.abspath(raw)
+    if not os.path.isabs(absolute):
+        _fail("capture evidence bundle directory path is invalid")
+    return [component for component in absolute.split(os.sep) if component]
+
+
+def _trusted_root_alias(
+    parent: os.stat_result,
+    link: os.stat_result,
+    resolved_components: list[str],
+) -> bool:
+    """Permit only root-managed top-level aliases such as macOS /var and /tmp."""
+
+    return (
+        not resolved_components
+        and parent.st_uid == 0
+        and stat.S_IMODE(parent.st_mode) & 0o022 == 0
+        and link.st_uid == 0
+    )
+
+
+def _open_bundle_directory(path: Path) -> int:
+    """Open every directory component without following an untrusted link."""
+
+    required_flags = ("O_NOFOLLOW", "O_CLOEXEC", "O_DIRECTORY")
+    required_dir_fd = (os.open, os.stat, os.readlink)
+    if (
+        any(not hasattr(os, flag) for flag in required_flags)
+        or any(function not in os.supports_dir_fd for function in required_dir_fd)
+        or os.stat not in os.supports_follow_symlinks
+    ):
+        _fail("capture evidence loader requires fail-closed directory operations")
+    flags = os.O_RDONLY | os.O_NOFOLLOW | os.O_CLOEXEC | os.O_DIRECTORY
+    pending = _absolute_directory_components(path)
+    current_fd = os.open(os.sep, flags)
+    resolved_components: list[str] = []
+    alias_expansions = 0
+    try:
+        while pending:
+            component = pending.pop(0)
+            try:
+                before = os.stat(
+                    component,
+                    dir_fd=current_fd,
+                    follow_symlinks=False,
+                )
+            except OSError:
+                raise KaggleCaptureEvidenceError(
+                    "cannot inspect capture evidence bundle directory component"
+                ) from None
+
+            if stat.S_ISLNK(before.st_mode):
+                parent = os.fstat(current_fd)
+                if not _trusted_root_alias(parent, before, resolved_components):
+                    _fail(
+                        "capture evidence bundle path must not contain a symlink"
+                    )
+                alias_expansions += 1
+                if alias_expansions > _MAX_TRUSTED_ROOT_ALIAS_EXPANSIONS:
+                    _fail("capture evidence bundle path has too many root aliases")
+                try:
+                    target = os.readlink(component, dir_fd=current_fd)
+                except OSError:
+                    raise KaggleCaptureEvidenceError(
+                        "cannot inspect capture evidence bundle directory component"
+                    ) from None
+                expanded = (
+                    os.path.normpath(target)
+                    if os.path.isabs(target)
+                    else os.path.normpath(
+                        os.path.join(os.sep, *resolved_components, target)
+                    )
+                )
+                pending = _absolute_directory_components(Path(expanded)) + pending
+                os.close(current_fd)
+                current_fd = os.open(os.sep, flags)
+                resolved_components = []
+                continue
+
+            if not stat.S_ISDIR(before.st_mode):
+                _fail("capture evidence bundle path must name a real directory")
+            try:
+                next_fd = os.open(component, flags, dir_fd=current_fd)
+            except OSError:
+                raise KaggleCaptureEvidenceError(
+                    "cannot safely open capture evidence bundle directory component"
+                ) from None
+            try:
+                opened = os.fstat(next_fd)
+                if (
+                    not stat.S_ISDIR(opened.st_mode)
+                    or _directory_identity(opened) != _directory_identity(before)
+                ):
+                    _fail(
+                        "capture evidence bundle directory component changed while opening"
+                    )
+            except Exception:
+                os.close(next_fd)
+                raise
+            os.close(current_fd)
+            current_fd = next_fd
+            resolved_components.append(component)
+        return current_fd
+    except Exception:
+        os.close(current_fd)
+        raise
+
+
+def _read_bundle_member(
+    directory_fd: int,
+    name: str,
+    *,
+    maximum_bytes: int,
+    role: str,
+) -> bytes:
+    name = _bundle_basename(name, role=role)
+    try:
+        before = os.stat(name, dir_fd=directory_fd, follow_symlinks=False)
+    except OSError:
+        raise KaggleCaptureEvidenceError(
+            f"cannot inspect {role} in capture evidence bundle"
+        ) from None
+    if (
+        not stat.S_ISREG(before.st_mode)
+        or before.st_nlink != 1
+        or before.st_size <= 0
+        or before.st_size > maximum_bytes
+    ):
+        _fail(f"{role} must be one bounded single-link regular file")
+
+    required_flags = ("O_NOFOLLOW", "O_CLOEXEC", "O_NONBLOCK")
+    if any(not hasattr(os, flag) for flag in required_flags):
+        _fail("capture evidence loader requires fail-closed filesystem flags")
+    flags = os.O_RDONLY | os.O_NOFOLLOW | os.O_CLOEXEC | os.O_NONBLOCK
+    descriptor: int | None = None
+    try:
+        descriptor = os.open(name, flags, dir_fd=directory_fd)
+        with os.fdopen(descriptor, "rb", closefd=True) as stream:
+            descriptor = None
+            opened = os.fstat(stream.fileno())
+            if (
+                not stat.S_ISREG(opened.st_mode)
+                or opened.st_nlink != 1
+                or (opened.st_dev, opened.st_ino)
+                != (before.st_dev, before.st_ino)
+                or opened.st_size != before.st_size
+                or opened.st_mtime_ns != before.st_mtime_ns
+                or opened.st_ctime_ns != before.st_ctime_ns
+            ):
+                _fail(f"{role} changed while it was opened")
+            data = stream.read(maximum_bytes + 1)
+            after = os.fstat(stream.fileno())
+    except KaggleCaptureEvidenceError:
+        raise
+    except OSError:
+        raise KaggleCaptureEvidenceError(
+            f"cannot read {role} in capture evidence bundle"
+        ) from None
+    finally:
+        if descriptor is not None:
+            os.close(descriptor)
+
+    try:
+        final = os.stat(name, dir_fd=directory_fd, follow_symlinks=False)
+    except OSError:
+        _fail(f"{role} changed while it was read")
+    stable_identity = (opened.st_dev, opened.st_ino)
+    if (
+        not data
+        or len(data) > maximum_bytes
+        or after.st_size != len(data)
+        or after.st_nlink != 1
+        or final.st_nlink != 1
+        or (after.st_dev, after.st_ino) != stable_identity
+        or (final.st_dev, final.st_ino) != stable_identity
+        or after.st_mtime_ns != opened.st_mtime_ns
+        or final.st_mtime_ns != opened.st_mtime_ns
+        or after.st_ctime_ns != opened.st_ctime_ns
+        or final.st_ctime_ns != opened.st_ctime_ns
+    ):
+        _fail(f"{role} changed while it was read")
+    return data
+
+
+def load_verified_capture_bundle(
+    evidence_path: str | Path,
+) -> VerifiedCaptureBundle:
+    """Load one exact, closed-world evidence bundle without path selection.
+
+    The caller names the evidence file explicitly. The loader never chooses a
+    newest or best bundle, follows no symlinks, accepts no hard-linked member,
+    and re-runs the complete evidence verifier over bounded snapshot bytes.
+    """
+
+    path = Path(evidence_path)
+    evidence_name = _bundle_basename(path.name, role="evidence file name")
+    directory = path.parent
+    directory_fd: int | None = None
+    recheck_fd: int | None = None
+    try:
+        directory_fd = _open_bundle_directory(directory)
+        directory_opened = os.fstat(directory_fd)
+        names_before = sorted(os.listdir(directory_fd))
+        if not 1 <= len(names_before) <= MAX_BUNDLE_FILES:
+            _fail("capture evidence bundle has an invalid file count")
+
+        evidence_bytes = _read_bundle_member(
+            directory_fd,
+            evidence_name,
+            maximum_bytes=MAX_EVIDENCE_BYTES,
+            role="capture evidence file",
+        )
+        evidence = _parse_evidence_bytes(evidence_bytes)
+        stem = (
+            f"{evidence['task']['slug']}-v{evidence['task']['version']}"
+            f"-run-{evidence['run']['id']}"
+        )
+        if evidence_name != f"{stem}-evidence.json":
+            _fail("capture evidence file name disagrees with its bound task run")
+
+        member_specs = [
+            (
+                "archive",
+                evidence["archive"]["file"],
+                MAX_ARCHIVE_BYTES,
+            ),
+            (
+                "payload",
+                evidence["payload"]["file"],
+                MAX_CAPTURE_BYTES,
+            ),
+            (
+                "source",
+                evidence["source"]["file"],
+                MAX_SOURCE_BYTES,
+            ),
+        ]
+        catalog = evidence.get("modelCatalogBinding")
+        if catalog is not None:
+            member_specs.append(
+                (
+                    "dispatch journal",
+                    catalog["dispatchJournal"]["file"],
+                    MAX_DISPATCH_JOURNAL_BYTES,
+                )
+            )
+        expected_names = {evidence_name}
+        for role, name, _maximum in member_specs:
+            canonical_name = _bundle_basename(name, role=f"{role} file name")
+            if canonical_name in expected_names:
+                _fail("capture evidence bundle reuses one file for multiple roles")
+            expected_names.add(canonical_name)
+        if names_before != sorted(expected_names):
+            _fail("capture evidence bundle is not a closed-world file set")
+
+        loaded: dict[str, bytes] = {}
+        for role, name, maximum in member_specs:
+            loaded[role] = _read_bundle_member(
+                directory_fd,
+                name,
+                maximum_bytes=maximum,
+                role=role,
+            )
+        names_after = sorted(os.listdir(directory_fd))
+        directory_after = os.fstat(directory_fd)
+        recheck_fd = _open_bundle_directory(directory)
+        directory_path_after = os.fstat(recheck_fd)
+        if (
+            names_after != names_before
+            or (directory_after.st_dev, directory_after.st_ino)
+            != (directory_opened.st_dev, directory_opened.st_ino)
+            or (directory_path_after.st_dev, directory_path_after.st_ino)
+            != (directory_opened.st_dev, directory_opened.st_ino)
+            or not stat.S_ISDIR(directory_path_after.st_mode)
+            or directory_after.st_mtime_ns != directory_opened.st_mtime_ns
+            or directory_after.st_ctime_ns != directory_opened.st_ctime_ns
+            or directory_path_after.st_mtime_ns != directory_opened.st_mtime_ns
+            or directory_path_after.st_ctime_ns != directory_opened.st_ctime_ns
+        ):
+            _fail("capture evidence bundle directory changed while it was read")
+    except KaggleCaptureEvidenceError:
+        raise
+    except OSError:
+        raise KaggleCaptureEvidenceError(
+            "cannot read capture evidence bundle directory"
+        ) from None
+    finally:
+        if recheck_fd is not None:
+            os.close(recheck_fd)
+        if directory_fd is not None:
+            os.close(directory_fd)
+
+    dispatch_journal_bytes = loaded.get("dispatch journal")
+    verify_capture_evidence(
+        evidence,
+        archive_bytes=loaded["archive"],
+        payload_bytes=loaded["payload"],
+        source_bytes=loaded["source"],
+        dispatch_journal_bytes=dispatch_journal_bytes,
+    )
+    payload = parse_capture_payload(loaded["payload"])
+    return VerifiedCaptureBundle(
+        evidence_path=path,
+        evidence=evidence,
+        payload=payload,
+        evidence_bytes=evidence_bytes,
+        archive_bytes=loaded["archive"],
+        payload_bytes=loaded["payload"],
+        source_bytes=loaded["source"],
+        dispatch_journal_bytes=dispatch_journal_bytes,
+    )
 
 
 def main(argv: list[str] | None = None) -> int:
