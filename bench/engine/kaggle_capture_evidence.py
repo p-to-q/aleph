@@ -6,6 +6,7 @@ import hashlib
 import io
 import json
 import sys
+import uuid
 import zipfile
 from datetime import datetime, timezone
 from pathlib import Path, PurePosixPath
@@ -41,6 +42,7 @@ CAPTURE_FILENAME = "aleph-bench-v0.2-kaggle-capture-canary.json"
 EXPECTED_DATASET_SLUG = "aleph-bench-v02-scorer-conformance"
 MAX_SOURCE_BYTES = 1_048_576
 MAX_NOTEBOOK_BYTES = 16_777_216
+MAX_DISPATCH_JOURNAL_BYTES = 16_777_216
 
 
 class KaggleCaptureEvidenceError(ValueError):
@@ -108,6 +110,253 @@ def _reject_duplicate_pairs(
 
 def _reject_json_constant(_value: str) -> None:
     _fail("notebook source contains a non-finite JSON constant")
+
+
+def _reject_dispatch_journal_duplicate_pairs(
+    pairs: list[tuple[str, Any]],
+) -> dict[str, Any]:
+    value: dict[str, Any] = {}
+    for key, child in pairs:
+        if key in value:
+            _fail("dispatch journal contains a duplicate JSON key")
+        value[key] = child
+    return value
+
+
+def _reject_dispatch_journal_json_constant(_value: str) -> None:
+    _fail("dispatch journal contains a non-finite JSON constant")
+
+
+def _dispatch_journal_field(
+    record: dict[str, Any], key: str, *, role: str
+) -> Any:
+    if key not in record:
+        _fail(f"dispatch journal {role} is missing {key}")
+    return record[key]
+
+
+def _dispatch_journal_object(value: Any, *, role: str) -> dict[str, Any]:
+    if not isinstance(value, dict):
+        _fail(f"dispatch journal {role} must be an object")
+    return value
+
+
+def _dispatch_journal_positive_int(value: Any, *, role: str) -> int:
+    if isinstance(value, bool) or not isinstance(value, int) or value <= 0:
+        _fail(f"dispatch journal {role} must be a positive integer")
+    return value
+
+
+def _read_dispatch_journal(path: Path) -> bytes:
+    with path.open("rb") as handle:
+        data = handle.read(MAX_DISPATCH_JOURNAL_BYTES + 1)
+    if not data or len(data) > MAX_DISPATCH_JOURNAL_BYTES:
+        _fail("dispatch journal exceeds the safety limit")
+    return data
+
+
+def _dispatch_journal_catalog_record(
+    journal_bytes: bytes,
+    *,
+    task: dict[str, Any],
+    run: dict[str, Any],
+    observed_model: str,
+) -> dict[str, Any]:
+    """Verify one reconciled scheduler receipt and return its exact alias record."""
+
+    if not journal_bytes or len(journal_bytes) > MAX_DISPATCH_JOURNAL_BYTES:
+        _fail("dispatch journal exceeds the safety limit")
+    try:
+        journal = json.loads(
+            journal_bytes.decode("utf-8", errors="strict"),
+            object_pairs_hook=_reject_dispatch_journal_duplicate_pairs,
+            parse_constant=_reject_dispatch_journal_json_constant,
+        )
+    except KaggleCaptureEvidenceError:
+        raise
+    except (UnicodeDecodeError, json.JSONDecodeError, ValueError, RecursionError):
+        _fail("dispatch journal is not bounded strict JSON")
+    journal = _dispatch_journal_object(journal, role="root")
+    if _dispatch_journal_field(journal, "journalVersion", role="root") != 1:
+        _fail("dispatch journal version is unsupported")
+    if (
+        _dispatch_journal_field(journal, "artifactKind", role="root")
+        != "kaggle_benchmark_run_dispatch"
+    ):
+        _fail("dispatch journal artifact kind is invalid")
+    if _dispatch_journal_field(journal, "state", role="root") != "reconciled":
+        _fail("dispatch journal is not reconciled")
+    for field in ("dispatchFailure", "responseFailure", "failure"):
+        if _dispatch_journal_field(journal, field, role="root") is not None:
+            _fail(f"dispatch journal retains {field}")
+
+    operation_id = _dispatch_journal_field(
+        journal, "operationId", role="root"
+    )
+    if not isinstance(operation_id, str):
+        _fail("dispatch journal operationId is invalid")
+    try:
+        parsed_operation_id = str(uuid.UUID(operation_id))
+    except (ValueError, AttributeError):
+        _fail("dispatch journal operationId is invalid")
+    if parsed_operation_id != operation_id:
+        _fail("dispatch journal operationId is not canonical")
+
+    target = _dispatch_journal_object(
+        _dispatch_journal_field(journal, "target", role="root"),
+        role="target",
+    )
+    target_identity = (
+        _dispatch_journal_field(target, "owner", role="target"),
+        _dispatch_journal_field(target, "task", role="target"),
+        _dispatch_journal_positive_int(
+            _dispatch_journal_field(target, "version", role="target"),
+            role="target version",
+        ),
+    )
+    if target_identity != (task["owner"], task["slug"], task["version"]):
+        _fail("dispatch journal targets a different Kaggle task version")
+    scheduled_slug = _dispatch_journal_field(target, "model", role="target")
+    if scheduled_slug != run["modelVersionSlug"]:
+        _fail("dispatch journal targets a different Kaggle run model")
+
+    remote = _dispatch_journal_object(
+        _dispatch_journal_field(journal, "remotePreflight", role="root"),
+        role="remotePreflight",
+    )
+    remote_task = _dispatch_journal_object(
+        _dispatch_journal_field(remote, "task", role="remotePreflight"),
+        role="remotePreflight.task",
+    )
+    remote_task_identity = (
+        _dispatch_journal_field(
+            remote_task, "owner", role="remotePreflight.task"
+        ),
+        _dispatch_journal_field(
+            remote_task, "task", role="remotePreflight.task"
+        ),
+        _dispatch_journal_positive_int(
+            _dispatch_journal_field(
+                remote_task, "version", role="remotePreflight.task"
+            ),
+            role="preflight task version",
+        ),
+    )
+    if remote_task_identity != target_identity:
+        _fail("dispatch journal preflight task differs from its target")
+    remote_model = _dispatch_journal_object(
+        _dispatch_journal_field(remote, "model", role="remotePreflight"),
+        role="remotePreflight.model",
+    )
+    if (
+        _dispatch_journal_field(
+            remote_model, "slug", role="remotePreflight.model"
+        )
+        != scheduled_slug
+    ):
+        _fail("dispatch journal model catalog slug differs from its target")
+    benchmark_model_id = _dispatch_journal_positive_int(
+        _dispatch_journal_field(
+            remote_model, "benchmarkModelId", role="remotePreflight.model"
+        ),
+        role="benchmark model ID",
+    )
+    benchmark_model_version_id = _dispatch_journal_positive_int(
+        _dispatch_journal_field(
+            remote_model,
+            "benchmarkModelVersionId",
+            role="remotePreflight.model",
+        ),
+        role="benchmark model version ID",
+    )
+    proxy_slug = _dispatch_journal_field(
+        remote_model, "modelProxySlug", role="remotePreflight.model"
+    )
+    if not isinstance(proxy_slug, str) or not proxy_slug:
+        _fail("dispatch journal Model Proxy slug is invalid")
+    if proxy_slug != observed_model:
+        _fail("dispatch journal Model Proxy slug differs from runtime observation")
+
+    before_runs = _dispatch_journal_field(
+        remote, "runs", role="remotePreflight"
+    )
+    if not isinstance(before_runs, list):
+        _fail("dispatch journal preflight runs must be an array")
+    for before_run in before_runs:
+        before_run = _dispatch_journal_object(
+            before_run, role="remotePreflight.runs entry"
+        )
+        before_id = _dispatch_journal_positive_int(
+            _dispatch_journal_field(
+                before_run, "id", role="remotePreflight.runs entry"
+            ),
+            role="preflight run ID",
+        )
+        if before_id == run["id"]:
+            _fail("dispatch journal preflight already contained the bound run")
+
+    response = _dispatch_journal_object(
+        _dispatch_journal_field(journal, "response", role="root"),
+        role="response",
+    )
+    if (
+        _dispatch_journal_field(response, "runScheduled", role="response")
+        is not True
+    ):
+        _fail("dispatch journal does not prove a scheduled run")
+    response_model_version_id = _dispatch_journal_positive_int(
+        _dispatch_journal_field(
+            response, "benchmarkModelVersionId", role="response"
+        ),
+        role="response model version ID",
+    )
+    if response_model_version_id != benchmark_model_version_id:
+        _fail("dispatch journal response model version ID drifted")
+    if (
+        _dispatch_journal_field(response, "runSkippedReason", role="response")
+        is not None
+        or _dispatch_journal_field(
+            response, "parentTaskVersionId", role="response"
+        )
+        is not None
+    ):
+        _fail("dispatch journal response did not schedule the exact task version")
+    _dispatch_journal_positive_int(
+        _dispatch_journal_field(
+            response, "benchmarkTaskVersionId", role="response"
+        ),
+        role="internal task version ID",
+    )
+
+    reconciliation = _dispatch_journal_object(
+        _dispatch_journal_field(journal, "reconciliation", role="root"),
+        role="reconciliation",
+    )
+    reconciled_run = _dispatch_journal_object(
+        _dispatch_journal_field(reconciliation, "run", role="reconciliation"),
+        role="reconciliation.run",
+    )
+    reconciled_identity = (
+        _dispatch_journal_positive_int(
+            _dispatch_journal_field(
+                reconciled_run, "id", role="reconciliation.run"
+            ),
+            role="reconciled run ID",
+        ),
+        _dispatch_journal_field(
+            reconciled_run, "model", role="reconciliation.run"
+        ),
+    )
+    if reconciled_identity != (run["id"], scheduled_slug):
+        _fail("dispatch journal reconciles a different Kaggle run")
+
+    return {
+        "operationId": operation_id,
+        "benchmarkModelId": benchmark_model_id,
+        "benchmarkModelVersionId": benchmark_model_version_id,
+        "scheduledSlug": scheduled_slug,
+        "modelProxySlug": proxy_slug,
+    }
 
 
 def _expected_capture_contract() -> tuple[dict[str, Any], bytes]:
@@ -365,7 +614,8 @@ def _verify_platform_binding(
     run: dict[str, Any],
     payload: dict[str, Any],
     downloaded_at: str,
-) -> None:
+    dispatch_journal_bytes: bytes | None = None,
+) -> dict[str, Any] | None:
     if (task["owner"], task["slug"], task["version"]) != (
         run["owner"],
         run["task"],
@@ -374,15 +624,27 @@ def _verify_platform_binding(
         _fail("task and run identities disagree")
     observed_model = payload["modelObservation"]["slug"]
     if observed_model == "unavailable/unobserved":
+        if dispatch_journal_bytes is not None:
+            _fail("dispatch journal cannot bind an unavailable runtime model")
         if (
             payload["calls"]["attemptedCallCount"] != 0
             or payload["canonicalReplayEligible"]
         ):
             _fail("unavailable capture model cannot claim a dispatched call")
-    elif not _run_model_matches_observation(
-        run["modelVersionSlug"], observed_model
-    ):
-        _fail("Kaggle run model differs from the capture model observation")
+        catalog_record = None
+    elif dispatch_journal_bytes is not None:
+        catalog_record = _dispatch_journal_catalog_record(
+            dispatch_journal_bytes,
+            task=task,
+            run=run,
+            observed_model=observed_model,
+        )
+    else:
+        catalog_record = None
+        if not _run_model_matches_observation(
+            run["modelVersionSlug"], observed_model
+        ):
+            _fail("Kaggle run model differs from the capture model observation")
 
     capture_start = _parse_time(payload["startedAt"], role="capture.startedAt")
     capture_end = (
@@ -400,6 +662,7 @@ def _verify_platform_binding(
             _fail("capture interval ends after the bound Kaggle run")
         if _parse_time(downloaded_at, role="downloadedAt") < run_end:
             _fail("capture evidence was timestamped before the run ended")
+    return catalog_record
 
 
 def _assembly_eligible(
@@ -421,6 +684,7 @@ def _expected_bundle_names(
         "archive": f"{stem}.zip",
         "payload": f"{stem}-capture.json",
         "source": f"{stem}-task-source.py",
+        "dispatchJournal": f"{stem}-dispatch-journal.json",
     }
 
 
@@ -430,6 +694,7 @@ def verify_capture_evidence(
     archive_bytes: bytes,
     payload_bytes: bytes,
     source_bytes: bytes,
+    dispatch_journal_bytes: bytes | None = None,
 ) -> dict[str, Any]:
     """Verify one envelope and all exact bytes it claims to bind."""
 
@@ -461,12 +726,29 @@ def verify_capture_evidence(
         _fail("retained payload bytes differ from the archive member")
     payload = parse_capture_payload(payload_bytes)
     _verify_capture_contract(payload, expected)
-    _verify_platform_binding(
+    catalog_record = _verify_platform_binding(
         task=evidence["task"],
         run=evidence["run"],
         payload=payload,
         downloaded_at=evidence["downloadedAt"],
+        dispatch_journal_bytes=dispatch_journal_bytes,
     )
+    catalog_binding = evidence.get("modelCatalogBinding")
+    if (catalog_binding is None) != (dispatch_journal_bytes is None):
+        _fail("model catalog binding and dispatch journal must be supplied together")
+    if catalog_binding is not None:
+        expected_catalog_binding = {
+            **catalog_record,
+            "dispatchJournal": {
+                "file": _expected_bundle_names(
+                    evidence["task"], evidence["run"]
+                )["dispatchJournal"],
+                "bytes": len(dispatch_journal_bytes),
+                "sha256": _sha256(dispatch_journal_bytes),
+            },
+        }
+        if catalog_binding != expected_catalog_binding:
+            _fail("model catalog binding disagrees with dispatch journal bytes")
 
     for field, data in (
         ("archive", archive_bytes),
@@ -494,6 +776,8 @@ def verify_capture_evidence(
         _fail("retained source path differs from the capture task identity")
     expected_names = _expected_bundle_names(evidence["task"], evidence["run"])
     for field, expected_name in expected_names.items():
+        if field == "dispatchJournal":
+            continue
         if evidence[field]["file"] != expected_name:
             _fail(f"{field} file name disagrees with the bound task run")
     expected_payload_summary = {
@@ -526,6 +810,7 @@ def write_capture_evidence_bundle(
     archive_bytes: bytes,
     output_dir: Path,
     downloaded_at: str | None = None,
+    dispatch_journal_bytes: bytes | None = None,
 ) -> dict[str, Any]:
     """Bind and exclusively persist one exact Kaggle capture run."""
 
@@ -559,11 +844,12 @@ def write_capture_evidence_bundle(
     payload = parse_capture_payload(payload_bytes)
     _verify_capture_contract(payload, expected)
     observed_downloaded_at = downloaded_at or _utc_now()
-    _verify_platform_binding(
+    catalog_record = _verify_platform_binding(
         task=task,
         run=run,
         payload=payload,
         downloaded_at=observed_downloaded_at,
+        dispatch_journal_bytes=dispatch_journal_bytes,
     )
 
     bundle_names = _expected_bundle_names(task, run)
@@ -571,6 +857,7 @@ def write_capture_evidence_bundle(
     archive_path = output_dir / bundle_names["archive"]
     payload_path = output_dir / bundle_names["payload"]
     source_path = output_dir / bundle_names["source"]
+    dispatch_journal_path = output_dir / bundle_names["dispatchJournal"]
     evidence_path = output_dir / f"{stem}-evidence.json"
     evidence = {
         "evidenceSchemaVersion": EVIDENCE_SCHEMA_VERSION,
@@ -607,12 +894,22 @@ def write_capture_evidence_bundle(
         },
         "id": "",
     }
+    if catalog_record is not None and dispatch_journal_bytes is not None:
+        evidence["modelCatalogBinding"] = {
+            **catalog_record,
+            "dispatchJournal": {
+                "file": dispatch_journal_path.name,
+                "bytes": len(dispatch_journal_bytes),
+                "sha256": _sha256(dispatch_journal_bytes),
+            },
+        }
     evidence["id"] = _artifact_id(evidence)
     verify_capture_evidence(
         evidence,
         archive_bytes=archive_bytes,
         payload_bytes=payload_bytes,
         source_bytes=expected_source,
+        dispatch_journal_bytes=dispatch_journal_bytes,
     )
     evidence_bytes = (
         json.dumps(
@@ -626,7 +923,10 @@ def write_capture_evidence_bundle(
     ).encode("ascii")
 
     output_dir.mkdir(parents=True, exist_ok=True)
-    for path in (archive_path, payload_path, source_path, evidence_path):
+    bundle_paths = [archive_path, payload_path, source_path, evidence_path]
+    if dispatch_journal_bytes is not None:
+        bundle_paths.append(dispatch_journal_path)
+    for path in bundle_paths:
         if path.exists():
             _fail(f"refusing to overwrite existing capture evidence: {path}")
     written: list[Path] = []
@@ -635,6 +935,11 @@ def write_capture_evidence_bundle(
             (archive_path, archive_bytes),
             (payload_path, payload_bytes),
             (source_path, expected_source),
+            *(
+                ((dispatch_journal_path, dispatch_journal_bytes),)
+                if dispatch_journal_bytes is not None
+                else ()
+            ),
             (evidence_path, evidence_bytes),
         ):
             _write_exclusive(path, data)
@@ -652,7 +957,7 @@ def write_capture_evidence_bundle(
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         description=(
-            "Download and bind one exact creation-triggered Kaggle raw capture "
+            "Download and bind one exact Kaggle raw capture "
             "without scheduling a model run."
         )
     )
@@ -660,6 +965,11 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--version", type=int, required=True)
     parser.add_argument("--source-kernel-id", type=int)
     parser.add_argument("--run-id", type=int)
+    parser.add_argument(
+        "--dispatch-journal",
+        type=Path,
+        help="exact reconciled kaggle_run_once journal for a scheduled run",
+    )
     parser.add_argument("--expect-dataset", required=True)
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args(sys.argv[1:] if argv is None else argv)
@@ -671,6 +981,11 @@ def main(argv: list[str] | None = None) -> int:
         parser.error("--run-id must be positive")
     expected_datasets = (args.expect_dataset,)
     try:
+        dispatch_journal_bytes = (
+            _read_dispatch_journal(args.dispatch_journal)
+            if args.dispatch_journal is not None
+            else None
+        )
         task_info, run_info, archive_bytes = _download_creation_archive(
             args.task,
             args.version,
@@ -688,6 +1003,7 @@ def main(argv: list[str] | None = None) -> int:
             expected_datasets=expected_datasets,
             archive_bytes=archive_bytes,
             output_dir=args.output,
+            dispatch_journal_bytes=dispatch_journal_bytes,
         )
     except (OSError, ValueError) as exc:
         print(f"invalid Kaggle capture evidence: {exc}", file=sys.stderr)

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import io
+import hashlib
 import json
 import sys
 import tempfile
@@ -18,6 +19,7 @@ from bench.engine.kaggle_capture import (
 from bench.engine.kaggle_capture_evidence import (
     CAPTURE_FILENAME,
     KaggleCaptureEvidenceError,
+    _artifact_id,
     verify_capture_evidence,
     write_capture_evidence_bundle,
 )
@@ -35,6 +37,9 @@ from bench.tests.test_kaggle_capture_task_v0_2 import (
 TASK_SLUG = "aleph-bench-v0-2-capture-canary"
 DATASET = "owner/aleph-bench-v02-scorer-conformance"
 DOWNLOADED_AT = "2026-09-22T00:02:00Z"
+GEMMA_SCHEDULED_SLUG = "gemma-4-26b-a4b-it"
+GEMMA_PROXY_SLUG = "google/gemma-4-26b-a4b"
+OPERATION_ID = "01234567-89ab-4def-8123-456789abcdef"
 
 
 def _task_info(
@@ -133,6 +138,69 @@ def _archive(
     return output.getvalue()
 
 
+def _dispatch_journal_bytes(
+    *,
+    owner: str = "owner",
+    task: str = TASK_SLUG,
+    version: int = 3,
+    run_id: int = 24680,
+    scheduled_slug: str = GEMMA_SCHEDULED_SLUG,
+    proxy_slug: str = GEMMA_PROXY_SLUG,
+    state: str = "reconciled",
+    dispatch_failure: dict[str, str] | None = None,
+) -> bytes:
+    journal = {
+        "journalVersion": 1,
+        "artifactKind": "kaggle_benchmark_run_dispatch",
+        "operationId": OPERATION_ID,
+        "state": state,
+        "target": {
+            "owner": owner,
+            "task": task,
+            "version": version,
+            "model": scheduled_slug,
+        },
+        "remotePreflight": {
+            "task": {
+                "owner": owner,
+                "task": task,
+                "version": version,
+            },
+            "model": {
+                "benchmarkModelId": 141,
+                "benchmarkModelVersionId": 139,
+                "slug": scheduled_slug,
+                "modelProxySlug": proxy_slug,
+            },
+            "runs": [
+                {
+                    "id": 13579,
+                    "model": "another-model",
+                    "state": "BENCHMARK_TASK_RUN_STATE_COMPLETED",
+                }
+            ],
+        },
+        "response": {
+            "runScheduled": True,
+            "runSkippedReason": None,
+            "benchmarkTaskVersionId": 777,
+            "benchmarkModelVersionId": 139,
+            "parentTaskVersionId": None,
+        },
+        "reconciliation": {
+            "run": {
+                "id": run_id,
+                "model": scheduled_slug,
+                "state": "BENCHMARK_TASK_RUN_STATE_QUEUED",
+            }
+        },
+        "dispatchFailure": dispatch_failure,
+        "responseFailure": None,
+        "failure": None,
+    }
+    return (json.dumps(journal, sort_keys=True) + "\n").encode("utf-8")
+
+
 class KaggleCaptureEvidenceTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:
@@ -195,6 +263,7 @@ class KaggleCaptureEvidenceTests(unittest.TestCase):
         task_info: SimpleNamespace | None = None,
         run_info: SimpleNamespace | None = None,
         output_dir: Path | None = None,
+        dispatch_journal_bytes: bytes | None = None,
     ) -> tuple[dict[str, Any], Path, tempfile.TemporaryDirectory[str] | None]:
         output_tmp = None
         if output_dir is None:
@@ -212,6 +281,7 @@ class KaggleCaptureEvidenceTests(unittest.TestCase):
             archive_bytes=archive_bytes,
             output_dir=output_dir,
             downloaded_at=DOWNLOADED_AT,
+            dispatch_journal_bytes=dispatch_journal_bytes,
         )
         return evidence, output_dir, output_tmp
 
@@ -222,6 +292,7 @@ class KaggleCaptureEvidenceTests(unittest.TestCase):
         self.assertIsNotNone(output_tmp)
 
         self.assertTrue(evidence["assemblyEligible"])
+        self.assertNotIn("modelCatalogBinding", evidence)
         self.assertIsNone(evidence["task"]["creationErrorStringSha256"])
         self.assertIsNone(evidence["run"]["errorStringSha256"])
         archive_copy = (output_dir / evidence["archive"]["file"]).read_bytes()
@@ -283,6 +354,178 @@ class KaggleCaptureEvidenceTests(unittest.TestCase):
             retained_payload["modelObservation"]["slug"],
             "anthropic/claude-haiku-4-5@20251001",
         )
+
+    def test_reconciled_catalog_alias_is_bound_to_exact_journal_bytes(self) -> None:
+        payload_bytes = self._payload_bytes(model_slug=GEMMA_PROXY_SLUG)
+        archive_bytes = _archive(payload_bytes, self.source_bytes)
+        journal_bytes = _dispatch_journal_bytes()
+        evidence, output_dir, output_tmp = self._write(
+            archive_bytes=archive_bytes,
+            run_info=_run_info(model=GEMMA_SCHEDULED_SLUG),
+            dispatch_journal_bytes=journal_bytes,
+        )
+        self.assertIsNotNone(output_tmp)
+        self.assertTrue(evidence["assemblyEligible"])
+        self.assertEqual(
+            evidence["modelCatalogBinding"],
+            {
+                "operationId": OPERATION_ID,
+                "benchmarkModelId": 141,
+                "benchmarkModelVersionId": 139,
+                "scheduledSlug": GEMMA_SCHEDULED_SLUG,
+                "modelProxySlug": GEMMA_PROXY_SLUG,
+                "dispatchJournal": {
+                    "file": (
+                        f"{TASK_SLUG}-v3-run-24680-dispatch-journal.json"
+                    ),
+                    "bytes": len(journal_bytes),
+                    "sha256": hashlib.sha256(journal_bytes).hexdigest(),
+                },
+            },
+        )
+        retained_journal = (
+            output_dir
+            / evidence["modelCatalogBinding"]["dispatchJournal"]["file"]
+        ).read_bytes()
+        self.assertEqual(retained_journal, journal_bytes)
+        self.assertEqual(
+            verify_capture_evidence(
+                evidence,
+                archive_bytes=archive_bytes,
+                payload_bytes=payload_bytes,
+                source_bytes=self.source_bytes,
+                dispatch_journal_bytes=retained_journal,
+            ),
+            evidence,
+        )
+
+    def test_catalog_alias_requires_one_exact_runtime_proxy_slug(self) -> None:
+        with self.assertRaisesRegex(
+            KaggleCaptureEvidenceError, "run model differs"
+        ):
+            self._write(
+                archive_bytes=_archive(
+                    self._payload_bytes(model_slug=GEMMA_PROXY_SLUG),
+                    self.source_bytes,
+                ),
+                run_info=_run_info(model=GEMMA_SCHEDULED_SLUG),
+            )
+
+        for observed_slug in (
+            "gemma-4-26b-a4b",
+            "google/gemma-4-26b-a4b-it",
+            "other/gemma-4-26b-a4b",
+        ):
+            with self.subTest(observed_slug=observed_slug), self.assertRaisesRegex(
+                KaggleCaptureEvidenceError,
+                "Model Proxy slug differs|unavailable runtime model",
+            ):
+                self._write(
+                    archive_bytes=_archive(
+                        self._payload_bytes(model_slug=observed_slug),
+                        self.source_bytes,
+                    ),
+                    run_info=_run_info(model=GEMMA_SCHEDULED_SLUG),
+                    dispatch_journal_bytes=_dispatch_journal_bytes(),
+                )
+
+    def test_catalog_binding_tampering_fails_semantic_verification(self) -> None:
+        payload_bytes = self._payload_bytes(model_slug=GEMMA_PROXY_SLUG)
+        archive_bytes = _archive(payload_bytes, self.source_bytes)
+        journal_bytes = _dispatch_journal_bytes()
+        evidence, _, output_tmp = self._write(
+            archive_bytes=archive_bytes,
+            run_info=_run_info(model=GEMMA_SCHEDULED_SLUG),
+            dispatch_journal_bytes=journal_bytes,
+        )
+        self.assertIsNotNone(output_tmp)
+        cases = {
+            "operation-id": (
+                "operationId",
+                "11234567-89ab-4def-8123-456789abcdef",
+            ),
+            "model-id": ("benchmarkModelId", 142),
+            "model-version-id": ("benchmarkModelVersionId", 140),
+            "scheduled-slug": ("scheduledSlug", "gemma-4-26b-a4b"),
+            "proxy-slug": (
+                "modelProxySlug",
+                "google/gemma-4-26b-a4b-it",
+            ),
+        }
+        for name, (field, value) in cases.items():
+            mutated = json.loads(json.dumps(evidence))
+            mutated["modelCatalogBinding"][field] = value
+            mutated["id"] = _artifact_id(mutated)
+            with self.subTest(name=name), self.assertRaisesRegex(
+                KaggleCaptureEvidenceError,
+                "model catalog binding disagrees",
+            ):
+                verify_capture_evidence(
+                    mutated,
+                    archive_bytes=archive_bytes,
+                    payload_bytes=payload_bytes,
+                    source_bytes=self.source_bytes,
+                    dispatch_journal_bytes=journal_bytes,
+                )
+
+        mutated = json.loads(json.dumps(evidence))
+        mutated["modelCatalogBinding"]["dispatchJournal"]["sha256"] = "0" * 64
+        mutated["id"] = _artifact_id(mutated)
+        with self.assertRaisesRegex(
+            KaggleCaptureEvidenceError, "model catalog binding disagrees"
+        ):
+            verify_capture_evidence(
+                mutated,
+                archive_bytes=archive_bytes,
+                payload_bytes=payload_bytes,
+                source_bytes=self.source_bytes,
+                dispatch_journal_bytes=journal_bytes,
+            )
+
+    def test_dispatch_journal_identity_and_terminal_state_fail_closed(self) -> None:
+        payload_bytes = self._payload_bytes(model_slug=GEMMA_PROXY_SLUG)
+        archive_bytes = _archive(payload_bytes, self.source_bytes)
+        cases = {
+            "other-owner": (
+                _dispatch_journal_bytes(owner="other"),
+                "different Kaggle task version",
+            ),
+            "other-task": (
+                _dispatch_journal_bytes(task="other-task"),
+                "different Kaggle task version",
+            ),
+            "other-version": (
+                _dispatch_journal_bytes(version=4),
+                "different Kaggle task version",
+            ),
+            "other-run": (
+                _dispatch_journal_bytes(run_id=24681),
+                "different Kaggle run",
+            ),
+            "other-model": (
+                _dispatch_journal_bytes(scheduled_slug="other-model"),
+                "different Kaggle run model",
+            ),
+            "not-reconciled": (
+                _dispatch_journal_bytes(state="dispatching"),
+                "not reconciled",
+            ),
+            "dispatch-failure": (
+                _dispatch_journal_bytes(
+                    dispatch_failure={"type": "Error", "message": "failed"}
+                ),
+                "retains dispatchFailure",
+            ),
+        }
+        for name, (journal_bytes, message) in cases.items():
+            with self.subTest(name=name), self.assertRaisesRegex(
+                KaggleCaptureEvidenceError, message
+            ):
+                self._write(
+                    archive_bytes=archive_bytes,
+                    run_info=_run_info(model=GEMMA_SCHEDULED_SLUG),
+                    dispatch_journal_bytes=journal_bytes,
+                )
 
     def test_zero_call_preflight_block_is_retained_as_ineligible_evidence(self) -> None:
         payload_bytes = self._blocked_payload_bytes()
