@@ -189,6 +189,9 @@ def _dispatch_journal_bytes(
                     "id": 13579,
                     "model": "another-model",
                     "state": "BENCHMARK_TASK_RUN_STATE_COMPLETED",
+                    "startTime": "2026-09-21T00:00:00Z",
+                    "endTime": "2026-09-21T00:01:00Z",
+                    "errorMessage": None,
                 }
             ],
         },
@@ -209,7 +212,7 @@ def _dispatch_journal_bytes(
                     "attempt": 1,
                     "observedAt": "2026-09-22T00:00:00Z",
                     "delaySeconds": 0.0,
-                    "runIds": [run_id],
+                    "runIds": sorted([13579, run_id]),
                     "newRuns": [reconciled_run],
                 }
             ],
@@ -507,7 +510,14 @@ class KaggleCaptureEvidenceTests(unittest.TestCase):
                 for period, allowance in (("DAILY", 10.0), ("MONTHLY", 100.0))
             ]
         )
-        run_snapshots = iter([[], [scheduler_run]])
+        run_snapshots = iter([[], OSError("read failed"), [scheduler_run]])
+
+        def fetch_runs() -> list[SimpleNamespace]:
+            snapshot = next(run_snapshots)
+            if isinstance(snapshot, OSError):
+                raise snapshot
+            return snapshot
+
         schedule = mock.Mock(side_effect=ConnectionError("response lost"))
         journal_tmp = tempfile.TemporaryDirectory()
         self.addCleanup(journal_tmp.cleanup)
@@ -520,11 +530,11 @@ class KaggleCaptureEvidenceTests(unittest.TestCase):
             journal_path=journal_path,
             fetch_task=lambda: scheduler_task,
             fetch_model=lambda: scheduler_model,
-            fetch_runs=lambda: next(run_snapshots),
+            fetch_runs=fetch_runs,
             fetch_quota=lambda: quota,
             schedule_run=schedule,
             client_versions={"python": "3.13.7", "kaggle": "2.2.4"},
-            reconcile_delays=(0,),
+            reconcile_delays=(0, 0),
             clock=lambda: "2026-09-22T00:00:00Z",
             sleeper=lambda _delay: None,
         )
@@ -532,6 +542,10 @@ class KaggleCaptureEvidenceTests(unittest.TestCase):
         self.assertEqual(journal["state"], "reconciled")
         self.assertIsNone(journal["response"])
         self.assertEqual(journal["dispatchFailure"]["type"], "ConnectionError")
+        self.assertEqual(
+            journal["reconciliation"]["observations"][0]["failure"]["type"],
+            "OSError",
+        )
 
         journal_bytes = journal_path.read_bytes()
         payload_bytes = self._payload_bytes(model_slug=GEMMA_PROXY_SLUG)
@@ -651,6 +665,72 @@ class KaggleCaptureEvidenceTests(unittest.TestCase):
         mismatched_observation_bytes = (
             json.dumps(mismatched_observation, sort_keys=True) + "\n"
         ).encode("utf-8")
+        duplicate_preflight = json.loads(_dispatch_journal_bytes())
+        duplicate_preflight["remotePreflight"]["runs"].append(
+            dict(duplicate_preflight["remotePreflight"]["runs"][0])
+        )
+        duplicate_preflight_bytes = (
+            json.dumps(duplicate_preflight, sort_keys=True) + "\n"
+        ).encode("utf-8")
+        missing_final_run_ids = json.loads(_dispatch_journal_bytes())
+        del missing_final_run_ids["reconciliation"]["observations"][-1][
+            "runIds"
+        ]
+        missing_final_run_ids_bytes = (
+            json.dumps(missing_final_run_ids, sort_keys=True) + "\n"
+        ).encode("utf-8")
+        missing_preflight_from_final = json.loads(_dispatch_journal_bytes())
+        missing_preflight_from_final["reconciliation"]["observations"][-1][
+            "runIds"
+        ] = [24680]
+        missing_preflight_from_final_bytes = (
+            json.dumps(missing_preflight_from_final, sort_keys=True) + "\n"
+        ).encode("utf-8")
+        extra_final_run = json.loads(_dispatch_journal_bytes())
+        extra_run_record = {
+            "id": 30000,
+            "model": "unexpected-model",
+            "state": "BENCHMARK_TASK_RUN_STATE_QUEUED",
+            "startTime": None,
+            "endTime": None,
+            "errorMessage": None,
+        }
+        extra_final_observation = extra_final_run["reconciliation"][
+            "observations"
+        ][-1]
+        extra_final_observation["runIds"] = [13579, 24680, 30000]
+        extra_final_observation["newRuns"].append(extra_run_record)
+        extra_final_run_bytes = (
+            json.dumps(extra_final_run, sort_keys=True) + "\n"
+        ).encode("utf-8")
+        earlier_new_run = json.loads(_dispatch_journal_bytes())
+        unexpected_run = {
+            "id": 20000,
+            "model": "another-new-model",
+            "state": "BENCHMARK_TASK_RUN_STATE_QUEUED",
+            "startTime": None,
+            "endTime": None,
+            "errorMessage": None,
+        }
+        earlier_new_run["reconciliation"]["observations"].insert(
+            0,
+            {
+                "attempt": 1,
+                "observedAt": "2026-09-22T00:00:00Z",
+                "delaySeconds": 0.0,
+                "runIds": [13579, 20000],
+                "newRuns": [unexpected_run],
+            },
+        )
+        earlier_new_run["reconciliation"]["observations"][-1]["attempt"] = 2
+        earlier_new_run_bytes = (
+            json.dumps(earlier_new_run, sort_keys=True) + "\n"
+        ).encode("utf-8")
+        boolean_journal_version = json.loads(_dispatch_journal_bytes())
+        boolean_journal_version["journalVersion"] = True
+        boolean_journal_version_bytes = (
+            json.dumps(boolean_journal_version, sort_keys=True) + "\n"
+        ).encode("utf-8")
         cases = {
             "other-owner": (
                 _dispatch_journal_bytes(owner="other"),
@@ -704,7 +784,31 @@ class KaggleCaptureEvidenceTests(unittest.TestCase):
             ),
             "mismatched-final-observation": (
                 mismatched_observation_bytes,
-                "final observation is not one exact new run",
+                "newRuns differs from its run-set delta",
+            ),
+            "duplicate-preflight-run-id": (
+                duplicate_preflight_bytes,
+                "preflight run IDs are not ordered and unique",
+            ),
+            "missing-final-run-ids": (
+                missing_final_run_ids_bytes,
+                "invalid success fields",
+            ),
+            "final-run-ids-lost-preflight": (
+                missing_preflight_from_final_bytes,
+                "lost a preflight run ID",
+            ),
+            "final-run-ids-have-extra-run": (
+                extra_final_run_bytes,
+                "final runIds differs from preflight plus bound run",
+            ),
+            "continued-after-earlier-new-run": (
+                earlier_new_run_bytes,
+                "continued after observing a new run",
+            ),
+            "boolean-journal-version": (
+                boolean_journal_version_bytes,
+                "version is unsupported",
             ),
         }
         for name, (journal_bytes, message) in cases.items():

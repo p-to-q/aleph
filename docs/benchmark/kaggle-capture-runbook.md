@@ -147,7 +147,10 @@ response is present and `dispatchFailure` is absent, or the response was lost, `
 retains that transport exception, and the final successful read-only observation proves one exact
 new run equal to `reconciliation.run`. The binder accepts both shapes. It still rejects
 `responseFailure`, a non-null terminal `failure`, any non-reconciled state, and any mismatch in the
-task, run, model, or catalog record.
+task, run, model, or catalog record. It also replays the journal's run-set proof: preflight IDs must
+be ordered and unique, read failures may precede recovery, every successful observation's
+`newRuns` must equal its exact delta from preflight, and the final `runIds` must be precisely
+preflight plus the bound run.
 
 Do not delete or overwrite a failed or ambiguous journal. It is the permanent attempt receipt.
 Quota movement is supporting evidence, not run identity; an unavailable quota-after read does not

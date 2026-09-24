@@ -5,6 +5,7 @@ import copy
 import hashlib
 import io
 import json
+import math
 import sys
 import uuid
 import zipfile
@@ -152,6 +153,151 @@ def _dispatch_journal_positive_int(value: Any, *, role: str) -> int:
     return value
 
 
+def _dispatch_journal_failure_record(
+    value: Any, *, role: str
+) -> dict[str, str]:
+    record = _dispatch_journal_object(value, role=role)
+    if set(record) != {"type", "message"}:
+        _fail(f"dispatch journal has an invalid {role} record")
+    failure_type = record["type"]
+    failure_message = record["message"]
+    if (
+        not isinstance(failure_type, str)
+        or not failure_type
+        or len(failure_type) > 200
+        or not isinstance(failure_message, str)
+        or len(failure_message) > 2_000
+    ):
+        _fail(f"dispatch journal has an invalid {role} record")
+    return record
+
+
+def _dispatch_journal_run_record(
+    value: Any, *, role: str
+) -> dict[str, Any]:
+    record = _dispatch_journal_object(value, role=role)
+    expected_fields = {
+        "id",
+        "model",
+        "state",
+        "startTime",
+        "endTime",
+        "errorMessage",
+    }
+    if set(record) != expected_fields:
+        _fail(f"dispatch journal {role} has invalid fields")
+    _dispatch_journal_positive_int(record["id"], role=f"{role} ID")
+    for field in ("model", "state"):
+        if not isinstance(record[field], str) or not record[field]:
+            _fail(f"dispatch journal {role} has an invalid {field}")
+    for field in ("startTime", "endTime"):
+        if record[field] is not None:
+            _parse_time(record[field], role=f"dispatch journal {role}.{field}")
+    if record["errorMessage"] is not None and not isinstance(
+        record["errorMessage"], str
+    ):
+        _fail(f"dispatch journal {role} has an invalid errorMessage")
+    return record
+
+
+def _dispatch_journal_reconciliation_observations(
+    value: Any,
+    *,
+    preflight_runs: list[dict[str, Any]],
+    reconciled_run: dict[str, Any],
+) -> None:
+    if not isinstance(value, list) or not value:
+        _fail("dispatch journal reconciliation has no observations")
+    preflight_ids = [record["id"] for record in preflight_runs]
+    preflight_id_set = set(preflight_ids)
+    reconciled_id = reconciled_run["id"]
+    for index, raw_observation in enumerate(value, start=1):
+        role = f"reconciliation observation {index}"
+        observation = _dispatch_journal_object(raw_observation, role=role)
+        if _dispatch_journal_positive_int(
+            _dispatch_journal_field(observation, "attempt", role=role),
+            role=f"{role} attempt",
+        ) != index:
+            _fail("dispatch journal reconciliation attempts are not sequential")
+        _parse_time(
+            _dispatch_journal_field(observation, "observedAt", role=role),
+            role=f"dispatch journal {role}.observedAt",
+        )
+        delay = _dispatch_journal_field(
+            observation, "delaySeconds", role=role
+        )
+        if (
+            isinstance(delay, bool)
+            or not isinstance(delay, (int, float))
+            or not math.isfinite(float(delay))
+            or delay < 0
+        ):
+            _fail(f"dispatch journal {role} has an invalid delaySeconds")
+
+        if "failure" in observation:
+            if set(observation) != {
+                "attempt",
+                "observedAt",
+                "delaySeconds",
+                "failure",
+            }:
+                _fail(f"dispatch journal {role} has invalid failure fields")
+            _dispatch_journal_failure_record(
+                observation["failure"], role=f"{role} failure"
+            )
+            continue
+
+        if set(observation) != {
+            "attempt",
+            "observedAt",
+            "delaySeconds",
+            "runIds",
+            "newRuns",
+        }:
+            _fail(f"dispatch journal {role} has invalid success fields")
+        run_ids = _dispatch_journal_field(observation, "runIds", role=role)
+        if not isinstance(run_ids, list):
+            _fail(f"dispatch journal {role} runIds must be an array")
+        parsed_run_ids = [
+            _dispatch_journal_positive_int(
+                run_id, role=f"{role} run ID"
+            )
+            for run_id in run_ids
+        ]
+        if parsed_run_ids != sorted(set(parsed_run_ids)):
+            _fail(f"dispatch journal {role} runIds are not ordered and unique")
+        if not preflight_id_set.issubset(parsed_run_ids):
+            _fail(f"dispatch journal {role} lost a preflight run ID")
+        new_runs_value = _dispatch_journal_field(
+            observation, "newRuns", role=role
+        )
+        if not isinstance(new_runs_value, list):
+            _fail(f"dispatch journal {role} newRuns must be an array")
+        new_runs = [
+            _dispatch_journal_run_record(
+                record, role=f"{role} newRuns entry"
+            )
+            for record in new_runs_value
+        ]
+        new_ids = [record["id"] for record in new_runs]
+        expected_new_ids = [
+            run_id for run_id in parsed_run_ids if run_id not in preflight_id_set
+        ]
+        if new_ids != expected_new_ids:
+            _fail(f"dispatch journal {role} newRuns differs from its run-set delta")
+        if index < len(value) and new_runs:
+            _fail("dispatch journal continued after observing a new run")
+
+    final_observation = value[-1]
+    if "failure" in final_observation:
+        _fail("dispatch journal final observation is not successful")
+    expected_final_ids = sorted([*preflight_ids, reconciled_id])
+    if final_observation["runIds"] != expected_final_ids:
+        _fail("dispatch journal final runIds differs from preflight plus bound run")
+    if final_observation["newRuns"] != [reconciled_run]:
+        _fail("dispatch journal final observation is not one exact new run")
+
+
 def _read_dispatch_journal(path: Path) -> bytes:
     with path.open("rb") as handle:
         data = handle.read(MAX_DISPATCH_JOURNAL_BYTES + 1)
@@ -182,7 +328,14 @@ def _dispatch_journal_catalog_record(
     except (UnicodeDecodeError, json.JSONDecodeError, ValueError, RecursionError):
         _fail("dispatch journal is not bounded strict JSON")
     journal = _dispatch_journal_object(journal, role="root")
-    if _dispatch_journal_field(journal, "journalVersion", role="root") != 1:
+    journal_version = _dispatch_journal_field(
+        journal, "journalVersion", role="root"
+    )
+    if (
+        isinstance(journal_version, bool)
+        or not isinstance(journal_version, int)
+        or journal_version != 1
+    ):
         _fail("dispatch journal version is unsupported")
     if (
         _dispatch_journal_field(journal, "artifactKind", role="root")
@@ -294,18 +447,17 @@ def _dispatch_journal_catalog_record(
     )
     if not isinstance(before_runs, list):
         _fail("dispatch journal preflight runs must be an array")
-    for before_run in before_runs:
-        before_run = _dispatch_journal_object(
+    before_runs = [
+        _dispatch_journal_run_record(
             before_run, role="remotePreflight.runs entry"
         )
-        before_id = _dispatch_journal_positive_int(
-            _dispatch_journal_field(
-                before_run, "id", role="remotePreflight.runs entry"
-            ),
-            role="preflight run ID",
-        )
-        if before_id == run["id"]:
-            _fail("dispatch journal preflight already contained the bound run")
+        for before_run in before_runs
+    ]
+    before_ids = [before_run["id"] for before_run in before_runs]
+    if before_ids != sorted(set(before_ids)):
+        _fail("dispatch journal preflight run IDs are not ordered and unique")
+    if run["id"] in before_ids:
+        _fail("dispatch journal preflight already contained the bound run")
 
     response_value = _dispatch_journal_field(journal, "response", role="root")
     if dispatch_failure is None:
@@ -343,21 +495,9 @@ def _dispatch_journal_catalog_record(
             role="internal task version ID",
         )
     else:
-        dispatch_failure = _dispatch_journal_object(
+        _dispatch_journal_failure_record(
             dispatch_failure, role="dispatchFailure"
         )
-        if set(dispatch_failure) != {"type", "message"}:
-            _fail("dispatch journal has an invalid dispatchFailure record")
-        failure_type = dispatch_failure["type"]
-        failure_message = dispatch_failure["message"]
-        if (
-            not isinstance(failure_type, str)
-            or not failure_type
-            or len(failure_type) > 200
-            or not isinstance(failure_message, str)
-            or len(failure_message) > 2_000
-        ):
-            _fail("dispatch journal has an invalid dispatchFailure record")
         if response_value is not None:
             _fail("dispatch journal has both a response and dispatchFailure")
 
@@ -365,27 +505,10 @@ def _dispatch_journal_catalog_record(
         _dispatch_journal_field(journal, "reconciliation", role="root"),
         role="reconciliation",
     )
-    reconciled_run = _dispatch_journal_object(
+    reconciled_run = _dispatch_journal_run_record(
         _dispatch_journal_field(reconciliation, "run", role="reconciliation"),
         role="reconciliation.run",
     )
-    observations = _dispatch_journal_field(
-        reconciliation, "observations", role="reconciliation"
-    )
-    if not isinstance(observations, list) or not observations:
-        _fail("dispatch journal reconciliation has no observations")
-    final_observation = _dispatch_journal_object(
-        observations[-1], role="reconciliation final observation"
-    )
-    if "failure" in final_observation:
-        _fail("dispatch journal final observation is not successful")
-    final_new_runs = _dispatch_journal_field(
-        final_observation,
-        "newRuns",
-        role="reconciliation final observation",
-    )
-    if final_new_runs != [reconciled_run]:
-        _fail("dispatch journal final observation is not one exact new run")
     reconciled_identity = (
         _dispatch_journal_positive_int(
             _dispatch_journal_field(
@@ -399,6 +522,13 @@ def _dispatch_journal_catalog_record(
     )
     if reconciled_identity != (run["id"], scheduled_slug):
         _fail("dispatch journal reconciles a different Kaggle run")
+    _dispatch_journal_reconciliation_observations(
+        _dispatch_journal_field(
+            reconciliation, "observations", role="reconciliation"
+        ),
+        preflight_runs=before_runs,
+        reconciled_run=reconciled_run,
+    )
 
     return {
         "operationId": operation_id,
