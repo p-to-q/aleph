@@ -11,6 +11,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
+from unittest import mock
 
 from bench.engine.kaggle_capture import (
     artifact_id_for,
@@ -23,6 +24,7 @@ from bench.engine.kaggle_capture_evidence import (
     verify_capture_evidence,
     write_capture_evidence_bundle,
 )
+from bench.engine.kaggle_run_once import schedule_and_reconcile_once
 from bench.tasks.kaggle.generate_v0_2_capture import OUTPUT_PATH
 from bench.tests.test_kaggle_capture_task_v0_2 import (
     OpenAI,
@@ -147,8 +149,18 @@ def _dispatch_journal_bytes(
     scheduled_slug: str = GEMMA_SCHEDULED_SLUG,
     proxy_slug: str = GEMMA_PROXY_SLUG,
     state: str = "reconciled",
-    dispatch_failure: dict[str, str] | None = None,
+    dispatch_failure: dict[str, Any] | None = None,
+    response_failure: dict[str, str] | None = None,
+    failure: dict[str, str] | None = None,
 ) -> bytes:
+    reconciled_run = {
+        "id": run_id,
+        "model": scheduled_slug,
+        "state": "BENCHMARK_TASK_RUN_STATE_QUEUED",
+        "startTime": "2026-09-22T00:00:00Z",
+        "endTime": None,
+        "errorMessage": None,
+    }
     journal = {
         "journalVersion": 1,
         "artifactKind": "kaggle_benchmark_run_dispatch",
@@ -180,23 +192,32 @@ def _dispatch_journal_bytes(
                 }
             ],
         },
-        "response": {
-            "runScheduled": True,
-            "runSkippedReason": None,
-            "benchmarkTaskVersionId": 777,
-            "benchmarkModelVersionId": 139,
-            "parentTaskVersionId": None,
-        },
-        "reconciliation": {
-            "run": {
-                "id": run_id,
-                "model": scheduled_slug,
-                "state": "BENCHMARK_TASK_RUN_STATE_QUEUED",
+        "response": (
+            None
+            if dispatch_failure is not None
+            else {
+                "runScheduled": True,
+                "runSkippedReason": None,
+                "benchmarkTaskVersionId": 777,
+                "benchmarkModelVersionId": 139,
+                "parentTaskVersionId": None,
             }
+        ),
+        "reconciliation": {
+            "observations": [
+                {
+                    "attempt": 1,
+                    "observedAt": "2026-09-22T00:00:00Z",
+                    "delaySeconds": 0.0,
+                    "runIds": [run_id],
+                    "newRuns": [reconciled_run],
+                }
+            ],
+            "run": reconciled_run,
         },
         "dispatchFailure": dispatch_failure,
-        "responseFailure": None,
-        "failure": None,
+        "responseFailure": response_failure,
+        "failure": failure,
     }
     return (json.dumps(journal, sort_keys=True) + "\n").encode("utf-8")
 
@@ -291,6 +312,7 @@ class KaggleCaptureEvidenceTests(unittest.TestCase):
         evidence, output_dir, output_tmp = self._write(archive_bytes=archive_bytes)
         self.assertIsNotNone(output_tmp)
 
+        self.assertEqual(evidence["evidenceSchemaVersion"], "1.0.0")
         self.assertTrue(evidence["assemblyEligible"])
         self.assertNotIn("modelCatalogBinding", evidence)
         self.assertIsNone(evidence["task"]["creationErrorStringSha256"])
@@ -310,6 +332,32 @@ class KaggleCaptureEvidenceTests(unittest.TestCase):
             ),
             evidence,
         )
+
+        missing_binding = json.loads(json.dumps(evidence))
+        missing_binding["evidenceSchemaVersion"] = "1.1.0"
+        missing_binding["id"] = _artifact_id(missing_binding)
+        with self.assertRaisesRegex(
+            KaggleCaptureEvidenceError, "schema validation failed"
+        ):
+            verify_capture_evidence(
+                missing_binding,
+                archive_bytes=archive_copy,
+                payload_bytes=payload_copy,
+                source_bytes=source_copy,
+            )
+
+        null_binding = json.loads(json.dumps(missing_binding))
+        null_binding["modelCatalogBinding"] = None
+        null_binding["id"] = _artifact_id(null_binding)
+        with self.assertRaisesRegex(
+            KaggleCaptureEvidenceError, "schema validation failed"
+        ):
+            verify_capture_evidence(
+                null_binding,
+                archive_bytes=archive_copy,
+                payload_bytes=payload_copy,
+                source_bytes=source_copy,
+            )
 
     def test_missing_finish_reason_is_bound_and_assembly_eligible(self) -> None:
         payload_bytes = self._payload_bytes(finish_reason=None)
@@ -365,6 +413,7 @@ class KaggleCaptureEvidenceTests(unittest.TestCase):
             dispatch_journal_bytes=journal_bytes,
         )
         self.assertIsNotNone(output_tmp)
+        self.assertEqual(evidence["evidenceSchemaVersion"], "1.1.0")
         self.assertTrue(evidence["assemblyEligible"])
         self.assertEqual(
             evidence["modelCatalogBinding"],
@@ -397,6 +446,105 @@ class KaggleCaptureEvidenceTests(unittest.TestCase):
                 dispatch_journal_bytes=retained_journal,
             ),
             evidence,
+        )
+
+        legacy = json.loads(json.dumps(evidence))
+        legacy["evidenceSchemaVersion"] = "1.0.0"
+        legacy["id"] = _artifact_id(legacy)
+        with self.assertRaisesRegex(
+            KaggleCaptureEvidenceError, "schema validation failed"
+        ):
+            verify_capture_evidence(
+                legacy,
+                archive_bytes=archive_bytes,
+                payload_bytes=payload_bytes,
+                source_bytes=self.source_bytes,
+                dispatch_journal_bytes=journal_bytes,
+            )
+
+    def test_lost_schedule_response_reconciled_by_scheduler_is_bindable(self) -> None:
+        task_slug = SimpleNamespace(
+            owner_slug="owner",
+            task_slug=TASK_SLUG,
+            version_number=3,
+        )
+        scheduler_task = SimpleNamespace(
+            slug=task_slug,
+            creation_state="BENCHMARK_TASK_VERSION_CREATION_STATE_COMPLETED",
+            source_kernel_id=12345,
+            url=f"https://www.kaggle.com/benchmarks/owner/{TASK_SLUG}/3",
+        )
+        scheduler_model = SimpleNamespace(
+            id=141,
+            version=SimpleNamespace(
+                id=139,
+                slug=GEMMA_SCHEDULED_SLUG,
+                published=True,
+                allow_model_proxy=True,
+                model_proxy_slug=GEMMA_PROXY_SLUG,
+                display_name="Gemma 4 26B A4B",
+                deprecation_time=None,
+            ),
+        )
+        scheduler_run = SimpleNamespace(
+            task_slug=task_slug,
+            model_version_slug=GEMMA_SCHEDULED_SLUG,
+            id=24680,
+            state="BENCHMARK_TASK_RUN_STATE_RUNNING",
+            start_time=datetime(2026, 9, 21, 23, 59, tzinfo=timezone.utc),
+            end_time=None,
+            error_message="",
+        )
+        refill = datetime(2026, 9, 24, tzinfo=timezone.utc)
+        quota = SimpleNamespace(
+            quota_balances=[
+                SimpleNamespace(
+                    refill_period=period,
+                    quota_used=0.1,
+                    total_quota_allowed=allowance,
+                    refill_time=refill,
+                )
+                for period, allowance in (("DAILY", 10.0), ("MONTHLY", 100.0))
+            ]
+        )
+        run_snapshots = iter([[], [scheduler_run]])
+        schedule = mock.Mock(side_effect=ConnectionError("response lost"))
+        journal_tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(journal_tmp.cleanup)
+        journal_path = Path(journal_tmp.name) / "run-journal.json"
+        journal = schedule_and_reconcile_once(
+            owner="owner",
+            task=TASK_SLUG,
+            version=3,
+            model=GEMMA_SCHEDULED_SLUG,
+            journal_path=journal_path,
+            fetch_task=lambda: scheduler_task,
+            fetch_model=lambda: scheduler_model,
+            fetch_runs=lambda: next(run_snapshots),
+            fetch_quota=lambda: quota,
+            schedule_run=schedule,
+            client_versions={"python": "3.13.7", "kaggle": "2.2.4"},
+            reconcile_delays=(0,),
+            clock=lambda: "2026-09-22T00:00:00Z",
+            sleeper=lambda _delay: None,
+        )
+        schedule.assert_called_once_with()
+        self.assertEqual(journal["state"], "reconciled")
+        self.assertIsNone(journal["response"])
+        self.assertEqual(journal["dispatchFailure"]["type"], "ConnectionError")
+
+        journal_bytes = journal_path.read_bytes()
+        payload_bytes = self._payload_bytes(model_slug=GEMMA_PROXY_SLUG)
+        evidence, _, output_tmp = self._write(
+            archive_bytes=_archive(payload_bytes, self.source_bytes),
+            run_info=_run_info(model=GEMMA_SCHEDULED_SLUG),
+            dispatch_journal_bytes=journal_bytes,
+        )
+        self.assertIsNotNone(output_tmp)
+        self.assertTrue(evidence["assemblyEligible"])
+        self.assertEqual(
+            evidence["modelCatalogBinding"]["scheduledSlug"],
+            GEMMA_SCHEDULED_SLUG,
         )
 
     def test_catalog_alias_requires_one_exact_runtime_proxy_slug(self) -> None:
@@ -485,6 +633,24 @@ class KaggleCaptureEvidenceTests(unittest.TestCase):
     def test_dispatch_journal_identity_and_terminal_state_fail_closed(self) -> None:
         payload_bytes = self._payload_bytes(model_slug=GEMMA_PROXY_SLUG)
         archive_bytes = _archive(payload_bytes, self.source_bytes)
+        dispatch_with_response = json.loads(
+            _dispatch_journal_bytes(
+                dispatch_failure={"type": "Error", "message": "response lost"}
+            )
+        )
+        dispatch_with_response["response"] = json.loads(
+            _dispatch_journal_bytes()
+        )["response"]
+        dispatch_with_response_bytes = (
+            json.dumps(dispatch_with_response, sort_keys=True) + "\n"
+        ).encode("utf-8")
+        mismatched_observation = json.loads(_dispatch_journal_bytes())
+        mismatched_observation["reconciliation"]["observations"][-1][
+            "newRuns"
+        ] = []
+        mismatched_observation_bytes = (
+            json.dumps(mismatched_observation, sort_keys=True) + "\n"
+        ).encode("utf-8")
         cases = {
             "other-owner": (
                 _dispatch_journal_bytes(owner="other"),
@@ -510,11 +676,35 @@ class KaggleCaptureEvidenceTests(unittest.TestCase):
                 _dispatch_journal_bytes(state="dispatching"),
                 "not reconciled",
             ),
-            "dispatch-failure": (
+            "response-failure": (
                 _dispatch_journal_bytes(
-                    dispatch_failure={"type": "Error", "message": "failed"}
+                    response_failure={"type": "Error", "message": "invalid"}
                 ),
-                "retains dispatchFailure",
+                "retains responseFailure",
+            ),
+            "retained-failure": (
+                _dispatch_journal_bytes(
+                    failure={"type": "Error", "message": "ambiguous"}
+                ),
+                "retains failure",
+            ),
+            "invalid-dispatch-failure": (
+                _dispatch_journal_bytes(
+                    dispatch_failure={
+                        "type": "Error",
+                        "message": "response lost",
+                        "unexpected": "field",
+                    }
+                ),
+                "invalid dispatchFailure",
+            ),
+            "dispatch-failure-with-response": (
+                dispatch_with_response_bytes,
+                "both a response and dispatchFailure",
+            ),
+            "mismatched-final-observation": (
+                mismatched_observation_bytes,
+                "final observation is not one exact new run",
             ),
         }
         for name, (journal_bytes, message) in cases.items():

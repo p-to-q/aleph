@@ -98,6 +98,10 @@ numeric catalog IDs, and exact `modelProxySlug`, then retains an exact byte-for-
 and content-addressed binding. Without that journal, only the existing exact basename and frozen
 `model@revision` relationship are accepted.
 
+Catalog-bound envelopes use evidence schema `1.1.0`; unbound envelopes continue to use `1.0.0`.
+The verifier accepts both versions, but `1.0.0` cannot contain a `modelCatalogBinding`. The optional
+field is absent, never `null`.
+
 `kagglesdk==0.1.37` also drops `tzinfo` while deserializing Benchmark API timestamps whose service
 semantics are UTC. The binder restores UTC only for those typed SDK `datetime` values; arbitrary
 timestamp strings still pass through strict offset-aware validation.
@@ -137,6 +141,13 @@ not authorize another schedule request:
 - `ambiguous`: the request may have reached Kaggle, or the response/run-set identity contradicted;
 - `not_scheduled`: Kaggle explicitly skipped the request; and
 - `returned_unreconciled`: the paid request returned, but its unique run id was not yet proved.
+
+A reconciled journal has exactly one of two scheduler-authored success shapes: either the schedule
+response is present and `dispatchFailure` is absent, or the response was lost, `dispatchFailure`
+retains that transport exception, and the final successful read-only observation proves one exact
+new run equal to `reconciliation.run`. The binder accepts both shapes. It still rejects
+`responseFailure`, a non-null terminal `failure`, any non-reconciled state, and any mismatch in the
+task, run, model, or catalog record.
 
 Do not delete or overwrite a failed or ambiguous journal. It is the permanent attempt receipt.
 Quota movement is supporting evidence, not run identity; an unavailable quota-after read does not

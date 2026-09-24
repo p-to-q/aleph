@@ -32,7 +32,12 @@ EVIDENCE_SCHEMA_PATH = (
     REPO_ROOT
     / "schemas/v0.2/aleph-bench-kaggle-capture-evidence.schema.json"
 )
-EVIDENCE_SCHEMA_VERSION = "1.0.0"
+EVIDENCE_SCHEMA_VERSION = "1.1.0"
+LEGACY_EVIDENCE_SCHEMA_VERSION = "1.0.0"
+SUPPORTED_EVIDENCE_SCHEMA_VERSIONS = {
+    LEGACY_EVIDENCE_SCHEMA_VERSION,
+    EVIDENCE_SCHEMA_VERSION,
+}
 ARTIFACT_KIND = "aleph_bench_kaggle_capture_evidence"
 TARGET_PROTOCOL_VERSION = "0.2.0"
 ARTIFACT_ID_PREFIX = (
@@ -186,9 +191,16 @@ def _dispatch_journal_catalog_record(
         _fail("dispatch journal artifact kind is invalid")
     if _dispatch_journal_field(journal, "state", role="root") != "reconciled":
         _fail("dispatch journal is not reconciled")
-    for field in ("dispatchFailure", "responseFailure", "failure"):
-        if _dispatch_journal_field(journal, field, role="root") is not None:
-            _fail(f"dispatch journal retains {field}")
+    dispatch_failure = _dispatch_journal_field(
+        journal, "dispatchFailure", role="root"
+    )
+    if (
+        _dispatch_journal_field(journal, "responseFailure", role="root")
+        is not None
+    ):
+        _fail("dispatch journal retains responseFailure")
+    if _dispatch_journal_field(journal, "failure", role="root") is not None:
+        _fail("dispatch journal retains failure")
 
     operation_id = _dispatch_journal_field(
         journal, "operationId", role="root"
@@ -295,38 +307,59 @@ def _dispatch_journal_catalog_record(
         if before_id == run["id"]:
             _fail("dispatch journal preflight already contained the bound run")
 
-    response = _dispatch_journal_object(
-        _dispatch_journal_field(journal, "response", role="root"),
-        role="response",
-    )
-    if (
-        _dispatch_journal_field(response, "runScheduled", role="response")
-        is not True
-    ):
-        _fail("dispatch journal does not prove a scheduled run")
-    response_model_version_id = _dispatch_journal_positive_int(
-        _dispatch_journal_field(
-            response, "benchmarkModelVersionId", role="response"
-        ),
-        role="response model version ID",
-    )
-    if response_model_version_id != benchmark_model_version_id:
-        _fail("dispatch journal response model version ID drifted")
-    if (
-        _dispatch_journal_field(response, "runSkippedReason", role="response")
-        is not None
-        or _dispatch_journal_field(
-            response, "parentTaskVersionId", role="response"
+    response_value = _dispatch_journal_field(journal, "response", role="root")
+    if dispatch_failure is None:
+        response = _dispatch_journal_object(response_value, role="response")
+        if (
+            _dispatch_journal_field(response, "runScheduled", role="response")
+            is not True
+        ):
+            _fail("dispatch journal does not prove a scheduled run")
+        response_model_version_id = _dispatch_journal_positive_int(
+            _dispatch_journal_field(
+                response, "benchmarkModelVersionId", role="response"
+            ),
+            role="response model version ID",
         )
-        is not None
-    ):
-        _fail("dispatch journal response did not schedule the exact task version")
-    _dispatch_journal_positive_int(
-        _dispatch_journal_field(
-            response, "benchmarkTaskVersionId", role="response"
-        ),
-        role="internal task version ID",
-    )
+        if response_model_version_id != benchmark_model_version_id:
+            _fail("dispatch journal response model version ID drifted")
+        if (
+            _dispatch_journal_field(
+                response, "runSkippedReason", role="response"
+            )
+            is not None
+            or _dispatch_journal_field(
+                response, "parentTaskVersionId", role="response"
+            )
+            is not None
+        ):
+            _fail(
+                "dispatch journal response did not schedule the exact task version"
+            )
+        _dispatch_journal_positive_int(
+            _dispatch_journal_field(
+                response, "benchmarkTaskVersionId", role="response"
+            ),
+            role="internal task version ID",
+        )
+    else:
+        dispatch_failure = _dispatch_journal_object(
+            dispatch_failure, role="dispatchFailure"
+        )
+        if set(dispatch_failure) != {"type", "message"}:
+            _fail("dispatch journal has an invalid dispatchFailure record")
+        failure_type = dispatch_failure["type"]
+        failure_message = dispatch_failure["message"]
+        if (
+            not isinstance(failure_type, str)
+            or not failure_type
+            or len(failure_type) > 200
+            or not isinstance(failure_message, str)
+            or len(failure_message) > 2_000
+        ):
+            _fail("dispatch journal has an invalid dispatchFailure record")
+        if response_value is not None:
+            _fail("dispatch journal has both a response and dispatchFailure")
 
     reconciliation = _dispatch_journal_object(
         _dispatch_journal_field(journal, "reconciliation", role="root"),
@@ -336,6 +369,23 @@ def _dispatch_journal_catalog_record(
         _dispatch_journal_field(reconciliation, "run", role="reconciliation"),
         role="reconciliation.run",
     )
+    observations = _dispatch_journal_field(
+        reconciliation, "observations", role="reconciliation"
+    )
+    if not isinstance(observations, list) or not observations:
+        _fail("dispatch journal reconciliation has no observations")
+    final_observation = _dispatch_journal_object(
+        observations[-1], role="reconciliation final observation"
+    )
+    if "failure" in final_observation:
+        _fail("dispatch journal final observation is not successful")
+    final_new_runs = _dispatch_journal_field(
+        final_observation,
+        "newRuns",
+        role="reconciliation final observation",
+    )
+    if final_new_runs != [reconciled_run]:
+        _fail("dispatch journal final observation is not one exact new run")
     reconciled_identity = (
         _dispatch_journal_positive_int(
             _dispatch_journal_field(
@@ -704,8 +754,21 @@ def verify_capture_evidence(
         raise KaggleCaptureEvidenceError(
             "capture evidence schema validation failed"
         ) from None
-    if evidence["evidenceSchemaVersion"] != EVIDENCE_SCHEMA_VERSION:
+    if (
+        evidence["evidenceSchemaVersion"]
+        not in SUPPORTED_EVIDENCE_SCHEMA_VERSIONS
+    ):
         _fail("unsupported capture evidence schema version")
+    if (
+        evidence["evidenceSchemaVersion"] == LEGACY_EVIDENCE_SCHEMA_VERSION
+        and "modelCatalogBinding" in evidence
+    ):
+        _fail("legacy capture evidence cannot contain a model catalog binding")
+    if (
+        evidence["evidenceSchemaVersion"] == EVIDENCE_SCHEMA_VERSION
+        and "modelCatalogBinding" not in evidence
+    ):
+        _fail("capture evidence schema 1.1 requires a model catalog binding")
     if evidence["artifactKind"] != ARTIFACT_KIND:
         _fail("capture evidence artifact kind mismatch")
     if evidence["targetProtocolVersion"] != TARGET_PROTOCOL_VERSION:
@@ -860,7 +923,11 @@ def write_capture_evidence_bundle(
     dispatch_journal_path = output_dir / bundle_names["dispatchJournal"]
     evidence_path = output_dir / f"{stem}-evidence.json"
     evidence = {
-        "evidenceSchemaVersion": EVIDENCE_SCHEMA_VERSION,
+        "evidenceSchemaVersion": (
+            EVIDENCE_SCHEMA_VERSION
+            if catalog_record is not None
+            else LEGACY_EVIDENCE_SCHEMA_VERSION
+        ),
         "artifactKind": ARTIFACT_KIND,
         "targetProtocolVersion": TARGET_PROTOCOL_VERSION,
         "leaderboardEligible": False,

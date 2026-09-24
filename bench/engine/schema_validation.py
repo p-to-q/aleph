@@ -68,6 +68,14 @@ def validate(instance: Any, schema: dict[str, Any], root: dict[str, Any] | None 
         for option in schema["allOf"]:
             validate(instance, option, root, path)
 
+    if "not" in schema:
+        try:
+            validate(instance, schema["not"], root, path)
+        except SchemaValidationError:
+            pass
+        else:
+            raise SchemaValidationError(f"{path}: matched a forbidden schema")
+
     if "if" in schema:
         try:
             validate(instance, schema["if"], root, path)

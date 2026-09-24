@@ -19,7 +19,7 @@
     "id"
   ],
   "properties": {
-    "evidenceSchemaVersion": {"const": "1.0.0"},
+    "evidenceSchemaVersion": {"enum": ["1.0.0", "1.1.0"]},
     "artifactKind": {"const": "aleph_bench_kaggle_capture_evidence"},
     "targetProtocolVersion": {"const": "0.2.0"},
     "leaderboardEligible": {"const": false},
@@ -31,17 +31,38 @@
     "archive": {"$ref": "#/$defs/archive"},
     "payload": {"$ref": "#/$defs/payload"},
     "source": {"$ref": "#/$defs/source"},
-    "modelCatalogBinding": {
-      "anyOf": [
-        {"$ref": "#/$defs/modelCatalogBinding"},
-        {"type": "null"}
-      ]
-    },
+    "modelCatalogBinding": {"$ref": "#/$defs/modelCatalogBinding"},
     "id": {
       "type": "string",
       "pattern": "^aleph-bench-kaggle-capture-evidence-v1-artifact-[0-9a-f]{64}$"
     }
   },
+  "allOf": [
+    {
+      "if": {
+        "type": "object",
+        "properties": {"evidenceSchemaVersion": {"const": "1.0.0"}},
+        "required": ["evidenceSchemaVersion"]
+      },
+      "then": {
+        "not": {
+          "type": "object",
+          "required": ["modelCatalogBinding"]
+        }
+      }
+    },
+    {
+      "if": {
+        "type": "object",
+        "properties": {"evidenceSchemaVersion": {"const": "1.1.0"}},
+        "required": ["evidenceSchemaVersion"]
+      },
+      "then": {
+        "type": "object",
+        "required": ["modelCatalogBinding"]
+      }
+    }
+  ],
   "$defs": {
     "sha256": {
       "type": "string",
