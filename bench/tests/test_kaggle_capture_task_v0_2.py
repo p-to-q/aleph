@@ -215,7 +215,6 @@ class OpenAI:
         image: Any = None,
         video: Any = None,
         audio: Any = None,
-        reasoning: str | None = None,
         extra_api_params: dict[str, Any] | None = None,
     ) -> Any:
         del schema, tools, image, video, audio
@@ -225,7 +224,6 @@ class OpenAI:
                 "text": text,
                 "seed": seed,
                 "temperature": temperature,
-                "reasoning": reasoning,
                 "extra_api_params": extra_api_params,
             }
         )
@@ -356,7 +354,8 @@ class KaggleCaptureTaskV02Tests(unittest.TestCase):
         self.assertEqual(payload["calls"]["terminalCallCount"], 6)
         self.assertEqual(chats.names, [row["conversationName"] for row in payload["rows"]])
         self.assertFalse(_contains_score_key(payload))
-        self.assertTrue(all(call["reasoning"] == "none" for call in llm.calls))
+        self.assertIsNone(payload["requestPolicy"]["reasoning"])
+        self.assertNotIn("reasoning=REQUEST_POLICY", OUTPUT_PATH.read_text(encoding="utf-8"))
         self.assertTrue(all(call["seed"] == 0 for call in llm.calls))
         self.assertTrue(all(call["temperature"] == 0 for call in llm.calls))
         self.assertTrue(

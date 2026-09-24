@@ -32,7 +32,7 @@ from bench.engine.scoring_core import validate_scoring_runtime
 
 OUTPUT_PATH = ROOT / "bench/tasks/kaggle/aleph_bench_v0_2_capture.py"
 TASK_NAME = "aleph_bench_v0_2_capture_canary"
-TASK_VERSION = 2
+TASK_VERSION = 3
 TASK_DESCRIPTION = (
     "Capture the fixed Aleph-Bench v0.2 six-call Kaggle canary without scoring."
 )
@@ -138,7 +138,11 @@ def _generation_context() -> dict[str, Any]:
         "maxOutputTokens": MAX_OUTPUT_TOKENS,
         "nearCapMarginTokens": NEAR_CAP_MARGIN_TOKENS,
         "seed": 0,
-        "reasoning": "none",
+        # Kaggle documents reasoning as an optional model capability. Passing
+        # even "none" to an unsupported proxy model produces a provider-side
+        # BadRequestError, so the cross-provider capture profile records and
+        # uses the provider default instead of sending a reasoning override.
+        "reasoning": None,
     }
     full_shard_plan_sha256 = canonical_json_sha256(
         {
@@ -598,7 +602,7 @@ def _model_preflight(llm):
     else:
         raise ValueError("unsupported model transport")
     parameters = inspect.signature(llm.prompt).parameters
-    required = {"reasoning", "seed", "temperature", "extra_api_params"}
+    required = {"seed", "temperature", "extra_api_params"}
     if not required.issubset(parameters):
         raise ValueError("Kaggle prompt API is incompatible")
     retry_error = _transport_retry_preflight(llm, model_type)
@@ -989,15 +993,16 @@ def run_capture_canary(
         active = {"call": copy.deepcopy(call), "state": "dispatching", "updatedAt": clock()}
         publish(model)
         try:
-            output = llm.prompt(
-                call["promptText"],
-                reasoning=REQUEST_POLICY["reasoning"],
-                seed=REQUEST_POLICY["seed"],
-                temperature=REQUEST_POLICY["temperature"],
-                extra_api_params={
+            prompt_kwargs = {
+                "seed": REQUEST_POLICY["seed"],
+                "temperature": REQUEST_POLICY["temperature"],
+                "extra_api_params": {
                     token_parameter: REQUEST_POLICY["maxOutputTokens"]
                 },
-            )
+            }
+            if REQUEST_POLICY["reasoning"] is not None:
+                prompt_kwargs["reasoning"] = REQUEST_POLICY["reasoning"]
+            output = llm.prompt(call["promptText"], **prompt_kwargs)
         except BaseException as exc:
             if not isinstance(exc, Exception):
                 try:
