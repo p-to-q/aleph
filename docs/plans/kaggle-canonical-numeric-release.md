@@ -10,7 +10,7 @@ Reference protocol: `0.2.0`
 
 Portable release candidate: `0.3.0` (provisional until the compatibility proof passes)
 
-Last updated: 2026-09-23
+Last updated: 2026-09-25
 
 ## Outcome
 
@@ -242,10 +242,29 @@ scheduler.
 5. **900 calls:** one private numeric release candidate.
 6. **2 × 900 calls:** a second provider only after the first exact run and independent replay pass.
 
-Before the numeric Task exists, cap daily canaries at `$0.50`; schedule one model at a time and
-retain/reconcile its evidence before the next. Stop if a six-call canary exceeds `$0.10`, the receipt
-is incomplete, output approaches the cap, usage/model identity drifts, or Task/run binding is not
-unique.
+As of 2026-09-25, while the strict assembler/replay gate in
+[#67](https://github.com/p-to-q/aleph/issues/67) is still open, the active controller remains in the
+six-call canary stage. It targets 8–12 previously untested exact model versions per daily cycle when
+the catalog still has useful coverage gaps, with these controls:
+
+- schedule one model at a time and retain/reconcile its exact journal and evidence before the next;
+- stop at soft aggregate ceilings of `$9` per day and `$95` per month;
+- make a conservative cost check before each dispatch and reserve `$1` when no trustworthy estimate
+  exists;
+- stop before any run estimated above `$1`, and stop on an incomplete receipt, near-cap output,
+  usage/model identity drift, ambiguous Task/run binding, or insufficient remaining margin; and
+- never repeat a covered model merely to consume quota.
+
+These figures are safety ceilings, not spending targets or benchmark-completeness claims. The
+one-shot scheduler records quota observations but does not itself enforce the aggregate `$9/$95`
+policy, so the scheduled controller or human operator must enforce it before every dispatch. A
+machine-enforced aggregate budget gate is required before unattended 30-call or 900-call runs.
+
+The original `$0.50` daily, `$0.10` per-canary, and `$20` monthly-reserve figures were the initial
+pilot limits. They were superseded only after the one-shot scheduler and bound evidence path passed
+the cross-provider canary matrix recorded in
+[#59](https://github.com/p-to-q/aleph/issues/59#issuecomment-5807315188); the historical runs remain
+canaries and do not become scores.
 
 For full runs, use the observed six-call cost only as a planning estimate:
 
@@ -253,9 +272,11 @@ For full runs, use the observed six-call cost only as a planning estimate:
 estimated_900_call_cost = 150 × observed_6_call_cost
 ```
 
-Retain at least `$2.00` or 20% of the daily quota, whichever is larger, for failure investigation
-and required verification. Retain `$20` of monthly quota until the first release is public and live
-readback passes. Never blind-rerun a failed 900-call attempt on the same day.
+Before the first 30-call or 900-call run, issue #59 must record a fresh full-run budget and reserve
+from live quota and observed canary costs; the canary `$9/$95` ceilings do not authorize that
+transition. Retain at least `$2.00` or 20% of the daily quota, whichever is larger, for failure
+investigation and required verification. Never blind-rerun a failed 900-call attempt on the same
+day.
 
 The first formal RC order is:
 
