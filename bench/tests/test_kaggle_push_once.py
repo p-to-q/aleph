@@ -12,6 +12,7 @@ from bench.engine.kaggle_push_once import (
     KagglePushOnceError,
     KagglePushOutcomeAmbiguous,
     _normalize_response,
+    _is_http_not_found,
     dispatch_create_once,
     preflight_and_dispatch_once,
     push_capture_once,
@@ -49,6 +50,17 @@ class HardStop(BaseException):
 
 
 class KagglePushOnceTests(unittest.TestCase):
+    def test_only_http_404_means_remote_task_is_missing(self) -> None:
+        for status_code in (401, 403, 429, 500, None):
+            with self.subTest(status_code=status_code):
+                error = RuntimeError("remote preflight failed")
+                error.response = SimpleNamespace(status_code=status_code)  # type: ignore[attr-defined]
+                self.assertFalse(_is_http_not_found(error))
+
+        missing = RuntimeError("not found")
+        missing.response = SimpleNamespace(status_code=404)  # type: ignore[attr-defined]
+        self.assertTrue(_is_http_not_found(missing))
+
     def test_capture_task_identity_is_supported_without_weakening_diagnostic_default(self) -> None:
         response = _task_response(
             task=push_once.CAPTURE_TASK_SLUG,

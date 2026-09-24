@@ -347,7 +347,9 @@ def _verify_planned_calls(payload: dict[str, Any]) -> list[dict[str, Any]]:
 def _verify_usage(usage: dict[str, Any], *, role: str) -> None:
     for field in ("inputCostNanodollars", "outputCostNanodollars"):
         value = usage[field]
-        if value is not None and (not value.isdigit() or len(value) > 40):
+        if value is not None and (
+            not value.isascii() or not value.isdigit() or len(value) > 40
+        ):
             _fail(f"{role}.{field} must be a bounded unsigned integer string")
 
 

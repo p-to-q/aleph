@@ -253,6 +253,7 @@ MAX_SCORING_TEXT_CODEPOINTS = 16_384
 MAX_PACKAGE_FILES = 32
 MAX_PACKAGE_BYTES = 32 * 1024 * 1024
 MAX_KAGGLE_INPUT_ENTRIES = 256
+MAX_PACKAGE_DISCOVERY_REASON_CODEPOINTS = 240
 _CLEAN_FINISH_REASONS = frozenset({"stop", "end_turn", "eos", "completed"})
 _TOKEN_LIMIT_FINISH_REASONS = frozenset(
     {"length", "max_tokens", "max_output_tokens", "token_limit", "MAX_TOKENS"}
@@ -543,17 +544,30 @@ def _resolve_and_verify_package(package_root, *, input_root=KAGGLE_INPUT_ROOT):
 
     matches = []
     inspected = 0
+    first_validation_error = None
     for candidate in _kaggle_package_candidates(input_root):
         try:
             _verify_package(candidate)
-        except (FileNotFoundError, NotADirectoryError, ValueError):
+        except (FileNotFoundError, NotADirectoryError):
             inspected += 1
+            continue
+        except ValueError as exc:
+            inspected += 1
+            reason = str(exc)
+            if first_validation_error is None and reason:
+                first_validation_error = reason[:MAX_PACKAGE_DISCOVERY_REASON_CODEPOINTS]
             continue
         matches.append(candidate)
     if len(matches) != 1:
+        validation_detail = (
+            f"; first validation error: {first_validation_error}"
+            if first_validation_error is not None
+            else ""
+        )
         raise ValueError(
             "expected exactly one hash-verified package mount in supported "
-            f"Kaggle layouts; found {len(matches)} across {inspected + len(matches)} candidates"
+            f"Kaggle layouts; found {len(matches)} across "
+            f"{inspected + len(matches)} candidates{validation_detail}"
         )
     return matches[0]
 
