@@ -279,14 +279,39 @@ python3.13 -m bench.engine.kaggle_run_once \
   --task TASK \
   --version VERSION \
   --model CANONICAL-MODEL-VERSION \
+  --creation-journal /absolute/private/evidence/push-journal.json \
   --journal /absolute/private/evidence/run-journal.json
 ```
 
 List canonical model-version slugs with `kaggle benchmarks tasks models`. Never use a provider path
 or mutable `@` alias as the scheduler input. A `reconciled` journal is the only successful outcome.
 `ambiguous`, `not_scheduled`, an existing journal, a conflicting active run, model-catalog drift,
-parent-version redirection, or a non-unique run-set difference is a hard stop. Inspect and reconcile
-read-only; do not choose a new journal and dispatch the same run again.
+an existing run for the same exact model, parent-version redirection, or a non-unique run-set
+difference is a hard stop. Inspect and reconcile read-only; do not choose a new journal and dispatch
+the same run again.
+
+The creation journal must be the exact canonical `kaggle_push_once` receipt for this Task version.
+The scheduler verifies its current generated source and deterministic notebook identity before it
+creates the run journal or schedules a paid run, then resolves and binds the exact source-kernel
+readback. Any generated source change requires a new one-shot Task version; older immutable Task
+versions do not receive compatibility exceptions.
+
+Immediately before the paid boundary, the scheduler atomically creates a durable model claim in a
+private sidecar directory beside the original creation journal. Its name is derived from the exact
+receipt/task/model rather than the chosen run-journal path, so concurrent local attempts for the
+same exact model and a second local journal path cannot both dispatch. Different models must still
+be scheduled one at a time. After all remote preflight reads and immediately before that claim, it
+revalidates both the current generated source and the original receipt bytes.
+Retain the claim permanently. This is a same-host,
+same-receipt-filesystem guard, not a distributed lock: never copy the creation receipt into another
+control directory or schedule the same Task version from another host.
+
+For evidence download, `--run-id` and `--dispatch-journal` are inseparable. The journal must use
+version 2 and carry verified creation authority. Legacy v1 journals are not accepted by the current
+evidence path; historical recovery requires a separate reviewed authority migration. An unbound
+evidence-schema 1.0 bundle may remain readable as diagnostic history, but it is always
+`assemblyEligible: false`; removing an authority binding cannot preserve an assembly-eligible
+artifact.
 
 Even a complete receipt has `evidenceMode: "none"`, `protocolConformant: false`,
 `leaderboardEligible: false`, `publicationEligible: false`, and `diagnosticScalar: null`. It proves
