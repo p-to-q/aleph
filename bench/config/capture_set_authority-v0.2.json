@@ -1,0 +1,6 @@
+{
+  "artifactKind": "aleph_bench_capture_set_authority_registry",
+  "canonicalScoringAuthorities": [],
+  "registrySchemaVersion": "1.0.0",
+  "targetProtocolVersion": "0.2.0"
+}

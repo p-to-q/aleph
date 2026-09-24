@@ -294,6 +294,26 @@ only that this small transport-and-capture path worked; it is not AURC, a model 
 to schedule a canonical v0.2 run. See the
 [Kaggle deployment diagnostic runbook](../docs/benchmark/kaggle-diagnostic-runbook.md).
 
+### Assemble score-free capture evidence offline
+
+`bench.engine.kaggle_capture_evidence.load_verified_capture_bundle` is the public loader for one
+explicit evidence filename. It accepts only a bounded, closed-world directory of single-link
+regular files and reruns the full archive, payload, source, dispatch-journal, and envelope verifier.
+`bench.engine.capture_set_receipt.assemble_capture_set_receipt` compares those verified snapshots
+with one content-addressed scope plan, rejects gaps, overlaps, duplicates, identity drift, and shard
+order drift, then emits a deterministic score-free `CaptureSetReceipt`.
+
+The only current authority plan is returned by `transport_canary_scope_plan()`: six calls, six
+prompts, three touched items, rerun zero, and zero complete canonical items. Its 2,048-token capture
+policy is not the formal v0.2 hosted 512-token policy. The canonical authority registry is therefore
+checked in empty, and no current or synthetic receipt can set `canonicalScoringInputEligible` true.
+Adding an exact formal scope-plan id, request-policy digest, and content-addressed model mapping is a
+separate review gate; a receipt never contains a score, `BenchManifest`, or `BenchResult`.
+Serialization checks schema, content identity, and internal consistency, but it does not establish
+authority from receipt bytes alone. Before any scorer consumes a receipt, run
+`verify_capture_set_receipt` with the exact retained bundles, scope plan, and model mapping; that
+function rebuilds the receipt and compares every field.
+
 ### Replay a retained legacy Kaggle run
 
 A completed legacy Kaggle `*.run.json` retains the named conversations, raw assistant strings, and
