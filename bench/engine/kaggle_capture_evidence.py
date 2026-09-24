@@ -89,7 +89,11 @@ def _utc_now() -> str:
     )
 
 
-def _parse_time(value: str, *, role: str) -> datetime:
+def _parse_time(value: Any, *, role: str) -> datetime:
+    if not isinstance(value, str):
+        raise KaggleCaptureEvidenceError(
+            f"{role} is not a valid timestamp"
+        )
     try:
         parsed = datetime.fromisoformat(
             value[:-1] + "+00:00" if value.endswith("Z") else value

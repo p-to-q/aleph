@@ -731,6 +731,25 @@ class KaggleCaptureEvidenceTests(unittest.TestCase):
         boolean_journal_version_bytes = (
             json.dumps(boolean_journal_version, sort_keys=True) + "\n"
         ).encode("utf-8")
+        numeric_preflight_start = json.loads(_dispatch_journal_bytes())
+        numeric_preflight_start["remotePreflight"]["runs"][0][
+            "startTime"
+        ] = 123
+        numeric_preflight_start_bytes = (
+            json.dumps(numeric_preflight_start, sort_keys=True) + "\n"
+        ).encode("utf-8")
+        numeric_preflight_end = json.loads(_dispatch_journal_bytes())
+        numeric_preflight_end["remotePreflight"]["runs"][0]["endTime"] = 123
+        numeric_preflight_end_bytes = (
+            json.dumps(numeric_preflight_end, sort_keys=True) + "\n"
+        ).encode("utf-8")
+        numeric_observed_at = json.loads(_dispatch_journal_bytes())
+        numeric_observed_at["reconciliation"]["observations"][-1][
+            "observedAt"
+        ] = 123
+        numeric_observed_at_bytes = (
+            json.dumps(numeric_observed_at, sort_keys=True) + "\n"
+        ).encode("utf-8")
         cases = {
             "other-owner": (
                 _dispatch_journal_bytes(owner="other"),
@@ -809,6 +828,18 @@ class KaggleCaptureEvidenceTests(unittest.TestCase):
             "boolean-journal-version": (
                 boolean_journal_version_bytes,
                 "version is unsupported",
+            ),
+            "numeric-preflight-start-time": (
+                numeric_preflight_start_bytes,
+                "not a valid timestamp",
+            ),
+            "numeric-preflight-end-time": (
+                numeric_preflight_end_bytes,
+                "not a valid timestamp",
+            ),
+            "numeric-observation-time": (
+                numeric_observed_at_bytes,
+                "not a valid timestamp",
             ),
         }
         for name, (journal_bytes, message) in cases.items():
