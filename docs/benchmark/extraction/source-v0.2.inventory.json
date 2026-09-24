@@ -5,9 +5,9 @@
   },
   "digests": {
     "classifiedTreeAlgorithm": "sha256-length-framed-canonical-file-records-v1",
-    "classifiedTreeSha256": "9fa59ddc181d6aeb06480cb31e4614b6282c639acef12f23fdab33ec3b65a119",
+    "classifiedTreeSha256": "a81a92a2075d3dbfbfa8fec606bf3e6c768d4e0e7e5e9506be80d6f6b5ef2a7e",
     "manifestAlgorithm": "sha256-canonical-json-without-manifest-sha256-v1",
-    "manifestSha256": "5204daf0521c7a5ad9be74b289737c066408f572d9a8d58e499d4545f3c87a7c"
+    "manifestSha256": "9e2bdbdc6bde35293b7967dc7903eb929c428b3df0bf039d2bbf7c8b1ea37791"
   },
   "dispositionCounts": {
     "copy": 78,
@@ -30,12 +30,12 @@
   ],
   "files": [
     {
-      "bytes": 3053,
+      "bytes": 11358,
       "destination": "LICENSE",
       "disposition": "copy",
-      "gitBlobSha1": "4c2da31fd0d47b72bf48c7ec48f790f5fb9f5668",
+      "gitBlobSha1": "d645695673349e3947e8e5ae42332d0ac3164cd7",
       "mode": "100644",
-      "sha256": "4be77629d2ee5053772585920ff695c06794e2e847d6b58188f7ef99f890d7c7",
+      "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
       "source": "LICENSE"
     },
     {
@@ -783,12 +783,12 @@
       "source": "bench/engine/frozen_ladder.py"
     },
     {
-      "bytes": 32790,
+      "bytes": 32835,
       "destination": "bench/engine/kaggle_capture.py",
       "disposition": "copy",
-      "gitBlobSha1": "c0cb20eb003bbd38c8ddcf669b94c5004a4e93b2",
+      "gitBlobSha1": "e1809172961296c2250dc1f64f5eabfcfa60ee34",
       "mode": "100644",
-      "sha256": "c1da55c7dc5cea0412daed079fdedcbb4b181efffa06ea1e006cd65a4010fc1c",
+      "sha256": "b5279b9c7ffcc012c1f1c94b61ba18a1cb1d8ddfc97d4d03c7189807624f4aac",
       "source": "bench/engine/kaggle_capture.py"
     },
     {
@@ -801,12 +801,12 @@
       "source": "bench/engine/kaggle_capture_evidence.py"
     },
     {
-      "bytes": 27842,
+      "bytes": 28239,
       "destination": "bench/engine/kaggle_creation_output.py",
       "disposition": "copy",
-      "gitBlobSha1": "02296129b2d9bf67a553eb52e099c20c5afbd2bc",
+      "gitBlobSha1": "55a2983cf934005602683d6b0aa8a4b54c276d19",
       "mode": "100644",
-      "sha256": "887c0456ecdebeb7aed5bb58585bcd9cc66712bd299ccbd03cda570d456999b0",
+      "sha256": "2e5675d49d4e4011b3ba13d5d3a3948dad0479770ad49c377e1ce4346a0bfc8f",
       "source": "bench/engine/kaggle_creation_output.py"
     },
     {
@@ -819,12 +819,12 @@
       "source": "bench/engine/kaggle_diagnostic_receipt.py"
     },
     {
-      "bytes": 22429,
+      "bytes": 22399,
       "destination": "bench/engine/kaggle_push_once.py",
       "disposition": "copy",
-      "gitBlobSha1": "8840b2a116eb9aa8541faa144cd403e559a8b854",
+      "gitBlobSha1": "e11caa1789375e9478ee8b77f11e9230f85ba490",
       "mode": "100644",
-      "sha256": "a609de7aeda3fbc3ed6d14a9354cdeeaa1c893b247d267faf55b9e8c2d908071",
+      "sha256": "be7681cc2d9289dab8555aa47bc7989e658aaf4bdd2b256c3d5635f0c2f42f42",
       "source": "bench/engine/kaggle_push_once.py"
     },
     {
@@ -866,12 +866,12 @@
       "source": "bench/engine/legacy_v0_1.py"
     },
     {
-      "bytes": 5851,
+      "bytes": 6443,
       "destination": "bench/engine/manifest.py",
       "disposition": "copy",
-      "gitBlobSha1": "600c23e3c69594e309b25bd6468586260e140ed7",
+      "gitBlobSha1": "d3fcfc0adf7e19c631dcfeb514240b088af2f0e8",
       "mode": "100644",
-      "sha256": "c5d615dd277d5c5df475790405f33c8d1bf28c3efe99ada7afdfc9fdf1197d54",
+      "sha256": "8e644fd0dda6535e02361ae6f6a095f9197d607969e19462349c70f3e688cea3",
       "source": "bench/engine/manifest.py"
     },
     {
@@ -1375,12 +1375,12 @@
       "source": "bench/run.py"
     },
     {
-      "bytes": 39500,
+      "bytes": 40039,
       "destination": "bench/tasks/kaggle/aleph_bench_v0_2_capture.py",
       "disposition": "regenerate",
-      "gitBlobSha1": "76dd05585bd35ac983d3ff92a30da2460e00be3f",
+      "gitBlobSha1": "5583aec77ad3b76b2f72551a61c8a262e5c4c2e3",
       "mode": "100644",
-      "sha256": "a1aff9e2feaa63c67da97c5a5c345f5befc983f8e3ec15516581eecbca45a68c",
+      "sha256": "2bdbbd04d082d82374786b5f38e57b4765346c48738d2baef076613cdb516382",
       "source": "bench/tasks/kaggle/aleph_bench_v0_2_capture.py"
     },
     {
@@ -1393,12 +1393,12 @@
       "source": "bench/tasks/kaggle/aleph_bench_v0_2_diagnostic.py"
     },
     {
-      "bytes": 40964,
+      "bytes": 41503,
       "destination": "bench/tasks/kaggle/generate_v0_2_capture.py",
       "disposition": "copy",
-      "gitBlobSha1": "823a955abb8b439d20b3480a830b245d91ded368",
+      "gitBlobSha1": "1b7a5137fe735218f39baf5da67be7f896e60bb6",
       "mode": "100644",
-      "sha256": "00341bedb2fb7b6aad0c26d6947dc164486eda241603c2346f9c429cef2275e8",
+      "sha256": "64bd7cda18e70fb56337411e199a9f0b75e1e35e196b0a68f1622d75debd8984",
       "source": "bench/tasks/kaggle/generate_v0_2_capture.py"
     },
     {
@@ -1440,12 +1440,12 @@
       "source": "bench/tests/fixtures/kaggle/minimal-run.json"
     },
     {
-      "bytes": 38900,
+      "bytes": 39836,
       "destination": "bench/tests/test_kaggle_capture.py",
       "disposition": "copy",
-      "gitBlobSha1": "dd3ca02c921cc273ac90b0a7a5bf0b0f5366d0f6",
+      "gitBlobSha1": "2e56dc2cddb03fd20abedb5ac975f28a5a7593f7",
       "mode": "100644",
-      "sha256": "6a6f457ee81f0b7ea37f8afb4b99e5fcac60447f20b50e044ec9dca320a8777d",
+      "sha256": "79de2f2b07a7471f0a15726e58e890eaabccaff42d572f448ff8513fa72fc5b1",
       "source": "bench/tests/test_kaggle_capture.py"
     },
     {
@@ -1458,21 +1458,21 @@
       "source": "bench/tests/test_kaggle_capture_evidence.py"
     },
     {
-      "bytes": 24745,
+      "bytes": 26784,
       "destination": "bench/tests/test_kaggle_capture_task_v0_2.py",
       "disposition": "copy",
-      "gitBlobSha1": "d8f1bd825554224814b1a89f326240766c008345",
+      "gitBlobSha1": "c3ff2e532a6d0c4b71078031ef4170479355d572",
       "mode": "100644",
-      "sha256": "f657c2facb21f750e3eb30e2243ea1e5ebe9e8c04f8479d7159903ba1bfa2abe",
+      "sha256": "7a9622c985db826e661618bd2a3472a0598f8974152c2657bd122946c1b789e8",
       "source": "bench/tests/test_kaggle_capture_task_v0_2.py"
     },
     {
-      "bytes": 31445,
+      "bytes": 34293,
       "destination": "bench/tests/test_kaggle_creation_output.py",
       "disposition": "copy",
-      "gitBlobSha1": "6e0b45962e156f1e7c135adfe80b8c39b8c155b4",
+      "gitBlobSha1": "e89919b2c2f7267992915542c2a179966e559d91",
       "mode": "100644",
-      "sha256": "3a41079b7d0284d76458a6328866e45f70d4520e4160c64ee54363e30ff464b0",
+      "sha256": "2b78192d8b360456d7f6b176f4581ea80d6f479c470dbbff88804dcd310a28ba",
       "source": "bench/tests/test_kaggle_creation_output.py"
     },
     {
@@ -1494,12 +1494,12 @@
       "source": "bench/tests/test_kaggle_diagnostic_v0_2.py"
     },
     {
-      "bytes": 18006,
+      "bytes": 22422,
       "destination": "bench/tests/test_kaggle_push_once.py",
       "disposition": "copy",
-      "gitBlobSha1": "97ca2ec30b45f131ef4793a61cc79c7a7b0261c8",
+      "gitBlobSha1": "d20cff20530c860872895a74dced2829ec462b6d",
       "mode": "100644",
-      "sha256": "8702afb114ec2622975ee5112491515a95fecc2b07de68d0e789bbb05ab8011d",
+      "sha256": "83851eb68395513a0c9d0cc1ed39b3f6f65148142ac63c0050f8fa642499372b",
       "source": "bench/tests/test_kaggle_push_once.py"
     },
     {
@@ -1522,13 +1522,13 @@
       "source": "bench/tests/test_kaggle_run_once.py"
     },
     {
-      "bytes": 48238,
+      "bytes": 48243,
       "destination": null,
       "disposition": "exclude",
       "exclusion": "legacy-v0.1",
-      "gitBlobSha1": "2862663d960ff3f728f78f810885c43a5545dcc9",
+      "gitBlobSha1": "8d15343290e2a54665e7adc514c14f9283a808f9",
       "mode": "100644",
-      "sha256": "e0ca771312cab9cde04bc4ce902df6f1ccfcae60f988497ec1865b5241491290",
+      "sha256": "4e4da51b51709d6f82d42c016c7a5ec9e12a65297726dfaa526fe05953097396",
       "source": "bench/tests/test_m0.py"
     },
     {
@@ -1569,12 +1569,12 @@
       "source": "bench/tests/test_v0_1_immutable.py"
     },
     {
-      "bytes": 10798,
+      "bytes": 11483,
       "destination": "bench/tests/test_v0_2_verify.py",
       "disposition": "copy",
-      "gitBlobSha1": "33d59c169ac72eed2f78139f21566358ba08e37c",
+      "gitBlobSha1": "5abc8a5028fe7bec1902a9f7dd73c11287893099",
       "mode": "100644",
-      "sha256": "a27322b0cb48b48841727ff494e0db6be5b652c9245162424cbe5840b7fdb9ae",
+      "sha256": "4b0559a4085689987710698c9a13043404e99f49e32fa298252439d7faae6286",
       "source": "bench/tests/test_v0_2_verify.py"
     },
     {
@@ -1771,7 +1771,7 @@
     "trackedFiles": 181
   },
   "source": {
-    "commit": "087cca087da05714a5d7246ab0bb20adcc3012cd",
+    "commit": "10abdc1368439d1ab454ee3862a59e14b67a9530",
     "gitObjectFormat": "sha1",
     "ref": "refs/heads/benchmark/source-v0.2",
     "repository": "https://github.com/p-to-q/aleph"

@@ -22,11 +22,21 @@ from pathlib import Path, PurePosixPath
 from typing import Any
 
 
-PINNED_COMMIT = "087cca087da05714a5d7246ab0bb20adcc3012cd"
+PINNED_COMMIT = "10abdc1368439d1ab454ee3862a59e14b67a9530"
 SOURCE_REPOSITORY = "https://github.com/p-to-q/aleph"
 SOURCE_REF = "refs/heads/benchmark/source-v0.2"
 DESTINATION_REPOSITORY = "https://github.com/p-to-q/aleph-benchmark"
 MANIFEST_PATH = Path("docs/benchmark/extraction/source-v0.2.inventory.json")
+
+# This is the byte-for-byte response from Apache's canonical license endpoint,
+# including its leading and trailing line feeds. Keep the expectation outside
+# the generated manifest so ``--write`` cannot bless an abridged license.
+EXPECTED_FIXED_SOURCE_CONTENT = {
+    "LICENSE": {
+        "bytes": 11_358,
+        "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+    },
+}
 
 OWNED_PREFIX_COUNTS = {
     "bench/": 160,
@@ -59,6 +69,20 @@ TREE_DOMAIN = b"aleph-bench-extraction-inventory-tree-v1\0"
 
 class InventoryError(RuntimeError):
     """Raised when the pinned source or checked-in manifest is inconsistent."""
+
+
+def _validate_fixed_source_content(
+    *, path: str, byte_count: int, sha256: str
+) -> None:
+    expected = EXPECTED_FIXED_SOURCE_CONTENT.get(path)
+    if expected is None:
+        return
+    if byte_count != expected["bytes"] or sha256 != expected["sha256"]:
+        raise InventoryError(
+            f"fixed source content differs at {path}: "
+            f"expected bytes={expected['bytes']} sha256={expected['sha256']}, "
+            f"found bytes={byte_count} sha256={sha256}"
+        )
 
 
 def _numbered_paths(prefix: str, start: int, end: int, suffix: str) -> set[str]:
@@ -426,6 +450,12 @@ def _build_manifest(root: Path) -> dict[str, Any]:
                 f"Git blob size mismatch at {path}: ls-tree={facts['bytes']}, "
                 f"cat-file={len(blob)}"
             )
+        blob_sha256 = hashlib.sha256(blob).hexdigest()
+        _validate_fixed_source_content(
+            path=path,
+            byte_count=len(blob),
+            sha256=blob_sha256,
+        )
         disposition, destination, exclusion = _classification(path)
         record: dict[str, Any] = {
             "bytes": len(blob),
@@ -433,7 +463,7 @@ def _build_manifest(root: Path) -> dict[str, Any]:
             "disposition": disposition,
             "gitBlobSha1": facts["gitBlobSha1"],
             "mode": facts["mode"],
-            "sha256": hashlib.sha256(blob).hexdigest(),
+            "sha256": blob_sha256,
             "source": path,
         }
         if exclusion is not None:
