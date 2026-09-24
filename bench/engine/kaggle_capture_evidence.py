@@ -59,6 +59,7 @@ MAX_NOTEBOOK_BYTES = 16_777_216
 MAX_DISPATCH_JOURNAL_BYTES = 16_777_216
 MAX_EVIDENCE_BYTES = 1_048_576
 MAX_BUNDLE_FILES = 6
+LEGACY_ORIGINAL_DISPATCH_JOURNAL = "run-journal.json"
 _MAX_TRUSTED_ROOT_ALIAS_EXPANSIONS = 16
 
 
@@ -1475,16 +1476,50 @@ def _read_bundle_member(
     return data
 
 
-def load_verified_capture_bundle(
+def _write_bundle_member(
+    directory_fd: int,
+    name: str,
+    data: bytes,
+) -> None:
+    """Durably create one bounded bundle member relative to an open directory."""
+
+    name = _bundle_basename(name, role="destination bundle member")
+    if not data:
+        _fail("destination bundle member must not be empty")
+    required_flags = ("O_NOFOLLOW", "O_CLOEXEC")
+    if (
+        any(not hasattr(os, flag) for flag in required_flags)
+        or os.open not in os.supports_dir_fd
+        or os.unlink not in os.supports_dir_fd
+    ):
+        _fail("capture evidence writer requires fail-closed file operations")
+    flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW | os.O_CLOEXEC
+    descriptor: int | None = None
+    created = False
+    try:
+        descriptor = os.open(name, flags, 0o600, dir_fd=directory_fd)
+        created = True
+        with os.fdopen(descriptor, "wb", closefd=True) as stream:
+            descriptor = None
+            stream.write(data)
+            stream.flush()
+            os.fsync(stream.fileno())
+    except BaseException:
+        if descriptor is not None:
+            os.close(descriptor)
+        if created:
+            try:
+                os.unlink(name, dir_fd=directory_fd)
+            except OSError:
+                pass
+        raise
+
+
+def _snapshot_capture_bundle(
     evidence_path: str | Path,
+    *,
+    legacy_duplicate_dispatch_journal: bool,
 ) -> VerifiedCaptureBundle:
-    """Load one exact, closed-world evidence bundle without path selection.
-
-    The caller names the evidence file explicitly. The loader never chooses a
-    newest or best bundle, follows no symlinks, accepts no hard-linked member,
-    and re-runs the complete evidence verifier over bounded snapshot bytes.
-    """
-
     path = Path(evidence_path)
     evidence_name = _bundle_basename(path.name, role="evidence file name")
     directory = path.parent
@@ -1494,7 +1529,10 @@ def load_verified_capture_bundle(
         directory_fd = _open_bundle_directory(directory)
         directory_opened = os.fstat(directory_fd)
         names_before = sorted(os.listdir(directory_fd))
-        if not 1 <= len(names_before) <= MAX_BUNDLE_FILES:
+        maximum_files = MAX_BUNDLE_FILES + int(
+            legacy_duplicate_dispatch_journal
+        )
+        if not 1 <= len(names_before) <= maximum_files:
             _fail("capture evidence bundle has an invalid file count")
 
         evidence_bytes = _read_bundle_member(
@@ -1543,7 +1581,19 @@ def load_verified_capture_bundle(
             if canonical_name in expected_names:
                 _fail("capture evidence bundle reuses one file for multiple roles")
             expected_names.add(canonical_name)
+        if legacy_duplicate_dispatch_journal:
+            if catalog is None:
+                _fail(
+                    "legacy flat bundle migration requires a bound dispatch journal"
+                )
+            if LEGACY_ORIGINAL_DISPATCH_JOURNAL in expected_names:
+                _fail("legacy original dispatch journal name is ambiguous")
+            expected_names.add(LEGACY_ORIGINAL_DISPATCH_JOURNAL)
         if names_before != sorted(expected_names):
+            if legacy_duplicate_dispatch_journal:
+                _fail(
+                    "legacy capture directory is not one exact flat bundle"
+                )
             _fail("capture evidence bundle is not a closed-world file set")
 
         loaded: dict[str, bytes] = {}
@@ -1554,6 +1604,17 @@ def load_verified_capture_bundle(
                 maximum_bytes=maximum,
                 role=role,
             )
+        if legacy_duplicate_dispatch_journal:
+            original_dispatch_journal = _read_bundle_member(
+                directory_fd,
+                LEGACY_ORIGINAL_DISPATCH_JOURNAL,
+                maximum_bytes=MAX_DISPATCH_JOURNAL_BYTES,
+                role="legacy original dispatch journal",
+            )
+            if original_dispatch_journal != loaded["dispatch journal"]:
+                _fail(
+                    "legacy original dispatch journal differs from its bound copy"
+                )
         names_after = sorted(os.listdir(directory_fd))
         directory_after = os.fstat(directory_fd)
         recheck_fd = _open_bundle_directory(directory)
@@ -1602,6 +1663,109 @@ def load_verified_capture_bundle(
         source_bytes=loaded["source"],
         dispatch_journal_bytes=dispatch_journal_bytes,
     )
+
+
+def load_verified_capture_bundle(
+    evidence_path: str | Path,
+) -> VerifiedCaptureBundle:
+    """Load one exact, closed-world evidence bundle without path selection.
+
+    The caller names the evidence file explicitly. The loader never chooses a
+    newest or best bundle, follows no symlinks, accepts no hard-linked member,
+    and re-runs the complete evidence verifier over bounded snapshot bytes.
+    """
+
+    return _snapshot_capture_bundle(
+        evidence_path,
+        legacy_duplicate_dispatch_journal=False,
+    )
+
+
+def materialize_legacy_capture_bundle(
+    evidence_path: str | Path,
+    output_dir: str | Path,
+) -> VerifiedCaptureBundle:
+    """Copy one verified legacy flat layout into a new closed-world bundle.
+
+    The legacy directory may contain exactly one extra ``run-journal.json``;
+    its bytes must equal the dispatch-journal copy already bound by the
+    evidence envelope. Source files are never moved, deleted, or rewritten.
+    The destination must not exist and receives byte-identical members only.
+    """
+
+    source = _snapshot_capture_bundle(
+        evidence_path,
+        legacy_duplicate_dispatch_journal=True,
+    )
+    destination = Path(output_dir)
+    destination_name = _bundle_basename(
+        destination.name,
+        role="destination bundle directory",
+    )
+    if (
+        os.mkdir not in os.supports_dir_fd
+        or os.rmdir not in os.supports_dir_fd
+    ):
+        _fail("capture evidence writer requires fail-closed directory operations")
+    evidence_name = source.evidence_path.name
+    members: list[tuple[str, bytes]] = [
+        (evidence_name, source.evidence_bytes),
+        (source.evidence["archive"]["file"], source.archive_bytes),
+        (source.evidence["payload"]["file"], source.payload_bytes),
+        (source.evidence["source"]["file"], source.source_bytes),
+    ]
+    if source.dispatch_journal_bytes is None:
+        _fail("legacy flat bundle has no bound dispatch journal")
+    members.append(
+        (
+            source.evidence["modelCatalogBinding"]["dispatchJournal"]["file"],
+            source.dispatch_journal_bytes,
+        )
+    )
+    parent_fd: int | None = None
+    destination_fd: int | None = None
+    written: list[str] = []
+    created_directory = False
+    try:
+        parent_fd = _open_bundle_directory(destination.parent)
+        os.mkdir(destination_name, mode=0o700, dir_fd=parent_fd)
+        created_directory = True
+        os.fsync(parent_fd)
+        flags = os.O_RDONLY | os.O_NOFOLLOW | os.O_CLOEXEC | os.O_DIRECTORY
+        destination_fd = os.open(
+            destination_name,
+            flags,
+            dir_fd=parent_fd,
+        )
+        for name, data in members:
+            canonical_name = _bundle_basename(
+                name, role="destination bundle member"
+            )
+            _write_bundle_member(destination_fd, canonical_name, data)
+            written.append(canonical_name)
+        os.fsync(destination_fd)
+        return load_verified_capture_bundle(destination / evidence_name)
+    except BaseException:
+        if destination_fd is not None:
+            for name in reversed(written):
+                try:
+                    os.unlink(name, dir_fd=destination_fd)
+                except OSError:
+                    pass
+            os.close(destination_fd)
+            destination_fd = None
+        if created_directory and parent_fd is not None:
+            try:
+                os.rmdir(destination_name, dir_fd=parent_fd)
+                os.fsync(parent_fd)
+            except OSError:
+                pass
+        raise
+    finally:
+        if destination_fd is not None:
+            os.close(destination_fd)
+        if parent_fd is not None:
+            os.close(parent_fd)
 
 
 def main(argv: list[str] | None = None) -> int:

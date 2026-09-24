@@ -279,8 +279,8 @@ python3.13 -m bench.engine.kaggle_run_once \
   --task TASK \
   --version VERSION \
   --model CANONICAL-MODEL-VERSION \
-  --creation-journal /absolute/private/evidence/push-journal.json \
-  --journal /absolute/private/evidence/run-journal.json
+  --creation-journal /absolute/private/evidence/creation/dispatch/push-journal.json \
+  --journal /absolute/private/evidence/MODEL/dispatch/run-journal.json
 ```
 
 List canonical model-version slugs with `kaggle benchmarks tasks models`. Never use a provider path
@@ -312,6 +312,12 @@ evidence path; historical recovery requires a separate reviewed authority migrat
 evidence-schema 1.0 bundle may remain readable as diagnostic history, but it is always
 `assemblyEligible: false`; removing an authority binding cannot preserve an assembly-eligible
 artifact.
+
+Write the final evidence files to a separate `MODEL/bundle/` directory. The binder retains a
+content-bound copy of the dispatch journal there; the original `dispatch/run-journal.json` must
+remain outside because the closed-world loader rejects every file not named by the envelope. Use
+`python3.13 -m bench.engine.kaggle_capture_bundle` to non-destructively materialize an older flat
+layout whose sole extra file is an identical original `run-journal.json`.
 
 Even a complete receipt has `evidenceMode: "none"`, `protocolConformant: false`,
 `leaderboardEligible: false`, `publicationEligible: false`, and `diagnosticScalar: null`. It proves

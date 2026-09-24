@@ -51,7 +51,7 @@ Set `ALEPH_KAGGLE_PY` to the reviewed environment and use an absolute, new journ
   --task-kind capture \
   --gate six-call \
   --dataset OWNER/aleph-bench-v02-scorer-conformance \
-  --journal /absolute/private/evidence/capture-canary/push-journal.json
+  --journal /absolute/private/evidence/capture-canary/creation/dispatch/push-journal.json
 ```
 
 The helper validates the exact checked-in generated source, client versions, dataset count, and
@@ -73,7 +73,7 @@ download its unique run:
   OWNER/aleph-bench-v0-2-capture-canary \
   --version VERSION \
   --expect-dataset OWNER/aleph-bench-v02-scorer-conformance \
-  --output /absolute/private/evidence/capture-canary
+  --output /absolute/private/evidence/capture-canary/creation/bundle
 ```
 
 If the journal records a positive `sourceKernelId`, also pass
@@ -135,8 +135,8 @@ path:
   --task aleph-bench-v0-2-capture-canary \
   --version VERSION \
   --model CANONICAL-MODEL-VERSION \
-  --creation-journal /absolute/private/evidence/capture-canary/push-journal.json \
-  --journal /absolute/private/evidence/capture-canary/MODEL/run-journal.json
+  --creation-journal /absolute/private/evidence/capture-canary/creation/dispatch/push-journal.json \
+  --journal /absolute/private/evidence/capture-canary/MODEL/dispatch/run-journal.json
 ```
 
 Before it creates the run journal, the helper strictly parses the retained creation journal and
@@ -206,14 +206,37 @@ Bind a scheduled run with both independently retained identities:
   OWNER/aleph-bench-v0-2-capture-canary \
   --version VERSION \
   --run-id RUN_ID \
-  --dispatch-journal /absolute/private/evidence/capture-canary/MODEL/run-journal.json \
+  --dispatch-journal /absolute/private/evidence/capture-canary/MODEL/dispatch/run-journal.json \
   --expect-dataset OWNER/aleph-bench-v02-scorer-conformance \
-  --output /absolute/private/evidence/capture-canary/MODEL
+  --output /absolute/private/evidence/capture-canary/MODEL/bundle
 ```
 
 Do not hand-author aliases or reuse a journal from another run. The runtime-observed slug must be
 byte-for-byte equal to the journal's retained `modelProxySlug`; provider guessing, case folding,
 punctuation normalization, and suffix stripping remain forbidden.
+
+Keep mutable/original dispatch journals outside the final `bundle/` directory. The binder copies
+the exact journal bytes under the run-specific filename named by the evidence envelope. The
+closed-world loader intentionally rejects the original `run-journal.json`, a push journal, notes,
+or any other extra file beside the envelope-declared members.
+
+## Materialize a retained legacy flat layout
+
+Older operator examples placed the original `run-journal.json` beside its already-bound copy. Do
+not delete, move, or rewrite those retained files. Name the exact evidence envelope and copy only
+its verified members into a new, nonexistent `bundle/` directory:
+
+```bash
+"$ALEPH_KAGGLE_PY" -m bench.engine.kaggle_capture_bundle \
+  --evidence /absolute/private/evidence/capture-canary/MODEL/aleph-bench-v0-2-capture-canary-vVERSION-run-RUN_ID-evidence.json \
+  --output /absolute/private/evidence/capture-canary/MODEL/bundle
+```
+
+The migration accepts exactly one extra `run-journal.json`, requires its bytes to equal the
+dispatch-journal copy already bound by the envelope, snapshots and re-verifies every named source
+member, writes byte-identical files exclusively, and finally reopens the destination through the
+closed-world loader. Any unrelated extra, symlink, hard link, journal drift, existing destination,
+or evidence failure stops without modifying the source directory.
 
 ## Claim boundary
 

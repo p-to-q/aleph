@@ -35,6 +35,7 @@ from bench.engine.kaggle_capture_evidence import (
     KaggleCaptureEvidenceError,
     VerifiedCaptureBundle,
     load_verified_capture_bundle,
+    materialize_legacy_capture_bundle,
     write_capture_evidence_bundle,
 )
 from bench.tasks.kaggle.generate_v0_2_capture import OUTPUT_PATH
@@ -698,6 +699,92 @@ class CaptureSetReceiptIntegrationTests(unittest.TestCase):
             KaggleCaptureEvidenceError, "non-finite JSON constant"
         ):
             load_verified_capture_bundle(nonfinite_evidence)
+
+    def test_legacy_flat_bundle_materializes_without_changing_source(self) -> None:
+        legacy_dir, legacy_evidence = self._copy_bundle("legacy-flat")
+        dispatch_name = self.evidence["modelCatalogBinding"][
+            "dispatchJournal"
+        ]["file"]
+        original_names = sorted(path.name for path in legacy_dir.iterdir())
+        original_hashes = {
+            path.name: hashlib.sha256(path.read_bytes()).hexdigest()
+            for path in legacy_dir.iterdir()
+        }
+        (legacy_dir / "run-journal.json").write_bytes(
+            (legacy_dir / dispatch_name).read_bytes()
+        )
+        original_names.append("run-journal.json")
+        original_hashes["run-journal.json"] = hashlib.sha256(
+            (legacy_dir / "run-journal.json").read_bytes()
+        ).hexdigest()
+
+        with self.assertRaisesRegex(
+            KaggleCaptureEvidenceError, "closed-world file set"
+        ):
+            load_verified_capture_bundle(legacy_evidence)
+
+        destination = self.root / "materialized-bundle"
+        migrated = materialize_legacy_capture_bundle(
+            legacy_evidence,
+            destination,
+        )
+        self.assertEqual(migrated.evidence, self.evidence)
+        self.assertEqual(
+            sorted(path.name for path in destination.iterdir()),
+            sorted(name for name in original_names if name != "run-journal.json"),
+        )
+        self.assertEqual(
+            sorted(path.name for path in legacy_dir.iterdir()),
+            sorted(original_names),
+        )
+        self.assertEqual(
+            {
+                path.name: hashlib.sha256(path.read_bytes()).hexdigest()
+                for path in legacy_dir.iterdir()
+            },
+            original_hashes,
+        )
+        self.assertEqual(
+            load_verified_capture_bundle(migrated.evidence_path),
+            migrated,
+        )
+
+    def test_legacy_materializer_rejects_drift_and_existing_destination(self) -> None:
+        legacy_dir, legacy_evidence = self._copy_bundle("legacy-invalid")
+        dispatch_name = self.evidence["modelCatalogBinding"][
+            "dispatchJournal"
+        ]["file"]
+        duplicate = legacy_dir / "run-journal.json"
+        duplicate.write_bytes((legacy_dir / dispatch_name).read_bytes() + b" ")
+        destination = self.root / "legacy-invalid-output"
+        with self.assertRaisesRegex(
+            KaggleCaptureEvidenceError,
+            "differs from its bound copy",
+        ):
+            materialize_legacy_capture_bundle(legacy_evidence, destination)
+        self.assertFalse(destination.exists())
+
+        duplicate.write_bytes((legacy_dir / dispatch_name).read_bytes())
+        destination.mkdir()
+        marker = destination / "keep.txt"
+        marker.write_text("keep", encoding="utf-8")
+        with self.assertRaises(FileExistsError):
+            materialize_legacy_capture_bundle(legacy_evidence, destination)
+        self.assertEqual(marker.read_text(encoding="utf-8"), "keep")
+
+        real_parent = self.root / "legacy-real-parent"
+        real_parent.mkdir()
+        parent_alias = self.root / "legacy-parent-alias"
+        parent_alias.symlink_to(real_parent, target_is_directory=True)
+        with self.assertRaisesRegex(
+            KaggleCaptureEvidenceError,
+            "must not contain a symlink",
+        ):
+            materialize_legacy_capture_bundle(
+                legacy_evidence,
+                parent_alias / "bundle",
+            )
+        self.assertEqual(list(real_parent.iterdir()), [])
 
     def test_loader_rejects_symlink_in_intermediate_ancestor(self) -> None:
         real_parent = self.root / "real-parent"
