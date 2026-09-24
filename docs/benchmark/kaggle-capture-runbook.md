@@ -22,6 +22,10 @@ the exact task version, run, dataset, and quota first.
 - Confirm no task named `aleph-bench-v0-2-capture-canary` is queued or running.
 - Retain a Model Proxy quota snapshot. The task makes at most six logical calls and the generated
   source disables transport retry.
+- The cross-provider capture profile records `reasoning: null` and omits the optional Kaggle
+  `reasoning` argument. Kaggle documents that unsupported models reject that argument even when its
+  value is `"none"`; provider-default reasoning is therefore an explicit capture-policy choice, not
+  an implicit fallback. A future formal numeric release must freeze its own comparability policy.
 - Choose a new durable private evidence directory outside the repository and ephemeral directories.
 
 The generated source must be exact before any remote write:
