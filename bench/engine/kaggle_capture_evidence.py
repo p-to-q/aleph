@@ -59,6 +59,7 @@ MAX_NOTEBOOK_BYTES = 16_777_216
 MAX_DISPATCH_JOURNAL_BYTES = 16_777_216
 MAX_EVIDENCE_BYTES = 1_048_576
 MAX_BUNDLE_FILES = 6
+LEGACY_ORIGINAL_DISPATCH_JOURNAL = "run-journal.json"
 _MAX_TRUSTED_ROOT_ALIAS_EXPANSIONS = 16
 
 
@@ -1475,26 +1476,148 @@ def _read_bundle_member(
     return data
 
 
-def load_verified_capture_bundle(
-    evidence_path: str | Path,
-) -> VerifiedCaptureBundle:
-    """Load one exact, closed-world evidence bundle without path selection.
+def _write_bundle_member(
+    directory_fd: int,
+    name: str,
+    data: bytes,
+) -> os.stat_result:
+    """Durably create one bounded bundle member relative to an open directory."""
 
-    The caller names the evidence file explicitly. The loader never chooses a
-    newest or best bundle, follows no symlinks, accepts no hard-linked member,
-    and re-runs the complete evidence verifier over bounded snapshot bytes.
-    """
-
-    path = Path(evidence_path)
-    evidence_name = _bundle_basename(path.name, role="evidence file name")
-    directory = path.parent
-    directory_fd: int | None = None
-    recheck_fd: int | None = None
+    name = _bundle_basename(name, role="destination bundle member")
+    if not data:
+        _fail("destination bundle member must not be empty")
+    required_flags = ("O_NOFOLLOW", "O_CLOEXEC")
+    if (
+        any(not hasattr(os, flag) for flag in required_flags)
+        or os.open not in os.supports_dir_fd
+        or os.stat not in os.supports_dir_fd
+        or os.stat not in os.supports_follow_symlinks
+    ):
+        _fail("capture evidence writer requires fail-closed file operations")
+    flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW | os.O_CLOEXEC
+    descriptor: int | None = None
+    created_identity: tuple[int, int] | None = None
     try:
-        directory_fd = _open_bundle_directory(directory)
+        descriptor = os.open(name, flags, 0o600, dir_fd=directory_fd)
+        created_stat = os.fstat(descriptor)
+        created_identity = (created_stat.st_dev, created_stat.st_ino)
+        if not stat.S_ISREG(created_stat.st_mode) or created_stat.st_nlink != 1:
+            _fail("destination bundle member is not a single-link regular file")
+        with os.fdopen(descriptor, "wb", closefd=True) as stream:
+            descriptor = None
+            stream.write(data)
+            stream.flush()
+            os.fsync(stream.fileno())
+            written_stat = os.fstat(stream.fileno())
+        final_stat = os.stat(name, dir_fd=directory_fd, follow_symlinks=False)
+        if (
+            not stat.S_ISREG(written_stat.st_mode)
+            or not stat.S_ISREG(final_stat.st_mode)
+            or written_stat.st_nlink != 1
+            or final_stat.st_nlink != 1
+            or (written_stat.st_dev, written_stat.st_ino) != created_identity
+            or (final_stat.st_dev, final_stat.st_ino) != created_identity
+            or written_stat.st_size != len(data)
+            or final_stat.st_size != len(data)
+            or _stable_bundle_member_metadata(final_stat)
+            != _stable_bundle_member_metadata(written_stat)
+        ):
+            _fail("destination bundle member changed while it was written")
+        return final_stat
+    except BaseException:
+        if descriptor is not None:
+            os.close(descriptor)
+        raise
+
+
+def _stable_bundle_member_metadata(value: os.stat_result) -> tuple[int, ...]:
+    """Return metadata that must stay fixed across one materialization."""
+
+    return (
+        value.st_dev,
+        value.st_ino,
+        value.st_mode,
+        value.st_nlink,
+        value.st_uid,
+        value.st_gid,
+        value.st_size,
+        value.st_mtime_ns,
+        value.st_ctime_ns,
+    )
+
+
+def _reverify_materialized_members(
+    directory_fd: int,
+    written: list[tuple[str, bytes, os.stat_result]],
+) -> None:
+    """Re-read exact bytes and stable metadata before reporting success."""
+
+    for name, expected_bytes, expected_stat in written:
+        observed_bytes = _read_bundle_member(
+            directory_fd,
+            name,
+            maximum_bytes=len(expected_bytes),
+            role="destination bundle member",
+        )
+        try:
+            observed_stat = os.stat(
+                name,
+                dir_fd=directory_fd,
+                follow_symlinks=False,
+            )
+        except OSError:
+            _fail("destination bundle member changed before final success")
+        if (
+            observed_bytes != expected_bytes
+            or not stat.S_ISREG(observed_stat.st_mode)
+            or observed_stat.st_nlink != 1
+            or _stable_bundle_member_metadata(observed_stat)
+            != _stable_bundle_member_metadata(expected_stat)
+        ):
+            _fail("destination bundle member changed before final success")
+
+
+def _check_open_bundle_directory_unchanged(
+    directory_fd: int,
+    opened: os.stat_result,
+    names_before: list[str],
+) -> None:
+    try:
+        names_after = sorted(os.listdir(directory_fd))
+        current = os.fstat(directory_fd)
+    except OSError:
+        raise KaggleCaptureEvidenceError(
+            "cannot read capture evidence bundle directory"
+        ) from None
+    if (
+        names_after != names_before
+        or not stat.S_ISDIR(current.st_mode)
+        or _directory_identity(current) != _directory_identity(opened)
+        or current.st_mtime_ns != opened.st_mtime_ns
+        or current.st_ctime_ns != opened.st_ctime_ns
+    ):
+        _fail("capture evidence bundle directory changed while it was read")
+
+
+def _snapshot_capture_bundle_from_open_directory(
+    directory_fd: int,
+    evidence_name: str,
+    evidence_path: Path,
+    *,
+    legacy_duplicate_dispatch_journal: bool,
+) -> tuple[VerifiedCaptureBundle, os.stat_result]:
+    """Verify snapshot bytes through one already-open, pinned directory fd."""
+
+    evidence_name = _bundle_basename(evidence_name, role="evidence file name")
+    try:
         directory_opened = os.fstat(directory_fd)
+        if not stat.S_ISDIR(directory_opened.st_mode):
+            _fail("capture evidence bundle path must name a real directory")
         names_before = sorted(os.listdir(directory_fd))
-        if not 1 <= len(names_before) <= MAX_BUNDLE_FILES:
+        maximum_files = MAX_BUNDLE_FILES + int(
+            legacy_duplicate_dispatch_journal
+        )
+        if not 1 <= len(names_before) <= maximum_files:
             _fail("capture evidence bundle has an invalid file count")
 
         evidence_bytes = _read_bundle_member(
@@ -1543,7 +1666,19 @@ def load_verified_capture_bundle(
             if canonical_name in expected_names:
                 _fail("capture evidence bundle reuses one file for multiple roles")
             expected_names.add(canonical_name)
+        if legacy_duplicate_dispatch_journal:
+            if catalog is None:
+                _fail(
+                    "legacy flat bundle migration requires a bound dispatch journal"
+                )
+            if LEGACY_ORIGINAL_DISPATCH_JOURNAL in expected_names:
+                _fail("legacy original dispatch journal name is ambiguous")
+            expected_names.add(LEGACY_ORIGINAL_DISPATCH_JOURNAL)
         if names_before != sorted(expected_names):
+            if legacy_duplicate_dispatch_journal:
+                _fail(
+                    "legacy capture directory is not one exact flat bundle"
+                )
             _fail("capture evidence bundle is not a closed-world file set")
 
         loaded: dict[str, bytes] = {}
@@ -1554,16 +1689,81 @@ def load_verified_capture_bundle(
                 maximum_bytes=maximum,
                 role=role,
             )
-        names_after = sorted(os.listdir(directory_fd))
-        directory_after = os.fstat(directory_fd)
+        if legacy_duplicate_dispatch_journal:
+            original_dispatch_journal = _read_bundle_member(
+                directory_fd,
+                LEGACY_ORIGINAL_DISPATCH_JOURNAL,
+                maximum_bytes=MAX_DISPATCH_JOURNAL_BYTES,
+                role="legacy original dispatch journal",
+            )
+            if original_dispatch_journal != loaded["dispatch journal"]:
+                _fail(
+                    "legacy original dispatch journal differs from its bound copy"
+                )
+        _check_open_bundle_directory_unchanged(
+            directory_fd,
+            directory_opened,
+            names_before,
+        )
+    except KaggleCaptureEvidenceError:
+        raise
+    except OSError:
+        raise KaggleCaptureEvidenceError(
+            "cannot read capture evidence bundle directory"
+        ) from None
+
+    dispatch_journal_bytes = loaded.get("dispatch journal")
+    verify_capture_evidence(
+        evidence,
+        archive_bytes=loaded["archive"],
+        payload_bytes=loaded["payload"],
+        source_bytes=loaded["source"],
+        dispatch_journal_bytes=dispatch_journal_bytes,
+    )
+    payload = parse_capture_payload(loaded["payload"])
+    _check_open_bundle_directory_unchanged(
+        directory_fd,
+        directory_opened,
+        names_before,
+    )
+    return VerifiedCaptureBundle(
+        evidence_path=evidence_path,
+        evidence=evidence,
+        payload=payload,
+        evidence_bytes=evidence_bytes,
+        archive_bytes=loaded["archive"],
+        payload_bytes=loaded["payload"],
+        source_bytes=loaded["source"],
+        dispatch_journal_bytes=dispatch_journal_bytes,
+    ), directory_opened
+
+
+def _snapshot_capture_bundle(
+    evidence_path: str | Path,
+    *,
+    legacy_duplicate_dispatch_journal: bool,
+) -> VerifiedCaptureBundle:
+    path = Path(evidence_path)
+    evidence_name = _bundle_basename(path.name, role="evidence file name")
+    directory = path.parent
+    directory_fd: int | None = None
+    recheck_fd: int | None = None
+    try:
+        directory_fd = _open_bundle_directory(directory)
+        bundle, directory_opened = _snapshot_capture_bundle_from_open_directory(
+            directory_fd,
+            evidence_name,
+            path,
+            legacy_duplicate_dispatch_journal=legacy_duplicate_dispatch_journal,
+        )
         recheck_fd = _open_bundle_directory(directory)
+        directory_after = os.fstat(directory_fd)
         directory_path_after = os.fstat(recheck_fd)
         if (
-            names_after != names_before
-            or (directory_after.st_dev, directory_after.st_ino)
-            != (directory_opened.st_dev, directory_opened.st_ino)
-            or (directory_path_after.st_dev, directory_path_after.st_ino)
-            != (directory_opened.st_dev, directory_opened.st_ino)
+            _directory_identity(directory_after)
+            != _directory_identity(directory_opened)
+            or _directory_identity(directory_path_after)
+            != _directory_identity(directory_opened)
             or not stat.S_ISDIR(directory_path_after.st_mode)
             or directory_after.st_mtime_ns != directory_opened.st_mtime_ns
             or directory_after.st_ctime_ns != directory_opened.st_ctime_ns
@@ -1571,6 +1771,7 @@ def load_verified_capture_bundle(
             or directory_path_after.st_ctime_ns != directory_opened.st_ctime_ns
         ):
             _fail("capture evidence bundle directory changed while it was read")
+        return bundle
     except KaggleCaptureEvidenceError:
         raise
     except OSError:
@@ -1583,25 +1784,190 @@ def load_verified_capture_bundle(
         if directory_fd is not None:
             os.close(directory_fd)
 
-    dispatch_journal_bytes = loaded.get("dispatch journal")
-    verify_capture_evidence(
-        evidence,
-        archive_bytes=loaded["archive"],
-        payload_bytes=loaded["payload"],
-        source_bytes=loaded["source"],
-        dispatch_journal_bytes=dispatch_journal_bytes,
+
+def load_verified_capture_bundle(
+    evidence_path: str | Path,
+) -> VerifiedCaptureBundle:
+    """Load one exact, closed-world evidence bundle without path selection.
+
+    The caller names the evidence file explicitly. The loader never chooses a
+    newest or best bundle, follows no symlinks, accepts no hard-linked member,
+    and re-runs the complete evidence verifier over bounded snapshot bytes.
+    """
+
+    return _snapshot_capture_bundle(
+        evidence_path,
+        legacy_duplicate_dispatch_journal=False,
     )
-    payload = parse_capture_payload(loaded["payload"])
-    return VerifiedCaptureBundle(
-        evidence_path=path,
-        evidence=evidence,
-        payload=payload,
-        evidence_bytes=evidence_bytes,
-        archive_bytes=loaded["archive"],
-        payload_bytes=loaded["payload"],
-        source_bytes=loaded["source"],
-        dispatch_journal_bytes=dispatch_journal_bytes,
+
+
+def _check_materialized_path_bindings(
+    *,
+    destination: Path,
+    destination_name: str,
+    destination_fd: int,
+    destination_identity: tuple[int, int],
+    verified_directory: os.stat_result,
+    parent_fd: int,
+    parent_identity: tuple[int, int],
+) -> None:
+    """Recheck held and pathname directory identities without following links."""
+
+    try:
+        destination_held = os.fstat(destination_fd)
+        destination_path = os.stat(
+            destination_name,
+            dir_fd=parent_fd,
+            follow_symlinks=False,
+        )
+    except OSError:
+        _fail("destination bundle directory changed before final success")
+    if (
+        not stat.S_ISDIR(destination_held.st_mode)
+        or not stat.S_ISDIR(destination_path.st_mode)
+        or _directory_identity(destination_held) != destination_identity
+        or _directory_identity(destination_path) != destination_identity
+        or _directory_identity(destination_path)
+        != _directory_identity(verified_directory)
+        or destination_held.st_mtime_ns != verified_directory.st_mtime_ns
+        or destination_held.st_ctime_ns != verified_directory.st_ctime_ns
+        or destination_path.st_mtime_ns != verified_directory.st_mtime_ns
+        or destination_path.st_ctime_ns != verified_directory.st_ctime_ns
+    ):
+        _fail("destination bundle directory changed before final success")
+
+    parent_recheck_fd = _open_bundle_directory(destination.parent)
+    try:
+        if (
+            _directory_identity(os.fstat(parent_fd)) != parent_identity
+            or _directory_identity(os.fstat(parent_recheck_fd))
+            != parent_identity
+        ):
+            _fail("destination bundle parent path changed during migration")
+    finally:
+        os.close(parent_recheck_fd)
+
+
+def materialize_legacy_capture_bundle(
+    evidence_path: str | Path,
+    output_dir: str | Path,
+) -> VerifiedCaptureBundle:
+    """Copy one verified legacy flat layout into a new closed-world bundle.
+
+    The legacy directory may contain exactly one extra ``run-journal.json``;
+    its bytes must equal the dispatch-journal copy already bound by the
+    evidence envelope. Source files are never moved, deleted, or rewritten.
+    The destination must not exist and receives byte-identical members only.
+    A failure may leave that exclusive destination partially populated; it is
+    never cleaned up automatically and must not be reused or overwritten.
+    """
+
+    source = _snapshot_capture_bundle(
+        evidence_path,
+        legacy_duplicate_dispatch_journal=True,
     )
+    destination = Path(output_dir)
+    destination_name = _bundle_basename(
+        destination.name,
+        role="destination bundle directory",
+    )
+    if os.mkdir not in os.supports_dir_fd:
+        _fail("capture evidence writer requires fail-closed directory operations")
+    evidence_name = source.evidence_path.name
+    members: list[tuple[str, bytes]] = [
+        (evidence_name, source.evidence_bytes),
+        (source.evidence["archive"]["file"], source.archive_bytes),
+        (source.evidence["payload"]["file"], source.payload_bytes),
+        (source.evidence["source"]["file"], source.source_bytes),
+    ]
+    if source.dispatch_journal_bytes is None:
+        _fail("legacy flat bundle has no bound dispatch journal")
+    members.append(
+        (
+            source.evidence["modelCatalogBinding"]["dispatchJournal"]["file"],
+            source.dispatch_journal_bytes,
+        )
+    )
+    parent_fd: int | None = None
+    destination_fd: int | None = None
+    written: list[tuple[str, bytes, os.stat_result]] = []
+    created_directory_identity: tuple[int, int] | None = None
+    try:
+        parent_fd = _open_bundle_directory(destination.parent)
+        parent_identity = _directory_identity(os.fstat(parent_fd))
+        os.mkdir(destination_name, mode=0o700, dir_fd=parent_fd)
+        # POSIX mkdirat does not return an fd. Open immediately; the guarantee
+        # below begins at this pinning point, then every later write, readback,
+        # and final check uses held descriptors plus pathname identity checks.
+        flags = os.O_RDONLY | os.O_NOFOLLOW | os.O_CLOEXEC | os.O_DIRECTORY
+        destination_fd = os.open(
+            destination_name,
+            flags,
+            dir_fd=parent_fd,
+        )
+        destination_opened = os.fstat(destination_fd)
+        created_directory_identity = _directory_identity(destination_opened)
+        destination_path_opened = os.stat(
+            destination_name,
+            dir_fd=parent_fd,
+            follow_symlinks=False,
+        )
+        if (
+            not stat.S_ISDIR(destination_opened.st_mode)
+            or not stat.S_ISDIR(destination_path_opened.st_mode)
+            or _directory_identity(destination_path_opened)
+            != created_directory_identity
+            or destination_opened.st_mtime_ns
+            != destination_path_opened.st_mtime_ns
+            or destination_opened.st_ctime_ns
+            != destination_path_opened.st_ctime_ns
+        ):
+            _fail("destination bundle directory changed while it was opened")
+        os.fsync(parent_fd)
+        for name, data in members:
+            canonical_name = _bundle_basename(
+                name, role="destination bundle member"
+            )
+            member_stat = _write_bundle_member(
+                destination_fd,
+                canonical_name,
+                data,
+            )
+            written.append((canonical_name, data, member_stat))
+        os.fsync(destination_fd)
+        bundle, verified_directory = (
+            _snapshot_capture_bundle_from_open_directory(
+                destination_fd,
+                evidence_name,
+                destination / evidence_name,
+                legacy_duplicate_dispatch_journal=False,
+            )
+        )
+        _check_materialized_path_bindings(
+            destination=destination,
+            destination_name=destination_name,
+            destination_fd=destination_fd,
+            destination_identity=created_directory_identity,
+            verified_directory=verified_directory,
+            parent_fd=parent_fd,
+            parent_identity=parent_identity,
+        )
+        _reverify_materialized_members(destination_fd, written)
+        _check_materialized_path_bindings(
+            destination=destination,
+            destination_name=destination_name,
+            destination_fd=destination_fd,
+            destination_identity=created_directory_identity,
+            verified_directory=verified_directory,
+            parent_fd=parent_fd,
+            parent_identity=parent_identity,
+        )
+        return bundle
+    finally:
+        if destination_fd is not None:
+            os.close(destination_fd)
+        if parent_fd is not None:
+            os.close(parent_fd)
 
 
 def main(argv: list[str] | None = None) -> int:

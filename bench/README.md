@@ -279,8 +279,8 @@ python3.13 -m bench.engine.kaggle_run_once \
   --task TASK \
   --version VERSION \
   --model CANONICAL-MODEL-VERSION \
-  --creation-journal /absolute/private/evidence/push-journal.json \
-  --journal /absolute/private/evidence/run-journal.json
+  --creation-journal /absolute/private/evidence/creation/dispatch/push-journal.json \
+  --journal /absolute/private/evidence/MODEL/dispatch/run-journal.json
 ```
 
 List canonical model-version slugs with `kaggle benchmarks tasks models`. Never use a provider path
@@ -312,6 +312,30 @@ evidence path; historical recovery requires a separate reviewed authority migrat
 evidence-schema 1.0 bundle may remain readable as diagnostic history, but it is always
 `assemblyEligible: false`; removing an authority binding cannot preserve an assembly-eligible
 artifact.
+
+Write the final evidence files to a separate `MODEL/bundle/` directory. The binder retains a
+content-bound copy of the dispatch journal there; the original `dispatch/run-journal.json` must
+remain outside because the closed-world loader rejects every file not named by the envelope. Use
+`python3.13 -m bench.engine.kaggle_capture_bundle` to non-destructively materialize an older flat
+layout whose sole extra file is an identical original `run-journal.json`. The materializer is only
+a layout copy for a bundle that already passes the current version-2 creation-authority verifier.
+It does not migrate authority, change `assemblyEligible`, or rescue any retained Task-v7 evidence:
+those five envelopes bind version-1 journals without creation authority, while run 3022882 has no
+evidence envelope at all.
+
+For a nested `MODEL/bundle/` destination, the original flat files retain their bytes, inode,
+ownership, mode, link count, size, mtime, and ctime; creating `bundle/` necessarily adds that one
+directory member to `MODEL/`. File access time is filesystem policy, not benchmark provenance.
+Destination filesystem timestamps are new-copy metadata; authoritative remote timestamps,
+content hashes, and the task source path remain in the byte-identical evidence envelope. A failed
+materialization deliberately leaves its new exclusive destination as a partial artifact: never
+reuse or overwrite it, and audit it manually before any explicit removal. There is no automatic
+cleanup because portable POSIX deletion cannot atomically bind a path to an earlier inode check.
+Portable POSIX `mkdir` also cannot atomically return a directory descriptor, and a held descriptor
+does not stop an uncooperative same-UID process from changing names or contents. Keep the parent
+private from such writers for the entire operation, not only the `mkdir`-to-`open` boundary. The
+helper rechecks both path identities and every member's exact bytes and stable metadata before
+success; those are point-in-time fail-closed checks, not an atomic transaction or security boundary.
 
 Even a complete receipt has `evidenceMode: "none"`, `protocolConformant: false`,
 `leaderboardEligible: false`, `publicationEligible: false`, and `diagnosticScalar: null`. It proves
