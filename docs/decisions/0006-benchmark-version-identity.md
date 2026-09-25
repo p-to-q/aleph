@@ -20,6 +20,11 @@ result's scientific meaning ambiguous.
 ADR 0005 is already assigned on `main` to Aleph-Bench authority and release topology. This decision
 therefore uses 0006 even though the temporary benchmark source branch does not yet contain 0005.
 
+Authority is also staged. The current reviewable benchmark source remains `p-to-q/aleph` branch
+`benchmark/source-v0.2`. New portable implementation work lands in `p-to-q/aleph-benchmark`, but
+that alone does not complete the repository-wide authority transfer. The standalone repository
+becomes release authority only after the cutover gate in `p-to-q/aleph-benchmark#1` is accepted.
+
 ## Decision
 
 A portable implementation of the current benchmark continues to declare:
@@ -44,10 +49,11 @@ Portability and numerical comparability are also separate claims. A portable pro
 issue [#77](https://github.com/p-to-q/aleph/issues/77) may authorize a later record to declare
 `proven`. A successful package build, conformance subset, or hosted import cannot do so.
 
-`ReleaseManifest` is immutable after it is frozen. Proof must not edit an `unproven` manifest in
-place. Before freeze, a successful proof produces a new candidate with a new `releaseId` that binds
-the proof receipt. After freeze, it produces an append-only proof record referencing the frozen
-manifest digest; the original manifest and its declared status remain unchanged.
+`ReleaseManifest` is immutable after it is frozen. Issue #77 must finish before freeze. A successful
+proof derives a new candidate with a new `releaseId`, `comparabilityStatus: "proven"`, and the proof
+receipt digest; that candidate is independently verified before it can be frozen. If an `unproven`
+manifest was already frozen, it remains unproven forever: later proof starts another candidate with
+another `releaseId`. Comparability does not add a fifth release-record class.
 
 Protocol `0.3.0` is reserved for the semantic work in issue #35. That protocol may later have both
 reference and portable implementations, but portability alone does not create it.
@@ -69,7 +75,9 @@ digest, and may retain the literal value as a legacy source label. It is not the
 - Portable scorer, runtime, package, and schema revisions can evolve independently and remain
   auditable.
 - No portable result joins a v0.2 comparison group until issue #77 proves equivalence.
-- Comparability proof creates a new candidate identity or an append-only record; it never rewrites a
-  frozen release manifest.
+- Comparability proof creates and verifies a new candidate identity before freeze; it never rewrites
+  or promotes a frozen release manifest.
+- Portable code may land in the standalone repository before the global authority cutover; release
+  authority moves only after `p-to-q/aleph-benchmark#1` passes.
 - Issue #35 can introduce protocol `0.3.0` without colliding with a runtime-port label.
 - Existing `0.3.0-provisional` artifacts remain reproducible and require no generated-byte churn.

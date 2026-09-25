@@ -20,16 +20,24 @@ claim that every external system is equally applicable to Aleph.
 
 ## Round 1: what the current Aleph/Kaggle evidence says
 
-The present failure is not simply "Python 3.11 is old". Aleph-Bench v0.2 makes Python 3.13 and UCD
-15.1 part of the scorer identity, while the observed Kaggle image uses Python 3.11 and UCD 14. The
-scorer uses normalization, case folding, whitespace behavior, Unicode category, and East Asian
+The runtime mismatch is not simply "Python is old". Aleph-Bench v0.2 makes Python 3.13 and UCD 15.1
+the reference runtime/scorer profile, while private Task v9 observed Python 3.12.10 and UCD 15.0.
+The scorer uses normalization, case folding, whitespace behavior, Unicode category, and East Asian
 Width. A runtime that imports successfully can therefore still change leakage decisions and scores.
 
-The private v0.2 capture Task v6 is useful evidence: Gemini 3.7 Flash and Claude Haiku 4.5 each
-completed all six declared calls with exact raw-output and usage capture. It is not a leaderboard
-result because it deliberately performs no canonical scoring. The public page still contains the
-legacy `aleph_bench_frozen_ladder` v4 Task, one historical non-zero score, and many missing or zero
-rows. Those rows cannot be repaired by relabeling a successful capture as a score.
+The current hosted checkpoint is deliberately score-free:
+
+- Task v9 creation run `3089519` returned all 6 declared strings but creation evidence is not
+  assembly-eligible;
+- exact GPT-5.4 nano run `3091209` returned 6/6 strings and is assembly-eligible capture evidence;
+- exact Haiku run `3092711` attempted 3 calls, retained 2 strings, timed out once, and stopped with
+  incomplete coverage; and
+- none of these runs performs canonical scoring or creates a leaderboard row.
+
+The public page contains one historical v0.1 numeric row and no formal hosted v0.2 score. PR #60
+(plan), PR #61 (one-shot scheduler), and PR #76 / issue #67 (strict capture-set assembler) are
+complete. The Haiku timeout activates a hard hold: no paid run and no Haiku retry before issue #90
+merges and an explicit decision lifts the hold.
 
 Three platform facts determine the next design:
 
@@ -40,7 +48,8 @@ Three platform facts determine the next design:
    duplicate calls.
 3. Kaggle CLI 2.2.4 schedules paid Task runs through a retry wrapper, does not put an exact version
    in its `ApiBenchmarkTaskSlug`, and does not return the new run id in the scheduling response.
-   The SDK supports an explicit `version_number`, so Aleph needs a stricter one-shot control plane.
+   PR #61 therefore added the journaled exact-version one-shot control plane; it remains the only
+   permitted paid-dispatch path after the current hold is explicitly lifted.
 
 The consequence is narrow: capture plus canonical off-platform replay remains the independent
 evidence and recovery path, but a public Kaggle score requires an in-Task scorer whose behavior has
@@ -129,7 +138,7 @@ protocol and release identity change explicitly.
 
 | Surface | Authority | Required cross-reference |
 | --- | --- | --- |
-| GitHub | Protocol, generator, scorer, schemas, tests, runbooks, release manifest | Exact Kaggle Task/version and Hugging Face dataset revision |
+| GitHub | Current temporary source authority: `p-to-q/aleph@benchmark/source-v0.2`; target release authority: `p-to-q/aleph-benchmark` only after its #1 cutover gate | Exact Kaggle Task/version and Hugging Face dataset revision |
 | Kaggle | Hosted model execution and the single public numeric leaderboard | Git commit/release identity and Hugging Face evidence index |
 | Hugging Face | Public dataset, benchmark card, structured result index, selected public-safe evidence | Git release manifest and exact Kaggle Task/run source |
 | Aleph website | Human-readable explanation and links, not a fourth source of scores | Render the same release manifest or link to its authorities |
@@ -145,8 +154,8 @@ metrics, thresholds, aggregation, eligibility, and rerun policy are unchanged. I
 bind `protocolVersion: 0.2.0`, `referenceProtocolVersion: 0.2.0`,
 `targetScorer: aleph-unicode@0.2.0`, and independent scorer-profile, runtime-profile, package, and
 schema identities. It begins with `comparabilityStatus: unproven`; only the checked-in exhaustive
-equivalence proof in issue #77 may authorize a later candidate or append-only proof record to
-declare comparability. It never rewrites a frozen release manifest.
+equivalence proof in issue #77 may derive a new candidate/release identity that binds the proof
+receipt. That candidate is verified before freeze. A frozen unproven manifest is never promoted.
 
 Protocol 0.3.0 is reserved for issue #35's semantic changes to length units, failure denominators,
 and ECL aggregation. The historical `0.3.0-provisional` value inside the frozen string-semantics
@@ -201,13 +210,16 @@ and schema without claiming an official or verified badge.
 
 ## Implementation consequences
 
-1. Resolve the v0.2 naming conflict before writing the release Task.
-2. Add a portable-scoring proof slice and a typed `release identity` schema.
-3. Add a journaled, exact-version `kaggle_run_once` helper before any further paid scheduling.
-4. Build and validate a private numeric release candidate before consuming full-run quota.
-5. Promote only an exact verified Task version to the existing Kaggle URL.
-6. Mirror the same release identity to a public Hugging Face dataset and cross-link every surface.
-7. Treat saturation, protocol replacement, and retirement as explicit future release events.
+1. Keep the corrected v0.2/version-axis wording synchronized across plans and issue bodies.
+2. Add the portable scorer in the standalone repository without claiming that this alone completes
+   the global authority cutover; `p-to-q/aleph-benchmark#1` owns that transition.
+3. Complete issue #77's proof and derive a proven candidate/release identity before manifest freeze.
+4. Keep PR #61's one-shot scheduler and PR #76/#67's strict assembler as mandatory controls.
+5. Resolve issue #90 and explicitly lift the hold before any paid scheduling.
+6. Build and validate a private numeric release candidate before consuming full-run quota.
+7. Promote only an exact verified Task version to the existing Kaggle URL.
+8. Mirror the same release identity to a public Hugging Face dataset and cross-link every surface.
+9. Treat saturation, protocol replacement, and retirement as explicit future release events.
 
 ## Primary sources
 
