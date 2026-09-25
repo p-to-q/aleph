@@ -240,7 +240,8 @@ A returned `0.0` may only mean a complete valid run actually scored zero.
 
 PR #61 already implemented `bench.engine.kaggle_run_once`; it is the only permitted paid scheduler,
 but it is not usable while the hard hold remains active. It may be used only after issue #90 is
-resolved by a merged, verified implementation PR and an explicit decision lifts the hold. It:
+resolved by a merged, verified implementation PR and an explicit decision lifts the hold. Its
+enforced contract is:
 
 1. require explicit owner, Task slug, positive exact version, one exact model slug, and a new
    journal path;
