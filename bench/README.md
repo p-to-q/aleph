@@ -25,10 +25,14 @@ v0.2 scoring is reproducible only under Python 3.13 with Unicode Character Datab
 runtime versions are part of the scoring profile and are checked before a run; a mismatched runtime
 fails closed rather than silently changing Unicode behavior.
 
-The proposed portable 0.3 profile keeps v0.2 immutable. Its first isolated input slice lives in
+The proposed portable scorer remains an implementation of protocol 0.2.0 and keeps the reference
+bytes immutable. Its first isolated input slice lives in
 [`portable/`](portable/): content-addressed Python 3.13.2 casefold and whitespace tables, an explicit
 no-argument split implementation, and an offline cross-runtime verifier. These tables are not a
-portable scorer and do not establish v0.2/0.3 numeric comparability.
+portable scorer and do not establish numeric comparability. Their frozen
+`profileVersion: "0.3.0-provisional"` value is a historical input label, not the benchmark protocol
+or future scorer-profile version; consumers bind it by semantics id and manifest digest. See
+[`ADR 0006`](../docs/decisions/0006-benchmark-version-identity.md).
 
 The public S2 dataset is also a protocol input, not an interchangeable directory. Canonical runs
 require dataset id `aleph-bench-v0.2-public-s2`, exactly 30 items, and the length-framed

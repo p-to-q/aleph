@@ -3,7 +3,7 @@
 Status: proposed  
 Tracking issue: [#38](https://github.com/p-to-q/aleph/issues/38)  
 Target protocol: Aleph-Bench `0.2.0`  
-Last updated: 2026-09-18
+Last updated: 2026-09-25
 
 ## Objective
 
@@ -18,10 +18,12 @@ a transport receipt into leaderboard evidence.
 ## Observed problem
 
 Aleph-Bench v0.2 pins Python 3.13 and UCD 15.1 because Unicode normalization and classification are
-part of the scorer contract. The observed Kaggle image provides Python 3.11 and UCD 14. Its valid
-zero-call diagnostic therefore stopped at `runtime_preflight`, before package access or a model
-dispatch. That is the correct result for in-process v0.2 scoring, but it also prevents Kaggle from
-being used only to collect raw observations.
+part of the scorer contract. An earlier observed Kaggle image provided Python 3.11 and UCD 14; its
+valid zero-call diagnostic therefore stopped at `runtime_preflight`, before package access or a
+model dispatch. Current private Task v9 captures instead observed Python 3.12.10 and UCD 15.0.
+Neither hosted runtime is the Python 3.13/UCD 15.1 reference profile. Rejecting either ambient
+runtime is the correct result for reference-profile scoring, but it also prevents Kaggle from being
+used only to collect raw observations.
 
 The runtimes are not interchangeable. A local planning audit found:
 
@@ -73,11 +75,12 @@ unknown finish reason, or output usage within the frozen near-cap margin remain 
 5. Only a Python 3.13/UCD 15.1 offline command may turn a complete, verified capture set into a v0.2
    `BenchResult`. The existing canonical verifier must then reproduce the complete result from its
    retained raw outputs.
-6. Native Kaggle scoring remains a separate future design problem. A portable implementation must
-   receive a new protocol, scorer, schema, and runtime-profile identity because the Python 3.13/UCD
-   15.1 runtime is part of the frozen v0.2 contract. Exhaustive equivalence may establish numerical
-   comparability with v0.2; it cannot relabel the implementation as protocol `0.2.0`. Compatibility
-   is never asserted from package version metadata alone.
+6. Native Kaggle scoring remains a separate future design problem. A portable implementation
+   targets protocol `0.2.0` while carrying independent scorer-profile, runtime-profile, package,
+   and schema identities; it must not present itself as the Python 3.13/UCD 15.1 reference profile.
+   Its `comparabilityStatus` remains `unproven` until issue #77 produces and verifies the required
+   zero-mismatch proof before freeze. Compatibility is never asserted from package version metadata
+   alone. Protocol `0.3.0` remains reserved for issue #35's semantic changes.
 
 ## Alternatives considered
 
@@ -100,7 +103,8 @@ APIs needed on Python 3.11; the durable proof and target-Linux validation remain
 It does not replace `str.casefold()`, `str.isspace()`, or no-argument `str.split()`, so those semantics
 must also be frozen from the reference runtime. A credible profile needs:
 
-- a separately versioned scorer/schema/runtime profile while preserving the v0.2.0 reference bytes;
+- separately versioned scorer-profile, runtime-profile, package, and schema identities while
+  preserving the v0.2.0 reference bytes;
 - full UCD 15.1 normalization conformance and exhaustive property comparison;
 - frozen full-casefold and Python 3.13 whitespace tables with provenance hashes;
 - differential full-scorer tests over adversarial multi-code-point strings;
@@ -108,10 +112,12 @@ must also be frozen from the reference runtime. A credible profile needs:
   checks before any model access; and
 - a new zero-call Kaggle preflight before a separately authorized six-call run.
 
-The portable profile is a protocol 0.3 candidate with a separate artifact identity. If every numeric
-observation is equal, its release notes may state that it is numerically comparable to protocol 0.2
-under the proved corpus and conformance gates. Any mismatch forbids that comparability claim and
-keeps its leaderboard isolated.
+The portable profile is a separately identified implementation of protocol 0.2.0, targeting
+`aleph-unicode@0.2.0`. Its scorer profile, runtime profile, package, and schema identities remain
+separate, and `comparabilityStatus` begins as `unproven`. Only issue #77's canonical zero-mismatch
+receipt may authorize a narrowly worded comparability claim. Any mismatch forbids that claim and
+keeps its leaderboard isolated. Protocol 0.3.0 is reserved for issue #35's semantic changes; see
+[ADR 0006](../decisions/0006-benchmark-version-identity.md).
 
 ## Non-negotiable invariants
 
@@ -380,10 +386,10 @@ transformations are asserted only in canonical scorer tests, never in capture te
 ## Out of scope
 
 - changing v0.2 metrics, Unicode behavior, leakage thresholds, dataset, or rerun policy;
-- labeling any Python 3.11 scoring implementation as v0.2, including implementations based on
-  `unicodedata2` or frozen tables; every portable scorer requires a new protocol/profile identity and
-  separate conformance proof;
-- implementing a portable Unicode scorer protocol/profile;
+- presenting a Python 3.11 implementation as the Python 3.13 reference runtime; a portable scorer
+  may target protocol 0.2.0 only with separate scorer/runtime/package/schema identities and remains
+  `comparabilityStatus: unproven` until the issue #77 proof;
+- implementing a portable Unicode scorer/profile;
 - a full 900-call Kaggle run, cross-model ranking, or public leaderboard;
 - publishing to Hugging Face or Kaggle;
 - upstream Kaggle CLI, SDK, or service fixes;

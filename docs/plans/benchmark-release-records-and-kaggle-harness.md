@@ -11,7 +11,7 @@ Related issues: [#38](https://github.com/p-to-q/aleph/issues/38),
 Research basis:
 [model-release benchmark engineering survey](../research/model-release-benchmark-engineering.md)
 
-Last updated: 2026-09-24
+Last updated: 2026-09-25
 
 ## Outcome
 
@@ -28,7 +28,9 @@ Aleph Bench release
 ```
 
 The implementation underneath must keep four immutable or append-only record classes. Kaggle is the
-hosted execution surface, not the only evidence store.
+hosted execution surface, not the only evidence store. The current source authority is
+`p-to-q/aleph@benchmark/source-v0.2`; the target post-cutover release authority is
+`p-to-q/aleph-benchmark` after `p-to-q/aleph-benchmark#1` passes.
 
 ## Authority model
 
@@ -58,18 +60,22 @@ The website may render these records. It does not own a fourth score table.
 The release manifest defines benchmark semantics. It is frozen before any formal release run and
 does not grow when another model is evaluated.
 
-Required identity:
+Post-cutover candidate identity (do not emit this standalone-authority shape before the cutover):
 
 ```json
 {
+  "schemaId": "aleph-benchmark-release",
   "schemaVersion": "1.0.0",
   "kind": "aleph-benchmark-release",
-  "releaseId": "aleph-bench-0.3.0-<digest-prefix>",
+  "releaseId": "aleph-bench-release-<digest-prefix>",
   "benchmark": {
     "canonicalId": "p-to-q/aleph-bench",
     "title": "Aleph Bench",
-    "protocolVersion": "0.3.0",
-    "comparabilityGroup": "aleph-public-s2-portable-v1"
+    "protocolVersion": "0.2.0",
+    "referenceProtocolVersion": "0.2.0",
+    "targetScorer": "aleph-unicode@0.2.0",
+    "comparabilityStatus": "unproven",
+    "comparabilityReceiptSha256": null
   },
   "dataset": {
     "id": "...",
@@ -85,17 +91,28 @@ Required identity:
     "retryPolicy": "no-silent-retry-v1"
   },
   "scorer": {
-    "id": "...",
-    "version": "...",
+    "scorerProfileId": "...",
+    "scorerProfileVersion": "...",
     "sourceSha256": "...",
-    "runtimeProfile": "...",
+    "runtimeProfileId": "...",
+    "runtimeProfileVersion": "...",
     "unicodeProfile": "...",
     "conformanceReceiptSha256": "..."
   },
+  "package": {
+    "id": "...",
+    "packageVersion": "...",
+    "sha256": "..."
+  },
   "source": {
-    "githubRepository": "p-to-q/aleph",
+    "githubRepository": "p-to-q/aleph-benchmark",
     "implementationCommit": "...",
-    "releaseTag": "aleph-bench-v0.3.0"
+    "releaseTag": "..."
+  },
+  "migrationProvenance": {
+    "sourceRepository": "p-to-q/aleph",
+    "sourceCommit": "...",
+    "purpose": "temporary-source-import-only"
   },
   "kaggle": {
     "benchmark": "jahyee/aleph-bench",
@@ -105,7 +122,7 @@ Required identity:
   },
   "huggingFace": {
     "datasetRepository": "...",
-    "taskId": "aleph_bench_0_3"
+    "taskId": "aleph_bench_0_2"
   },
   "artifacts": [],
   "policies": {
@@ -119,6 +136,20 @@ Required identity:
 
 The manifest excludes model run ids and scores. Adding a model appends run and result records; it
 does not mutate the semantic release.
+
+The example above is an `unproven` pre-release candidate. Issue #77 must complete before freeze. A
+zero-mismatch proof derives a new candidate with a new `releaseId`, `comparabilityStatus: "proven"`,
+and the bound proof-receipt digest. That new candidate is independently verified and only then
+frozen. A frozen `unproven` manifest stays unproven forever; later proof must derive and freeze a new
+candidate/release identity. This uses the existing ReleaseManifest plus its bound artifact and does
+not create a fifth record class.
+
+In this explicitly post-cutover example, `source.githubRepository` is the standalone implementation
+and release authority. Before `p-to-q/aleph-benchmark#1` passes, the Aleph source branch remains the
+temporary source authority and no manifest may falsely claim the standalone cutover. Historical
+import provenance, when retained after cutover, belongs only in an optional `migrationProvenance`
+nested object within the ReleaseManifest. It is a manifest field, not a fifth record
+class and not an alternative source-authority declaration.
 
 Avoid circular hashes. `source.implementationCommit` identifies the already-existing source tree
 used to build the release; it is not the later commit or tag that publishes this manifest. The
@@ -372,18 +403,25 @@ WITHDRAWN
 
 Kaggle `Completed` is a platform state, not Aleph verification.
 
-## Five independent version axes
+## Independent version axes
 
 Never use a lone label such as `v2` for all of these:
 
 1. `protocolVersion`: scoring and eligibility semantics;
-2. `datasetRevision`: exact items and references;
-3. `harnessVersion`: model handlers, prompts, runtime and orchestration;
-4. `run/attempt`: one model execution lineage; and
-5. `platformRevision`: Kaggle Task version, HF commit, GitHub publication envelope.
+2. scorer profile id/version: one implementation of those semantics;
+3. runtime profile id/version: interpreter, Unicode provider, ABI, and platform contract;
+4. package id/version/digest: the closed executable artifact;
+5. schema id/version: the record contract, independent of benchmark semantics;
+6. `datasetRevision`: exact items and references;
+7. `harnessVersion`: model handlers, prompts, runtime and orchestration;
+8. `run/attempt`: one model execution lineage; and
+9. `platformRevision`: Kaggle Task version, HF commit, GitHub publication envelope.
 
 Scoring semantic changes bump the protocol. Data corrections bump the dataset revision. Handler
-fixes bump the harness. Old results are not overwritten; comparability is explicit.
+fixes bump the harness. Runtime ports keep the referenced protocol and receive new scorer,
+runtime, package, and schema identities. Old results are not overwritten; comparability is explicit
+and starts as `unproven`. Issue #77 must derive a new, proven candidate/release identity before
+freeze. A frozen unproven manifest cannot be promoted.
 
 ## Public notes generated from the manifest
 
@@ -401,10 +439,12 @@ Every surface shows:
 
 ### GitHub
 
-GitHub is the canonical specification and record index. A release contains the manifest,
-publication envelope, checksums, frozen source package, SBOM and provenance. Human release notes are
-useful but not the only copy because they remain editable. Where supported, use immutable releases
-and artifact attestations; keep exact files and digests as the contract.
+GitHub is the canonical specification and record index. Before cutover, that source is
+`p-to-q/aleph@benchmark/source-v0.2`; after `p-to-q/aleph-benchmark#1` passes, it is the standalone
+repository. A release contains the manifest, publication envelope, checksums, frozen source
+package, SBOM and provenance. Human release notes are useful but not the only copy because they
+remain editable. Where supported, use immutable releases and artifact attestations; keep exact
+files and digests as the contract.
 
 ### Kaggle
 
@@ -508,7 +548,9 @@ closed.
 - Complete the Python 3.11/3.12/3.13 Unicode/scorer proof already specified in #59.
 - Retain official source/wheel hashes and Linux x86-64 evidence.
 
-Gate: the new portable profile matches the reference contract or is rejected.
+Gate: the portable implementation of protocol 0.2.0 matches the reference contract or is rejected;
+no package or hosted smoke alone authorizes a new candidate to declare `proven`, and proof must
+precede manifest freeze.
 
 ### P0-C: numeric Kaggle harness
 

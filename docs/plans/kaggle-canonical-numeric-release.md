@@ -8,7 +8,7 @@ Public entry: [Aleph Bench](https://www.kaggle.com/benchmarks/jahyee/aleph-bench
 
 Reference protocol: `0.2.0`
 
-Portable release candidate: `0.3.0` (provisional until the compatibility proof passes)
+Portable scorer target: `aleph-unicode@0.2.0` (`comparabilityStatus: unproven` until #77)
 
 Last updated: 2026-09-25
 
@@ -21,7 +21,9 @@ code and release artifacts.
 
 The same release is represented on three mutually referencing surfaces:
 
-- GitHub is the authority for protocol, code, schemas, tests, and the release manifest.
+- Today, `p-to-q/aleph@benchmark/source-v0.2` remains the temporary source authority.
+  Portable implementation code lands in `p-to-q/aleph-benchmark`, but that repository becomes the
+  release authority only after the cutover gate in `p-to-q/aleph-benchmark#1` passes.
 - Kaggle is the hosted model-execution and public numeric leaderboard surface.
 - Hugging Face is the public dataset, benchmark card, structured result index, and evidence mirror.
 
@@ -41,8 +43,9 @@ The decisive observations are:
   score-backfill path for a Community Benchmark.
 - Capture plus Python 3.13 replay is valid independent evidence but cannot by itself populate the
   public numeric leaderboard.
-- v0.2.0 defines Python 3.13 and UCD 15.1 as part of the scorer profile. Python 3.11 plus a backport
-  must not be labeled v0.2.0.
+- v0.2.0 defines Python 3.13 and UCD 15.1 as the reference runtime/scorer profile. A Python 3.11 or
+  3.12 portable implementation still targets protocol 0.2.0, but must not present itself as that
+  reference profile and remains non-comparable until issue #77 proves zero mismatch.
 - The official `unicodedata2==15.1.0` CPython 3.11 manylinux x86-64 wheel exists, is Apache-2.0,
   and has published SHA-256
   `a2442a539d1e493486fdbbdf1d08c8f5d4abe51c9b77b7d39df319a96d30abe4`. This makes a
@@ -54,25 +57,46 @@ The decisive observations are:
   current 42 fidelity plus 28 leakage checks. It used macOS wheels and incomplete multi-code-point
   coverage, so it selects a promising route but is not release evidence.
 - Kaggle CLI 2.2.4's paid `tasks run` path uses generic retry, defaults to the latest Task version,
-  and does not return a run id. Aleph needs an exact-version, one-shot scheduler before more paid
-  dispatches.
+  and does not return a run id. The exact-version, journaled one-shot scheduler is now merged in
+  PR #61 and must remain the only paid-dispatch path.
+
+Current hosted checkpoint on 2026-09-25:
+
+- planning and scheduler gates PR #60 and #61 are merged; the strict capture-set assembler in PR
+  #76 / issue #67 is also merged;
+- private Task v9 creation run `3089519` returned all 6 declared strings, but creation evidence is
+  not assembly-eligible and is not a score;
+- exact run `3091209` with `gpt-5.4-nano-2026-03-17` returned 6/6 strings and is
+  assembly-eligible capture evidence, not a score;
+- exact run `3092711` with `claude-haiku-4-5-20251001` stopped after 3 attempted calls: 2 strings,
+  1 timeout, and incomplete coverage. It is not assembly-eligible and is not a score;
+- the public page contains one historical v0.1 numeric row. There is no formal hosted v0.2 score;
+  and
+- no paid run and no Haiku retry is authorized until issue #90 is resolved by a merged, verified
+  implementation PR and the hold is explicitly lifted.
 
 ## Decision
 
 ### Selected route: proved portable scorer
 
 Keep protocol `0.2.0` and its reference scorer bytes immutable. Build a separate portable scorer
-profile, provisionally protocol `0.3.0`, with the same current public dataset, call plan, metrics,
-thresholds, aggregation, and five-rerun policy. Freeze every Unicode input needed for equivalent
-behavior and prove it against the Python 3.13/UCD 15.1 reference.
+and runtime profile that targets `aleph-unicode@0.2.0`, with the same current public dataset, call
+plan, metrics, thresholds, aggregation, and five-rerun policy. Give the scorer profile, runtime
+profile, package, and schema independent identities. Freeze every Unicode input needed for
+equivalent behavior and prove it against the Python 3.13/UCD 15.1 reference.
 
 If every declared compatibility gate passes, the release may say:
 
-> Aleph-Bench 0.3 uses a portable runtime profile and is numerically comparable to the 0.2
-> reference under the published conformance contract.
+> This portable implementation of Aleph-Bench protocol 0.2.0 is numerically comparable to the
+> Python 3.13 reference under the published proof contract.
 
-It must not say it *is* protocol 0.2. Any mismatch blocks comparability and same-leaderboard
-promotion until the protocol and presentation are reviewed.
+Until issue #77 emits the canonical zero-mismatch receipt, `comparabilityStatus` remains `unproven`.
+The proof must precede manifest freeze: it derives a new candidate and `releaseId` that bind the
+receipt, that candidate is verified, and only then may it be frozen. A frozen unproven manifest can
+never be promoted; later proof must start another candidate/release identity. Any mismatch blocks
+comparability and same-leaderboard promotion. Protocol `0.3.0` is reserved for issue #35's changes
+to length units, failure denominators, and ECL aggregation; portability alone does not consume that
+version. See [ADR 0006](../decisions/0006-benchmark-version-identity.md).
 
 ### Retained route: capture plus reference replay
 
@@ -118,10 +142,12 @@ authority.
 
 Add a strict, versioned release identity that binds:
 
-- `benchmarkName`, `protocolVersion`, `runtimeProfile`, and `releaseId`;
+- `benchmarkName`, `releaseId`, `protocolVersion`, `referenceProtocolVersion`, and `targetScorer`;
+- scorer profile id/version, runtime profile id/version, package id/version/digest, schema
+  id/version, and `comparabilityStatus` plus a nullable proof-receipt digest;
 - dataset id, item count, revision, filenames, and digest;
 - prompt/call-plan id, 900-row coverage, rerun policy, and digest;
-- scorer id/version/source digest, normalization, casefold, whitespace, and Unicode profiles;
+- target-scorer source digest plus normalization, casefold, whitespace, and Unicode profiles;
 - exact dependency filenames, sizes, SHA-256 values, licenses, ABI/platform tags, and import paths;
 - generated Task source and package digests;
 - requested decoding parameters and no-silent-retry policy;
@@ -212,7 +238,10 @@ A returned `0.0` may only mean a complete valid run actually scored zero.
 
 ## Exact paid-run control plane
 
-Implement `bench.engine.kaggle_run_once` before the next paid canary. It must:
+PR #61 already implemented `bench.engine.kaggle_run_once`; it is the only permitted paid scheduler,
+but it is not usable while the hard hold remains active. It may be used only after issue #90 is
+resolved by a merged, verified implementation PR and an explicit decision lifts the hold. Its
+enforced contract is:
 
 1. require explicit owner, Task slug, positive exact version, one exact model slug, and a new
    journal path;
@@ -242,29 +271,15 @@ scheduler.
 5. **900 calls:** one private numeric release candidate.
 6. **2 × 900 calls:** a second provider only after the first exact run and independent replay pass.
 
-As of 2026-09-25, while the strict assembler/replay gate in
-[#67](https://github.com/p-to-q/aleph/issues/67) is still open, the active controller remains in the
-six-call canary stage. It targets 8–12 previously untested exact model versions per daily cycle when
-the catalog still has useful coverage gaps, with these controls:
+As of 2026-09-25, issue #67's assembler gate is merged, but run `3092711` activated the timeout
+circuit breaker. The controller is in a hard hold: no paid run and no Haiku retry until issue #90
+is resolved by a merged, verified implementation PR and an explicit operator decision lifts the
+hold. Read-only status, quota, source, and evidence verification may continue.
 
-- schedule one model at a time and retain/reconcile its exact journal and evidence before the next;
-- stop at soft aggregate ceilings of `$9` per day and `$95` per month;
-- make a conservative cost check before each dispatch and reserve `$1` when no trustworthy estimate
-  exists;
-- stop before any run estimated above `$1`, and stop on an incomplete receipt, near-cap output,
-  usage/model identity drift, ambiguous Task/run binding, or insufficient remaining margin; and
-- never repeat a covered model merely to consume quota.
-
-These figures are safety ceilings, not spending targets or benchmark-completeness claims. The
-one-shot scheduler records quota observations but does not itself enforce the aggregate `$9/$95`
-policy, so the scheduled controller or human operator must enforce it before every dispatch. A
-machine-enforced aggregate budget gate is required before unattended 30-call or 900-call runs.
-
-The original `$0.50` daily, `$0.10` per-canary, and `$20` monthly-reserve figures were the initial
-pilot limits. They were superseded only after the one-shot scheduler and bound evidence path passed
-the cross-provider canary matrix recorded in
-[#59](https://github.com/p-to-q/aleph/issues/59#issuecomment-5807315188); the historical runs remain
-canaries and do not become scores.
+There is no active target of 8–12 models per day. Any future recurring matrix is a bounded research
+plan, not a quota-consumption goal: it requires the #90 stability gate, an explicit model list,
+one-at-a-time retained evidence, machine-enforced budgets, and stop-on-first-incomplete behavior.
+Historical `$9` daily / `$95` monthly figures are ceilings only and authorize no dispatch.
 
 For full runs, use the observed six-call cost only as a planning estimate:
 
@@ -278,16 +293,9 @@ transition. Retain at least `$2.00` or 20% of the daily quota, whichever is larg
 investigation and required verification. Never blind-rerun a failed 900-call attempt on the same
 day.
 
-The first formal RC order is:
-
-1. GPT-5.4 mini as the lowest-cost end-to-end anchor;
-2. Claude Haiku 4.5 as the second provider;
-3. Gemini 3.7 Flash after the first two pass;
-4. Qwen, Gemma, gpt-oss, DeepSeek, Grok, and GLM in predeclared batches;
-5. expensive frontier/scaling rows only after the protocol is stable.
-
-Canary order may favor Qwen/DeepSeek/Gemma/Grok for transport diversity, but canaries never become
-scores.
+The first formal RC model order must be proposed again from current compatibility and cost evidence
+after the hold is lifted. Historical canary order is not authorization, and Haiku must not be
+retried merely because it appeared in an earlier sequence. Canaries never become scores.
 
 ## Independent replay and publication
 
@@ -345,6 +353,8 @@ recomputing it.
 
 ### PR A: research and release decision
 
+Status: completed by PR #60; this plan remains amendable when evidence changes.
+
 - check in the external engineering review and this plan;
 - correct issue #59's v0.2 naming;
 - freeze the selected/fallback routes and public topology.
@@ -354,8 +364,11 @@ gate for every later PR.
 
 ### PR B: exact one-shot scheduler
 
-- implement and adversarially test `kaggle_run_once`;
-- document journal reconciliation and evidence layout.
+Status: completed by PR #61. PR #76 / issue #67 subsequently completed the strict capture-set
+assembler dependency.
+
+- implemented and adversarially tested `kaggle_run_once`;
+- documented journal reconciliation and the evidence layout.
 
 Gate: fake SDK tests prove one direct paid call, exact version binding, no retry, durable ambiguous
 state, and exact new-run-id reconciliation.
@@ -369,7 +382,8 @@ Gate: the complete portable/reference contract matches or the route is explicitl
 
 ### PR D: portable scorer and release identity
 
-- add a new profile without altering v0.2 bytes;
+- add independently versioned scorer/runtime/package profiles without altering v0.2 bytes or
+  changing `referenceProtocolVersion: 0.2.0`;
 - add schemas, manifests, serializers, verifiers, and mutation tests.
 
 Gate: profile and release identity are independently reproducible in clean Python 3.11, 3.12, and
@@ -404,7 +418,7 @@ Gate: GitHub, Kaggle, and Hugging Face show the same release identity and verifi
 - changing the current dataset, prompts, metrics, thresholds, aggregation, or five-rerun policy;
 - claiming a global minimum, white-box evidence, or strict Kolmogorov complexity;
 - a second public Kaggle benchmark;
-- daily automatic paid runs before the exact scheduler and numeric release gates exist;
+- automatic paid runs while the #90 circuit breaker or later numeric-release gates remain closed;
 - overwriting or deleting legacy/canary/failed evidence;
 - treating a canary, mock, capture, partial shard, failed zero row, or platform `COMPLETED` state as
   a public score; and
@@ -412,6 +426,7 @@ Gate: GitHub, Kaggle, and Hugging Face show the same release identity and verifi
 
 ## Immediate next action
 
-Merge PR A, then implement PR B. Only after the exact one-shot scheduler passes should the remaining
-v6 canary matrix consume additional quota. The full 900-call budget remains reserved for the private
-numeric release candidate, where it can produce evidence toward a real public score.
+Resolve issue #90 with a merged, verified implementation PR, then require an explicit hold-lift
+decision before any paid dispatch. In parallel, continue the standalone portable-scorer slices and
+issue #77 proof with zero model calls. No current artifact is a v0.2 score, and the full 900-call
+budget remains gated.
