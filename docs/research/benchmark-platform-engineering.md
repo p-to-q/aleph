@@ -145,7 +145,8 @@ metrics, thresholds, aggregation, eligibility, and rerun policy are unchanged. I
 bind `protocolVersion: 0.2.0`, `referenceProtocolVersion: 0.2.0`,
 `targetScorer: aleph-unicode@0.2.0`, and independent scorer-profile, runtime-profile, package, and
 schema identities. It begins with `comparabilityStatus: unproven`; only the checked-in exhaustive
-equivalence proof in issue #77 may promote that status.
+equivalence proof in issue #77 may authorize a later candidate or append-only proof record to
+declare comparability. It never rewrites a frozen release manifest.
 
 Protocol 0.3.0 is reserved for issue #35's semantic changes to length units, failure denominators,
 and ECL aggregation. The historical `0.3.0-provisional` value inside the frozen string-semantics

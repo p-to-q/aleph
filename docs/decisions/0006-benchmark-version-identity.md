@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted.
+Proposed.
 
 ## Context
 
@@ -41,8 +41,13 @@ reuse `protocolVersion` as a shorthand.
 
 Portability and numerical comparability are also separate claims. A portable profile begins with
 `comparabilityStatus: "unproven"`. Only the exhaustive zero-mismatch proof and canonical receipt in
-issue [#77](https://github.com/p-to-q/aleph/issues/77) may change that status to `proven`. A
-successful package build, conformance subset, or hosted import cannot do so.
+issue [#77](https://github.com/p-to-q/aleph/issues/77) may authorize a later record to declare
+`proven`. A successful package build, conformance subset, or hosted import cannot do so.
+
+`ReleaseManifest` is immutable after it is frozen. Proof must not edit an `unproven` manifest in
+place. Before freeze, a successful proof produces a new candidate with a new `releaseId` that binds
+the proof receipt. After freeze, it produces an append-only proof record referencing the frozen
+manifest digest; the original manifest and its declared status remain unchanged.
 
 Protocol `0.3.0` is reserved for the semantic work in issue #35. That protocol may later have both
 reference and portable implementations, but portability alone does not create it.
@@ -64,5 +69,7 @@ digest, and may retain the literal value as a legacy source label. It is not the
 - Portable scorer, runtime, package, and schema revisions can evolve independently and remain
   auditable.
 - No portable result joins a v0.2 comparison group until issue #77 proves equivalence.
+- Comparability proof creates a new candidate identity or an append-only record; it never rewrites a
+  frozen release manifest.
 - Issue #35 can introduce protocol `0.3.0` without colliding with a runtime-port label.
 - Existing `0.3.0-provisional` artifacts remain reproducible and require no generated-byte churn.

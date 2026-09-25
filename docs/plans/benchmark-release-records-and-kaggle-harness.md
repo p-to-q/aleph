@@ -103,9 +103,14 @@ Required identity:
     "sha256": "..."
   },
   "source": {
-    "githubRepository": "p-to-q/aleph",
+    "githubRepository": "p-to-q/aleph-benchmark",
     "implementationCommit": "...",
     "releaseTag": "..."
+  },
+  "migrationProvenance": {
+    "sourceRepository": "p-to-q/aleph",
+    "sourceCommit": "...",
+    "purpose": "temporary-source-import-only"
   },
   "kaggle": {
     "benchmark": "jahyee/aleph-bench",
@@ -129,6 +134,17 @@ Required identity:
 
 The manifest excludes model run ids and scores. Adding a model appends run and result records; it
 does not mutate the semantic release.
+
+The example above is an `unproven` pre-release candidate. `comparabilityStatus` and its nullable
+receipt digest are immutable once a `ReleaseManifest` is frozen. Issue #77 may not update that
+manifest in place: before freeze, a successful proof derives a new candidate with a new `releaseId`
+that binds the proof receipt; after freeze, it emits an append-only proof record referencing the
+manifest digest. Consumers may render the linked proof, but the frozen manifest retains its
+original fields.
+
+`source.githubRepository` is the implementation authority. Historical import provenance from the
+temporary Aleph source branch, when retained, belongs only in the separate `migrationProvenance`
+record; it must not be mistaken for the release source repository.
 
 Avoid circular hashes. `source.implementationCommit` identifies the already-existing source tree
 used to build the release; it is not the later commit or tag that publishes this manifest. The
@@ -399,7 +415,8 @@ Never use a lone label such as `v2` for all of these:
 Scoring semantic changes bump the protocol. Data corrections bump the dataset revision. Handler
 fixes bump the harness. Runtime ports keep the referenced protocol and receive new scorer,
 runtime, package, and schema identities. Old results are not overwritten; comparability is explicit
-and starts as `unproven`. Only issue #77 may attach the proof receipt that promotes it.
+and starts as `unproven`. Only issue #77 may produce the proof receipt, and it does so through a new
+pre-freeze candidate identity or an append-only proof record rather than mutating a frozen manifest.
 
 ## Public notes generated from the manifest
 
@@ -525,7 +542,7 @@ closed.
 - Retain official source/wheel hashes and Linux x86-64 evidence.
 
 Gate: the portable implementation of protocol 0.2.0 matches the reference contract or is rejected;
-no package or hosted smoke alone changes `comparabilityStatus` from `unproven`.
+no package or hosted smoke alone authorizes a later candidate or proof record to declare `proven`.
 
 ### P0-C: numeric Kaggle harness
 

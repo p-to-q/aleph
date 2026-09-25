@@ -21,7 +21,8 @@ code and release artifacts.
 
 The same release is represented on three mutually referencing surfaces:
 
-- GitHub is the authority for protocol, code, schemas, tests, and the release manifest.
+- GitHub repository `p-to-q/aleph-benchmark` is the authority for protocol, code, schemas, tests,
+  and the release manifest; Aleph source-branch imports are migration provenance only.
 - Kaggle is the hosted model-execution and public numeric leaderboard surface.
 - Hugging Face is the public dataset, benchmark card, structured result index, and evidence mirror.
 
@@ -41,8 +42,9 @@ The decisive observations are:
   score-backfill path for a Community Benchmark.
 - Capture plus Python 3.13 replay is valid independent evidence but cannot by itself populate the
   public numeric leaderboard.
-- v0.2.0 defines Python 3.13 and UCD 15.1 as part of the scorer profile. Python 3.11 plus a backport
-  must not be labeled v0.2.0.
+- v0.2.0 defines Python 3.13 and UCD 15.1 as the reference runtime/scorer profile. A Python 3.11 or
+  3.12 portable implementation still targets protocol 0.2.0, but must not present itself as that
+  reference profile and remains non-comparable until issue #77 proves zero mismatch.
 - The official `unicodedata2==15.1.0` CPython 3.11 manylinux x86-64 wheel exists, is Apache-2.0,
   and has published SHA-256
   `a2442a539d1e493486fdbbdf1d08c8f5d4abe51c9b77b7d39df319a96d30abe4`. This makes a
@@ -73,9 +75,12 @@ If every declared compatibility gate passes, the release may say:
 > Python 3.13 reference under the published proof contract.
 
 Until issue #77 emits the canonical zero-mismatch receipt, `comparabilityStatus` remains `unproven`.
-Any mismatch blocks comparability and same-leaderboard promotion. Protocol `0.3.0` is reserved for
-issue #35's changes to length units, failure denominators, and ECL aggregation; portability alone
-does not consume that version. See [ADR 0006](../decisions/0006-benchmark-version-identity.md).
+The proof does not mutate a frozen release manifest: before freeze it derives a new candidate and
+`releaseId` that bind the receipt; after freeze it is retained as an append-only proof record that
+references the immutable manifest digest. Any mismatch blocks comparability and same-leaderboard
+promotion. Protocol `0.3.0` is reserved for issue #35's changes to length units, failure
+denominators, and ECL aggregation; portability alone does not consume that version. See
+[ADR 0006](../decisions/0006-benchmark-version-identity.md).
 
 ### Retained route: capture plus reference replay
 
