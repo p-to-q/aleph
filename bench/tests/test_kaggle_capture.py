@@ -12,6 +12,7 @@ from typing import Any
 from bench.engine.kaggle_capture import (
     CAPTURE_SCHEMA_PATH,
     FROZEN_DATASET_HASH_ALGORITHM,
+    LEGACY_CAPTURE_SCHEMA_PATH,
     MAX_CAPTURE_BYTES,
     MAX_RAW_OUTPUT_CODEPOINTS,
     MAX_SCORING_TEXT_CODEPOINTS,
@@ -204,7 +205,7 @@ def _payload(
     )
     full_plan_sha = "b" * 64
     payload: dict[str, Any] = {
-        "captureSchemaVersion": "1.1.0",
+        "captureSchemaVersion": "1.2.0",
         "artifactKind": "aleph_bench_kaggle_raw_capture",
         "targetProtocolVersion": "0.2.0",
         "leaderboardEligible": False,
@@ -253,9 +254,19 @@ def _payload(
             "unicodeDatabaseVersion": "14.0.0",
             "platform": "Linux-x86_64",
         },
+        "transportObservation": {
+            "attestationStatus": "verified",
+            "family": "openai-compatible",
+            "kaggleBenchmarksVersion": "0.6.1",
+            "providerSdkName": "openai",
+            "providerSdkVersion": "2.12.0",
+            "effectiveMaxRetries": 0,
+            "effectiveTimeoutSeconds": 180,
+        },
         "requestPolicy": {
             "conversationIsolation": "oneNamedChatPerPromptAndRerun",
             "transportRetries": 0,
+            "transportTimeoutSeconds": 180,
             "maxAttemptsPerCall": 1,
             "temperature": 0,
             "maxOutputTokens": 512,
@@ -292,6 +303,20 @@ def _resign(payload: dict[str, Any]) -> None:
     payload["id"] = artifact_id_for(payload)
 
 
+def _legacy_payload() -> dict[str, Any]:
+    payload = _payload()
+    payload["captureSchemaVersion"] = "1.1.0"
+    payload.pop("transportObservation")
+    payload["requestPolicy"].pop("transportTimeoutSeconds")
+    payload["shard"]["coverageSha256"] = coverage_sha256(
+        payload["shard"]["id"],
+        payload["shard"]["plannedCalls"],
+        capture_schema_version="1.1.0",
+    )
+    _resign(payload)
+    return payload
+
+
 class KaggleCaptureContractTests(unittest.TestCase):
     def test_hard_coded_hash_vectors_separate_prompt_and_output_encodings(self) -> None:
         prompt = "Exact prompt 1\r\n"
@@ -317,6 +342,67 @@ class KaggleCaptureContractTests(unittest.TestCase):
         self.assertTrue(decoded["canonicalReplayEligible"])
         self.assertFalse(decoded["leaderboardEligible"])
         self.assertFalse(decoded["publicationEligible"])
+
+    def test_legacy_1_1_capture_remains_verifiable_without_mutation(self) -> None:
+        payload = _legacy_payload()
+
+        encoded = serialize_capture_payload(payload)
+
+        self.assertEqual(parse_capture_payload(encoded), payload)
+
+    def test_current_schema_requires_transport_contract_fields(self) -> None:
+        schema = load_schema(CAPTURE_SCHEMA_PATH)
+        mutations = {
+            "missing transport observation": lambda payload: payload.pop(
+                "transportObservation"
+            ),
+            "missing timeout policy": lambda payload: payload["requestPolicy"].pop(
+                "transportTimeoutSeconds"
+            ),
+        }
+        for name, mutate in mutations.items():
+            with self.subTest(name=name):
+                payload = _payload()
+                mutate(payload)
+                with self.assertRaises(SchemaValidationError):
+                    validate(payload, schema)
+
+    def test_legacy_schema_rejects_unversioned_transport_contract_fields(self) -> None:
+        schema = load_schema(LEGACY_CAPTURE_SCHEMA_PATH)
+        mutations = {
+            "transport observation": lambda payload: payload.__setitem__(
+                "transportObservation", _payload()["transportObservation"]
+            ),
+            "timeout policy": lambda payload: payload["requestPolicy"].__setitem__(
+                "transportTimeoutSeconds", 180
+            ),
+        }
+        for name, mutate in mutations.items():
+            with self.subTest(name=name):
+                payload = _legacy_payload()
+                mutate(payload)
+                with self.assertRaises(SchemaValidationError):
+                    validate(payload, schema)
+
+    def test_transport_timeout_policy_and_observation_must_match(self) -> None:
+        payload = _payload()
+        payload["transportObservation"]["effectiveTimeoutSeconds"] = 181
+        _resign(payload)
+
+        with self.assertRaisesRegex(
+            KaggleCaptureError, "transport observation does not attest"
+        ):
+            verify_capture_payload(payload)
+
+    def test_observed_transport_requires_exact_sdk_versions(self) -> None:
+        payload = _payload()
+        payload["transportObservation"]["providerSdkVersion"] = None
+        _resign(payload)
+
+        with self.assertRaisesRegex(
+            KaggleCaptureError, "transport observation does not attest"
+        ):
+            verify_capture_payload(payload)
 
     def test_empty_string_is_complete_and_replay_eligible(self) -> None:
         call = _call(0)
@@ -933,27 +1019,38 @@ class KaggleCaptureContractTests(unittest.TestCase):
             parse_capture_payload(b" " * (MAX_CAPTURE_BYTES + 1))
 
     def test_schema_is_closed_world_has_no_placeholder_id_and_is_score_free(self) -> None:
-        schema = load_schema(CAPTURE_SCHEMA_PATH)
-        self.assertNotIn("$id", schema)
-        missing: list[str] = []
-        property_names: list[str] = []
+        for schema_path in (CAPTURE_SCHEMA_PATH, LEGACY_CAPTURE_SCHEMA_PATH):
+            with self.subTest(schema=schema_path.name):
+                schema = load_schema(schema_path)
+                self.assertNotIn("$id", schema)
+                missing: list[str] = []
+                property_names: list[str] = []
 
-        def walk(value: Any, path: str) -> None:
-            if isinstance(value, dict):
-                if value.get("type") == "object" and value.get("additionalProperties") is not False:
-                    missing.append(path)
-                properties = value.get("properties")
-                if isinstance(properties, dict):
-                    property_names.extend(properties)
-                for key, child in value.items():
-                    walk(child, f"{path}/{key}")
-            elif isinstance(value, list):
-                for index, child in enumerate(value):
-                    walk(child, f"{path}/{index}")
+                def walk(value: Any, path: str) -> None:
+                    if isinstance(value, dict):
+                        if (
+                            value.get("type") == "object"
+                            and value.get("additionalProperties") is not False
+                        ):
+                            missing.append(path)
+                        properties = value.get("properties")
+                        if isinstance(properties, dict):
+                            property_names.extend(properties)
+                        for key, child in value.items():
+                            walk(child, f"{path}/{key}")
+                    elif isinstance(value, list):
+                        for index, child in enumerate(value):
+                            walk(child, f"{path}/{index}")
 
-        walk(schema, "$schema")
-        self.assertEqual(missing, [])
-        self.assertFalse([name for name in property_names if name.lower() in {"score", "metrics"}])
+                walk(schema, "$schema")
+                self.assertEqual(missing, [])
+                self.assertFalse(
+                    [
+                        name
+                        for name in property_names
+                        if name.lower() in {"score", "metrics"}
+                    ]
+                )
         with self.assertRaises(SchemaValidationError):
             validate(_payload(), load_schema(RESULT_SCHEMA_PATH))
 

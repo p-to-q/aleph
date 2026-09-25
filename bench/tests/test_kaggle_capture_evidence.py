@@ -29,11 +29,14 @@ from bench.engine import kaggle_run_once as run_once
 from bench.engine.kaggle_run_once import schedule_and_reconcile_once
 from bench.tasks.kaggle.generate_v0_2_capture import OUTPUT_PATH
 from bench.tests.test_kaggle_capture_task_v0_2 import (
+    APITimeoutError,
     OpenAI,
     RUNTIME_313,
     _Chats,
     _Clock,
+    _contains_score_key,
     _load_generated_task,
+    _transport_version_patch,
     _write_package,
 )
 
@@ -60,19 +63,22 @@ def _test_source_identity() -> dict[str, Any]:
 def _creation_authority(
     *,
     owner: str = "owner",
+    task: str = TASK_SLUG,
     version: int = 3,
     source_kernel_id: int | None = 12345,
+    datasets: tuple[str, ...] = (DATASET,),
+    source_identity: dict[str, Any] | None = None,
 ) -> run_once.VerifiedCreationAuthority:
-    source = _test_source_identity()
+    source = source_identity or _test_source_identity()
     journal = {
         "journalVersion": run_once.CREATION_JOURNAL_VERSION,
         "artifactKind": "kaggle_task_creation_dispatch",
         "operationId": "12345678-1234-4abc-8123-123456789abc",
         "createdAt": "2026-09-21T23:57:00Z",
         "updatedAt": "2026-09-21T23:57:01Z",
-        "task": TASK_SLUG,
+        "task": task,
         "gate": "six-call-capture",
-        "datasets": [DATASET],
+        "datasets": list(datasets),
         "client": {
             "python": "3.13.7",
             "kaggle": "2.2.4",
@@ -91,22 +97,22 @@ def _creation_authority(
         "state": "returned",
         "response": {
             "owner": owner,
-            "task": TASK_SLUG,
+            "task": task,
             "version": version,
             "sourceKernelId": source_kernel_id,
             "creationState": "BENCHMARK_TASK_VERSION_CREATION_STATE_COMPLETED",
             "url": (
                 f"https://www.kaggle.com/benchmarks/{owner}/"
-                f"{TASK_SLUG}/{version}"
+                f"{task}/{version}"
             ),
-            "datasets": [DATASET],
+            "datasets": list(datasets),
         },
         "failure": None,
     }
     return run_once.verify_creation_authority_bytes(
         run_once._canonical_json_bytes(journal),
         expected_owner=owner,
-        expected_task=TASK_SLUG,
+        expected_task=task,
         expected_version=version,
         current_source=source,
     )
@@ -114,29 +120,35 @@ def _creation_authority(
 
 def _task_info(
     *,
+    owner: str = "owner",
+    task: str = TASK_SLUG,
     version: int = 3,
     state: str = "BENCHMARK_TASK_VERSION_CREATION_STATE_COMPLETED",
     datasets: tuple[str, ...] = (DATASET,),
+    source_kernel_id: int | None = 12345,
 ) -> SimpleNamespace:
     return SimpleNamespace(
         slug=SimpleNamespace(
-            owner_slug="owner",
-            task_slug=TASK_SLUG,
+            owner_slug=owner,
+            task_slug=task,
             version_number=version,
         ),
         creation_state=state,
         creation_error_message="platform detail" if state.endswith("ERRORED") else None,
         error=None,
-        source_kernel_id=12345,
+        source_kernel_id=source_kernel_id,
         options=SimpleNamespace(dataset_data_sources=list(datasets)),
         create_time=datetime(2026, 9, 21, 23, 58, tzinfo=timezone.utc),
-        url=f"https://www.kaggle.com/benchmarks/owner/{TASK_SLUG}/{version}",
+        url=f"https://www.kaggle.com/benchmarks/{owner}/{task}/{version}",
     )
 
 
 def _run_info(
     *,
+    owner: str = "owner",
+    task: str = TASK_SLUG,
     version: int = 3,
+    run_id: int = 24680,
     model: str = "google/gemini-2.5-flash",
     state: str = "BENCHMARK_TASK_RUN_STATE_COMPLETED",
     start: datetime | None = None,
@@ -144,11 +156,11 @@ def _run_info(
 ) -> SimpleNamespace:
     return SimpleNamespace(
         task_slug=SimpleNamespace(
-            owner_slug="owner",
-            task_slug=TASK_SLUG,
+            owner_slug=owner,
+            task_slug=task,
             version_number=version,
         ),
-        id=24680,
+        id=run_id,
         model_version_slug=model,
         state=state,
         error_message="run detail" if state.endswith("ERRORED") else None,
@@ -214,6 +226,11 @@ def _dispatch_journal_bytes(
     task: str = TASK_SLUG,
     version: int = 3,
     run_id: int = 24680,
+    creation_owner: str = "owner",
+    creation_version: int = 3,
+    creation_datasets: tuple[str, ...] = (DATASET,),
+    creation_source_kernel_id: int | None = 12345,
+    source_identity: dict[str, Any] | None = None,
     scheduled_slug: str = GEMMA_SCHEDULED_SLUG,
     proxy_slug: str = GEMMA_PROXY_SLUG,
     state: str = "reconciled",
@@ -291,14 +308,21 @@ def _dispatch_journal_bytes(
         "failure": failure,
     }
     journal["creationAuthority"] = run_once.bind_creation_authority(
-        _creation_authority(),
+        _creation_authority(
+            owner=creation_owner,
+            task=TASK_SLUG,
+            version=creation_version,
+            source_kernel_id=creation_source_kernel_id,
+            datasets=creation_datasets,
+            source_identity=source_identity,
+        ),
         task_record={
-            "owner": "owner",
+            "owner": creation_owner,
             "task": TASK_SLUG,
-            "version": 3,
+            "version": creation_version,
             "creationState": "BENCHMARK_TASK_VERSION_CREATION_STATE_COMPLETED",
-            "sourceKernelId": 12345,
-            "datasets": [DATASET],
+            "sourceKernelId": creation_source_kernel_id,
+            "datasets": list(creation_datasets),
         },
     )
     return run_once._canonical_json_bytes(journal)
@@ -327,6 +351,9 @@ class KaggleCaptureEvidenceTests(unittest.TestCase):
             sys.modules["kaggle_benchmarks"] = cls.previous_kaggle_module
 
     def setUp(self) -> None:
+        version_patch = _transport_version_patch(self.generated)
+        version_patch.start()
+        self.addCleanup(version_patch.stop)
         source_patch = mock.patch.object(
             capture_evidence,
             "current_capture_source_identity",
@@ -463,6 +490,44 @@ class KaggleCaptureEvidenceTests(unittest.TestCase):
                 payload_bytes=payload_copy,
                 source_bytes=source_copy,
             )
+
+    def test_timeout_capture_stays_score_free_and_assembly_ineligible(self) -> None:
+        output_tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(output_tmp.cleanup)
+        capture_path = Path(output_tmp.name) / "capture.json"
+        llm = OpenAI(outputs=[APITimeoutError("Request timed out.")])
+        self.generated.run_capture_canary(
+            llm,
+            chats=_Chats(),
+            package_root=self.package_root,
+            capture_path=capture_path,
+            observed_runtime=RUNTIME_313,
+            clock=_Clock(),
+        )
+        payload_bytes = capture_path.read_bytes()
+        payload = json.loads(payload_bytes)
+
+        self.assertEqual(len(llm.calls), 1)
+        self.assertEqual(payload["calls"]["attemptedCallCount"], 1)
+        self.assertEqual(payload["calls"]["terminalCallCount"], 1)
+        self.assertEqual(len(payload["diagnostics"]["missingPlannedRowIds"]), 5)
+        self.assertEqual(
+            payload["rows"][0]["terminalFailure"]["exceptionType"],
+            "openai.APITimeoutError",
+        )
+        self.assertFalse(payload["canonicalReplayEligible"])
+        self.assertFalse(_contains_score_key(payload))
+
+        evidence, output_dir, evidence_tmp = self._write(
+            archive_bytes=_archive(payload_bytes, self.source_bytes)
+        )
+        self.assertIsNotNone(evidence_tmp)
+        self.assertFalse(evidence["assemblyEligible"])
+        self.assertFalse(_contains_score_key(evidence))
+        self.assertEqual(
+            (output_dir / evidence["payload"]["file"]).read_bytes(),
+            payload_bytes,
+        )
 
     def test_missing_finish_reason_is_retained_but_unbound(self) -> None:
         payload_bytes = self._payload_bytes(finish_reason=None)

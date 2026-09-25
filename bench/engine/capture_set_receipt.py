@@ -8,6 +8,8 @@ from pathlib import Path
 from typing import Any, Iterable
 
 from .kaggle_capture import (
+    CAPTURE_SCHEMA_VERSION,
+    LEGACY_CAPTURE_SCHEMA_VERSION,
     expected_row_id,
     parse_capture_payload,
     prompt_utf8_sha256,
@@ -26,11 +28,21 @@ from .schema_validation import SchemaValidationError, load_schema, validate
 RECEIPT_SCHEMA_PATH = (
     REPO_ROOT / "schemas/v0.2/aleph-bench-capture-set-receipt.schema.json"
 )
+LEGACY_RECEIPT_SCHEMA_PATH = (
+    REPO_ROOT
+    / "schemas/v0.2/aleph-bench-capture-set-receipt-v1.0.schema.json"
+)
+LEGACY_TRANSPORT_CANARY_SCOPE_PLAN_PATH = (
+    REPO_ROOT
+    / "bench/config/capture_scope_plan-v0.2-transport-canary-task-v3.json"
+)
 AUTHORITY_REGISTRY_PATH = (
     REPO_ROOT / "bench/config/capture_set_authority-v0.2.json"
 )
-RECEIPT_SCHEMA_VERSION = "1.0.0"
-SCOPE_PLAN_SCHEMA_VERSION = "1.0.0"
+LEGACY_RECEIPT_SCHEMA_VERSION = "1.0.0"
+RECEIPT_SCHEMA_VERSION = "1.1.0"
+LEGACY_SCOPE_PLAN_SCHEMA_VERSION = "1.0.0"
+SCOPE_PLAN_SCHEMA_VERSION = "1.1.0"
 MODEL_MAPPING_SCHEMA_VERSION = "1.0.0"
 ARTIFACT_KIND = "aleph_bench_capture_set_receipt"
 SCOPE_PLAN_ARTIFACT_KIND = "aleph_bench_capture_scope_plan"
@@ -46,6 +58,9 @@ MODEL_MAPPING_ID_PREFIX = (
 MAX_SCOPE_PLAN_BYTES = 32 * 1024 * 1024
 MAX_RECEIPT_BYTES = 4 * 1024 * 1024
 MAX_AUTHORITY_REGISTRY_BYTES = 1_048_576
+LEGACY_TRANSPORT_CANARY_SCOPE_PLAN_SHA256 = (
+    "57b1cf86a41bc4fadcf07e68592ac1a0d9ec874a40477caf53c6f19adba238d0"
+)
 AUTHORITY_REGISTRY_LOGICAL_PATH = (
     "bench/config/capture_set_authority-v0.2.json"
 )
@@ -282,6 +297,46 @@ def transport_canary_scope_plan() -> dict[str, Any]:
     return plan
 
 
+def legacy_transport_canary_scope_plan() -> dict[str, Any]:
+    """Return the immutable Task-v3 scope used by capture schema 1.1 evidence."""
+
+    try:
+        data = LEGACY_TRANSPORT_CANARY_SCOPE_PLAN_PATH.read_bytes()
+    except OSError:
+        raise CaptureSetReceiptError(
+            "cannot read legacy transport-canary scope plan"
+        ) from None
+    if (
+        not data
+        or len(data) > MAX_SCOPE_PLAN_BYTES
+        or _sha256(data) != LEGACY_TRANSPORT_CANARY_SCOPE_PLAN_SHA256
+    ):
+        _fail("legacy transport-canary scope plan bytes drifted")
+    try:
+        plan = json.loads(data.decode("utf-8", errors="strict"))
+    except (
+        UnicodeDecodeError,
+        json.JSONDecodeError,
+        ValueError,
+        RecursionError,
+        OverflowError,
+    ):
+        _fail("legacy transport-canary scope plan is not strict JSON")
+    if not isinstance(plan, dict):
+        _fail("legacy transport-canary scope plan must be a JSON object")
+    return plan
+
+
+def _transport_canary_scope_plan_for_receipt(
+    receipt_schema_version: str,
+) -> dict[str, Any]:
+    if receipt_schema_version == LEGACY_RECEIPT_SCHEMA_VERSION:
+        return legacy_transport_canary_scope_plan()
+    if receipt_schema_version == RECEIPT_SCHEMA_VERSION:
+        return transport_canary_scope_plan()
+    _fail("capture-set receipt schema version is unsupported")
+
+
 def _verify_scope_plan(plan: Any) -> dict[str, Any]:
     record = _strict_keys(
         plan,
@@ -303,7 +358,11 @@ def _verify_scope_plan(plan: Any) -> dict[str, Any]:
     encoded = _canonical_json_bytes(record, role="capture scope plan")
     if len(encoded) > MAX_SCOPE_PLAN_BYTES:
         _fail("capture scope plan exceeds the safety limit")
-    if record["scopePlanSchemaVersion"] != SCOPE_PLAN_SCHEMA_VERSION:
+    scope_plan_schema_version = record["scopePlanSchemaVersion"]
+    if scope_plan_schema_version not in {
+        LEGACY_SCOPE_PLAN_SCHEMA_VERSION,
+        SCOPE_PLAN_SCHEMA_VERSION,
+    }:
         _fail("capture scope plan schema version is unsupported")
     if record["artifactKind"] != SCOPE_PLAN_ARTIFACT_KIND:
         _fail("capture scope plan artifact kind is invalid")
@@ -320,6 +379,12 @@ def _verify_scope_plan(plan: Any) -> dict[str, Any]:
     ):
         if not isinstance(record[role], dict):
             _fail(f"capture scope plan {role} must be an object")
+    has_timeout = "transportTimeoutSeconds" in record["requestPolicy"]
+    if scope_plan_schema_version == LEGACY_SCOPE_PLAN_SCHEMA_VERSION:
+        if has_timeout:
+            _fail("legacy capture scope plan contains an unversioned timeout")
+    elif not has_timeout:
+        _fail("capture scope plan schema 1.1 requires a timeout")
     calls = record["orderedCalls"]
     if not isinstance(calls, list) or not 1 <= len(calls) <= 900:
         _fail("capture scope plan calls are invalid")
@@ -348,12 +413,20 @@ def _verify_scope_plan(plan: Any) -> dict[str, Any]:
     _verify_scope_contract(scope_kind, calls)
     if record["id"] != _scope_plan_id(record):
         _fail("capture scope plan artifact id mismatch")
-    if scope_kind == "transportCanary" and not _canonical_json_equal(
-        record,
-        transport_canary_scope_plan(),
-        role="frozen transport-canary scope plan",
-    ):
-        _fail("transport-canary scope differs from the frozen generated authority")
+    if scope_kind == "transportCanary":
+        frozen_plan = (
+            legacy_transport_canary_scope_plan()
+            if scope_plan_schema_version == LEGACY_SCOPE_PLAN_SCHEMA_VERSION
+            else transport_canary_scope_plan()
+        )
+        if not _canonical_json_equal(
+            record,
+            frozen_plan,
+            role="frozen transport-canary scope plan",
+        ):
+            _fail(
+                "transport-canary scope differs from its frozen generated authority"
+            )
     return record
 
 
@@ -549,6 +622,26 @@ def _same(value: Any, expected: Any, *, role: str) -> None:
         _fail(f"capture-set member {role} drifted")
 
 
+def _receipt_schema_version_for_snapshots(
+    snapshots: list[tuple[dict[str, Any], dict[str, Any]]],
+) -> str:
+    generations = {
+        (
+            payload.get("captureSchemaVersion"),
+            payload.get("taskIdentity", {}).get("version"),
+        )
+        for _evidence, payload in snapshots
+    }
+    if len(generations) != 1:
+        _fail("capture set mixes capture schema or Task generations")
+    generation = generations.pop()
+    if generation == (LEGACY_CAPTURE_SCHEMA_VERSION, "3"):
+        return LEGACY_RECEIPT_SCHEMA_VERSION
+    if generation == (CAPTURE_SCHEMA_VERSION, "4"):
+        return RECEIPT_SCHEMA_VERSION
+    _fail("capture set uses an unsupported capture schema and Task generation")
+
+
 def _canonical_policy_compatible(
     request_policy: dict[str, Any], call_plan: dict[str, Any]
 ) -> bool:
@@ -688,6 +781,24 @@ def assemble_capture_set_receipt(
     if not bundle_list or len(bundle_list) > 900:
         _fail("capture set must contain between one and 900 explicit bundles")
     snapshots = [_reverify_bundle(bundle) for bundle in bundle_list]
+    receipt_schema_version = _receipt_schema_version_for_snapshots(snapshots)
+    expected_scope_plan_schema_version = (
+        LEGACY_SCOPE_PLAN_SCHEMA_VERSION
+        if receipt_schema_version == LEGACY_RECEIPT_SCHEMA_VERSION
+        else SCOPE_PLAN_SCHEMA_VERSION
+    )
+    if plan["scopePlanSchemaVersion"] != expected_scope_plan_schema_version:
+        _fail("capture scope plan schema does not match the capture generation")
+    if plan["scopeKind"] == "transportCanary":
+        expected_plan = _transport_canary_scope_plan_for_receipt(
+            receipt_schema_version
+        )
+        if not _canonical_json_equal(
+            plan,
+            expected_plan,
+            role="capture-generation transport-canary scope plan",
+        ):
+            _fail("transport-canary scope does not match the capture generation")
 
     first_evidence, first_payload = snapshots[0]
     dataset = first_payload["datasetIdentity"]
@@ -833,7 +944,7 @@ def assemble_capture_set_receipt(
         else "candidateUnregistered"
     )
     receipt = {
-        "receiptSchemaVersion": RECEIPT_SCHEMA_VERSION,
+        "receiptSchemaVersion": receipt_schema_version,
         "artifactKind": ARTIFACT_KIND,
         "targetProtocolVersion": TARGET_PROTOCOL_VERSION,
         "scoreFree": True,
@@ -978,7 +1089,9 @@ def _validate_receipt_self_consistency(receipt: dict[str, Any]) -> None:
             )
 
     if scope_kind == "transportCanary":
-        frozen = transport_canary_scope_plan()
+        frozen = _transport_canary_scope_plan_for_receipt(
+            receipt["receiptSchemaVersion"]
+        )
         if receipt["scopePlan"]["id"] != frozen["id"]:
             _fail("capture-set receipt transport-canary scope id is not frozen")
         frozen_rows = [call["rowId"] for call in frozen["orderedCalls"]]
@@ -1009,7 +1122,16 @@ def _validate_receipt_shape(receipt: Any) -> dict[str, Any]:
     if len(encoded) > MAX_RECEIPT_BYTES:
         _fail("capture-set receipt exceeds the safety limit")
     try:
-        validate(receipt, load_schema(RECEIPT_SCHEMA_PATH))
+        receipt_schema_version = receipt.get("receiptSchemaVersion")
+        if receipt_schema_version == LEGACY_RECEIPT_SCHEMA_VERSION:
+            schema_path = LEGACY_RECEIPT_SCHEMA_PATH
+        elif receipt_schema_version == RECEIPT_SCHEMA_VERSION:
+            schema_path = RECEIPT_SCHEMA_PATH
+        else:
+            _fail("capture-set receipt schema version is unsupported")
+        validate(receipt, load_schema(schema_path))
+    except CaptureSetReceiptError:
+        raise
     except (SchemaValidationError, OSError, json.JSONDecodeError, RecursionError):
         _fail("capture-set receipt schema validation failed")
     _validate_receipt_self_consistency(receipt)

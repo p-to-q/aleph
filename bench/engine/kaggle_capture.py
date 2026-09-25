@@ -17,7 +17,16 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 CAPTURE_SCHEMA_PATH = (
     REPO_ROOT / "schemas/v0.2/aleph-bench-kaggle-capture-payload.schema.json"
 )
-CAPTURE_SCHEMA_VERSION = "1.1.0"
+LEGACY_CAPTURE_SCHEMA_PATH = (
+    REPO_ROOT
+    / "schemas/v0.2/aleph-bench-kaggle-capture-payload-v1.1.schema.json"
+)
+LEGACY_CAPTURE_SCHEMA_VERSION = "1.1.0"
+CAPTURE_SCHEMA_VERSION = "1.2.0"
+SUPPORTED_CAPTURE_SCHEMA_VERSIONS = {
+    LEGACY_CAPTURE_SCHEMA_VERSION,
+    CAPTURE_SCHEMA_VERSION,
+}
 ARTIFACT_KIND = "aleph_bench_kaggle_raw_capture"
 TARGET_PROTOCOL_VERSION = "0.2.0"
 ARTIFACT_ID_PREFIX = "aleph-bench-kaggle-capture-v1-artifact-"
@@ -219,12 +228,17 @@ def expected_row_id(item_id: str, prompt_id: str, rerun_index: int) -> str:
     return f"{item_id}:{prompt_id}:rerun-{rerun_index}"
 
 
-def coverage_sha256(shard_id: str, planned_calls: list[dict[str, Any]]) -> str:
+def coverage_sha256(
+    shard_id: str,
+    planned_calls: list[dict[str, Any]],
+    *,
+    capture_schema_version: str = CAPTURE_SCHEMA_VERSION,
+) -> str:
     """Bind the schema, protocol, shard, and exact ordered call coverage."""
 
     return canonical_json_sha256(
         {
-            "captureSchemaVersion": CAPTURE_SCHEMA_VERSION,
+            "captureSchemaVersion": capture_schema_version,
             "targetProtocolVersion": TARGET_PROTOCOL_VERSION,
             "shardId": shard_id,
             "plannedCalls": planned_calls,
@@ -320,7 +334,11 @@ def _verify_planned_calls(payload: dict[str, Any]) -> list[dict[str, Any]]:
         _fail("shard full-plan digest disagrees with callPlanIdentity")
     if len(planned_calls) > plan["totalPlannedCallCount"]:
         _fail("shard coverage exceeds the declared full call plan")
-    if shard["coverageSha256"] != coverage_sha256(shard["id"], planned_calls):
+    if shard["coverageSha256"] != coverage_sha256(
+        shard["id"],
+        planned_calls,
+        capture_schema_version=payload["captureSchemaVersion"],
+    ):
         _fail("shard coverage digest mismatch")
 
     row_ids: set[str] = set()
@@ -628,7 +646,7 @@ def _expected_diagnostics(
 
 
 def _verify_identity_and_policy(payload: dict[str, Any]) -> None:
-    if payload["captureSchemaVersion"] != CAPTURE_SCHEMA_VERSION:
+    if payload["captureSchemaVersion"] not in SUPPORTED_CAPTURE_SCHEMA_VERSIONS:
         _fail("unsupported capture schema version")
     if payload["artifactKind"] != ARTIFACT_KIND:
         _fail("capture artifact kind mismatch")
@@ -661,6 +679,48 @@ def _verify_identity_and_policy(payload: dict[str, Any]) -> None:
     request = payload["requestPolicy"]
     if not 0 <= request["nearCapMarginTokens"] < request["maxOutputTokens"]:
         _fail("nearCapMarginTokens must be smaller than maxOutputTokens")
+    if payload["captureSchemaVersion"] == LEGACY_CAPTURE_SCHEMA_VERSION:
+        if "transportObservation" in payload or "transportTimeoutSeconds" in request:
+            _fail("legacy capture contains unversioned transport timeout evidence")
+        return
+    if (
+        "transportObservation" not in payload
+        or "transportTimeoutSeconds" not in request
+    ):
+        _fail("capture schema 1.2 requires transport timeout evidence")
+
+    timeout_seconds = request["transportTimeoutSeconds"]
+    transport = payload["transportObservation"]
+    model_type = model["pythonType"]
+    if model_type is None:
+        if transport["attestationStatus"] == "verified":
+            _fail("unobserved model cannot claim verified transport policy")
+        return
+
+    if model_type in {
+        "kaggle_benchmarks.actors.llms.OpenAI",
+        "kaggle_benchmarks.actors.proxy_openai.OpenAI",
+    }:
+        expected_family = "openai-compatible"
+        expected_sdk = "openai"
+    elif model_type in {
+        "kaggle_benchmarks.actors.llms.GoogleGenAI",
+        "kaggle_benchmarks.actors.proxy_genai.GoogleGenAI",
+    }:
+        expected_family = "google-genai"
+        expected_sdk = "google-genai"
+    else:
+        _fail("observed model uses an unsupported transport family")
+    if (
+        transport["attestationStatus"] != "verified"
+        or transport["family"] != expected_family
+        or transport["providerSdkName"] != expected_sdk
+        or transport["kaggleBenchmarksVersion"] is None
+        or transport["providerSdkVersion"] is None
+        or transport["effectiveMaxRetries"] != request["transportRetries"]
+        or transport["effectiveTimeoutSeconds"] != timeout_seconds
+    ):
+        _fail("transport observation does not attest the request policy")
 
 
 def _verify_times(
@@ -704,7 +764,14 @@ def _verify_and_encode_capture_payload(payload: dict[str, Any]) -> bytes:
         _fail("capture payload must be a JSON object")
     try:
         _validate_json_tree(payload)
-        validate(payload, load_schema(CAPTURE_SCHEMA_PATH))
+        capture_schema_version = payload.get("captureSchemaVersion")
+        if capture_schema_version == LEGACY_CAPTURE_SCHEMA_VERSION:
+            schema_path = LEGACY_CAPTURE_SCHEMA_PATH
+        elif capture_schema_version == CAPTURE_SCHEMA_VERSION:
+            schema_path = CAPTURE_SCHEMA_PATH
+        else:
+            _fail("unsupported capture schema version")
+        validate(payload, load_schema(schema_path))
     except KaggleCaptureError:
         raise
     except (SchemaValidationError, KeyError, OSError, json.JSONDecodeError, RecursionError):

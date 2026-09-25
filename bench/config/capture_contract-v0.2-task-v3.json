@@ -1,0 +1,116 @@
+{
+  "authoritySchemaVersion": "1.0.0",
+  "captureSchemaVersion": "1.1.0",
+  "expectedContract": {
+    "callPlanIdentity": {
+      "fullShardPlanSha256": "fb2b01bd9984ddc830322baa2aeeb1f0c3ee006a41a641241bd5eaaed9dc7fd7",
+      "id": "aleph-bench-v0.2-frozen-call-plan",
+      "rerunsPerPrompt": 5,
+      "sha256": "c8761e280e089da4eed5871b9efad770284be9178bb6a4253d81cb43e873f6ec",
+      "totalPlannedCallCount": 900
+    },
+    "datasetIdentity": {
+      "hashAlgorithm": "sha256-length-framed-filename-and-content-v1",
+      "id": "aleph-bench-v0.2-public-s2",
+      "itemCount": 30,
+      "sha256": "6f3a03400ec16405414afb94c7c639f2df07f7f0797c3b58ad1c4229e52f2041"
+    },
+    "packageIdentity": {
+      "bytes": 3427,
+      "id": "aleph-bench-v0.2-scorer-conformance",
+      "manifestPath": "package-manifest.json",
+      "sha256": "7a7aad7ae4f3fcc0bebb23cb3f3d11abe842385cc8b94e9c56a806c3c7d6089d"
+    },
+    "requestPolicy": {
+      "conversationIsolation": "oneNamedChatPerPromptAndRerun",
+      "maxAttemptsPerCall": 1,
+      "maxOutputTokens": 2048,
+      "nearCapMarginTokens": 32,
+      "reasoning": null,
+      "seed": 0,
+      "temperature": 0,
+      "transportRetries": 0
+    },
+    "shard": {
+      "coverageSha256": "2e16bf9db5e67f059f7b42475e0f4df2b140a151354e120f07b2fe671691c2c0",
+      "fullShardPlanSha256": "fb2b01bd9984ddc830322baa2aeeb1f0c3ee006a41a641241bd5eaaed9dc7fd7",
+      "id": "capture-canary-01",
+      "plannedCalls": [
+        {
+          "conversationName": "aleph-capture-s2-001-s2-001-r1-p0-rerun-0",
+          "itemId": "s2-001",
+          "promptCodePointCount": 184,
+          "promptId": "s2-001-r1-p0",
+          "promptText": "Create S2-001 arithmetic card. Use start 6, step 3, three rows. For row r, print n=start+(r-1)*step, n+step, n*step, and the glyph sequence blue, copper, jade. End with checksum A-195.",
+          "promptUtf8Sha256": "ff865924eb8d5566402183c70d98ffa01157bb025b2d3d3f158de4b68ec44713",
+          "rerunIndex": 0,
+          "rowId": "s2-001:s2-001-r1-p0:rerun-0"
+        },
+        {
+          "conversationName": "aleph-capture-s2-001-s2-001-r1-p1-rerun-0",
+          "itemId": "s2-001",
+          "promptCodePointCount": 189,
+          "promptId": "s2-001-r1-p1",
+          "promptText": "Render an arithmetic card named S2-001 arithmetic card: three numbered rows from start 6 with step 3; include fields n, n+step, n*step, glyph using blue, copper, jade; final checksum A-195.",
+          "promptUtf8Sha256": "e9a9f179d95375e8c5afb9f17b5702c2920c1131d162ddb1407fa66b6f912b4e",
+          "rerunIndex": 0,
+          "rowId": "s2-001:s2-001-r1-p1:rerun-0"
+        },
+        {
+          "conversationName": "aleph-capture-s2-002-s2-002-r1-p0-rerun-0",
+          "itemId": "s2-002",
+          "promptCodePointCount": 321,
+          "promptId": "s2-002-r1-p0",
+          "promptText": "Create S2-002 letter lattice. Four lettered lines A-D use names Aster, Beryl, Cato, Dessa. For each line write '<letter>. <name> <verb> the <color> <noun> at <number>.' Use values Aster:copper:cipher:clicks:24; Beryl:jade:delta:drifts:33; Cato:violet:ember:echoes:42; Dessa:silver:fable:folds:51. End with checksum L-108.",
+          "promptUtf8Sha256": "7c408ea13ebc21d08508f979137f2d2d9d5be8a52882a840aba92a97badfd8a8",
+          "rerunIndex": 0,
+          "rowId": "s2-002:s2-002-r1-p0:rerun-0"
+        },
+        {
+          "conversationName": "aleph-capture-s2-002-s2-002-r1-p1-rerun-0",
+          "itemId": "s2-002",
+          "promptCodePointCount": 255,
+          "promptId": "s2-002-r1-p1",
+          "promptText": "Render a letter lattice titled S2-002 letter lattice: A-D lines with the fixed name/color/noun/verb/number tuples Aster:copper:cipher:clicks:24; Beryl:jade:delta:drifts:33; Cato:violet:ember:echoes:42; Dessa:silver:fable:folds:51 and final checksum L-108.",
+          "promptUtf8Sha256": "375010796c2a832806f4454c302539362e8571a19de0244c3a8ea2908dba365e",
+          "rerunIndex": 0,
+          "rowId": "s2-002:s2-002-r1-p1:rerun-0"
+        },
+        {
+          "conversationName": "aleph-capture-s2-003-s2-003-r1-p0-rerun-0",
+          "itemId": "s2-003",
+          "promptCodePointCount": 204,
+          "promptId": "s2-003-r1-p0",
+          "promptText": "Create S2-003 route receipt. Print four legs as 'leg i: go direction for distance; mark=mark'. Use leg triples west:14:Q5; north:7:T8; east:13:N4; south:6:V6. Then print total 40, parity even, code R-775.",
+          "promptUtf8Sha256": "abd8ed7c3daab75256082f8e63b0d9e598ae86085e784dc88f298a484763262b",
+          "rerunIndex": 0,
+          "rowId": "s2-003:s2-003-r1-p0:rerun-0"
+        },
+        {
+          "conversationName": "aleph-capture-s2-003-s2-003-r1-p1-rerun-0",
+          "itemId": "s2-003",
+          "promptCodePointCount": 172,
+          "promptId": "s2-003-r1-p1",
+          "promptText": "Render a route receipt named S2-003 route receipt; four legs from triples west:14:Q5; north:7:T8; east:13:N4; south:6:V6; finish with total 40, parity even, and code R-775.",
+          "promptUtf8Sha256": "7db2347fdb61a035ad26735b1da61b38a88991a5aead71fbc658401d5985d7b8",
+          "rerunIndex": 0,
+          "rowId": "s2-003:s2-003-r1-p1:rerun-0"
+        }
+      ]
+    },
+    "taskIdentity": {
+      "definitionSha256": "093a824cae9ae66b15df0cda23bf2debc48e2e6140c0ec979e62e5b17c418b0e",
+      "implementationSha256": "66c8c3cab54a05c6a2503956e7855b847b2e087189e7a72f271b96a40c012fd4",
+      "name": "aleph_bench_v0_2_capture_canary",
+      "sourcePath": "bench/tasks/kaggle/aleph_bench_v0_2_capture.py",
+      "version": "3"
+    }
+  },
+  "sourceIdentity": {
+    "bytes": 40039,
+    "notebookProfile": "jupytext-ipynb-v1-positional-cell-ids",
+    "notebookSha256": "f859f73bc5caeb0d74617d50a6ce8641fc68f8f1a5c4e3a2afaad16c88b4bf71",
+    "path": "bench/tasks/kaggle/aleph_bench_v0_2_capture.py",
+    "sha256": "2bdbbd04d082d82374786b5f38e57b4765346c48738d2baef076613cdb516382"
+  }
+}

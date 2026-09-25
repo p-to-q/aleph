@@ -19,7 +19,6 @@
     "taskIdentity",
     "modelObservation",
     "runtimeObservation",
-    "transportObservation",
     "requestPolicy",
     "shard",
     "calls",
@@ -28,7 +27,7 @@
     "id"
   ],
   "properties": {
-    "captureSchemaVersion": {"const": "1.2.0"},
+    "captureSchemaVersion": {"const": "1.1.0"},
     "artifactKind": {"const": "aleph_bench_kaggle_raw_capture"},
     "targetProtocolVersion": {"const": "0.2.0"},
     "leaderboardEligible": {"const": false},
@@ -49,7 +48,6 @@
     "taskIdentity": {"$ref": "#/$defs/taskIdentity"},
     "modelObservation": {"$ref": "#/$defs/modelObservation"},
     "runtimeObservation": {"$ref": "#/$defs/runtimeObservation"},
-    "transportObservation": {"$ref": "#/$defs/transportObservation"},
     "requestPolicy": {"$ref": "#/$defs/requestPolicy"},
     "shard": {"$ref": "#/$defs/shard"},
     "calls": {"$ref": "#/$defs/calls"},
@@ -254,55 +252,12 @@
         "platform": {"type": "string", "minLength": 1, "maxLength": 512}
       }
     },
-    "transportObservation": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": [
-        "attestationStatus",
-        "family",
-        "kaggleBenchmarksVersion",
-        "providerSdkName",
-        "providerSdkVersion",
-        "effectiveMaxRetries",
-        "effectiveTimeoutSeconds"
-      ],
-      "properties": {
-        "attestationStatus": {"enum": ["unavailable", "unsupported", "verified"]},
-        "family": {"enum": ["unavailable", "unsupported", "openai-compatible", "google-genai"]},
-        "kaggleBenchmarksVersion": {
-          "anyOf": [
-            {"type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[A-Za-z0-9][A-Za-z0-9._+!-]{0,127}$"},
-            {"type": "null"}
-          ]
-        },
-        "providerSdkName": {
-          "anyOf": [
-            {"enum": ["openai", "google-genai"]},
-            {"type": "null"}
-          ]
-        },
-        "providerSdkVersion": {
-          "anyOf": [
-            {"type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[A-Za-z0-9][A-Za-z0-9._+!-]{0,127}$"},
-            {"type": "null"}
-          ]
-        },
-        "effectiveMaxRetries": {"$ref": "#/$defs/nullableNonnegativeInteger"},
-        "effectiveTimeoutSeconds": {
-          "anyOf": [
-            {"type": "integer", "minimum": 1, "maximum": 300},
-            {"type": "null"}
-          ]
-        }
-      }
-    },
     "requestPolicy": {
       "type": "object",
       "additionalProperties": false,
       "required": [
         "conversationIsolation",
         "transportRetries",
-        "transportTimeoutSeconds",
         "maxAttemptsPerCall",
         "temperature",
         "maxOutputTokens",
@@ -313,7 +268,6 @@
       "properties": {
         "conversationIsolation": {"const": "oneNamedChatPerPromptAndRerun"},
         "transportRetries": {"const": 0},
-        "transportTimeoutSeconds": {"type": "integer", "minimum": 1, "maximum": 300},
         "maxAttemptsPerCall": {"const": 1},
         "temperature": {"type": "number", "minimum": 0, "maximum": 2},
         "maxOutputTokens": {"type": "integer", "minimum": 1, "maximum": 1000000},

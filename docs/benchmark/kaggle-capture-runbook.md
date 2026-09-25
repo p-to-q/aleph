@@ -308,9 +308,15 @@ symlinks and hard links, snapshots bounded member bytes, and reruns the full env
 `assemble_capture_set_receipt` then compares the exact union with a content-addressed scope plan.
 It never selects a latest or best run.
 
-The current generated authority defines only the six-call `transportCanary` scope. Its 2,048-token
-request policy is intentionally different from the v0.2 hosted decoding cap of 512, so its receipt
-always has `canonicalScoringInputEligible: false`, zero complete canonical items, and fixed false
+The current internal capture Task/source generation v4 authority defines only the six-call
+`transportCanary` scope. A byte-pinned internal generation-v3 plan remains available solely to
+reconstruct homogeneous legacy capture schema `1.1.0` evidence as Receipt `1.0.0` under ScopePlan
+`1.0.0`; it cannot be mixed with current capture schema `1.2.0`, Receipt `1.1.0`, or ScopePlan
+`1.1.0`. This internal generation is not Kaggle's platform Task revision, which is an independent
+counter; the exact canonical task slug and creation-authority source identity bind that revision to
+the selected internal generation. The current plan's 2,048-token request policy is intentionally
+different from the v0.2 hosted decoding cap of 512, so its receipt always has
+`canonicalScoringInputEligible: false`, zero complete canonical items, and fixed false
 leaderboard/result/publication flags. The checked-in canonical authority registry is empty: even a
 synthetic 900-row set and a self-consistent model mapping remain ineligible until a separate review
 adds the exact formal 512-token scope-plan id, request-policy digest, and content-addressed model-
