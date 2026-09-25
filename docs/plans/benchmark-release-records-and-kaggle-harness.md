@@ -147,8 +147,9 @@ not create a fifth record class.
 In this explicitly post-cutover example, `source.githubRepository` is the standalone implementation
 and release authority. Before `p-to-q/aleph-benchmark#1` passes, the Aleph source branch remains the
 temporary source authority and no manifest may falsely claim the standalone cutover. Historical
-import provenance, when retained after cutover, belongs only in the separate `migrationProvenance`
-record.
+import provenance, when retained after cutover, belongs only in an optional `migrationProvenance`
+nested object within the ReleaseManifest. It is a manifest field, not a fifth record
+class and not an alternative source-authority declaration.
 
 Avoid circular hashes. `source.implementationCommit` identifies the already-existing source tree
 used to build the release; it is not the later commit or tag that publishes this manifest. The

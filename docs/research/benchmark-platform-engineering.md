@@ -36,8 +36,8 @@ The current hosted checkpoint is deliberately score-free:
 
 The public page contains one historical v0.1 numeric row and no formal hosted v0.2 score. PR #60
 (plan), PR #61 (one-shot scheduler), and PR #76 / issue #67 (strict capture-set assembler) are
-complete. The Haiku timeout activates a hard hold: no paid run and no Haiku retry before issue #90
-merges and an explicit decision lifts the hold.
+complete. The Haiku timeout activates a hard hold: no paid run and no Haiku retry until issue #90
+is resolved by a merged, verified implementation PR and an explicit decision lifts the hold.
 
 Three platform facts determine the next design:
 
@@ -215,7 +215,8 @@ and schema without claiming an official or verified badge.
    the global authority cutover; `p-to-q/aleph-benchmark#1` owns that transition.
 3. Complete issue #77's proof and derive a proven candidate/release identity before manifest freeze.
 4. Keep PR #61's one-shot scheduler and PR #76/#67's strict assembler as mandatory controls.
-5. Resolve issue #90 and explicitly lift the hold before any paid scheduling.
+5. Resolve issue #90 with a merged, verified implementation PR and explicitly lift the hold before
+   any paid scheduling.
 6. Build and validate a private numeric release candidate before consuming full-run quota.
 7. Promote only an exact verified Task version to the existing Kaggle URL.
 8. Mirror the same release identity to a public Hugging Face dataset and cross-link every surface.

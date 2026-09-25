@@ -72,8 +72,8 @@ Current hosted checkpoint on 2026-09-25:
   1 timeout, and incomplete coverage. It is not assembly-eligible and is not a score;
 - the public page contains one historical v0.1 numeric row. There is no formal hosted v0.2 score;
   and
-- no paid run and no Haiku retry is authorized until issue #90 is merged and the hold is explicitly
-  lifted.
+- no paid run and no Haiku retry is authorized until issue #90 is resolved by a merged, verified
+  implementation PR and the hold is explicitly lifted.
 
 ## Decision
 
@@ -238,7 +238,9 @@ A returned `0.0` may only mean a complete valid run actually scored zero.
 
 ## Exact paid-run control plane
 
-Implement `bench.engine.kaggle_run_once` before the next paid canary. It must:
+PR #61 already implemented `bench.engine.kaggle_run_once`; it is the only permitted paid scheduler,
+but it is not usable while the hard hold remains active. It may be used only after issue #90 is
+resolved by a merged, verified implementation PR and an explicit decision lifts the hold. It:
 
 1. require explicit owner, Task slug, positive exact version, one exact model slug, and a new
    journal path;
@@ -269,9 +271,9 @@ scheduler.
 6. **2 × 900 calls:** a second provider only after the first exact run and independent replay pass.
 
 As of 2026-09-25, issue #67's assembler gate is merged, but run `3092711` activated the timeout
-circuit breaker. The controller is in a hard hold: no paid run and no Haiku retry before issue #90
-merges and an explicit operator decision lifts the hold. Read-only status, quota, source, and
-evidence verification may continue.
+circuit breaker. The controller is in a hard hold: no paid run and no Haiku retry until issue #90
+is resolved by a merged, verified implementation PR and an explicit operator decision lifts the
+hold. Read-only status, quota, source, and evidence verification may continue.
 
 There is no active target of 8–12 models per day. Any future recurring matrix is a bounded research
 plan, not a quota-consumption goal: it requires the #90 stability gate, an explicit model list,
@@ -364,8 +366,8 @@ gate for every later PR.
 Status: completed by PR #61. PR #76 / issue #67 subsequently completed the strict capture-set
 assembler dependency.
 
-- implement and adversarially test `kaggle_run_once`;
-- document journal reconciliation and evidence layout.
+- implemented and adversarially tested `kaggle_run_once`;
+- documented journal reconciliation and the evidence layout.
 
 Gate: fake SDK tests prove one direct paid call, exact version binding, no retry, durable ambiguous
 state, and exact new-run-id reconciliation.
@@ -423,6 +425,7 @@ Gate: GitHub, Kaggle, and Hugging Face show the same release identity and verifi
 
 ## Immediate next action
 
-Merge and verify issue #90's timeout policy, then require an explicit hold-lift decision before any
-paid dispatch. In parallel, continue the standalone portable-scorer slices and issue #77 proof with
-zero model calls. No current artifact is a v0.2 score, and the full 900-call budget remains gated.
+Resolve issue #90 with a merged, verified implementation PR, then require an explicit hold-lift
+decision before any paid dispatch. In parallel, continue the standalone portable-scorer slices and
+issue #77 proof with zero model calls. No current artifact is a v0.2 score, and the full 900-call
+budget remains gated.

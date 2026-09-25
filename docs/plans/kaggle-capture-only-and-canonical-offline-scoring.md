@@ -18,10 +18,12 @@ a transport receipt into leaderboard evidence.
 ## Observed problem
 
 Aleph-Bench v0.2 pins Python 3.13 and UCD 15.1 because Unicode normalization and classification are
-part of the scorer contract. The observed Kaggle image provides Python 3.11 and UCD 14. Its valid
-zero-call diagnostic therefore stopped at `runtime_preflight`, before package access or a model
-dispatch. That is the correct result for in-process v0.2 scoring, but it also prevents Kaggle from
-being used only to collect raw observations.
+part of the scorer contract. An earlier observed Kaggle image provided Python 3.11 and UCD 14; its
+valid zero-call diagnostic therefore stopped at `runtime_preflight`, before package access or a
+model dispatch. Current private Task v9 captures instead observed Python 3.12.10 and UCD 15.0.
+Neither hosted runtime is the Python 3.13/UCD 15.1 reference profile. Rejecting either ambient
+runtime is the correct result for reference-profile scoring, but it also prevents Kaggle from being
+used only to collect raw observations.
 
 The runtimes are not interchangeable. A local planning audit found:
 
@@ -73,11 +75,12 @@ unknown finish reason, or output usage within the frozen near-cap margin remain 
 5. Only a Python 3.13/UCD 15.1 offline command may turn a complete, verified capture set into a v0.2
    `BenchResult`. The existing canonical verifier must then reproduce the complete result from its
    retained raw outputs.
-6. Native Kaggle scoring remains a separate future design problem. A portable implementation must
-   receive a new protocol, scorer, schema, and runtime-profile identity because the Python 3.13/UCD
-   15.1 runtime is part of the frozen v0.2 contract. Exhaustive equivalence may establish numerical
-   comparability with v0.2; it cannot relabel the implementation as protocol `0.2.0`. Compatibility
-   is never asserted from package version metadata alone.
+6. Native Kaggle scoring remains a separate future design problem. A portable implementation
+   targets protocol `0.2.0` while carrying independent scorer-profile, runtime-profile, package,
+   and schema identities; it must not present itself as the Python 3.13/UCD 15.1 reference profile.
+   Its `comparabilityStatus` remains `unproven` until issue #77 produces and verifies the required
+   zero-mismatch proof before freeze. Compatibility is never asserted from package version metadata
+   alone. Protocol `0.3.0` remains reserved for issue #35's semantic changes.
 
 ## Alternatives considered
 
