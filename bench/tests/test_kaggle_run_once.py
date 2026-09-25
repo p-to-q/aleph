@@ -248,7 +248,7 @@ class KaggleRunOnceTests(unittest.TestCase):
         )
         self.assertEqual(
             authority.journal["source"]["notebookSha256"],
-            "f859f73bc5caeb0d74617d50a6ce8641fc68f8f1a5c4e3a2afaad16c88b4bf71",
+            "5f4103d304c057ec3e100d6750ff4052c41b7b3961c85d3c09fb7e14d6d04071",
         )
 
     @unittest.skipUnless(

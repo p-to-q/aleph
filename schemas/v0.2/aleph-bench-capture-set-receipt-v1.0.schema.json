@@ -23,7 +23,7 @@
     "id"
   ],
   "properties": {
-    "receiptSchemaVersion": {"const": "1.1.0"},
+    "receiptSchemaVersion": {"const": "1.0.0"},
     "artifactKind": {"const": "aleph_bench_capture_set_receipt"},
     "targetProtocolVersion": {"const": "0.2.0"},
     "scoreFree": {"const": true},
@@ -181,7 +181,6 @@
       "required": [
         "conversationIsolation",
         "transportRetries",
-        "transportTimeoutSeconds",
         "maxAttemptsPerCall",
         "temperature",
         "maxOutputTokens",
@@ -192,7 +191,6 @@
       "properties": {
         "conversationIsolation": {"const": "oneNamedChatPerPromptAndRerun"},
         "transportRetries": {"type": "integer", "minimum": 0, "maximum": 100},
-        "transportTimeoutSeconds": {"type": "integer", "minimum": 1, "maximum": 300},
         "maxAttemptsPerCall": {"type": "integer", "minimum": 1, "maximum": 100},
         "temperature": {"type": "number", "minimum": 0, "maximum": 2},
         "maxOutputTokens": {"type": "integer", "minimum": 1, "maximum": 1000000},

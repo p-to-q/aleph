@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import ast
 import copy
 import contextlib
+import hashlib
 import io
 import importlib.util
 import json
@@ -27,6 +29,13 @@ from bench.tasks.kaggle import generate_v0_2_capture as capture_generator
 
 ROOT = Path(__file__).resolve().parents[2]
 OUTPUT_PATH = ROOT / "bench/tasks/kaggle/aleph_bench_v0_2_capture.py"
+KAGGLE_061_MODEL_PROXY = (
+    ROOT
+    / "bench/tests/fixtures/kaggle/kaggle-benchmarks-v0.6.1-model_proxy.py"
+)
+KAGGLE_061_LLMS = (
+    ROOT / "bench/tests/fixtures/kaggle/kaggle-benchmarks-v0.6.1-llms.py"
+)
 RUNTIME_311 = {
     "pythonVersion": "3.11",
     "pythonFullVersion": "3.11.9",
@@ -39,6 +48,24 @@ RUNTIME_313 = {
     "unicodeDatabaseVersion": "15.1.0",
     "platform": "Linux-x86_64",
 }
+TRANSPORT_PACKAGE_VERSIONS = {
+    "kaggle_benchmarks": "0.6.1",
+    "kaggle-benchmarks": "0.6.1",
+    "openai": "2.12.0",
+    "google-genai": "1.56.0",
+}
+
+
+def _transport_version_patch(
+    generated: types.ModuleType,
+    versions: dict[str, str] | None = None,
+) -> Any:
+    observed = TRANSPORT_PACKAGE_VERSIONS if versions is None else versions
+    return mock.patch.object(
+        generated.importlib_metadata,
+        "version",
+        side_effect=lambda name: observed[name],
+    )
 
 
 class _TaskWrapper:
@@ -190,11 +217,105 @@ class _Chats:
 
 
 class _OpenAIClient:
-    def __init__(self, max_retries: int = 2) -> None:
+    def __init__(self, max_retries: int = 2, timeout: Any = 600) -> None:
         self.max_retries = max_retries
+        self.timeout = timeout
 
+    def with_options(self, *, max_retries: int, timeout: int) -> "_OpenAIClient":
+        return _OpenAIClient(max_retries=max_retries, timeout=timeout)
+
+
+class _TimeoutComponents:
+    def __init__(self, value: int) -> None:
+        self.connect = value
+        self.read = value
+        self.write = value
+        self.pool = value
+
+
+class _ComponentTimeoutClient(_OpenAIClient):
+    def with_options(
+        self, *, max_retries: int, timeout: int
+    ) -> "_OpenAIClient":
+        return _OpenAIClient(
+            max_retries=max_retries,
+            timeout=_TimeoutComponents(timeout),
+        )
+
+
+class _NoTimeoutClient(_OpenAIClient):
     def with_options(self, *, max_retries: int) -> "_OpenAIClient":
         return _OpenAIClient(max_retries=max_retries)
+
+
+class _DriftedTimeoutClient(_OpenAIClient):
+    def with_options(
+        self, *, max_retries: int, timeout: int
+    ) -> "_OpenAIClient":
+        return _OpenAIClient(max_retries=max_retries, timeout=timeout + 1)
+
+
+class _SecretReadback:
+    @property
+    def max_retries(self) -> int:
+        raise ValueError("transport secret")
+
+    @property
+    def timeout(self) -> int:
+        raise ValueError("transport secret")
+
+
+class _SecretReadbackClient(_OpenAIClient):
+    def with_options(
+        self, *, max_retries: int, timeout: int
+    ) -> _SecretReadback:
+        del max_retries, timeout
+        return _SecretReadback()
+
+
+class _SecretTimeoutPropertyReadback:
+    max_retries = 0
+
+    @property
+    def timeout(self) -> int:
+        raise ValueError("transport secret")
+
+
+class _SecretTimeoutPropertyClient(_OpenAIClient):
+    def with_options(
+        self, *, max_retries: int, timeout: int
+    ) -> _SecretTimeoutPropertyReadback:
+        del max_retries, timeout
+        return _SecretTimeoutPropertyReadback()
+
+
+class _SecretTimeoutComponents:
+    @property
+    def connect(self) -> int:
+        raise ValueError("transport secret")
+
+    read = 180
+    write = 180
+    pool = 180
+
+
+class _SecretTimeoutReadbackClient(_OpenAIClient):
+    def with_options(
+        self, *, max_retries: int, timeout: int
+    ) -> _OpenAIClient:
+        del timeout
+        return _OpenAIClient(
+            max_retries=max_retries,
+            timeout=_SecretTimeoutComponents(),
+        )
+
+
+class _SecretClientDescriptor:
+    def __get__(self, actor: Any, _owner: type[Any]) -> _OpenAIClient:
+        return actor.__dict__["safe_client"]
+
+    def __set__(self, _actor: Any, _client: _OpenAIClient) -> None:
+        raise ValueError("transport secret")
 
 
 class OpenAI:
@@ -262,6 +383,13 @@ class _Bomb:
         raise AssertionError(f"unexpected access: {name}")
 
 
+class APITimeoutError(Exception):
+    pass
+
+
+APITimeoutError.__module__ = "openai"
+
+
 def _contains_score_key(value: Any) -> bool:
     if isinstance(value, dict):
         for key, child in value.items():
@@ -302,6 +430,7 @@ class KaggleCaptureTaskV02Tests(unittest.TestCase):
         runtime: dict[str, str] = RUNTIME_311,
         package_root: Path | None = None,
         verify_package: bool = False,
+        package_versions: dict[str, str] | None = None,
     ) -> tuple[dict[str, Any], Path, tempfile.TemporaryDirectory[str]]:
         output_tmp: tempfile.TemporaryDirectory[str] = tempfile.TemporaryDirectory()
         capture_path = Path(output_tmp.name) / "capture.json"
@@ -314,7 +443,9 @@ class KaggleCaptureTaskV02Tests(unittest.TestCase):
                 wraps=self.generated._verify_package,
             )
         )
-        with package_gate:
+        with package_gate, _transport_version_patch(
+            self.generated, package_versions
+        ):
             payload = self.generated.run_capture_canary(
                 llm,
                 chats=chats,
@@ -341,6 +472,62 @@ class KaggleCaptureTaskV02Tests(unittest.TestCase):
         self.assertEqual(wrapper.metadata["name"], self.generated.TASK_NAME)
         self.assertEqual(len(wrapper.run_calls), 1)
 
+    def test_kaggle_benchmarks_0_6_1_public_client_surface_snapshot(self) -> None:
+        snapshots = (
+            (KAGGLE_061_MODEL_PROXY, "9fbfc9a6272916835b97bcd4bccac0fc5b681865"),
+            (KAGGLE_061_LLMS, "897a542e383713e95b756534e5280860e965056c"),
+        )
+        for path, expected_blob_sha1 in snapshots:
+            data = path.read_bytes()
+            blob = f"blob {len(data)}\0".encode("ascii") + data
+            self.assertEqual(hashlib.sha1(blob).hexdigest(), expected_blob_sha1)
+
+        model_proxy = ast.parse(KAGGLE_061_MODEL_PROXY.read_text(encoding="utf-8"))
+        openai_client_calls = [
+            node
+            for node in ast.walk(model_proxy)
+            if isinstance(node, ast.Call)
+            and isinstance(node.func, ast.Attribute)
+            and isinstance(node.func.value, ast.Name)
+            and node.func.value.id == "openai"
+            and node.func.attr == "OpenAI"
+        ]
+        self.assertEqual(len(openai_client_calls), 1)
+        self.assertNotIn(
+            "timeout", {keyword.arg for keyword in openai_client_calls[0].keywords}
+        )
+        self.assertNotIn(
+            "max_retries",
+            {keyword.arg for keyword in openai_client_calls[0].keywords},
+        )
+
+        llms = ast.parse(KAGGLE_061_LLMS.read_text(encoding="utf-8"))
+        openai_actor = next(
+            node
+            for node in llms.body
+            if isinstance(node, ast.ClassDef) and node.name == "OpenAI"
+        )
+        init = next(
+            node
+            for node in openai_actor.body
+            if isinstance(node, ast.FunctionDef) and node.name == "__init__"
+        )
+        self.assertTrue(
+            any(
+                isinstance(node, ast.Assign)
+                and any(
+                    isinstance(target, ast.Attribute)
+                    and isinstance(target.value, ast.Name)
+                    and target.value.id == "self"
+                    and target.attr == "client"
+                    for target in node.targets
+                )
+                and isinstance(node.value, ast.Name)
+                and node.value.id == "client"
+                for node in ast.walk(init)
+            )
+        )
+
     def test_complete_six_call_capture_is_contract_valid(self) -> None:
         llm = OpenAI()
         chats = _Chats(finish_reason="stop")
@@ -355,6 +542,7 @@ class KaggleCaptureTaskV02Tests(unittest.TestCase):
         self.assertEqual(chats.names, [row["conversationName"] for row in payload["rows"]])
         self.assertFalse(_contains_score_key(payload))
         self.assertIsNone(payload["requestPolicy"]["reasoning"])
+        self.assertEqual(payload["requestPolicy"]["transportTimeoutSeconds"], 180)
         self.assertNotIn("reasoning=REQUEST_POLICY", OUTPUT_PATH.read_text(encoding="utf-8"))
         self.assertTrue(all(call["seed"] == 0 for call in llm.calls))
         self.assertTrue(all(call["temperature"] == 0 for call in llm.calls))
@@ -362,6 +550,19 @@ class KaggleCaptureTaskV02Tests(unittest.TestCase):
             all(call["extra_api_params"] == {"max_tokens": 2048} for call in llm.calls)
         )
         self.assertEqual(llm.client.max_retries, 0)
+        self.assertEqual(llm.client.timeout, 180)
+        self.assertEqual(
+            payload["transportObservation"],
+            {
+                "attestationStatus": "verified",
+                "family": "openai-compatible",
+                "kaggleBenchmarksVersion": "0.6.1",
+                "providerSdkName": "openai",
+                "providerSdkVersion": "2.12.0",
+                "effectiveMaxRetries": 0,
+                "effectiveTimeoutSeconds": 180,
+            },
+        )
 
     def test_provider_revision_model_slug_is_preserved(self) -> None:
         llm = OpenAI()
@@ -386,6 +587,44 @@ class KaggleCaptureTaskV02Tests(unittest.TestCase):
         self.assertFalse(payload["captureComplete"])
         self.assertEqual(payload["calls"]["attemptedCallCount"], 0)
         self.assertEqual(llm.calls, [])
+
+    def test_hyphenated_kaggle_distribution_name_is_attested(self) -> None:
+        versions = {
+            "kaggle-benchmarks": "0.6.1",
+            "openai": "2.12.0",
+        }
+        payload, _, output_tmp = self._run(
+            llm=OpenAI(),
+            chats=_Chats(),
+            package_versions=versions,
+        )
+        self.addCleanup(output_tmp.cleanup)
+
+        self.assertTrue(payload["captureComplete"])
+        self.assertEqual(
+            payload["transportObservation"]["kaggleBenchmarksVersion"],
+            "0.6.1",
+        )
+
+    def test_missing_provider_sdk_version_blocks_before_dispatch(self) -> None:
+        versions = {
+            "kaggle_benchmarks": "0.6.1",
+            "kaggle-benchmarks": "0.6.1",
+        }
+        llm = OpenAI()
+        stdout = io.StringIO()
+
+        with contextlib.redirect_stdout(stdout):
+            payload, _, output_tmp = self._run(
+                llm=llm,
+                chats=_Chats(),
+                package_versions=versions,
+            )
+        self.addCleanup(output_tmp.cleanup)
+
+        self.assertEqual(payload["calls"]["attemptedCallCount"], 0)
+        self.assertEqual(llm.calls, [])
+        self.assertIn("transportRuntimeIdentityUnverified", stdout.getvalue())
 
     @unittest.skipUnless(
         sys.version_info[:2] == (3, 13),
@@ -642,16 +881,20 @@ class KaggleCaptureTaskV02Tests(unittest.TestCase):
                 self.assertNotIn("model secret", serialized)
                 self.assertNotIn("close secret", serialized)
 
-    def test_genai_default_no_retry_contract_does_not_require_private_controller(self) -> None:
+    def test_genai_blocks_without_a_public_existing_client_timeout_contract(self) -> None:
         llm = GoogleGenAI()
-        payload, _, output_tmp = self._run(llm=llm, chats=_Chats())
+        stdout = io.StringIO()
+        with contextlib.redirect_stdout(stdout):
+            payload, _, output_tmp = self._run(llm=llm, chats=_Chats())
         self.addCleanup(output_tmp.cleanup)
 
-        self.assertTrue(payload["captureComplete"])
-        self.assertEqual(payload["calls"]["attemptedCallCount"], 6)
+        self.assertFalse(payload["captureComplete"])
+        self.assertEqual(payload["calls"]["attemptedCallCount"], 0)
+        self.assertEqual(llm.calls, [])
         self.assertEqual(
-            llm.calls[0]["extra_api_params"], {"max_output_tokens": 2048}
+            payload["transportObservation"]["attestationStatus"], "unsupported"
         )
+        self.assertIn("transportTimeoutPolicyUnsupported", stdout.getvalue())
 
     def test_genai_explicit_retry_options_block_before_model_call(self) -> None:
         llm = GoogleGenAI(retry_options=object())
@@ -664,7 +907,129 @@ class KaggleCaptureTaskV02Tests(unittest.TestCase):
         self.assertEqual(payload["calls"]["attemptedCallCount"], 0)
         self.assertEqual(llm.calls, [])
         self.assertIn("stage=model", stdout.getvalue())
-        self.assertIn("transportRetryPolicyUnverified", stdout.getvalue())
+        self.assertIn("transportTimeoutPolicyUnsupported", stdout.getvalue())
+
+    def test_openai_timeout_object_readback_is_accepted_when_all_components_match(
+        self,
+    ) -> None:
+        llm = OpenAI()
+        llm.client = _ComponentTimeoutClient()
+
+        payload, _, output_tmp = self._run(llm=llm, chats=_Chats())
+        self.addCleanup(output_tmp.cleanup)
+
+        self.assertTrue(payload["captureComplete"])
+        self.assertEqual(
+            payload["transportObservation"]["effectiveTimeoutSeconds"], 180
+        )
+
+    def test_unsupported_openai_timeout_configuration_blocks_before_dispatch(
+        self,
+    ) -> None:
+        llm = OpenAI()
+        llm.client = _NoTimeoutClient()
+        stdout = io.StringIO()
+
+        with contextlib.redirect_stdout(stdout):
+            payload, _, output_tmp = self._run(llm=llm, chats=_Chats())
+        self.addCleanup(output_tmp.cleanup)
+
+        self.assertEqual(payload["calls"]["attemptedCallCount"], 0)
+        self.assertEqual(llm.calls, [])
+        self.assertIn("transportTimeoutPolicyUnsupported", stdout.getvalue())
+
+    def test_openai_timeout_readback_drift_blocks_before_dispatch(self) -> None:
+        llm = OpenAI()
+        llm.client = _DriftedTimeoutClient()
+        stdout = io.StringIO()
+
+        with contextlib.redirect_stdout(stdout):
+            payload, _, output_tmp = self._run(llm=llm, chats=_Chats())
+        self.addCleanup(output_tmp.cleanup)
+
+        self.assertEqual(payload["calls"]["attemptedCallCount"], 0)
+        self.assertEqual(llm.calls, [])
+        self.assertIn("transportTimeoutPolicyDrifted", stdout.getvalue())
+
+    def test_transport_readback_and_assignment_errors_do_not_leak_secrets(
+        self,
+    ) -> None:
+        cases = (
+            (
+                _SecretReadbackClient(),
+                None,
+                "transportPolicyReadbackUnavailable",
+            ),
+            (
+                _SecretTimeoutPropertyClient(),
+                None,
+                "transportPolicyReadbackUnavailable",
+            ),
+            (
+                _SecretTimeoutReadbackClient(),
+                None,
+                "transportPolicyReadbackUnavailable",
+            ),
+            (
+                _OpenAIClient(),
+                _SecretClientDescriptor(),
+                "transportPolicyApplicationFailed",
+            ),
+        )
+        for client, client_descriptor, error_code in cases:
+            with self.subTest(error_code=error_code, client=type(client).__name__):
+                llm = OpenAI()
+                llm.client = client
+                stdout = io.StringIO()
+                descriptor_patch = (
+                    mock.patch.object(
+                        OpenAI,
+                        "client",
+                        client_descriptor,
+                        create=True,
+                    )
+                    if client_descriptor is not None
+                    else contextlib.nullcontext()
+                )
+                if client_descriptor is not None:
+                    llm.__dict__["safe_client"] = client
+                with descriptor_patch, contextlib.redirect_stdout(stdout):
+                    payload, _, output_tmp = self._run(
+                        llm=llm,
+                        chats=_Chats(),
+                    )
+                self.addCleanup(output_tmp.cleanup)
+
+                serialized = json.dumps(payload, sort_keys=True)
+                self.assertEqual(payload["calls"]["attemptedCallCount"], 0)
+                self.assertEqual(llm.calls, [])
+                self.assertIn(error_code, stdout.getvalue())
+                self.assertNotIn("transport secret", stdout.getvalue())
+                self.assertNotIn("transport secret", serialized)
+
+    def test_timeout_failure_is_terminal_and_does_not_dispatch_remaining_calls(
+        self,
+    ) -> None:
+        llm = OpenAI(outputs=[APITimeoutError("Request timed out.")])
+
+        payload, _, output_tmp = self._run(llm=llm, chats=_Chats())
+        self.addCleanup(output_tmp.cleanup)
+
+        self.assertEqual(len(llm.calls), 1)
+        self.assertEqual(payload["calls"]["attemptedCallCount"], 1)
+        self.assertEqual(payload["calls"]["terminalCallCount"], 1)
+        self.assertEqual(payload["calls"]["failedCallCount"], 1)
+        self.assertEqual(len(payload["diagnostics"]["missingPlannedRowIds"]), 5)
+        self.assertEqual(
+            payload["rows"][0]["terminalFailure"]["exceptionType"],
+            "openai.APITimeoutError",
+        )
+        self.assertFalse(payload["captureComplete"])
+        self.assertFalse(payload["canonicalReplayEligible"])
+        self.assertFalse(payload["leaderboardEligible"])
+        self.assertFalse(payload["publicationEligible"])
+        self.assertIn("incompleteCoverage", payload["diagnostics"]["replayBlockedReasons"])
+        self.assertIn("terminalFailure", payload["diagnostics"]["replayBlockedReasons"])
 
     def test_non_string_oversized_and_lone_surrogate_outputs_fail_closed(self) -> None:
         cases = [
@@ -690,8 +1055,11 @@ class KaggleCaptureTaskV02Tests(unittest.TestCase):
         self.addCleanup(output_tmp.cleanup)
         capture_path = Path(output_tmp.name) / "capture.json"
         with self.assertRaisesRegex(ValueError, "surrogate pair"):
-            with mock.patch.object(
-                self.generated, "_verify_package", return_value=None
+            with (
+                mock.patch.object(
+                    self.generated, "_verify_package", return_value=None
+                ),
+                _transport_version_patch(self.generated),
             ):
                 self.generated.run_capture_canary(
                     OpenAI(outputs=["\ud83d\ude00"]),

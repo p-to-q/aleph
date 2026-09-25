@@ -361,6 +361,43 @@ only that this small transport-and-capture path worked; it is not AURC, a model 
 to schedule a canonical v0.2 run. See the
 [Kaggle deployment diagnostic runbook](../docs/benchmark/kaggle-diagnostic-runbook.md).
 
+The generated raw-capture contract version 4 emits capture schema `1.2.0` and
+binds `transportTimeoutSeconds: 180` into its request-policy and Task-definition
+digests. This is an operational canary policy, not a v0.2 scoring rule: retained
+v7-v9 evidence contains 36 successful calls, of which 34 completed within
+18.938 seconds and all completed within 28.839 seconds. The 180-second value is
+therefore a conservative bound above the small observed sample, not a claim
+about provider latency or the root cause of any timeout.
+
+Before opening a prompt chat, the capture Task records exact installed
+`kaggle_benchmarks` and provider-SDK versions and configures an
+OpenAI-compatible client through the public
+`with_options(max_retries=0, timeout=180)` API. It reads both values back and
+blocks with zero model calls on unavailable identity, unsupported
+configuration, or value drift. Kaggle Benchmarks 0.6.1 constructs the native
+Google GenAI client before handing its actor to the Task, and google-genai has
+no public API for applying equivalent options to that existing client. Native
+GenAI therefore blocks before dispatch; the Task does not inspect or mutate
+private `_api_client` state. A future supported GenAI path requires its own
+reviewed Task version and public construction-time contract.
+
+Capture schema `1.1.0` remains accepted without the new fields so retained
+v7-v9 payload bytes are not migrated or relabeled. A timeout remains one
+terminal failed call: there is no retry, no continuation of the remaining
+calls, and no score, canonical replay, assembly, publication, or leaderboard
+eligibility.
+
+Capture-set derivation keeps the generations closed: capture schema `1.1.0`
+from internal capture Task/source generation v3 uses Receipt schema `1.0.0`
+and ScopePlan schema `1.0.0`, while capture schema `1.2.0` from internal
+generation v4 uses Receipt schema `1.1.0` and ScopePlan schema `1.1.0`. The
+legacy Receipt schema and generation-v3 transport-canary plan are byte-pinned;
+neither accepts the timeout field. This internal generation is not the Kaggle
+platform Task revision, which is an independent counter: the exact canonical
+task slug and creation-authority source identity bind that revision to the
+selected internal generation. Mixed capture or internal Task generations fail
+before assembly.
+
 ### Assemble score-free capture evidence offline
 
 `bench.engine.kaggle_capture_evidence.load_verified_capture_bundle` is the public loader for one

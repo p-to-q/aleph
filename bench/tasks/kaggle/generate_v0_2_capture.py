@@ -32,7 +32,7 @@ from bench.engine.scoring_core import validate_scoring_runtime
 
 OUTPUT_PATH = ROOT / "bench/tasks/kaggle/aleph_bench_v0_2_capture.py"
 TASK_NAME = "aleph_bench_v0_2_capture_canary"
-TASK_VERSION = 3
+TASK_VERSION = 4
 TASK_DESCRIPTION = (
     "Capture the fixed Aleph-Bench v0.2 six-call Kaggle canary without scoring."
 )
@@ -50,6 +50,13 @@ CANARY_PROMPT_IDS = (
 )
 MAX_OUTPUT_TOKENS = 2048
 NEAR_CAP_MARGIN_TOKENS = 32
+# This is a versioned canary policy, not a protocol fact. Across the retained
+# v7-v9 evidence, 34 of 36 successful calls finished within 18.938 s and the
+# maximum was 28.839 s. A 180 s bound is deliberately conservative (>6x that
+# observed maximum) while preventing an unconfigured SDK default from holding
+# the six-call canary for roughly 600 s. A larger sample may justify a later,
+# separately reviewed task version.
+TRANSPORT_TIMEOUT_SECONDS = 180
 _DEFINITION_SHA256_PLACEHOLDER = "0" * 64
 _IMPLEMENTATION_SHA256_PLACEHOLDER = "1" * 64
 
@@ -133,6 +140,7 @@ def _generation_context() -> dict[str, Any]:
     request_policy = {
         "conversationIsolation": "oneNamedChatPerPromptAndRerun",
         "transportRetries": 0,
+        "transportTimeoutSeconds": TRANSPORT_TIMEOUT_SECONDS,
         "maxAttemptsPerCall": 1,
         "temperature": 0,
         "maxOutputTokens": MAX_OUTPUT_TOKENS,
@@ -243,7 +251,7 @@ def _generation_context() -> dict[str, Any]:
 
 TASK_BODY = r'''
 
-CAPTURE_SCHEMA_VERSION = "1.1.0"
+CAPTURE_SCHEMA_VERSION = "1.2.0"
 ARTIFACT_KIND = "aleph_bench_kaggle_raw_capture"
 TARGET_PROTOCOL_VERSION = "0.2.0"
 ARTIFACT_ID_PREFIX = "aleph-bench-kaggle-capture-v1-artifact-"
@@ -351,6 +359,59 @@ def _runtime_observation():
         "unicodeDatabaseVersion": unicodedata.unidata_version,
         "platform": platform.platform(),
     }
+
+
+def _unavailable_transport_observation():
+    return {
+        "attestationStatus": "unavailable",
+        "family": "unavailable",
+        "kaggleBenchmarksVersion": None,
+        "providerSdkName": None,
+        "providerSdkVersion": None,
+        "effectiveMaxRetries": None,
+        "effectiveTimeoutSeconds": None,
+    }
+
+
+def _installed_package_version(*distribution_names):
+    versions = []
+    for distribution_name in distribution_names:
+        try:
+            version = importlib_metadata.version(distribution_name)
+        except Exception:
+            continue
+        if not isinstance(version, str) or re.fullmatch(
+            r"[A-Za-z0-9][A-Za-z0-9._+!-]{0,127}", version
+        ) is None:
+            return None
+        versions.append(version)
+    if not versions or len(set(versions)) != 1:
+        return None
+    return versions[0]
+
+
+def _effective_timeout_seconds(value):
+    if (
+        not isinstance(value, bool)
+        and isinstance(value, (int, float))
+        and math.isfinite(value)
+    ):
+        return value
+    components = [
+        getattr(value, name, None)
+        for name in ("connect", "read", "write", "pool")
+    ]
+    if (
+        all(
+            not isinstance(component, bool)
+            and isinstance(component, (int, float))
+            and math.isfinite(component)
+            for component in components
+        )
+        and len(set(components)) == 1
+    ):
+        return components[0]
+    return None
 
 
 def _reject_duplicate_pairs(pairs):
@@ -572,34 +633,95 @@ def _resolve_and_verify_package(package_root, *, input_root=KAGGLE_INPUT_ROOT):
     return matches[0]
 
 
-def _transport_retry_preflight(llm, model_type):
+def _transport_preflight(llm, model_type, observation):
+    if model_type in _SUPPORTED_OPENAI_TYPES:
+        observation.update(
+            {
+                "family": "openai-compatible",
+                "providerSdkName": "openai",
+            }
+        )
+    elif model_type in _SUPPORTED_GENAI_TYPES:
+        observation.update(
+            {
+                "family": "google-genai",
+                "providerSdkName": "google-genai",
+            }
+        )
+    else:
+        observation["family"] = "unsupported"
+        return "unsupportedModelTransport"
+
+    observation["kaggleBenchmarksVersion"] = _installed_package_version(
+        "kaggle_benchmarks", "kaggle-benchmarks"
+    )
+    observation["providerSdkVersion"] = _installed_package_version(
+        observation["providerSdkName"]
+    )
+    if (
+        observation["kaggleBenchmarksVersion"] is None
+        or observation["providerSdkVersion"] is None
+    ):
+        return "transportRuntimeIdentityUnverified"
+
+    if model_type in _SUPPORTED_GENAI_TYPES:
+        # Kaggle Benchmarks 0.6.1 constructs google.genai.Client before the
+        # task receives the actor. google-genai exposes timeout/retry policy at
+        # Client construction through public HttpOptions, but does not expose a
+        # public equivalent of OpenAI.with_options for an existing client.
+        # Reject this family before dispatch instead of reading or mutating
+        # private _api_client/_http_options state.
+        observation["attestationStatus"] = "unsupported"
+        return "transportTimeoutPolicyUnsupported"
+
     try:
         client = llm.client
-        if model_type in _SUPPORTED_OPENAI_TYPES:
-            configure = getattr(client, "with_options", None)
-            if not callable(configure):
-                return "transportRetryPolicyUnverified"
-            no_retry_client = configure(max_retries=0)
-            if getattr(no_retry_client, "max_retries", None) != 0:
-                return "transportRetryPolicyUnverified"
-            llm.client = no_retry_client
-            return None
-        if model_type in _SUPPORTED_GENAI_TYPES:
-            api_client = getattr(client, "_api_client", None)
-            http_options = getattr(api_client, "_http_options", None)
-            retry_options = getattr(http_options, "retry_options", object())
-            # google-genai's public retry contract defines None as one attempt.
-            # Do not depend on the private tenacity controller: its layout is
-            # not stable across the SDK versions used by Kaggle images.
-            if retry_options is not None:
-                return "transportRetryPolicyUnverified"
-            return None
+        configure = getattr(client, "with_options", None)
+        if not callable(configure):
+            return "transportTimeoutPolicyUnsupported"
+        configured_client = configure(
+            max_retries=REQUEST_POLICY["transportRetries"],
+            timeout=REQUEST_POLICY["transportTimeoutSeconds"],
+        )
     except Exception:
-        return "transportRetryPolicyUnverified"
-    return "unsupportedModelTransport"
+        return "transportTimeoutPolicyUnsupported"
+
+    try:
+        effective_retries = getattr(configured_client, "max_retries", None)
+        effective_timeout = _effective_timeout_seconds(
+            getattr(configured_client, "timeout", None)
+        )
+    except Exception:
+        return "transportPolicyReadbackUnavailable"
+    if (
+        isinstance(effective_retries, bool)
+        or not isinstance(effective_retries, int)
+        or effective_retries != REQUEST_POLICY["transportRetries"]
+    ):
+        return "transportRetryPolicyDrifted"
+    if (
+        effective_timeout is None
+        or effective_timeout != REQUEST_POLICY["transportTimeoutSeconds"]
+    ):
+        return "transportTimeoutPolicyDrifted"
+
+    try:
+        llm.client = configured_client
+    except Exception:
+        return "transportPolicyApplicationFailed"
+    observation.update(
+        {
+            "attestationStatus": "verified",
+            "effectiveMaxRetries": effective_retries,
+            "effectiveTimeoutSeconds": REQUEST_POLICY[
+                "transportTimeoutSeconds"
+            ],
+        }
+    )
+    return None
 
 
-def _model_preflight(llm):
+def _model_preflight(llm, transport_observation):
     model_type = f"{type(llm).__module__}.{type(llm).__name__}"
     slug = getattr(llm, "model", None)
     if not isinstance(slug, str) or not re.fullmatch(
@@ -619,9 +741,11 @@ def _model_preflight(llm):
     required = {"seed", "temperature", "extra_api_params"}
     if not required.issubset(parameters):
         raise ValueError("Kaggle prompt API is incompatible")
-    retry_error = _transport_retry_preflight(llm, model_type)
-    if retry_error is not None:
-        raise ValueError(retry_error)
+    transport_error = _transport_preflight(
+        llm, model_type, transport_observation
+    )
+    if transport_error is not None:
+        raise ValueError(transport_error)
     return {
         "platform": "kaggle",
         "slug": slug,
@@ -828,7 +952,7 @@ def _derive_diagnostics(rows, active):
     }
 
 
-def _payload(started_at, ended_at, runtime, model, rows, active):
+def _payload(started_at, ended_at, runtime, model, transport, rows, active):
     outcomes = {
         name: sum(row["outcome"] == name for row in rows)
         for name in (
@@ -863,6 +987,7 @@ def _payload(started_at, ended_at, runtime, model, rows, active):
         "taskIdentity": copy.deepcopy(TASK_IDENTITY),
         "modelObservation": copy.deepcopy(model),
         "runtimeObservation": copy.deepcopy(runtime),
+        "transportObservation": copy.deepcopy(transport),
         "requestPolicy": copy.deepcopy(REQUEST_POLICY),
         "shard": copy.deepcopy(SHARD),
         "calls": {
@@ -950,11 +1075,21 @@ def run_capture_canary(
         "canonicalModelId": None,
         "providerRevision": None,
     }
+    model = unavailable_model
+    transport = _unavailable_transport_observation()
     rows = []
     active = None
 
     def publish(model):
-        payload = _payload(started_at, clock(), runtime, model, rows, active)
+        payload = _payload(
+            started_at,
+            clock(),
+            runtime,
+            model,
+            transport,
+            rows,
+            active,
+        )
         _atomic_checkpoint(payload, capture_path)
         return payload
 
@@ -970,7 +1105,7 @@ def run_capture_canary(
         )
         return publish(unavailable_model)
     try:
-        model, token_parameter = _model_preflight(llm)
+        model, token_parameter = _model_preflight(llm, transport)
         if not hasattr(chats, "new") or not callable(chats.new):
             raise ValueError("Kaggle chats API is incompatible")
     except Exception as exc:
@@ -978,7 +1113,7 @@ def run_capture_canary(
             "ALEPH_CAPTURE_PREFLIGHT_FAILED "
             f"stage=model type={type(exc).__name__} message={str(exc)[:240]}"
         )
-        return publish(unavailable_model)
+        return publish(model)
 
     publish(model)
     for call in SHARD["plannedCalls"]:
@@ -1120,6 +1255,7 @@ import copy
 import hashlib
 import inspect
 import json
+import math
 import os
 import platform
 import re
@@ -1128,6 +1264,7 @@ import sys
 import tempfile
 import unicodedata
 from datetime import datetime, timezone
+from importlib import metadata as importlib_metadata
 from pathlib import Path, PurePosixPath
 
 import kaggle_benchmarks as kbench

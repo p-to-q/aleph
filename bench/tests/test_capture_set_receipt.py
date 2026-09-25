@@ -15,8 +15,15 @@ from unittest import mock
 from bench.engine import kaggle_capture_evidence as capture_evidence
 from bench.engine.capture_set_receipt import (
     CaptureSetReceiptError,
+    LEGACY_RECEIPT_SCHEMA_PATH,
+    LEGACY_RECEIPT_SCHEMA_VERSION,
+    LEGACY_SCOPE_PLAN_SCHEMA_VERSION,
+    LEGACY_TRANSPORT_CANARY_SCOPE_PLAN_PATH,
+    LEGACY_TRANSPORT_CANARY_SCOPE_PLAN_SHA256,
     MODEL_MAPPING_ARTIFACT_KIND,
     MODEL_MAPPING_SCHEMA_VERSION,
+    RECEIPT_SCHEMA_PATH,
+    RECEIPT_SCHEMA_VERSION,
     RECEIPT_ID_PREFIX,
     SCOPE_PLAN_ARTIFACT_KIND,
     SCOPE_PLAN_SCHEMA_VERSION,
@@ -27,18 +34,29 @@ from bench.engine.capture_set_receipt import (
     _scope_plan_id,
     _verify_scope_plan,
     assemble_capture_set_receipt,
+    legacy_transport_canary_scope_plan,
     serialize_capture_set_receipt,
     transport_canary_scope_plan,
     verify_capture_set_receipt,
 )
-from bench.engine.kaggle_capture import artifact_id_for, serialize_capture_payload
+from bench.engine.kaggle_capture import (
+    artifact_id_for,
+    parse_capture_payload,
+    serialize_capture_payload,
+)
 from bench.engine.kaggle_capture_evidence import (
     KaggleCaptureEvidenceError,
+    LEGACY_CAPTURE_CONTRACT_PATH,
+    LEGACY_CAPTURE_CONTRACT_SHA256,
+    LEGACY_CAPTURE_SOURCE_PATH,
+    LEGACY_CAPTURE_SOURCE_SHA256,
     VerifiedCaptureBundle,
+    _legacy_capture_contract,
     load_verified_capture_bundle,
     materialize_legacy_capture_bundle,
     write_capture_evidence_bundle,
 )
+from bench.engine.schema_validation import load_schema
 from bench.tasks.kaggle.generate_v0_2_capture import OUTPUT_PATH
 from bench.tests.test_kaggle_capture_evidence import (
     DATASET,
@@ -58,7 +76,17 @@ from bench.tests.test_kaggle_capture_task_v0_2 import (
     _Chats,
     _Clock,
     _load_generated_task,
+    _transport_version_patch,
     _write_package,
+)
+
+
+LEGACY_CAPTURE_FIXTURE = (
+    Path(__file__).resolve().parent
+    / "fixtures/kaggle/aleph-bench-v0.2-capture-task-v3-synthetic-complete.json"
+)
+LEGACY_CAPTURE_FIXTURE_SHA256 = (
+    "09ce05fbeec9c362b2bda75c133668a67820661c3c160974d81957d48c470443"
 )
 
 
@@ -130,6 +158,7 @@ def _synthetic_scope_plan(count: int = 900) -> dict[str, Any]:
     request_policy = {
         "conversationIsolation": "oneNamedChatPerPromptAndRerun",
         "transportRetries": 0,
+        "transportTimeoutSeconds": 180,
         "maxAttemptsPerCall": 1,
         "temperature": 0,
         "maxOutputTokens": 512,
@@ -197,13 +226,14 @@ def _fake_snapshot(
     }
     payload = {
         "id": payload_id,
+        "captureSchemaVersion": "1.2.0",
         "datasetIdentity": copy.deepcopy(plan["datasetIdentity"]),
         "packageIdentity": copy.deepcopy(plan["packageIdentity"]),
         "callPlanIdentity": copy.deepcopy(plan["callPlanIdentity"]),
         "requestPolicy": copy.deepcopy(plan["requestPolicy"]),
         "taskIdentity": {
             "name": "synthetic-task-source",
-            "version": "1",
+            "version": "4",
             "sourcePath": "task.py",
             "definitionSha256": "5" * 64,
             "implementationSha256": "6" * 64,
@@ -245,6 +275,95 @@ def _fake_snapshot(
 
 
 class CaptureSetPureContractTests(unittest.TestCase):
+    def test_legacy_contract_files_are_byte_pinned(self) -> None:
+        self.assertEqual(
+            hashlib.sha256(
+                LEGACY_CAPTURE_CONTRACT_PATH.read_bytes()
+            ).hexdigest(),
+            LEGACY_CAPTURE_CONTRACT_SHA256,
+        )
+        self.assertEqual(
+            hashlib.sha256(LEGACY_CAPTURE_SOURCE_PATH.read_bytes()).hexdigest(),
+            LEGACY_CAPTURE_SOURCE_SHA256,
+        )
+        self.assertEqual(
+            hashlib.sha256(LEGACY_RECEIPT_SCHEMA_PATH.read_bytes()).hexdigest(),
+            "e82a31ca42f82a8d3803c5f8f196e0125e5a95f111626ee71b976dbdb5dbb221",
+        )
+        self.assertEqual(
+            hashlib.sha256(
+                LEGACY_TRANSPORT_CANARY_SCOPE_PLAN_PATH.read_bytes()
+            ).hexdigest(),
+            LEGACY_TRANSPORT_CANARY_SCOPE_PLAN_SHA256,
+        )
+        self.assertEqual(
+            hashlib.sha256(LEGACY_CAPTURE_FIXTURE.read_bytes()).hexdigest(),
+            LEGACY_CAPTURE_FIXTURE_SHA256,
+        )
+
+        plan = legacy_transport_canary_scope_plan()
+        self.assertEqual(
+            plan["scopePlanSchemaVersion"], LEGACY_SCOPE_PLAN_SCHEMA_VERSION
+        )
+        self.assertEqual(
+            plan["id"],
+            "aleph-bench-capture-scope-plan-v1-artifact-"
+            "15fdd36f7aa736891fbd77dfe48a0d15a578c4363304934eeb07e8637a3c3c2d",
+        )
+        self.assertNotIn("transportTimeoutSeconds", plan["requestPolicy"])
+        payload = parse_capture_payload(LEGACY_CAPTURE_FIXTURE.read_bytes())
+        self.assertEqual(payload["captureSchemaVersion"], "1.1.0")
+        self.assertEqual(payload["taskIdentity"]["version"], "3")
+        self.assertNotIn("transportTimeoutSeconds", payload["requestPolicy"])
+
+    def test_scope_plan_timeout_shape_is_version_strict(self) -> None:
+        legacy = legacy_transport_canary_scope_plan()
+        current = transport_canary_scope_plan()
+        self.assertEqual(_verify_scope_plan(copy.deepcopy(legacy)), legacy)
+        self.assertEqual(_verify_scope_plan(copy.deepcopy(current)), current)
+        self.assertEqual(
+            current["scopePlanSchemaVersion"], SCOPE_PLAN_SCHEMA_VERSION
+        )
+        self.assertEqual(
+            current["requestPolicy"]["transportTimeoutSeconds"], 180
+        )
+        self.assertNotEqual(current["id"], legacy["id"])
+        self.assertNotEqual(
+            current["callPlanIdentity"]["fullShardPlanSha256"],
+            legacy["callPlanIdentity"]["fullShardPlanSha256"],
+        )
+        with mock.patch(
+            "bench.engine.capture_set_receipt._expected_capture_contract",
+            side_effect=RuntimeError("current authority runtime unavailable"),
+        ):
+            self.assertEqual(_verify_scope_plan(copy.deepcopy(legacy)), legacy)
+            with self.assertRaisesRegex(RuntimeError, "runtime unavailable"):
+                transport_canary_scope_plan()
+
+        legacy_with_timeout = copy.deepcopy(legacy)
+        legacy_with_timeout["requestPolicy"]["transportTimeoutSeconds"] = 180
+        legacy_with_timeout["id"] = _scope_plan_id(legacy_with_timeout)
+        with self.assertRaisesRegex(CaptureSetReceiptError, "unversioned timeout"):
+            _verify_scope_plan(legacy_with_timeout)
+
+        current_without_timeout = copy.deepcopy(current)
+        current_without_timeout["requestPolicy"].pop("transportTimeoutSeconds")
+        current_without_timeout["id"] = _scope_plan_id(current_without_timeout)
+        with self.assertRaisesRegex(CaptureSetReceiptError, "requires a timeout"):
+            _verify_scope_plan(current_without_timeout)
+
+        wrong_version = copy.deepcopy(current)
+        wrong_version["scopePlanSchemaVersion"] = LEGACY_SCOPE_PLAN_SCHEMA_VERSION
+        wrong_version["id"] = _scope_plan_id(wrong_version)
+        with self.assertRaisesRegex(CaptureSetReceiptError, "unversioned timeout"):
+            _verify_scope_plan(wrong_version)
+
+        legacy_as_current = copy.deepcopy(legacy)
+        legacy_as_current["scopePlanSchemaVersion"] = SCOPE_PLAN_SCHEMA_VERSION
+        legacy_as_current["id"] = _scope_plan_id(legacy_as_current)
+        with self.assertRaisesRegex(CaptureSetReceiptError, "requires a timeout"):
+            _verify_scope_plan(legacy_as_current)
+
     def test_synthetic_exact_900_remains_ineligible_without_registry(self) -> None:
         plan = _verify_scope_plan(_synthetic_scope_plan())
         mapping = _canonical_mapping()
@@ -309,6 +428,231 @@ class CaptureSetPureContractTests(unittest.TestCase):
                 "canonicalAuthorityNotRegistered",
             ],
         )
+
+    def test_mixed_capture_generations_are_rejected_explicitly(self) -> None:
+        plan = _synthetic_scope_plan()
+        first, first_snapshot = _fake_snapshot(
+            plan, shard_id="shard-a", run_id=100, start=0, stop=450
+        )
+        second, second_snapshot = _fake_snapshot(
+            plan, shard_id="shard-b", run_id=200, start=450, stop=900
+        )
+        second_snapshot[1]["captureSchemaVersion"] = "1.1.0"
+        second_snapshot[1]["taskIdentity"]["version"] = "3"
+        second_snapshot[1]["requestPolicy"].pop("transportTimeoutSeconds")
+        snapshots = {
+            first.evidence_path.name: first_snapshot,
+            second.evidence_path.name: second_snapshot,
+        }
+
+        with mock.patch(
+            "bench.engine.capture_set_receipt._reverify_bundle",
+            side_effect=lambda bundle: copy.deepcopy(
+                snapshots[bundle.evidence_path.name]
+            ),
+        ), self.assertRaisesRegex(
+            CaptureSetReceiptError, "mixes capture schema or Task generations"
+        ):
+            assemble_capture_set_receipt([first, second], scope_plan=plan)
+
+    def test_byte_pinned_synthetic_v3_bundle_reassembles_as_legacy_receipt(
+        self,
+    ) -> None:
+        payload_bytes = LEGACY_CAPTURE_FIXTURE.read_bytes()
+        payload = parse_capture_payload(payload_bytes)
+        _expected, source_bytes, source_identity = _legacy_capture_contract()
+        self.assertEqual(source_bytes, LEGACY_CAPTURE_SOURCE_PATH.read_bytes())
+
+        owner = "synthetic-owner"
+        platform_version = 103
+        run_id = 1001
+        source_kernel_id = 100
+        datasets = (f"{owner}/aleph-bench-v02-scorer-conformance",)
+        scheduled_slug = "synthetic-legacy-model"
+        dispatch_journal = _dispatch_journal_bytes(
+            owner=owner,
+            task=TASK_SLUG,
+            version=platform_version,
+            run_id=run_id,
+            creation_owner=owner,
+            creation_version=platform_version,
+            creation_datasets=datasets,
+            creation_source_kernel_id=source_kernel_id,
+            source_identity=source_identity,
+            scheduled_slug=scheduled_slug,
+            proxy_slug=payload["modelObservation"]["slug"],
+        )
+        archive_bytes = _archive(payload_bytes, source_bytes)
+        temp = tempfile.TemporaryDirectory()
+        self.addCleanup(temp.cleanup)
+        bundle_dir = Path(temp.name) / "synthetic-legacy-bundle"
+        evidence = write_capture_evidence_bundle(
+            task_info=_task_info(
+                owner=owner,
+                task=TASK_SLUG,
+                version=platform_version,
+                datasets=datasets,
+                source_kernel_id=source_kernel_id,
+            ),
+            run_info=_run_info(
+                owner=owner,
+                task=TASK_SLUG,
+                version=platform_version,
+                run_id=run_id,
+                model=scheduled_slug,
+            ),
+            requested_task=f"{owner}/{TASK_SLUG}",
+            expected_version=platform_version,
+            expected_source_kernel_id=source_kernel_id,
+            expected_run_id=run_id,
+            expected_datasets=datasets,
+            archive_bytes=archive_bytes,
+            output_dir=bundle_dir,
+            downloaded_at=DOWNLOADED_AT,
+            dispatch_journal_bytes=dispatch_journal,
+        )
+        evidence_path = bundle_dir / (
+            f"{TASK_SLUG}-v{platform_version}-run-{run_id}-evidence.json"
+        )
+        bundle = load_verified_capture_bundle(evidence_path)
+        plan = legacy_transport_canary_scope_plan()
+
+        with mock.patch(
+            "bench.engine.capture_set_receipt._expected_capture_contract",
+            side_effect=RuntimeError("current authority runtime unavailable"),
+        ):
+            first = assemble_capture_set_receipt([bundle], scope_plan=plan)
+            second = assemble_capture_set_receipt([bundle], scope_plan=plan)
+            self.assertEqual(
+                verify_capture_set_receipt(first, [bundle], scope_plan=plan),
+                first,
+            )
+
+        self.assertEqual(first, second)
+        self.assertTrue(evidence["assemblyEligible"])
+        self.assertEqual(evidence["task"]["owner"], owner)
+        self.assertEqual(evidence["task"]["version"], platform_version)
+        self.assertEqual(evidence["run"]["id"], run_id)
+        self.assertEqual(
+            first["receiptSchemaVersion"], LEGACY_RECEIPT_SCHEMA_VERSION
+        )
+        self.assertTrue(first["scoreFree"])
+        self.assertFalse(first["canonicalScoringInputEligible"])
+        self.assertFalse(first["leaderboardEligible"])
+        self.assertFalse(first["resultEligible"])
+        self.assertFalse(first["publicationEligible"])
+        self.assertNotIn(
+            "transportTimeoutSeconds", first["identities"]["requestPolicy"]
+        )
+        self.assertEqual(
+            serialize_capture_set_receipt(first),
+            serialize_capture_set_receipt(second),
+        )
+
+        legacy_with_timeout = copy.deepcopy(first)
+        legacy_with_timeout["identities"]["requestPolicy"][
+            "transportTimeoutSeconds"
+        ] = 180
+        _reidentify_receipt(legacy_with_timeout)
+        with self.assertRaisesRegex(CaptureSetReceiptError, "schema validation"):
+            serialize_capture_set_receipt(legacy_with_timeout)
+
+        mislabeled_current = copy.deepcopy(first)
+        mislabeled_current["receiptSchemaVersion"] = RECEIPT_SCHEMA_VERSION
+        _reidentify_receipt(mislabeled_current)
+        with self.assertRaisesRegex(CaptureSetReceiptError, "schema validation"):
+            serialize_capture_set_receipt(mislabeled_current)
+
+        current_source_identity = _test_source_identity()
+        wrong_generation_journal = _dispatch_journal_bytes(
+            owner=owner,
+            task=TASK_SLUG,
+            version=platform_version,
+            run_id=run_id,
+            creation_owner=owner,
+            creation_version=platform_version,
+            creation_datasets=datasets,
+            creation_source_kernel_id=source_kernel_id,
+            source_identity=current_source_identity,
+            scheduled_slug=scheduled_slug,
+            proxy_slug=payload["modelObservation"]["slug"],
+        )
+        with self.assertRaisesRegex(
+            KaggleCaptureEvidenceError,
+            "creation authority is invalid",
+        ):
+            write_capture_evidence_bundle(
+                task_info=_task_info(
+                    owner=owner,
+                    task=TASK_SLUG,
+                    version=platform_version,
+                    datasets=datasets,
+                    source_kernel_id=source_kernel_id,
+                ),
+                run_info=_run_info(
+                    owner=owner,
+                    task=TASK_SLUG,
+                    version=platform_version,
+                    run_id=run_id,
+                    model=scheduled_slug,
+                ),
+                requested_task=f"{owner}/{TASK_SLUG}",
+                expected_version=platform_version,
+                expected_source_kernel_id=source_kernel_id,
+                expected_run_id=run_id,
+                expected_datasets=datasets,
+                archive_bytes=archive_bytes,
+                output_dir=Path(temp.name) / "wrong-generation-bundle",
+                downloaded_at=DOWNLOADED_AT,
+                dispatch_journal_bytes=wrong_generation_journal,
+            )
+
+        wrong_task_slug = "synthetic-other-capture"
+        with self.assertRaisesRegex(
+            KaggleCaptureEvidenceError,
+            "platform task slug differs",
+        ):
+            write_capture_evidence_bundle(
+                task_info=_task_info(
+                    owner=owner,
+                    task=wrong_task_slug,
+                    version=platform_version,
+                    datasets=datasets,
+                    source_kernel_id=source_kernel_id,
+                ),
+                run_info=_run_info(
+                    owner=owner,
+                    task=wrong_task_slug,
+                    version=platform_version,
+                    run_id=run_id,
+                    model=payload["modelObservation"]["slug"],
+                ),
+                requested_task=f"{owner}/{wrong_task_slug}",
+                expected_version=platform_version,
+                expected_source_kernel_id=source_kernel_id,
+                expected_run_id=None,
+                expected_datasets=datasets,
+                archive_bytes=archive_bytes,
+                output_dir=Path(temp.name) / "wrong-slug-bundle",
+                downloaded_at=DOWNLOADED_AT,
+                dispatch_journal_bytes=None,
+            )
+
+    def test_receipt_schemas_reject_cross_version_timeout_shapes(self) -> None:
+        legacy_schema = load_schema(LEGACY_RECEIPT_SCHEMA_PATH)
+        current_schema = load_schema(RECEIPT_SCHEMA_PATH)
+        self.assertEqual(
+            legacy_schema["properties"]["receiptSchemaVersion"]["const"],
+            LEGACY_RECEIPT_SCHEMA_VERSION,
+        )
+        self.assertEqual(
+            current_schema["properties"]["receiptSchemaVersion"]["const"],
+            RECEIPT_SCHEMA_VERSION,
+        )
+        legacy_required = legacy_schema["$defs"]["requestPolicy"]["required"]
+        current_required = current_schema["$defs"]["requestPolicy"]["required"]
+        self.assertNotIn("transportTimeoutSeconds", legacy_required)
+        self.assertIn("transportTimeoutSeconds", current_required)
 
     def test_request_policy_numeric_representation_drift_fails_closed(self) -> None:
         plan = _synthetic_scope_plan()
@@ -523,14 +867,15 @@ class CaptureSetReceiptIntegrationTests(unittest.TestCase):
         capture = cls.root / "capture.json"
         llm = OpenAI()
         llm.model = GEMMA_PROXY_SLUG
-        cls.generated.run_capture_canary(
-            llm,
-            chats=_Chats(),
-            package_root=cls.package_root,
-            capture_path=capture,
-            observed_runtime=RUNTIME_313,
-            clock=_Clock(),
-        )
+        with _transport_version_patch(cls.generated):
+            cls.generated.run_capture_canary(
+                llm,
+                chats=_Chats(),
+                package_root=cls.package_root,
+                capture_path=capture,
+                observed_runtime=RUNTIME_313,
+                clock=_Clock(),
+            )
         return capture.read_bytes()
 
     @classmethod
@@ -566,6 +911,12 @@ class CaptureSetReceiptIntegrationTests(unittest.TestCase):
             serialize_capture_set_receipt(first),
             serialize_capture_set_receipt(second),
         )
+        self.assertEqual(first["receiptSchemaVersion"], RECEIPT_SCHEMA_VERSION)
+        self.assertEqual(plan["scopePlanSchemaVersion"], SCOPE_PLAN_SCHEMA_VERSION)
+        self.assertEqual(
+            first["identities"]["requestPolicy"]["transportTimeoutSeconds"],
+            180,
+        )
         self.assertFalse(first["canonicalScoringInputEligible"])
         self.assertFalse(first["leaderboardEligible"])
         self.assertFalse(first["resultEligible"])
@@ -580,6 +931,22 @@ class CaptureSetReceiptIntegrationTests(unittest.TestCase):
             ),
             first,
         )
+
+        current_without_timeout = copy.deepcopy(first)
+        current_without_timeout["identities"]["requestPolicy"].pop(
+            "transportTimeoutSeconds"
+        )
+        _reidentify_receipt(current_without_timeout)
+        with self.assertRaisesRegex(CaptureSetReceiptError, "schema validation"):
+            serialize_capture_set_receipt(current_without_timeout)
+
+        mislabeled_legacy = copy.deepcopy(first)
+        mislabeled_legacy[
+            "receiptSchemaVersion"
+        ] = LEGACY_RECEIPT_SCHEMA_VERSION
+        _reidentify_receipt(mislabeled_legacy)
+        with self.assertRaisesRegex(CaptureSetReceiptError, "schema validation"):
+            serialize_capture_set_receipt(mislabeled_legacy)
 
     def test_assembler_reverifies_bytes_and_rejects_duplicate_member(self) -> None:
         bundle = load_verified_capture_bundle(self.evidence_path)

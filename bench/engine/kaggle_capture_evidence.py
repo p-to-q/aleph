@@ -16,7 +16,12 @@ from datetime import datetime, timezone
 from pathlib import Path, PurePosixPath
 from typing import Any
 
-from .kaggle_capture import MAX_CAPTURE_BYTES, parse_capture_payload
+from .kaggle_capture import (
+    CAPTURE_SCHEMA_VERSION,
+    LEGACY_CAPTURE_SCHEMA_VERSION,
+    MAX_CAPTURE_BYTES,
+    parse_capture_payload,
+)
 from .kaggle_creation_output import (
     MAX_ARCHIVE_BYTES,
     MAX_ARCHIVE_ENTRIES,
@@ -28,6 +33,7 @@ from .kaggle_creation_output import (
     _task_metadata,
     _write_exclusive,
 )
+from .kaggle_push_once import CAPTURE_TASK_SLUG
 from .kaggle_run_once import (
     KaggleRunOnceError,
     current_capture_source_identity,
@@ -40,6 +46,14 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 EVIDENCE_SCHEMA_PATH = (
     REPO_ROOT
     / "schemas/v0.2/aleph-bench-kaggle-capture-evidence.schema.json"
+)
+LEGACY_CAPTURE_CONTRACT_PATH = (
+    REPO_ROOT / "bench/config/capture_contract-v0.2-task-v3.json"
+)
+LEGACY_CAPTURE_SOURCE_PATH = (
+    # The exact historical bytes end in a top-level task run. Keep them under
+    # an opaque extension so verifier storage cannot be imported as Python.
+    REPO_ROOT / "bench/config/capture_task-v0.2-task-v3.source.txt"
 )
 EVIDENCE_SCHEMA_VERSION = "1.1.0"
 LEGACY_EVIDENCE_SCHEMA_VERSION = "1.0.0"
@@ -60,6 +74,12 @@ MAX_DISPATCH_JOURNAL_BYTES = 16_777_216
 MAX_EVIDENCE_BYTES = 1_048_576
 MAX_BUNDLE_FILES = 6
 LEGACY_ORIGINAL_DISPATCH_JOURNAL = "run-journal.json"
+LEGACY_CAPTURE_CONTRACT_SHA256 = (
+    "74bd59850c3f23bf04e61426e4486132433627d9b87c72d460b2947e50bb672d"
+)
+LEGACY_CAPTURE_SOURCE_SHA256 = (
+    "2bdbbd04d082d82374786b5f38e57b4765346c48738d2baef076613cdb516382"
+)
 _MAX_TRUSTED_ROOT_ALIAS_EXPANSIONS = 16
 
 
@@ -146,6 +166,21 @@ def _reject_duplicate_pairs(
 
 def _reject_json_constant(_value: str) -> None:
     _fail("notebook source contains a non-finite JSON constant")
+
+
+def _reject_contract_duplicate_pairs(
+    pairs: list[tuple[str, Any]],
+) -> dict[str, Any]:
+    value: dict[str, Any] = {}
+    for key, child in pairs:
+        if key in value:
+            _fail("legacy capture contract contains a duplicate JSON key")
+        value[key] = child
+    return value
+
+
+def _reject_contract_json_constant(_value: str) -> None:
+    _fail("legacy capture contract contains a non-finite JSON constant")
 
 
 def _reject_dispatch_journal_duplicate_pairs(
@@ -342,6 +377,7 @@ def _dispatch_journal_catalog_record(
     task: dict[str, Any],
     run: dict[str, Any],
     observed_model: str,
+    creation_source_identity: dict[str, Any],
 ) -> dict[str, Any]:
     """Verify one reconciled scheduler receipt and return its exact alias record."""
 
@@ -387,7 +423,7 @@ def _dispatch_journal_catalog_record(
                 "sourceKernelId": task["sourceKernelId"],
                 "datasets": task["datasets"],
             },
-            current_source=current_capture_source_identity(),
+            current_source=creation_source_identity,
         )
     except KaggleRunOnceError as exc:
         _fail(f"dispatch journal creation authority is invalid: {exc}")
@@ -635,6 +671,103 @@ def _expected_capture_contract() -> tuple[dict[str, Any], bytes]:
     return expected, source
 
 
+def _legacy_capture_contract(
+) -> tuple[dict[str, Any], bytes, dict[str, Any]]:
+    """Load the immutable Task-v3 contract and exact generated source."""
+
+    try:
+        authority_bytes = LEGACY_CAPTURE_CONTRACT_PATH.read_bytes()
+        source = LEGACY_CAPTURE_SOURCE_PATH.read_bytes()
+    except OSError:
+        _fail("cannot read the frozen legacy capture authority")
+    if (
+        not authority_bytes
+        or len(authority_bytes) > MAX_SOURCE_BYTES
+        or _sha256(authority_bytes) != LEGACY_CAPTURE_CONTRACT_SHA256
+    ):
+        _fail("legacy capture contract bytes drifted")
+    if (
+        not source
+        or len(source) > MAX_SOURCE_BYTES
+        or _sha256(source) != LEGACY_CAPTURE_SOURCE_SHA256
+    ):
+        _fail("legacy capture source bytes drifted")
+    try:
+        authority = json.loads(
+            authority_bytes.decode("utf-8", errors="strict"),
+            object_pairs_hook=_reject_contract_duplicate_pairs,
+            parse_constant=_reject_contract_json_constant,
+        )
+    except KaggleCaptureEvidenceError:
+        raise
+    except (UnicodeDecodeError, json.JSONDecodeError, ValueError, RecursionError):
+        _fail("legacy capture contract is not bounded strict JSON")
+    if not isinstance(authority, dict) or set(authority) != {
+        "authoritySchemaVersion",
+        "captureSchemaVersion",
+        "expectedContract",
+        "sourceIdentity",
+    }:
+        _fail("legacy capture contract has invalid fields")
+    if (
+        authority["authoritySchemaVersion"] != "1.0.0"
+        or authority["captureSchemaVersion"] != LEGACY_CAPTURE_SCHEMA_VERSION
+    ):
+        _fail("legacy capture contract version is invalid")
+    expected = authority["expectedContract"]
+    source_identity = authority["sourceIdentity"]
+    if not isinstance(expected, dict) or set(expected) != {
+        "datasetIdentity",
+        "packageIdentity",
+        "callPlanIdentity",
+        "taskIdentity",
+        "requestPolicy",
+        "shard",
+    }:
+        _fail("legacy capture expected contract has invalid fields")
+    if not isinstance(source_identity, dict) or set(source_identity) != {
+        "path",
+        "bytes",
+        "sha256",
+        "notebookProfile",
+        "notebookSha256",
+    }:
+        _fail("legacy capture source identity has invalid fields")
+    task_identity = expected.get("taskIdentity")
+    if (
+        not isinstance(task_identity, dict)
+        or task_identity.get("version") != "3"
+        or source_identity.get("path") != task_identity.get("sourcePath")
+        or source_identity.get("bytes") != len(source)
+        or source_identity.get("sha256") != _sha256(source)
+    ):
+        _fail("legacy capture source identity drifted")
+    return (
+        copy.deepcopy(expected),
+        source,
+        copy.deepcopy(source_identity),
+    )
+
+
+def _capture_authority_for_payload(
+    payload: dict[str, Any],
+) -> tuple[dict[str, Any], bytes, dict[str, Any] | None]:
+    """Select authority only from the payload's internal generation fields."""
+
+    capture_schema_version = payload["captureSchemaVersion"]
+    task_version = payload["taskIdentity"]["version"]
+    if capture_schema_version == LEGACY_CAPTURE_SCHEMA_VERSION:
+        expected, source, source_identity = _legacy_capture_contract()
+    elif capture_schema_version == CAPTURE_SCHEMA_VERSION:
+        expected, source = _expected_capture_contract()
+        source_identity = None
+    else:
+        _fail("capture payload uses an unsupported authority generation")
+    if task_version != expected["taskIdentity"]["version"]:
+        _fail("capture schema and internal Task generation disagree")
+    return expected, source, source_identity
+
+
 def _notebook_source_candidates(
     data: bytes,
     *,
@@ -692,6 +825,46 @@ def _notebook_source_candidates(
                 }
             )
     return matches
+
+
+def _extract_capture_payload(archive_bytes: bytes) -> bytes:
+    """Extract one bounded payload before its source generation is known."""
+
+    if len(archive_bytes) > MAX_ARCHIVE_BYTES:
+        _fail("capture archive exceeds the safety limit")
+    try:
+        with zipfile.ZipFile(io.BytesIO(archive_bytes)) as archive:
+            infos = archive.infolist()
+            if len(infos) > MAX_ARCHIVE_ENTRIES:
+                _fail("capture archive has too many entries")
+            names: set[str] = set()
+            total_size = 0
+            payload_infos: list[zipfile.ZipInfo] = []
+            for info in infos:
+                _safe_archive_entry(info)
+                if info.filename in names:
+                    _fail("capture archive contains duplicate entry names")
+                names.add(info.filename)
+                total_size += info.file_size
+                if total_size > MAX_ARCHIVE_UNCOMPRESSED_BYTES:
+                    _fail("capture archive uncompressed size exceeds the safety limit")
+                if PurePosixPath(info.filename).name == CAPTURE_FILENAME:
+                    payload_infos.append(info)
+            if len(payload_infos) != 1:
+                _fail(
+                    "capture archive must contain exactly one raw payload; "
+                    f"found {len(payload_infos)}"
+                )
+            payload_info = payload_infos[0]
+            if payload_info.file_size > MAX_CAPTURE_BYTES:
+                _fail("archived capture payload exceeds the safety limit")
+            return archive.read(payload_info)
+    except KaggleCaptureEvidenceError:
+        raise
+    except (zipfile.BadZipFile, RuntimeError, KeyError, ValueError):
+        raise KaggleCaptureEvidenceError(
+            "Kaggle capture output is not a valid bounded zip archive"
+        ) from None
 
 
 def _extract_capture_and_source(
@@ -842,6 +1015,7 @@ def _verify_platform_binding(
     payload: dict[str, Any],
     downloaded_at: str,
     dispatch_journal_bytes: bytes | None = None,
+    creation_source_identity: dict[str, Any] | None = None,
 ) -> dict[str, Any] | None:
     if (task["owner"], task["slug"], task["version"]) != (
         run["owner"],
@@ -849,6 +1023,12 @@ def _verify_platform_binding(
         run["version"],
     ):
         _fail("task and run identities disagree")
+    if (
+        task["slug"] != CAPTURE_TASK_SLUG
+        or payload["taskIdentity"]["name"]
+        != CAPTURE_TASK_SLUG.replace("-", "_")
+    ):
+        _fail("platform task slug differs from the capture task contract")
     observed_model = payload["modelObservation"]["slug"]
     if observed_model == "unavailable/unobserved":
         if dispatch_journal_bytes is not None:
@@ -860,11 +1040,17 @@ def _verify_platform_binding(
             _fail("unavailable capture model cannot claim a dispatched call")
         catalog_record = None
     elif dispatch_journal_bytes is not None:
+        selected_source_identity = (
+            creation_source_identity
+            if creation_source_identity is not None
+            else current_capture_source_identity()
+        )
         catalog_record = _dispatch_journal_catalog_record(
             dispatch_journal_bytes,
             task=task,
             run=run,
             observed_model=observed_model,
+            creation_source_identity=selected_source_identity,
         )
     else:
         catalog_record = None
@@ -960,7 +1146,10 @@ def verify_capture_evidence(
     if evidence["publicationEligible"] is not False:
         _fail("capture evidence can never be publication eligible")
 
-    expected, expected_source = _expected_capture_contract()
+    payload = parse_capture_payload(payload_bytes)
+    expected, expected_source, creation_source_identity = (
+        _capture_authority_for_payload(payload)
+    )
     if source_bytes != expected_source:
         _fail("retained task source differs from the generated source")
     extracted_payload, archive_source = _extract_capture_and_source(
@@ -969,7 +1158,6 @@ def verify_capture_evidence(
     )
     if extracted_payload != payload_bytes:
         _fail("retained payload bytes differ from the archive member")
-    payload = parse_capture_payload(payload_bytes)
     _verify_capture_contract(payload, expected)
     catalog_record = _verify_platform_binding(
         task=evidence["task"],
@@ -977,6 +1165,7 @@ def verify_capture_evidence(
         payload=payload,
         downloaded_at=evidence["downloadedAt"],
         dispatch_journal_bytes=dispatch_journal_bytes,
+        creation_source_identity=creation_source_identity,
     )
     catalog_binding = evidence.get("modelCatalogBinding")
     if (catalog_binding is None) != (dispatch_journal_bytes is None):
@@ -1092,12 +1281,17 @@ def write_capture_evidence_bundle(
             expected_run_id=expected_run_id,
         )
     )
-    expected, expected_source = _expected_capture_contract()
-    payload_bytes, archive_source = _extract_capture_and_source(
+    payload_bytes = _extract_capture_payload(archive_bytes)
+    payload = parse_capture_payload(payload_bytes)
+    expected, expected_source, creation_source_identity = (
+        _capture_authority_for_payload(payload)
+    )
+    extracted_payload, archive_source = _extract_capture_and_source(
         archive_bytes,
         expected_source=expected_source,
     )
-    payload = parse_capture_payload(payload_bytes)
+    if extracted_payload != payload_bytes:
+        _fail("capture archive payload changed between bounded reads")
     _verify_capture_contract(payload, expected)
     observed_downloaded_at = downloaded_at or _utc_now()
     catalog_record = _verify_platform_binding(
@@ -1106,6 +1300,7 @@ def write_capture_evidence_bundle(
         payload=payload,
         downloaded_at=observed_downloaded_at,
         dispatch_journal_bytes=dispatch_journal_bytes,
+        creation_source_identity=creation_source_identity,
     )
 
     bundle_names = _expected_bundle_names(task, run)

@@ -83,7 +83,7 @@ class KagglePushOnceTests(unittest.TestCase):
             )
             self.assertEqual(
                 hashlib.sha256(source).hexdigest(),
-                "2bdbbd04d082d82374786b5f38e57b4765346c48738d2baef076613cdb516382",
+                "df9a9cd7387df5392c07c11a88149001e3cdaf67551c35b14530690c1f4ee0db",
             )
             notebook = json.loads(notebook_text)
             self.assertEqual(
@@ -99,7 +99,7 @@ class KagglePushOnceTests(unittest.TestCase):
         self.assertEqual(
             observed,
             [
-                "f859f73bc5caeb0d74617d50a6ce8641fc68f8f1a5c4e3a2afaad16c88b4bf71"
+                "5f4103d304c057ec3e100d6750ff4052c41b7b3961c85d3c09fb7e14d6d04071"
             ]
             * 4,
         )
@@ -132,7 +132,7 @@ class KagglePushOnceTests(unittest.TestCase):
         self.assertEqual(
             observed,
             [
-                "f859f73bc5caeb0d74617d50a6ce8641fc68f8f1a5c4e3a2afaad16c88b4bf71"
+                "5f4103d304c057ec3e100d6750ff4052c41b7b3961c85d3c09fb7e14d6d04071"
             ]
             * 2,
         )
@@ -146,7 +146,14 @@ class KagglePushOnceTests(unittest.TestCase):
     ) -> None:
         import jupytext
 
-        source = push_once.CAPTURE_OUTPUT_PATH.read_text(encoding="utf-8")
+        # Reconstruct the Task-v8 incident from the immutable Task-v3 source,
+        # not from the current Task generation. Otherwise a legitimate source
+        # generation change silently rewrites the historical regression case.
+        legacy_source_path = (
+            push_once.CAPTURE_OUTPUT_PATH.parents[2]
+            / "config/capture_task-v0.2-task-v3.source.txt"
+        )
+        source = legacy_source_path.read_text(encoding="utf-8")
         notebook = jupytext.reads(source, fmt="py:percent")
         notebook.metadata["kernelspec"] = {
             "display_name": "Python 3",
