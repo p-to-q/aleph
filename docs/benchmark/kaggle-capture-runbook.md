@@ -8,6 +8,13 @@ The task-creation request starts the task. Never follow creation with `tasks run
 another model run. Never retry an ambiguous creation. Preserve the dispatch journal and reconcile
 the exact task version, run, dataset, and quota first.
 
+Additional Task v10 compatibility captures are governed by the reviewed
+[finite queue policy](../plans/kaggle-v10-daily-capture-queue.md) and its exact
+[`kaggle-capture-queue-v1.json`](../../bench/config/kaggle-capture-queue-v1.json) manifest. The
+manual scheduler primitive below is not standing authorization: only the merged single-step queue
+controller may select a policy entry, and it may delegate at most one paid POST after every current
+gate passes.
+
 ## Preconditions
 
 - Use a clean checkout of the reviewed benchmark authority branch.
@@ -153,6 +160,55 @@ timestamp strings still pass through strict offset-aware validation.
 Task creation starts its first model run. For every deliberately added model after that, use the
 reviewed one-shot scheduler. Do not use `kaggle benchmarks tasks run`: Kaggle CLI 2.2.4 targets the
 latest version, retries the paid schedule request, and does not return the new run id.
+
+For Task v10, do not invoke this primitive directly. Issue
+[#93](https://github.com/p-to-q/aleph/issues/93) adds a finite six-entry policy above it. The queue
+controller must revalidate the exact Task/source/creation/run-set/catalog/quota/policy/evidence
+state and then call this scheduler no more than once. A held, exhausted, expired, or tripped policy
+stays read-only; changing the model or journal path does not bypass that decision.
+
+Run the queue only from the clean checkout at the exact merged controller commit. The checked-in
+v1 policy digest is
+`221e5b1ce8d8096f364dbadc6ae2fd076f3397b548068e5443d4ccdfc0cde9e3`:
+
+At activation, create the final private control root once, read its numeric POSIX device and inode,
+and save those two values in the automation together with the path. They are external activation
+pins, not values to recompute on each run. Replacing the pathname must therefore fail before any
+trusted receipt read or paid call.
+
+```bash
+umask 077
+"$ALEPH_KAGGLE_PY" -m bench.engine.kaggle_queue_once \
+  --control-root /absolute/private/evidence/capture-canary/v10-queue \
+  --expect-control-device ACTIVATION-PINNED-DEVICE \
+  --expect-control-inode ACTIVATION-PINNED-INODE \
+  --writer-id ORIGINAL-WRITER-HOST-ID \
+  --expect-policy-sha256 221e5b1ce8d8096f364dbadc6ae2fd076f3397b548068e5443d4ccdfc0cde9e3 \
+  --expect-execution-commit EXACT-MERGED-COMMIT \
+  --execution-root /absolute/clean/aleph-checkout
+```
+
+The controller first matches the live pathname to the externally saved device/inode, then holds
+that directory inode and its identity-bound lock marker under advisory locks for the whole
+invocation; a same-root contender returns `held`. A pin mismatch exits without writing a breaker
+into the untrusted replacement root. This does not coordinate another host or an unrelated binder
+process. Never rename, replace, rotate, copy, or repoint the live control-root pathname while this
+policy is active. The one-shot scheduler receives the already-open root descriptor and performs
+the creation-journal reads, paid-call claim creation, and every run-journal write relative to that
+descriptor with no-follow traversal. Replacing a descendant directory with a symlink cannot move
+those barriers outside the activated root. After a dispatch,
+poll the exact run read-only. While it is queued/running, do not invoke the binder. Once it is
+completed, run the capture-evidence command below with the policy-fixed journal and bundle paths,
+wait for its closed-world verification to finish, verify the bundle directory is mode `0700` and
+every member is `0600`, and only then invoke the queue controller again. The run-specific
+`*-evidence.json` envelope is written last and is the controller's ready marker. Never overlap the
+binder and controller. Provider error, an extra run, or platform completion without that complete
+Aleph evidence is a permanent breaker, not permission to retry.
+
+The binder pins the real output directory, requires it to be owned and empty, explicitly enforces
+directory mode `0700` and member mode `0600` independent of ambient `umask`, writes the envelope
+last, then reloads the exact closed-world bundle before reporting success. Keep `umask 077` as
+defense in depth; a permissive shell default is not part of the evidence contract.
 
 First list the platform's canonical model-version slugs without scheduling anything:
 

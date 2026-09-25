@@ -70,10 +70,15 @@ Current hosted checkpoint on 2026-09-25:
   assembly-eligible capture evidence, not a score;
 - exact run `3092711` with `claude-haiku-4-5-20251001` stopped after 3 attempted calls: 2 strings,
   1 timeout, and incomplete coverage. It is not assembly-eligible and is not a score;
+- PR #92 merged the generation-4 timeout contract, and private Task v10 creation run `3193338`
+  returned 6/6 strings with hosted timeout `180`, zero transport retries, and matching runtime
+  attestation. Its unbound creation envelope is intentionally not assembly-eligible and is not a
+  score;
 - the public page contains one historical v0.1 numeric row. There is no formal hosted v0.2 score;
   and
-- no paid run and no Haiku retry is authorized until issue #90 is resolved by a merged, verified
-  implementation PR and the hold is explicitly lifted.
+- issue #90 is closed, but no additional paid run is authorized until issue #93's finite policy and
+  controller merge, the automation is pinned to their exact merge commit and policy digest, and
+  that saved authority is read back. Haiku remains permanently excluded from retry.
 
 ## Decision
 
@@ -239,9 +244,10 @@ A returned `0.0` may only mean a complete valid run actually scored zero.
 ## Exact paid-run control plane
 
 PR #61 already implemented `bench.engine.kaggle_run_once`; it is the only permitted paid scheduler,
-but it is not usable while the hard hold remains active. It may be used only after issue #90 is
-resolved by a merged, verified implementation PR and an explicit decision lifts the hold. Its
-enforced contract is:
+but it is a primitive rather than standing authorization. Task v10 additions must pass the finite
+queue policy in issue #93; that controller may delegate at most once to this scheduler after its
+exact source, policy, catalog, run-set, quota, and prior-evidence gates pass. Its enforced contract
+is:
 
 1. require explicit owner, Task slug, positive exact version, one exact model slug, and a new
    journal path;
@@ -271,14 +277,16 @@ scheduler.
 5. **900 calls:** one private numeric release candidate.
 6. **2 × 900 calls:** a second provider only after the first exact run and independent replay pass.
 
-As of 2026-09-25, issue #67's assembler gate is merged, but run `3092711` activated the timeout
-circuit breaker. The controller is in a hard hold: no paid run and no Haiku retry until issue #90
-is resolved by a merged, verified implementation PR and an explicit operator decision lifts the
-hold. Read-only status, quota, source, and evidence verification may continue.
+As of 2026-09-25, issue #67's assembler gate and issue #90's generation-4 timeout proof are
+complete. Task v10 creation run `3193338` verifies the hosted six-call timeout path, but creation
+evidence is not authority for another model. Additional calls remain held until issue #93's exact
+six-entry queue policy and controller merge and the saved automation is pinned and read back.
+Read-only status, quota, source, and evidence verification may continue; Haiku must not be retried.
 
 There is no active target of 8–12 models per day. Any future recurring matrix is a bounded research
-plan, not a quota-consumption goal: it requires the #90 stability gate, an explicit model list,
-one-at-a-time retained evidence, machine-enforced budgets, and stop-on-first-incomplete behavior.
+plan, not a quota-consumption goal. Issue #93 now defines a finite six-entry Task v10 matrix with
+one-at-a-time retained evidence, rolling 24-hour limits, machine-enforced reserves, independent
+terminal quota receipts, and stop-on-first-incomplete behavior.
 Historical `$9` daily / `$95` monthly figures are ceilings only and authorize no dispatch.
 
 For full runs, use the observed six-call cost only as a planning estimate:
@@ -418,7 +426,8 @@ Gate: GitHub, Kaggle, and Hugging Face show the same release identity and verifi
 - changing the current dataset, prompts, metrics, thresholds, aggregation, or five-rerun policy;
 - claiming a global minimum, white-box evidence, or strict Kolmogorov complexity;
 - a second public Kaggle benchmark;
-- automatic paid runs while the #90 circuit breaker or later numeric-release gates remain closed;
+- automatic paid runs outside issue #93's finite reviewed queue or while later numeric-release
+  gates remain closed;
 - overwriting or deleting legacy/canary/failed evidence;
 - treating a canary, mock, capture, partial shard, failed zero row, or platform `COMPLETED` state as
   a public score; and
@@ -426,7 +435,7 @@ Gate: GitHub, Kaggle, and Hugging Face show the same release identity and verifi
 
 ## Immediate next action
 
-Resolve issue #90 with a merged, verified implementation PR, then require an explicit hold-lift
-decision before any paid dispatch. In parallel, continue the standalone portable-scorer slices and
-issue #77 proof with zero model calls. No current artifact is a v0.2 score, and the full 900-call
-budget remains gated.
+Merge and verify issue #93's zero-call policy/controller PR, pin the automation to the exact merge
+commit and policy digest, and live-read that saved authority before at most the first finite queue
+entry. In parallel, continue the standalone portable-scorer slices and issue #77 proof with zero
+model calls. No current artifact is a v0.2 score, and the full 900-call budget remains gated.

@@ -31,7 +31,6 @@ from .kaggle_creation_output import (
     _run_metadata,
     _safe_archive_entry,
     _task_metadata,
-    _write_exclusive,
 )
 from .kaggle_push_once import CAPTURE_TASK_SLUG
 from .kaggle_run_once import (
@@ -1382,35 +1381,24 @@ def write_capture_evidence_bundle(
         + "\n"
     ).encode("ascii")
 
-    output_dir.mkdir(parents=True, exist_ok=True)
-    bundle_paths = [archive_path, payload_path, source_path, evidence_path]
-    if dispatch_journal_bytes is not None:
-        bundle_paths.append(dispatch_journal_path)
-    for path in bundle_paths:
-        if path.exists():
-            _fail(f"refusing to overwrite existing capture evidence: {path}")
-    written: list[Path] = []
-    try:
-        for path, data in (
-            (archive_path, archive_bytes),
-            (payload_path, payload_bytes),
-            (source_path, expected_source),
-            *(
-                ((dispatch_journal_path, dispatch_journal_bytes),)
-                if dispatch_journal_bytes is not None
-                else ()
-            ),
-            (evidence_path, evidence_bytes),
-        ):
-            _write_exclusive(path, data)
-            written.append(path)
-    except Exception:
-        for path in reversed(written):
-            try:
-                path.unlink()
-            except OSError:
-                pass
-        raise
+    members = [
+        (archive_path.name, archive_bytes),
+        (payload_path.name, payload_bytes),
+        (source_path.name, expected_source),
+        *(
+            ((dispatch_journal_path.name, dispatch_journal_bytes),)
+            if dispatch_journal_bytes is not None
+            else ()
+        ),
+        # The envelope is the ready marker and is intentionally written last.
+        (evidence_path.name, evidence_bytes),
+    ]
+    _write_private_capture_bundle(
+        output_dir=output_dir,
+        evidence_name=evidence_path.name,
+        members=members,
+        expected_evidence=evidence,
+    )
     return evidence
 
 
@@ -1675,6 +1663,8 @@ def _write_bundle_member(
     directory_fd: int,
     name: str,
     data: bytes,
+    *,
+    remove_on_failure: bool = False,
 ) -> os.stat_result:
     """Durably create one bounded bundle member relative to an open directory."""
 
@@ -1694,9 +1684,17 @@ def _write_bundle_member(
     created_identity: tuple[int, int] | None = None
     try:
         descriptor = os.open(name, flags, 0o600, dir_fd=directory_fd)
+        opened_stat = os.fstat(descriptor)
+        created_identity = (opened_stat.st_dev, opened_stat.st_ino)
+        os.fchmod(descriptor, 0o600)
         created_stat = os.fstat(descriptor)
-        created_identity = (created_stat.st_dev, created_stat.st_ino)
-        if not stat.S_ISREG(created_stat.st_mode) or created_stat.st_nlink != 1:
+        if (
+            not stat.S_ISREG(created_stat.st_mode)
+            or created_stat.st_nlink != 1
+            or created_stat.st_uid != os.geteuid()
+            or stat.S_IMODE(created_stat.st_mode) != 0o600
+            or (created_stat.st_dev, created_stat.st_ino) != created_identity
+        ):
             _fail("destination bundle member is not a single-link regular file")
         with os.fdopen(descriptor, "wb", closefd=True) as stream:
             descriptor = None
@@ -1710,6 +1708,10 @@ def _write_bundle_member(
             or not stat.S_ISREG(final_stat.st_mode)
             or written_stat.st_nlink != 1
             or final_stat.st_nlink != 1
+            or written_stat.st_uid != os.geteuid()
+            or final_stat.st_uid != os.geteuid()
+            or stat.S_IMODE(written_stat.st_mode) != 0o600
+            or stat.S_IMODE(final_stat.st_mode) != 0o600
             or (written_stat.st_dev, written_stat.st_ino) != created_identity
             or (final_stat.st_dev, final_stat.st_ino) != created_identity
             or written_stat.st_size != len(data)
@@ -1722,6 +1724,17 @@ def _write_bundle_member(
     except BaseException:
         if descriptor is not None:
             os.close(descriptor)
+        if remove_on_failure and created_identity is not None:
+            try:
+                named = os.stat(
+                    name,
+                    dir_fd=directory_fd,
+                    follow_symlinks=False,
+                )
+                if (named.st_dev, named.st_ino) == created_identity:
+                    os.unlink(name, dir_fd=directory_fd)
+            except OSError:
+                pass
         raise
 
 
@@ -1770,6 +1783,210 @@ def _reverify_materialized_members(
             != _stable_bundle_member_metadata(expected_stat)
         ):
             _fail("destination bundle member changed before final success")
+
+
+def _verify_private_capture_bundle(
+    directory_fd: int,
+    written: list[tuple[str, bytes, os.stat_result]],
+) -> None:
+    """Require one owned 0700 directory containing only owned 0600 files."""
+
+    try:
+        directory_stat = os.fstat(directory_fd)
+        names = sorted(os.listdir(directory_fd))
+    except OSError:
+        _fail("cannot inspect private capture evidence bundle")
+    expected_names = sorted(name for name, _data, _observed in written)
+    if (
+        not stat.S_ISDIR(directory_stat.st_mode)
+        or directory_stat.st_uid != os.geteuid()
+        or stat.S_IMODE(directory_stat.st_mode) != 0o700
+    ):
+        _fail("capture evidence bundle directory must be owned mode 0700")
+    if names != expected_names:
+        _fail("capture evidence bundle is not a closed-world file set")
+    for name, _data, expected_stat in written:
+        try:
+            observed = os.stat(
+                name,
+                dir_fd=directory_fd,
+                follow_symlinks=False,
+            )
+        except OSError:
+            _fail("cannot inspect private capture evidence bundle member")
+        if (
+            not stat.S_ISREG(observed.st_mode)
+            or observed.st_nlink != 1
+            or observed.st_uid != os.geteuid()
+            or stat.S_IMODE(observed.st_mode) != 0o600
+            or _stable_bundle_member_metadata(observed)
+            != _stable_bundle_member_metadata(expected_stat)
+        ):
+            _fail(
+                "capture evidence bundle members must be owned mode 0600 "
+                "single-link regular files"
+            )
+
+
+def _remove_written_capture_members(
+    directory_fd: int,
+    written: list[tuple[str, bytes, os.stat_result]],
+) -> None:
+    """Best-effort cleanup without unlinking a competing replacement."""
+
+    for name, _data, expected_stat in reversed(written):
+        try:
+            observed = os.stat(
+                name,
+                dir_fd=directory_fd,
+                follow_symlinks=False,
+            )
+            if (observed.st_dev, observed.st_ino) == (
+                expected_stat.st_dev,
+                expected_stat.st_ino,
+            ):
+                os.unlink(name, dir_fd=directory_fd)
+        except OSError:
+            pass
+
+
+def _write_private_capture_bundle(
+    *,
+    output_dir: Path,
+    evidence_name: str,
+    members: list[tuple[str, bytes]],
+    expected_evidence: dict[str, Any],
+) -> None:
+    """Create and verify the exact private bundle consumed by the queue."""
+
+    destination = Path(output_dir)
+    destination_name = _bundle_basename(
+        destination.name,
+        role="capture evidence bundle directory",
+    )
+    evidence_name = _bundle_basename(evidence_name, role="evidence file name")
+    canonical_members = [
+        (_bundle_basename(name, role="capture evidence bundle member"), data)
+        for name, data in members
+    ]
+    names = [name for name, _data in canonical_members]
+    if (
+        len(names) != len(set(names))
+        or not names
+        or names[-1] != evidence_name
+    ):
+        _fail("capture evidence bundle members are not one canonical file set")
+    if os.mkdir not in os.supports_dir_fd:
+        _fail("capture evidence writer requires fail-closed directory operations")
+
+    parent_fd: int | None = None
+    destination_fd: int | None = None
+    written: list[tuple[str, bytes, os.stat_result]] = []
+    created = False
+    try:
+        parent_fd = _open_bundle_directory(destination.parent)
+        parent_identity = _directory_identity(os.fstat(parent_fd))
+        try:
+            os.mkdir(destination_name, mode=0o700, dir_fd=parent_fd)
+            created = True
+        except FileExistsError:
+            # An empty, already-private directory may be a prior failed attempt.
+            # Any retained member below still makes the operation no-overwrite.
+            pass
+
+        required_flags = ("O_NOFOLLOW", "O_CLOEXEC", "O_DIRECTORY")
+        if any(not hasattr(os, flag) for flag in required_flags):
+            _fail("capture evidence writer requires fail-closed directory flags")
+        flags = os.O_RDONLY | os.O_NOFOLLOW | os.O_CLOEXEC | os.O_DIRECTORY
+        try:
+            destination_fd = os.open(
+                destination_name,
+                flags,
+                dir_fd=parent_fd,
+            )
+        except OSError:
+            _fail("capture evidence output must be one real directory")
+        if created:
+            os.fchmod(destination_fd, 0o700)
+        directory_opened = os.fstat(destination_fd)
+        directory_identity = _directory_identity(directory_opened)
+        try:
+            directory_path_opened = os.stat(
+                destination_name,
+                dir_fd=parent_fd,
+                follow_symlinks=False,
+            )
+            names_before = sorted(os.listdir(destination_fd))
+        except OSError:
+            _fail("cannot inspect capture evidence output directory")
+        if (
+            not stat.S_ISDIR(directory_opened.st_mode)
+            or not stat.S_ISDIR(directory_path_opened.st_mode)
+            or directory_opened.st_uid != os.geteuid()
+            or directory_path_opened.st_uid != os.geteuid()
+            or stat.S_IMODE(directory_opened.st_mode) != 0o700
+            or stat.S_IMODE(directory_path_opened.st_mode) != 0o700
+            or _directory_identity(directory_path_opened) != directory_identity
+        ):
+            _fail("capture evidence bundle directory must be owned mode 0700")
+        if names_before:
+            _fail(
+                "refusing to overwrite existing capture evidence: "
+                f"{destination / names_before[0]}"
+            )
+        os.fsync(parent_fd)
+
+        for name, data in canonical_members:
+            member_stat = _write_bundle_member(
+                destination_fd,
+                name,
+                data,
+                remove_on_failure=True,
+            )
+            written.append((name, data, member_stat))
+        os.fsync(destination_fd)
+
+        bundle, verified_directory = _snapshot_capture_bundle_from_open_directory(
+            destination_fd,
+            evidence_name,
+            destination / evidence_name,
+            legacy_duplicate_dispatch_journal=False,
+        )
+        if bundle.evidence != expected_evidence:
+            _fail("persisted capture evidence differs from the verified envelope")
+        _check_materialized_path_bindings(
+            destination=destination,
+            destination_name=destination_name,
+            destination_fd=destination_fd,
+            destination_identity=directory_identity,
+            verified_directory=verified_directory,
+            parent_fd=parent_fd,
+            parent_identity=parent_identity,
+        )
+        _reverify_materialized_members(destination_fd, written)
+        _verify_private_capture_bundle(destination_fd, written)
+        _check_materialized_path_bindings(
+            destination=destination,
+            destination_name=destination_name,
+            destination_fd=destination_fd,
+            destination_identity=directory_identity,
+            verified_directory=verified_directory,
+            parent_fd=parent_fd,
+            parent_identity=parent_identity,
+        )
+    except BaseException:
+        if destination_fd is not None:
+            _remove_written_capture_members(destination_fd, written)
+            try:
+                os.fsync(destination_fd)
+            except OSError:
+                pass
+        raise
+    finally:
+        if destination_fd is not None:
+            os.close(destination_fd)
+        if parent_fd is not None:
+            os.close(parent_fd)
 
 
 def _check_open_bundle_directory_unchanged(
