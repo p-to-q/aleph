@@ -73,14 +73,15 @@ not work around a stopped operation by choosing another path.
 ### Client and quota gate
 
 Use one dedicated Python 3.13 environment for both Kaggle CLI commands and the repository helpers.
-The reviewed client matrix is `kaggle==2.2.4`, `kagglesdk==0.1.37`, and `jupytext==1.19.5`.
+The reviewed client matrix is `kaggle==2.2.4`, `kagglesdk==0.1.37`, `jupytext==1.19.5`,
+and `nbformat==5.11.1`.
 Set `ALEPH_KAGGLE_PY` to that environment's absolute Python path; do not validate one `kaggle`
 executable and run the helpers with a different bare `python3`:
 
 ```bash
 export ALEPH_KAGGLE_PY=/absolute/path/to/aleph-kaggle-2.2.4/bin/python
 "$ALEPH_KAGGLE_PY" -m kaggle --version
-"$ALEPH_KAGGLE_PY" -m pip show kaggle kagglesdk jupytext
+"$ALEPH_KAGGLE_PY" -m pip show kaggle kagglesdk jupytext nbformat
 "$ALEPH_KAGGLE_PY" -m kaggle benchmarks --help
 ```
 

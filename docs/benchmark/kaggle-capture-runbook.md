@@ -11,7 +11,8 @@ the exact task version, run, dataset, and quota first.
 ## Preconditions
 
 - Use a clean checkout of the reviewed benchmark authority branch.
-- Use Python 3.13 with `kaggle==2.2.4`, `kagglesdk==0.1.37`, and `jupytext==1.19.5`.
+- Use Python 3.13 with `kaggle==2.2.4`, `kagglesdk==0.1.37`, `jupytext==1.19.5`,
+  and `nbformat==5.11.1`.
 - Build and check the deterministic v0.2 scorer-conformance package.
 - Attach exactly one private Kaggle dataset with mount slug
   `aleph-bench-v02-scorer-conformance`; its file paths and bytes must match the package manifest.
@@ -31,20 +32,26 @@ the exact task version, run, dataset, and quota first.
   an implicit fallback. A future formal numeric release must freeze its own comparability policy.
 - Choose a new durable private evidence directory outside the repository and ephemeral directories.
 
-The generated source must be exact before any remote write:
+Set `ALEPH_KAGGLE_PY` to the reviewed environment. Verify the complete serializer matrix and run
+the source/authority checks with that same interpreter before any remote write; using bare
+`python3.13` can silently skip the identity tests when Jupytext is absent:
 
 ```bash
-python3.13 bench/tasks/kaggle/generate_v0_2_capture.py --check
-python3.13 -m unittest \
+export ALEPH_KAGGLE_PY=/absolute/path/to/aleph-kaggle-2.2.4/bin/python
+"$ALEPH_KAGGLE_PY" -c \
+  "from bench.engine.kaggle_push_once import _verified_client_versions; print(_verified_client_versions())"
+"$ALEPH_KAGGLE_PY" bench/tasks/kaggle/generate_v0_2_capture.py --check
+"$ALEPH_KAGGLE_PY" -m unittest \
   bench.tests.test_kaggle_capture \
   bench.tests.test_kaggle_capture_task_v0_2 \
   bench.tests.test_kaggle_capture_evidence \
-  bench.tests.test_kaggle_push_once
+  bench.tests.test_kaggle_push_once \
+  bench.tests.test_kaggle_run_once
 ```
 
 ## One-shot creation
 
-Set `ALEPH_KAGGLE_PY` to the reviewed environment and use an absolute, new journal path:
+Use that reviewed environment and an absolute, new journal path:
 
 ```bash
 "$ALEPH_KAGGLE_PY" -m bench.engine.kaggle_push_once \
@@ -62,6 +69,33 @@ generic retry wrapper.
 If the journal state is not `returned`, stop. Do not select a new journal path and do not call the
 helper again. A `returned` journal supplies the only authorized task version for read-only status
 and evidence download.
+
+### Task-v8 notebook-identity incident
+
+Task v8 was created once and returned before a read-only audit found that Jupytext 1.19.5 had
+assigned a random nbformat cell ID. Its immutable creation journal records raw submitted-notebook
+SHA-256 `997ba2ce74c6281b7c1e7da4ed33caa40d7d405585728dd99c6a8d05346f9e7c`.
+The authenticated exact-version run archive preserves cell ID `5a5b4e4d`; applying that ID to the
+unchanged generated source reproduces the journal hash exactly. The archive itself contains the
+executed Papermill notebook, so its raw bytes also contain outputs, execution metadata, and timing
+data and are not the original create-request bytes. Kaggle's backing `sourceKernelId` is mutable
+across Task versions, so a later direct kernel read is not historical authority; only the retained,
+hash-bound exact-run archive supports this incident explanation.
+
+This evidence explains the mismatch but does not create a second creation authority. The original
+journal remains byte-unchanged, and the scheduler, its repeated source checks, the embedded run-
+journal authority, and the later evidence binder continue to reject its random notebook identity.
+Task v8 is therefore creation-only evidence: its completed six-call creation run may be retained as
+diagnostic history, but no additional model may be scheduled on v8. Do not hand-author a semantic
+digest, delete the notebook field, substitute the executed-notebook hash, or add a v8 exception.
+Future Task creation uses deterministic positional cell IDs and must pass repeated in-process and
+fresh-process notebook-byte checks before the one-shot create boundary. Its v3 creation journal
+binds the `jupytext-ipynb-v1-positional-cell-ids` profile, exact notebook digest, and both serializer
+package versions. In the affected `jahyee` namespace, Task versions 1 through 8 remain frozen as
+creation-only; hand-authoring a v3-shaped receipt for any of them is rejected. Task versions are
+owner-scoped, so an independent owner may start the corrected v3 path at version 1. A v2 journal
+cannot authorize an added run even if a caller supplies reconstructed source fields. See
+[issue #88](https://github.com/p-to-q/aleph/issues/88).
 
 ## Exact-run binding
 
@@ -251,8 +285,9 @@ opened destination, rechecks destination and parent path identities, then re-rea
 exact bytes and stable metadata before reporting success. These are point-in-time fail-closed
 checks, not an atomic transaction or a same-UID security boundary.
 
-This is only a layout migration for evidence that already passes the current version-2
-creation-authority verifier. It never adds authority or changes `assemblyEligible`. In particular,
+This is only a layout migration for evidence whose version-2 run journal already carries creation
+authority accepted by the current verifier. It never adds authority or changes
+`assemblyEligible`. In particular,
 the five retained Task-v7 envelopes bind version-1 dispatch journals without creation authority
 and cannot be migrated or promoted by this command. Run 3022882 has no evidence envelope and is
 outside the migration path. Historical recovery, if ever approved, requires a separate authority

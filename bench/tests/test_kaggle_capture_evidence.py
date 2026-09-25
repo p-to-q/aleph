@@ -52,6 +52,7 @@ def _test_source_identity() -> dict[str, Any]:
         "path": run_once.TASK_SOURCE_PATH,
         "bytes": len(source_bytes),
         "sha256": hashlib.sha256(source_bytes).hexdigest(),
+        "notebookProfile": run_once.NOTEBOOK_IDENTITY_PROFILE,
         "notebookSha256": "2" * 64,
     }
 
@@ -64,7 +65,7 @@ def _creation_authority(
 ) -> run_once.VerifiedCreationAuthority:
     source = _test_source_identity()
     journal = {
-        "journalVersion": 2,
+        "journalVersion": run_once.CREATION_JOURNAL_VERSION,
         "artifactKind": "kaggle_task_creation_dispatch",
         "operationId": "12345678-1234-4abc-8123-123456789abc",
         "createdAt": "2026-09-21T23:57:00Z",
@@ -77,6 +78,7 @@ def _creation_authority(
             "kaggle": "2.2.4",
             "kagglesdk": "0.1.37",
             "jupytext": "1.19.5",
+            "nbformat": "5.11.1",
         },
         "source": {
             **source,

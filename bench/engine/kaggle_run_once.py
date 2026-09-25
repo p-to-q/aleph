@@ -19,7 +19,9 @@ from typing import Any, Callable, Iterable, Sequence
 from bench.engine.kaggle_push_once import (
     CAPTURE_OUTPUT_PATH,
     CAPTURE_TASK_SLUG,
+    CREATION_JOURNAL_VERSION,
     KagglePushOnceError,
+    NOTEBOOK_IDENTITY_PROFILE,
     REQUIRED_CLIENT_VERSIONS,
     _canonical_json_bytes,
     _enum_name,
@@ -52,6 +54,9 @@ _ACKNOWLEDGED_CREATION_STATES = {
     "BENCHMARK_TASK_VERSION_CREATION_STATE_RUNNING",
     "BENCHMARK_TASK_VERSION_CREATION_STATE_COMPLETED",
 }
+_CREATION_ONLY_TASK_VERSION_CEILINGS = {
+    ("jahyee", CAPTURE_TASK_SLUG): 8,
+}
 DEFAULT_RECONCILE_DELAYS_SECONDS = (0.0, 1.0, 2.0, 4.0, 8.0)
 MAX_CREATION_JOURNAL_BYTES = 2_097_152
 _DISPATCH_CLAIM_DIRECTORY = ".aleph-kaggle-run-claims"
@@ -80,7 +85,13 @@ _CREATION_RESPONSE_FIELDS = {
     "url",
     "version",
 }
-_CREATION_SOURCE_FIELDS = {"bytes", "notebookSha256", "path", "sha256"}
+_CREATION_SOURCE_FIELDS = {
+    "bytes",
+    "notebookProfile",
+    "notebookSha256",
+    "path",
+    "sha256",
+}
 _CREATION_AUTHORITY_FIELDS = {
     "canonicalBytes",
     "canonicalSha256",
@@ -240,6 +251,7 @@ def current_capture_source_identity() -> dict[str, Any]:
         "path": TASK_SOURCE_PATH,
         "bytes": len(source),
         "sha256": hashlib.sha256(source).hexdigest(),
+        "notebookProfile": NOTEBOOK_IDENTITY_PROFILE,
         "notebookSha256": hashlib.sha256(
             notebook_text.encode("utf-8")
         ).hexdigest(),
@@ -256,6 +268,10 @@ def _validate_current_source_identity(value: Any) -> dict[str, Any]:
             "creation authority current source path is invalid"
         )
     _authority_positive_int(source["bytes"], role="current source bytes")
+    if source["notebookProfile"] != NOTEBOOK_IDENTITY_PROFILE:
+        raise KaggleRunOnceError(
+            "creation authority current source notebookProfile is invalid"
+        )
     for field in ("sha256", "notebookSha256"):
         if not isinstance(source[field], str) or not _SHA256.fullmatch(
             source[field]
@@ -351,7 +367,7 @@ def verify_creation_authority_bytes(
         raise KaggleRunOnceError(
             "creation authority journal bytes are not canonical"
         )
-    if journal["journalVersion"] != 2 or isinstance(
+    if journal["journalVersion"] != CREATION_JOURNAL_VERSION or isinstance(
         journal["journalVersion"], bool
     ):
         raise KaggleRunOnceError(
@@ -427,7 +443,12 @@ def verify_creation_authority_bytes(
         raise KaggleRunOnceError(
             "creation authority source path is not the generated capture source"
         )
-    for field in ("bytes", "sha256", "notebookSha256"):
+    for field in (
+        "bytes",
+        "sha256",
+        "notebookProfile",
+        "notebookSha256",
+    ):
         if source[field] != expected_source[field]:
             raise KaggleRunOnceError(
                 f"creation authority current source {field} drifted"
@@ -446,18 +467,33 @@ def verify_creation_authority_bytes(
     _authority_exact_fields(
         response, _CREATION_RESPONSE_FIELDS, role="response"
     )
+    response_owner = _authority_string(
+        response["owner"], role="response owner", maximum=100
+    )
+    response_task = _authority_string(
+        response["task"], role="response task", maximum=100
+    )
+    response_version = _authority_positive_int(
+        response["version"], role="response version"
+    )
+    frozen_through_version = _CREATION_ONLY_TASK_VERSION_CEILINGS.get(
+        (response_owner, response_task)
+    )
     if (
-        response["owner"] != expected_owner
-        or response["task"] != expected_task
-        or response["version"] != expected_version
-        or isinstance(response["version"], bool)
+        frozen_through_version is not None
+        and response_version <= frozen_through_version
+    ):
+        raise KaggleRunOnceError(
+            "creation authority task version is frozen creation-only"
+        )
+    if (
+        response_owner != expected_owner
+        or response_task != expected_task
+        or response_version != expected_version
     ):
         raise KaggleRunOnceError(
             "creation authority response targets a different task version"
         )
-    _authority_string(response["owner"], role="response owner", maximum=100)
-    _authority_string(response["task"], role="response task", maximum=100)
-    _authority_positive_int(response["version"], role="response version")
     response_state = _authority_string(
         response["creationState"], role="response creation state", maximum=200
     )

@@ -1,6 +1,10 @@
 from __future__ import annotations
 
+import hashlib
+import importlib.util
 import json
+import os
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -51,6 +55,122 @@ class HardStop(BaseException):
 
 
 class KagglePushOnceTests(unittest.TestCase):
+    def test_notebook_serializer_toolchain_is_fully_pinned(self) -> None:
+        self.assertEqual(
+            push_once.REQUIRED_CLIENT_VERSIONS,
+            {
+                "kaggle": "2.2.4",
+                "kagglesdk": "0.1.37",
+                "jupytext": "1.19.5",
+                "nbformat": "5.11.1",
+            },
+        )
+
+    @unittest.skipUnless(
+        importlib.util.find_spec("jupytext"),
+        "pinned jupytext is required for notebook identity tests",
+    )
+    def test_capture_notebook_identity_is_deterministic_in_process(self) -> None:
+        observed: list[str] = []
+        notebook_texts: list[str] = []
+        expected_source = push_once.render_capture_task_source()
+        for _ in range(4):
+            source, notebook_text = push_once._exact_source_and_notebook(
+                push_once.CAPTURE_OUTPUT_PATH,
+                expected_path=push_once.CAPTURE_OUTPUT_PATH,
+                expected_source=expected_source,
+                source_label="capture",
+            )
+            self.assertEqual(
+                hashlib.sha256(source).hexdigest(),
+                "2bdbbd04d082d82374786b5f38e57b4765346c48738d2baef076613cdb516382",
+            )
+            notebook = json.loads(notebook_text)
+            self.assertEqual(
+                [cell["id"] for cell in notebook["cells"]],
+                ["aleph-bench-0000"],
+            )
+            observed.append(
+                hashlib.sha256(notebook_text.encode("utf-8")).hexdigest()
+            )
+            notebook_texts.append(notebook_text)
+
+        self.assertEqual(len(set(notebook_texts)), 1)
+        self.assertEqual(
+            observed,
+            [
+                "f859f73bc5caeb0d74617d50a6ce8641fc68f8f1a5c4e3a2afaad16c88b4bf71"
+            ]
+            * 4,
+        )
+
+    @unittest.skipUnless(
+        importlib.util.find_spec("jupytext"),
+        "pinned jupytext is required for notebook identity tests",
+    )
+    def test_capture_notebook_identity_is_deterministic_across_processes(
+        self,
+    ) -> None:
+        command = (
+            "from bench.engine.kaggle_run_once import "
+            "current_capture_source_identity; "
+            "print(current_capture_source_identity()['notebookSha256'])"
+        )
+        environment = dict(os.environ)
+        environment["PYTHONDONTWRITEBYTECODE"] = "1"
+        observed = [
+            subprocess.run(
+                [sys.executable, "-c", command],
+                cwd=push_once.CAPTURE_OUTPUT_PATH.parents[3],
+                env=environment,
+                check=True,
+                capture_output=True,
+                text=True,
+            ).stdout.strip()
+            for _ in range(2)
+        ]
+        self.assertEqual(
+            observed,
+            [
+                "f859f73bc5caeb0d74617d50a6ce8641fc68f8f1a5c4e3a2afaad16c88b4bf71"
+            ]
+            * 2,
+        )
+
+    @unittest.skipUnless(
+        importlib.util.find_spec("jupytext"),
+        "pinned jupytext is required for notebook identity tests",
+    )
+    def test_v8_random_cell_id_regression_is_reproducible_but_not_current(
+        self,
+    ) -> None:
+        import jupytext
+
+        source = push_once.CAPTURE_OUTPUT_PATH.read_text(encoding="utf-8")
+        notebook = jupytext.reads(source, fmt="py:percent")
+        notebook.metadata["kernelspec"] = {
+            "display_name": "Python 3",
+            "language": "python",
+            "name": "python3",
+        }
+        # Exact cell ID retained by the authenticated Task-v8 executed-source
+        # readback. It reconstructs the submitted raw hash, but remains a
+        # historical incident fact rather than an authority bypass.
+        notebook.cells[0]["id"] = "5a5b4e4d"
+        legacy_text = jupytext.writes(notebook, fmt="ipynb")
+        _, deterministic_text = push_once._exact_source_and_notebook(
+            push_once.CAPTURE_OUTPUT_PATH,
+            expected_path=push_once.CAPTURE_OUTPUT_PATH,
+            expected_source=push_once.render_capture_task_source(),
+            source_label="capture",
+        )
+
+        self.assertEqual(
+            hashlib.sha256(legacy_text.encode("utf-8")).hexdigest(),
+            "997ba2ce74c6281b7c1e7da4ed33caa40d7d405585728dd99c6a8d05346f9e7c",
+        )
+        self.assertNotEqual(legacy_text, deterministic_text)
+
     def test_only_http_404_means_remote_task_is_missing(self) -> None:
         for status_code in (401, 403, 429, 500, None):
             with self.subTest(status_code=status_code):
@@ -538,6 +658,7 @@ class KagglePushOnceTests(unittest.TestCase):
                         "kaggle": "2.2.4",
                         "kagglesdk": "0.1.37",
                         "jupytext": "1.19.5",
+                        "nbformat": "5.11.1",
                     },
                 ),
                 self.assertRaisesRegex(

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import importlib.util
 import json
 import os
 import sys
@@ -21,7 +22,7 @@ from bench.engine.kaggle_run_once import (
 
 OWNER = "jahyee"
 TASK = "aleph-bench-v0-2-capture-canary"
-VERSION = 6
+VERSION = 9
 MODEL = "gpt-5.4-mini"
 MODEL_ID = 4301
 DATASET = "jahyee/aleph-bench-v02-scorer-conformance"
@@ -29,6 +30,7 @@ SOURCE_IDENTITY = {
     "path": "bench/tasks/kaggle/aleph_bench_v0_2_capture.py",
     "bytes": 1234,
     "sha256": "1" * 64,
+    "notebookProfile": run_once.NOTEBOOK_IDENTITY_PROFILE,
     "notebookSha256": "2" * 64,
 }
 
@@ -63,6 +65,7 @@ def _creation_journal_bytes(
     version: int = VERSION,
     source_kernel_id: int | None = 120,
     source: dict[str, object] | None = None,
+    journal_version: int = run_once.CREATION_JOURNAL_VERSION,
     datasets: tuple[str, ...] = (DATASET,),
     state: str = "returned",
     response_state: str = "BENCHMARK_TASK_VERSION_CREATION_STATE_COMPLETED",
@@ -72,12 +75,13 @@ def _creation_journal_bytes(
         "path": "/reviewed/checkout/" + SOURCE_IDENTITY["path"],
         "bytes": SOURCE_IDENTITY["bytes"],
         "sha256": SOURCE_IDENTITY["sha256"],
+        "notebookProfile": SOURCE_IDENTITY["notebookProfile"],
         "notebookSha256": SOURCE_IDENTITY["notebookSha256"],
     }
     if source is not None:
         source_record.update(source)
     journal = {
-        "journalVersion": 2,
+        "journalVersion": journal_version,
         "artifactKind": "kaggle_task_creation_dispatch",
         "operationId": "12345678-1234-4abc-8123-123456789abc",
         "createdAt": "2026-09-22T23:58:00Z",
@@ -90,6 +94,7 @@ def _creation_journal_bytes(
             "kaggle": "2.2.4",
             "kagglesdk": "0.1.37",
             "jupytext": "1.19.5",
+            "nbformat": "5.11.1",
         },
         "source": source_record,
         "remotePreflight": {
@@ -203,7 +208,168 @@ class HardStop(BaseException):
     """Synthetic process interruption that must not be converted or retried."""
 
 
+_REAL_CAPTURE_SOURCE_IDENTITY: dict[str, object] | None = None
+
+
+def _real_capture_source_identity() -> dict[str, object]:
+    global _REAL_CAPTURE_SOURCE_IDENTITY
+    if _REAL_CAPTURE_SOURCE_IDENTITY is None:
+        _REAL_CAPTURE_SOURCE_IDENTITY = (
+            run_once.current_capture_source_identity()
+        )
+    return dict(_REAL_CAPTURE_SOURCE_IDENTITY)
+
+
 class KaggleRunOnceTests(unittest.TestCase):
+    @unittest.skipUnless(
+        importlib.util.find_spec("jupytext"),
+        "pinned jupytext is required for notebook identity tests",
+    )
+    def test_real_push_identity_round_trips_through_creation_verifier(
+        self,
+    ) -> None:
+        current = _real_capture_source_identity()
+        retained_source = {
+            **current,
+            "path": str(run_once.CAPTURE_OUTPUT_PATH.resolve()),
+        }
+        authority = run_once.verify_creation_authority_bytes(
+            _creation_journal_bytes(source=retained_source),
+            expected_owner=OWNER,
+            expected_task=TASK,
+            expected_version=VERSION,
+            current_source=current,
+        )
+
+        self.assertEqual(authority.source, current)
+        self.assertEqual(
+            authority.journal["source"]["notebookProfile"],
+            "jupytext-ipynb-v1-positional-cell-ids",
+        )
+        self.assertEqual(
+            authority.journal["source"]["notebookSha256"],
+            "f859f73bc5caeb0d74617d50a6ce8641fc68f8f1a5c4e3a2afaad16c88b4bf71",
+        )
+
+    @unittest.skipUnless(
+        importlib.util.find_spec("jupytext"),
+        "pinned jupytext is required for notebook identity tests",
+    )
+    def test_v8_creation_v2_journal_remains_fail_closed(
+        self,
+    ) -> None:
+        current = _real_capture_source_identity()
+        retained_source = {
+            **current,
+            "path": str(run_once.CAPTURE_OUTPUT_PATH.resolve()),
+            "notebookSha256": (
+                "997ba2ce74c6281b7c1e7da4ed33caa4"
+                "0d7d405585728dd99c6a8d05346f9e7c"
+            ),
+        }
+        v8_record = json.loads(
+            _creation_journal_bytes(
+                journal_version=2,
+                version=8,
+                source_kernel_id=None,
+                source=retained_source,
+                response_state=(
+                    "BENCHMARK_TASK_VERSION_CREATION_STATE_QUEUED"
+                ),
+            )
+        )
+        # Match the immutable v8 schema: nbformat and the deterministic
+        # notebook profile were not retained by the v2 creator.
+        del v8_record["client"]["nbformat"]
+        del v8_record["source"]["notebookProfile"]
+        v8_journal = run_once._canonical_json_bytes(v8_record)
+        legacy_current_source = dict(current)
+        del legacy_current_source["notebookProfile"]
+        legacy_current_source["notebookSha256"] = retained_source[
+            "notebookSha256"
+        ]
+
+        with self.assertRaisesRegex(
+            KaggleRunOnceError,
+            "journal version is unsupported",
+        ):
+            run_once.verify_creation_authority_bytes(
+                v8_journal,
+                expected_owner=OWNER,
+                expected_task=TASK,
+                expected_version=8,
+                current_source=legacy_current_source,
+            )
+
+    @unittest.skipUnless(
+        importlib.util.find_spec("jupytext"),
+        "pinned jupytext is required for notebook identity tests",
+    )
+    def test_random_notebook_identity_cannot_authorize_v9(self) -> None:
+        current = _real_capture_source_identity()
+        retained_source = {
+            **current,
+            "path": str(run_once.CAPTURE_OUTPUT_PATH.resolve()),
+            "notebookSha256": (
+                "997ba2ce74c6281b7c1e7da4ed33caa4"
+                "0d7d405585728dd99c6a8d05346f9e7c"
+            ),
+        }
+        promoted_v8_journal = _creation_journal_bytes(
+            version=VERSION,
+            source_kernel_id=None,
+            source=retained_source,
+            response_state=(
+                "BENCHMARK_TASK_VERSION_CREATION_STATE_QUEUED"
+            ),
+        )
+
+        with self.assertRaisesRegex(
+            KaggleRunOnceError,
+            "current source notebookSha256 drifted",
+        ):
+            run_once.verify_creation_authority_bytes(
+                promoted_v8_journal,
+                expected_owner=OWNER,
+                expected_task=TASK,
+                expected_version=VERSION,
+                current_source=current,
+            )
+
+    def test_v8_cannot_be_promoted_with_current_v3_identity(self) -> None:
+        promoted_v8_journal = _creation_journal_bytes(
+            version=8,
+            source_kernel_id=None,
+            response_state=(
+                "BENCHMARK_TASK_VERSION_CREATION_STATE_QUEUED"
+            ),
+        )
+
+        with self.assertRaisesRegex(
+            KaggleRunOnceError,
+            "task version is frozen creation-only",
+        ):
+            run_once.verify_creation_authority_bytes(
+                promoted_v8_journal,
+                expected_owner=OWNER,
+                expected_task=TASK,
+                expected_version=8,
+                current_source=SOURCE_IDENTITY,
+            )
+
+    def test_other_owner_v1_can_use_v3_notebook_authority(self) -> None:
+        other_owner = "independent-researcher"
+        authority = run_once.verify_creation_authority_bytes(
+            _creation_journal_bytes(owner=other_owner, version=1),
+            expected_owner=other_owner,
+            expected_task=TASK,
+            expected_version=1,
+            current_source=SOURCE_IDENTITY,
+        )
+
+        self.assertEqual(authority.response["owner"], other_owner)
+        self.assertEqual(authority.response["version"], 1)
+
     def _assert_creation_preflight_rejected(
         self, data: bytes | None, message: str
     ) -> None:
@@ -378,6 +544,14 @@ class KaggleRunOnceTests(unittest.TestCase):
 
         mutations = {
             "extra-shape": ("invalid fields", lambda value: value.update({"extra": 1})),
+            "missing-client-nbformat": (
+                "client has invalid fields",
+                lambda value: value["client"].pop("nbformat"),
+            ),
+            "missing-notebook-profile": (
+                "source has invalid fields",
+                lambda value: value["source"].pop("notebookProfile"),
+            ),
             "non-returned": (
                 "not a returned creation receipt",
                 lambda value: value.update({"state": "dispatching"}),
@@ -400,6 +574,12 @@ class KaggleRunOnceTests(unittest.TestCase):
                 "source notebookSha256 drifted",
                 lambda value: value["source"].update(
                     {"notebookSha256": "b" * 64}
+                ),
+            ),
+            "notebook-profile": (
+                "source notebookProfile drifted",
+                lambda value: value["source"].update(
+                    {"notebookProfile": "other-profile"}
                 ),
             ),
             "version": (

@@ -27,15 +27,19 @@ TASK_SLUG = "aleph-bench-deployment-diagnostic-2048-none"
 CAPTURE_TASK_SLUG = "aleph-bench-v0-2-capture-canary"
 MAX_SOURCE_BYTES = 2_097_152
 REQUIRED_PYTHON_MAJOR_MINOR = (3, 13)
+CREATION_JOURNAL_VERSION = 3
+NOTEBOOK_IDENTITY_PROFILE = "jupytext-ipynb-v1-positional-cell-ids"
 REQUIRED_CLIENT_VERSIONS = {
     "kaggle": "2.2.4",
     "kagglesdk": "0.1.37",
     "jupytext": "1.19.5",
+    "nbformat": "5.11.1",
 }
 _DATASET_SLUG = re.compile(
     r"^[a-z0-9](?:[a-z0-9_-]{0,98}[a-z0-9])?/"
     r"[a-z0-9](?:[a-z0-9_-]{0,98}[a-z0-9])?$"
 )
+_NOTEBOOK_CELL_ID = re.compile(r"^[A-Za-z0-9_-]{1,64}$")
 _TERMINAL_CREATION_STATES = {
     "BENCHMARK_TASK_VERSION_CREATION_STATE_COMPLETED",
     "BENCHMARK_TASK_VERSION_CREATION_STATE_ERRORED",
@@ -342,6 +346,20 @@ def _exact_source_and_notebook(
         "language": "python",
         "name": "python3",
     }
+    # NOTEBOOK_IDENTITY_PROFILE v1: nbformat 4.5 requires cell IDs, and
+    # Jupytext/nbformat otherwise assigns random IDs while parsing this percent
+    # script. That makes identical source produce different notebook bytes and
+    # breaks the later creation-authority check. Positional IDs are sufficient
+    # here because the entire ordered source is already byte-bound below; any
+    # cell insertion, removal, reordering, or content change still changes the
+    # notebook digest.
+    for index, cell in enumerate(notebook.cells):
+        cell_id = f"aleph-bench-{index:04d}"
+        if not _NOTEBOOK_CELL_ID.fullmatch(cell_id):
+            raise KagglePushOnceError(
+                "generated deterministic notebook cell ID is invalid"
+            )
+        cell["id"] = cell_id
     notebook_text = jupytext.writes(notebook, fmt="ipynb")
     return source, notebook_text
 
@@ -443,7 +461,7 @@ def push_diagnostic_once(
 
     created_at = _utc_now()
     prepared = {
-        "journalVersion": 2,
+        "journalVersion": CREATION_JOURNAL_VERSION,
         "artifactKind": "kaggle_task_creation_dispatch",
         "operationId": str(uuid.uuid4()),
         "createdAt": created_at,
@@ -455,6 +473,7 @@ def push_diagnostic_once(
             "path": str(source_path.resolve()),
             "bytes": len(source),
             "sha256": hashlib.sha256(source).hexdigest(),
+            "notebookProfile": NOTEBOOK_IDENTITY_PROFILE,
             "notebookSha256": hashlib.sha256(
                 notebook_text.encode("utf-8")
             ).hexdigest(),
@@ -538,7 +557,7 @@ def push_capture_once(
     request.options = options
 
     prepared = {
-        "journalVersion": 2,
+        "journalVersion": CREATION_JOURNAL_VERSION,
         "artifactKind": "kaggle_task_creation_dispatch",
         "operationId": str(uuid.uuid4()),
         "createdAt": _utc_now(),
@@ -550,6 +569,7 @@ def push_capture_once(
             "path": str(source_path.resolve()),
             "bytes": len(source),
             "sha256": hashlib.sha256(source).hexdigest(),
+            "notebookProfile": NOTEBOOK_IDENTITY_PROFILE,
             "notebookSha256": hashlib.sha256(
                 notebook_text.encode("utf-8")
             ).hexdigest(),
