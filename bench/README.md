@@ -301,6 +301,14 @@ creates the run journal or schedules a paid run, then resolves and binds the exa
 readback. Any generated source change requires a new one-shot Task version; older immutable Task
 versions do not receive compatibility exceptions.
 
+New creation receipts use schema v3. They bind the exact Jupytext and nbformat versions, the
+`jupytext-ipynb-v1-positional-cell-ids` serialization profile, and the resulting notebook digest.
+Task v8 predates that boundary: its v2 receipt records a notebook whose Jupytext-generated cell ID
+was random. The retained exact-run archive explains and reproduces that historical digest, but it
+does not upgrade the receipt. Task v8 is frozen as creation-only evidence and cannot authorize an
+additional model run; create version 9 with the v3 path in the affected `jahyee` namespace instead.
+Task versions are owner-scoped, so other owners may start the corrected v3 path at version 1.
+
 Immediately before the paid boundary, the scheduler atomically creates a durable model claim in a
 private sidecar directory beside the original creation journal. Its name is derived from the exact
 receipt/task/model rather than the chosen run-journal path, so concurrent local attempts for the
@@ -323,7 +331,8 @@ content-bound copy of the dispatch journal there; the original `dispatch/run-jou
 remain outside because the closed-world loader rejects every file not named by the envelope. Use
 `python3.13 -m bench.engine.kaggle_capture_bundle` to non-destructively materialize an older flat
 layout whose sole extra file is an identical original `run-journal.json`. The materializer is only
-a layout copy for a bundle that already passes the current version-2 creation-authority verifier.
+a layout copy for a bundle whose version-2 run journal already carries creation authority accepted
+by the current verifier.
 It does not migrate authority, change `assemblyEligible`, or rescue any retained Task-v7 evidence:
 those five envelopes bind version-1 journals without creation authority, while run 3022882 has no
 evidence envelope at all.
