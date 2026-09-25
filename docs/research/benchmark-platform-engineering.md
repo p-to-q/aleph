@@ -4,6 +4,8 @@ Status: research note
 
 Date: 2026-09-23
 
+Identity correction: 2026-09-25
+
 Scope: public benchmark authority, execution, evidence, and reproducibility
 
 ## Question
@@ -138,9 +140,17 @@ does not mean copying mutable values by hand into four unrelated pages.
 ### 3. Reference scorer plus portable profile
 
 Keep v0.2.0 immutable as the Python 3.13/UCD 15.1 reference. A Kaggle-compatible scorer should be a
-new portable runtime profile, provisionally protocol 0.3.0, even when its dataset, prompts, metrics,
-thresholds, and rerun policy are unchanged. It may be declared numerically comparable to v0.2 only
-after the checked-in equivalence suite passes.
+separately identified portable candidate targeting protocol 0.2.0 when its dataset, prompts,
+metrics, thresholds, aggregation, eligibility, and rerun policy are unchanged. Its identity must
+bind `protocolVersion: 0.2.0`, `referenceProtocolVersion: 0.2.0`,
+`targetScorer: aleph-unicode@0.2.0`, and independent scorer-profile, runtime-profile, package, and
+schema identities. It begins with `comparabilityStatus: unproven`; only the checked-in exhaustive
+equivalence proof in issue #77 may promote that status.
+
+Protocol 0.3.0 is reserved for issue #35's semantic changes to length units, failure denominators,
+and ECL aggregation. The historical `0.3.0-provisional` value inside the frozen string-semantics
+inputs remains an immutable source label, not a protocol or comparability claim. See
+[ADR 0006](../decisions/0006-benchmark-version-identity.md).
 
 The proof must cover more than `unicodedata2.normalize`:
 

@@ -8,7 +8,7 @@ Public entry: [Aleph Bench](https://www.kaggle.com/benchmarks/jahyee/aleph-bench
 
 Reference protocol: `0.2.0`
 
-Portable release candidate: `0.3.0` (provisional until the compatibility proof passes)
+Portable scorer target: `aleph-unicode@0.2.0` (`comparabilityStatus: unproven` until #77)
 
 Last updated: 2026-09-25
 
@@ -62,17 +62,20 @@ The decisive observations are:
 ### Selected route: proved portable scorer
 
 Keep protocol `0.2.0` and its reference scorer bytes immutable. Build a separate portable scorer
-profile, provisionally protocol `0.3.0`, with the same current public dataset, call plan, metrics,
-thresholds, aggregation, and five-rerun policy. Freeze every Unicode input needed for equivalent
-behavior and prove it against the Python 3.13/UCD 15.1 reference.
+and runtime profile that targets `aleph-unicode@0.2.0`, with the same current public dataset, call
+plan, metrics, thresholds, aggregation, and five-rerun policy. Give the scorer profile, runtime
+profile, package, and schema independent identities. Freeze every Unicode input needed for
+equivalent behavior and prove it against the Python 3.13/UCD 15.1 reference.
 
 If every declared compatibility gate passes, the release may say:
 
-> Aleph-Bench 0.3 uses a portable runtime profile and is numerically comparable to the 0.2
-> reference under the published conformance contract.
+> This portable implementation of Aleph-Bench protocol 0.2.0 is numerically comparable to the
+> Python 3.13 reference under the published proof contract.
 
-It must not say it *is* protocol 0.2. Any mismatch blocks comparability and same-leaderboard
-promotion until the protocol and presentation are reviewed.
+Until issue #77 emits the canonical zero-mismatch receipt, `comparabilityStatus` remains `unproven`.
+Any mismatch blocks comparability and same-leaderboard promotion. Protocol `0.3.0` is reserved for
+issue #35's changes to length units, failure denominators, and ECL aggregation; portability alone
+does not consume that version. See [ADR 0006](../decisions/0006-benchmark-version-identity.md).
 
 ### Retained route: capture plus reference replay
 
@@ -118,10 +121,12 @@ authority.
 
 Add a strict, versioned release identity that binds:
 
-- `benchmarkName`, `protocolVersion`, `runtimeProfile`, and `releaseId`;
+- `benchmarkName`, `releaseId`, `protocolVersion`, `referenceProtocolVersion`, and `targetScorer`;
+- scorer profile id/version, runtime profile id/version, package id/version/digest, schema
+  id/version, and `comparabilityStatus` plus a nullable proof-receipt digest;
 - dataset id, item count, revision, filenames, and digest;
 - prompt/call-plan id, 900-row coverage, rerun policy, and digest;
-- scorer id/version/source digest, normalization, casefold, whitespace, and Unicode profiles;
+- target-scorer source digest plus normalization, casefold, whitespace, and Unicode profiles;
 - exact dependency filenames, sizes, SHA-256 values, licenses, ABI/platform tags, and import paths;
 - generated Task source and package digests;
 - requested decoding parameters and no-silent-retry policy;
@@ -369,7 +374,8 @@ Gate: the complete portable/reference contract matches or the route is explicitl
 
 ### PR D: portable scorer and release identity
 
-- add a new profile without altering v0.2 bytes;
+- add independently versioned scorer/runtime/package profiles without altering v0.2 bytes or
+  changing `referenceProtocolVersion: 0.2.0`;
 - add schemas, manifests, serializers, verifiers, and mutation tests.
 
 Gate: profile and release identity are independently reproducible in clean Python 3.11, 3.12, and
