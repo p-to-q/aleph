@@ -1,0 +1,302 @@
+{
+  "artifactKind": "aleph_bench_kaggle_capture_queue_policy",
+  "authority": {
+    "captureSourceAuthorityCommit": "0194da92218d3e3896e5cabb10595f2fac1620dd",
+    "captureSourceSha256": "df9a9cd7387df5392c07c11a88149001e3cdaf67551c35b14530690c1f4ee0db",
+    "creationJournalSha256": "f6c4360dc843bede4e6020dece9ee5e91f7b2e8935ce819c1600cb8dc219f672",
+    "creationRunId": 3193338,
+    "creationRunModelVersionSlug": "gemini-3.7-flash",
+    "datasetRefs": [
+      "jahyee/aleph-bench-v02-scorer-conformance"
+    ],
+    "expectedInitialRuns": [
+      {
+        "modelVersionSlug": "gemini-3.7-flash",
+        "runId": 3193338,
+        "state": "BENCHMARK_TASK_RUN_STATE_COMPLETED"
+      }
+    ],
+    "notebookSha256": "5f4103d304c057ec3e100d6750ff4052c41b7b3961c85d3c09fb7e14d6d04071",
+    "repository": "p-to-q/aleph",
+    "sourceKernelId": 135410138,
+    "taskOwner": "jahyee",
+    "taskSlug": "aleph-bench-v0-2-capture-canary",
+    "taskVersion": 10
+  },
+  "captureContract": {
+    "captureGeneration": 4,
+    "captureSchemaVersion": "1.2.0",
+    "maxTransportRetries": 0,
+    "numericReturn": false,
+    "plannedCallCount": 6,
+    "scopeKind": "transportCanary",
+    "scorerExecution": false,
+    "timeoutSeconds": 180
+  },
+  "catalogRequirements": {
+    "allowModelProxy": true,
+    "deprecatedAt": null,
+    "isDefault": true,
+    "parentPublished": true,
+    "versionPublished": true
+  },
+  "circuitBreaker": {
+    "automaticReset": false,
+    "terminalOn": [
+      "dispatch_ambiguous_or_unreconciled",
+      "transport_or_provider_failure",
+      "invalid_or_incomplete_capture",
+      "authority_or_identity_drift",
+      "prior_evidence_gate_failure",
+      "quota_or_allowance_drift",
+      "post_run_cost_breaker",
+      "local_writer_or_remote_run_set_conflict"
+    ]
+  },
+  "dispatchPolicy": {
+    "dailyQueueSpendCapUsd": "1.00",
+    "dailyRefillAdvanceSeconds": 86400,
+    "dailyRefillAdvanceToleranceMilliseconds": 5,
+    "dailyReserveFraction": "0.20",
+    "dailyReserveMinimumUsd": "2.00",
+    "dailyReserveRule": "max_usd_or_fraction",
+    "forbidLocalMidnightReset": true,
+    "forbidPaidRetry": true,
+    "maxDispatchesPerRollingWindow": 3,
+    "maxPaidSchedulePostsPerInvocation": 1,
+    "maxTotalDispatches": 6,
+    "monthlyRefillAdvanceRule": "prior_boundary_elapsed_unchanged_allowance_coherent_usage_reset",
+    "monthlyReserveFraction": "0.20",
+    "postRunQuotaSource": "independent_terminal_quota_receipt_after_verified_evidence",
+    "refillTimeRole": "consistency_observation_not_window_key",
+    "rejectIntermediateOrReversedRefillTime": true,
+    "requireOneControlRoot": true,
+    "requireOneOriginalCreationReceipt": true,
+    "requireOneWriterHost": true,
+    "requireStrictSerialRuns": true,
+    "rollingSpendAccounting": "max_declared_worst_case_sum_and_coherent_observed_usage_increase",
+    "rollingWindowSeconds": 86400,
+    "sameWindowRefillTimeJitterToleranceMilliseconds": 5
+  },
+  "evidenceGate": {
+    "assemblyEligible": true,
+    "canonicalReplayEligible": true,
+    "captureComplete": true,
+    "closedWorldBundleReload": true,
+    "dispatchJournalState": "reconciled",
+    "exactCatalogBinding": true,
+    "exactRunBinding": true,
+    "finalizationReceiptBindsPriorArtifacts": true,
+    "terminalQuotaReceiptAfterVerifiedEvidence": true,
+    "verifiedEvidenceEnvelope": true
+  },
+  "evidenceLayout": {
+    "artifactDirectoryMode": "0700",
+    "artifactFileMode": "0600",
+    "controlRootMode": "0700",
+    "controlRootSentinelRelativePath": ".aleph-kaggle-v10-queue-control.json",
+    "creationJournalRelativePath": "creation/dispatch/push-journal.json",
+    "requireNewEntryPaths": true
+  },
+  "excludedModels": [
+    {
+      "modelVersionSlug": "gemini-3.7-flash",
+      "reason": "already_v10_creation_run"
+    },
+    {
+      "modelVersionSlug": "gpt-5.4-nano-2026-03-17",
+      "reason": "already_current_v9_evidence"
+    },
+    {
+      "modelVersionSlug": "claude-haiku-4-5-20251001",
+      "reason": "retained_timeout_never_retry"
+    },
+    {
+      "modelVersionSlug": "qwen3-coder-480b-a35b-instruct",
+      "reason": "retained_first_call_rate_limit_error"
+    },
+    {
+      "modelVersionSlug": "gpt-oss-120b",
+      "reason": "retained_first_call_rate_limit_error"
+    },
+    {
+      "modelVersionSlug": "glm-5",
+      "reason": "retained_near_cap_invalid_capture"
+    },
+    {
+      "modelVersionSlug": "deepseek-r1-0528",
+      "reason": "retained_near_cap_invalid_capture"
+    }
+  ],
+  "expiresAt": "2026-10-25T00:00:00Z",
+  "fixedEligibility": {
+    "canonicalScoringInputEligible": false,
+    "huggingFaceEligible": false,
+    "leaderboardEligible": false,
+    "publicationEligible": false,
+    "resultEligible": false,
+    "scoreEligible": false
+  },
+  "policyId": "aleph-bench-v0.2-kaggle-capture-queue-v1",
+  "policySchemaVersion": "1.0.0",
+  "queue": [
+    {
+      "allowModelProxy": true,
+      "bundleDirectory": "queue/01-grok-4.20-0309-non-reasoning/bundle",
+      "completionReceiptRelativePath": "queue/01-grok-4.20-0309-non-reasoning/completion.json",
+      "decisionRelativePath": "queue/01-grok-4.20-0309-non-reasoning/decision.json",
+      "declaredWorstCaseCostUsd": "0.25",
+      "deprecatedAt": null,
+      "isDefault": true,
+      "journalRelativePath": "queue/01-grok-4.20-0309-non-reasoning/dispatch/run-journal.json",
+      "minimumSecondsSincePreviousDispatchExclusive": 0,
+      "modelId": 146,
+      "modelProxySlug": "xai/grok-4.20-0309-non-reasoning",
+      "modelVersionId": 144,
+      "modelVersionSlug": "grok-4.20-0309-non-reasoning",
+      "mustBeOnlyQueueDispatchInRollingWindow": false,
+      "order": 1,
+      "parentPublished": true,
+      "postRunBreakerUsd": "0.25",
+      "requiresPriorHealthyEntries": 0,
+      "requiresProvenDailyAllowanceUsageReset": false,
+      "role": "xAI current-contract control",
+      "terminalQuotaRelativePath": "queue/01-grok-4.20-0309-non-reasoning/terminal-quota.json",
+      "versionPublished": true
+    },
+    {
+      "allowModelProxy": true,
+      "bundleDirectory": "queue/02-gemma-4-31b-it/bundle",
+      "completionReceiptRelativePath": "queue/02-gemma-4-31b-it/completion.json",
+      "decisionRelativePath": "queue/02-gemma-4-31b-it/decision.json",
+      "declaredWorstCaseCostUsd": "0.05",
+      "deprecatedAt": null,
+      "isDefault": true,
+      "journalRelativePath": "queue/02-gemma-4-31b-it/dispatch/run-journal.json",
+      "minimumSecondsSincePreviousDispatchExclusive": 0,
+      "modelId": 140,
+      "modelProxySlug": "google/gemma-4-31b",
+      "modelVersionId": 138,
+      "modelVersionSlug": "gemma-4-31b-it",
+      "mustBeOnlyQueueDispatchInRollingWindow": false,
+      "order": 2,
+      "parentPublished": true,
+      "postRunBreakerUsd": "0.05",
+      "requiresPriorHealthyEntries": 1,
+      "requiresProvenDailyAllowanceUsageReset": false,
+      "role": "Google/Gemma current-contract control",
+      "terminalQuotaRelativePath": "queue/02-gemma-4-31b-it/terminal-quota.json",
+      "versionPublished": true
+    },
+    {
+      "allowModelProxy": true,
+      "bundleDirectory": "queue/03-gpt-5.4-mini-2026-03-17/bundle",
+      "completionReceiptRelativePath": "queue/03-gpt-5.4-mini-2026-03-17/completion.json",
+      "decisionRelativePath": "queue/03-gpt-5.4-mini-2026-03-17/decision.json",
+      "declaredWorstCaseCostUsd": "0.05",
+      "deprecatedAt": null,
+      "isDefault": true,
+      "journalRelativePath": "queue/03-gpt-5.4-mini-2026-03-17/dispatch/run-journal.json",
+      "minimumSecondsSincePreviousDispatchExclusive": 0,
+      "modelId": 138,
+      "modelProxySlug": "openai/gpt-5.4-mini-2026-03-17",
+      "modelVersionId": 136,
+      "modelVersionSlug": "gpt-5.4-mini-2026-03-17",
+      "mustBeOnlyQueueDispatchInRollingWindow": false,
+      "order": 3,
+      "parentPublished": true,
+      "postRunBreakerUsd": "0.05",
+      "requiresPriorHealthyEntries": 2,
+      "requiresProvenDailyAllowanceUsageReset": false,
+      "role": "OpenAI current-contract control",
+      "terminalQuotaRelativePath": "queue/03-gpt-5.4-mini-2026-03-17/terminal-quota.json",
+      "versionPublished": true
+    },
+    {
+      "allowModelProxy": true,
+      "bundleDirectory": "queue/04-qwen3-235b-a22b-instruct-2507/bundle",
+      "completionReceiptRelativePath": "queue/04-qwen3-235b-a22b-instruct-2507/completion.json",
+      "decisionRelativePath": "queue/04-qwen3-235b-a22b-instruct-2507/decision.json",
+      "declaredWorstCaseCostUsd": "0.25",
+      "deprecatedAt": null,
+      "isDefault": true,
+      "journalRelativePath": "queue/04-qwen3-235b-a22b-instruct-2507/dispatch/run-journal.json",
+      "minimumSecondsSincePreviousDispatchExclusive": 0,
+      "modelId": 62,
+      "modelProxySlug": "qwen/qwen3-235b-a22b-instruct-2507",
+      "modelVersionId": 67,
+      "modelVersionSlug": "qwen3-235b-a22b-instruct-2507",
+      "mustBeOnlyQueueDispatchInRollingWindow": false,
+      "order": 4,
+      "parentPublished": true,
+      "postRunBreakerUsd": "0.25",
+      "requiresPriorHealthyEntries": 3,
+      "requiresProvenDailyAllowanceUsageReset": false,
+      "role": "new Qwen coverage",
+      "terminalQuotaRelativePath": "queue/04-qwen3-235b-a22b-instruct-2507/terminal-quota.json",
+      "versionPublished": true
+    },
+    {
+      "allowModelProxy": true,
+      "bundleDirectory": "queue/05-gemini-3.8-flash/bundle",
+      "completionReceiptRelativePath": "queue/05-gemini-3.8-flash/completion.json",
+      "decisionRelativePath": "queue/05-gemini-3.8-flash/decision.json",
+      "declaredWorstCaseCostUsd": "0.10",
+      "deprecatedAt": null,
+      "isDefault": true,
+      "journalRelativePath": "queue/05-gemini-3.8-flash/dispatch/run-journal.json",
+      "minimumSecondsSincePreviousDispatchExclusive": 0,
+      "modelId": 170,
+      "modelProxySlug": "google/gemini-3.8-flash",
+      "modelVersionId": 168,
+      "modelVersionSlug": "gemini-3.8-flash",
+      "mustBeOnlyQueueDispatchInRollingWindow": false,
+      "order": 5,
+      "parentPublished": true,
+      "postRunBreakerUsd": "0.10",
+      "requiresPriorHealthyEntries": 4,
+      "requiresProvenDailyAllowanceUsageReset": false,
+      "role": "Google/Gemini current-contract control",
+      "terminalQuotaRelativePath": "queue/05-gemini-3.8-flash/terminal-quota.json",
+      "versionPublished": true
+    },
+    {
+      "allowModelProxy": true,
+      "bundleDirectory": "queue/06-claude-sonnet-4-5-20250929/bundle",
+      "completionReceiptRelativePath": "queue/06-claude-sonnet-4-5-20250929/completion.json",
+      "decisionRelativePath": "queue/06-claude-sonnet-4-5-20250929/decision.json",
+      "declaredWorstCaseCostUsd": "0.25",
+      "deprecatedAt": null,
+      "isDefault": true,
+      "journalRelativePath": "queue/06-claude-sonnet-4-5-20250929/dispatch/run-journal.json",
+      "minimumSecondsSincePreviousDispatchExclusive": 86400,
+      "modelId": 71,
+      "modelProxySlug": "anthropic/claude-sonnet-4-5@20250929",
+      "modelVersionId": 75,
+      "modelVersionSlug": "claude-sonnet-4-5-20250929",
+      "mustBeOnlyQueueDispatchInRollingWindow": true,
+      "order": 6,
+      "parentPublished": true,
+      "postRunBreakerUsd": "0.25",
+      "requiresPriorHealthyEntries": 5,
+      "requiresProvenDailyAllowanceUsageReset": true,
+      "role": "quarantined Anthropic tail",
+      "terminalQuotaRelativePath": "queue/06-claude-sonnet-4-5-20250929/terminal-quota.json",
+      "versionPublished": true
+    }
+  ],
+  "stateMachine": {
+    "exhaustedOn": "all_six_entries_finalized",
+    "expiredOn": "expires_at_reached",
+    "heldOn": [
+      "awaiting_terminal_run_or_evidence_finalization",
+      "required_read_temporarily_unavailable",
+      "rolling_window_dispatch_limit",
+      "quota_reserve_or_rolling_spend_cap",
+      "claude_fresh_window_not_yet_proven"
+    ],
+    "onlyHeldMayClearAutomatically": true
+  },
+  "targetProtocolVersion": "0.2.0",
+  "trackingIssue": "https://github.com/p-to-q/aleph/issues/93"
+}

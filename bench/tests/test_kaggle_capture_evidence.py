@@ -3,6 +3,8 @@ from __future__ import annotations
 import io
 import hashlib
 import json
+import os
+import stat
 import sys
 import tempfile
 import unittest
@@ -663,6 +665,73 @@ class KaggleCaptureEvidenceTests(unittest.TestCase):
             ),
             downgraded,
         )
+
+    def test_queue_authorization_and_quota_failure_are_retained_exactly(self) -> None:
+        payload_bytes = self._payload_bytes(model_slug=GEMMA_PROXY_SLUG)
+        archive_bytes = _archive(payload_bytes, self.source_bytes)
+        journal = json.loads(_dispatch_journal_bytes())
+        journal.update(
+            {
+                "client": {
+                    "python": "3.13.7",
+                    "kaggle": "2.2.4",
+                    "kagglesdk": "0.1.37",
+                },
+                "createdAt": "2026-09-22T00:00:00Z",
+                "dispatchAuthorization": {
+                    "decisionRelativePath": "queue/02/dispatch-decision.json",
+                    "decisionSha256": "1" * 64,
+                    "executionCommit": "2" * 40,
+                    "policySha256": "3" * 64,
+                    "queueEntryId": "02-gemma-4-31b-it",
+                },
+                "quotaAfter": None,
+                "quotaAfterFailure": {
+                    "message": "temporary quota read failure after reconciliation",
+                    "type": "KaggleReadUnavailable",
+                },
+                "updatedAt": "2026-09-22T00:00:01Z",
+            }
+        )
+        journal_bytes = run_once._canonical_json_bytes(journal)
+
+        previous_umask = os.umask(0o022)
+        try:
+            evidence, output_dir, output_tmp = self._write(
+                archive_bytes=archive_bytes,
+                run_info=_run_info(model=GEMMA_SCHEDULED_SLUG),
+                dispatch_journal_bytes=journal_bytes,
+            )
+        finally:
+            os.umask(previous_umask)
+
+        self.assertIsNotNone(output_tmp)
+        self.assertTrue(evidence["assemblyEligible"])
+        directory_stat = output_dir.stat(follow_symlinks=False)
+        self.assertTrue(stat.S_ISDIR(directory_stat.st_mode))
+        self.assertEqual(directory_stat.st_uid, os.geteuid())
+        self.assertEqual(stat.S_IMODE(directory_stat.st_mode), 0o700)
+        for member in output_dir.iterdir():
+            member_stat = member.stat(follow_symlinks=False)
+            self.assertTrue(stat.S_ISREG(member_stat.st_mode))
+            self.assertEqual(member_stat.st_nlink, 1)
+            self.assertEqual(member_stat.st_uid, os.geteuid())
+            self.assertEqual(stat.S_IMODE(member_stat.st_mode), 0o600)
+        retained_path = (
+            output_dir
+            / evidence["modelCatalogBinding"]["dispatchJournal"]["file"]
+        )
+        self.assertEqual(retained_path.read_bytes(), journal_bytes)
+        self.assertEqual(
+            json.loads(retained_path.read_bytes())["quotaAfterFailure"]["type"],
+            "KaggleReadUnavailable",
+        )
+        loaded = capture_evidence.load_verified_capture_bundle(
+            output_dir
+            / f"{TASK_SLUG}-v3-run-24680-evidence.json"
+        )
+        self.assertEqual(loaded.evidence, evidence)
+        self.assertEqual(loaded.dispatch_journal_bytes, journal_bytes)
 
     def test_lost_schedule_response_reconciled_by_scheduler_is_bindable(self) -> None:
         task_slug = SimpleNamespace(

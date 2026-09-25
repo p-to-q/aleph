@@ -20,7 +20,8 @@ a transport receipt into leaderboard evidence.
 Aleph-Bench v0.2 pins Python 3.13 and UCD 15.1 because Unicode normalization and classification are
 part of the scorer contract. An earlier observed Kaggle image provided Python 3.11 and UCD 14; its
 valid zero-call diagnostic therefore stopped at `runtime_preflight`, before package access or a
-model dispatch. Current private Task v9 captures instead observed Python 3.12.10 and UCD 15.0.
+model dispatch. Current private Task v9 and Task v10 captures instead observed Python 3.12.10 and
+UCD 15.0.
 Neither hosted runtime is the Python 3.13/UCD 15.1 reference profile. Rejecting either ambient
 runtime is the correct result for reference-profile scoring, but it also prevents Kaggle from being
 used only to collect raw observations.
@@ -322,9 +323,25 @@ state or a model credential.
 - Download and verify the exact run artifact, then replay it under the canonical runtime.
 
 Gate: six planned calls, six uniquely keyed completed rows each retaining its raw string, no retry,
-no extra run, exact identities, and a verified `CanaryReplayReceipt` explicitly labeled as
-transport-canary-only. It is never a `BenchManifest`, `BenchResult`, leaderboard row, or publication
-candidate because it does not cover complete canonical items or the frozen 900-call plan.
+no extra run, exact identities, and a verified closed-world capture evidence envelope explicitly
+labeled as transport-canary-only. It is never a `BenchManifest`, `BenchResult`, leaderboard row, or
+publication candidate because it does not cover complete canonical items or the frozen 900-call
+plan.
+
+### Post-canary finite compatibility queue
+
+Task v10 creation run `3193338` completed the generation-4 six-call capture under the attested
+180-second timeout and zero-retry policy. The retained envelope is capture-complete and
+canonical-replay-eligible but deliberately unbound and `assemblyEligible=false`; it is not a score
+or authority for another model call. [Issue #90](https://github.com/p-to-q/aleph/issues/90) closed
+after that timeout-policy proof.
+
+Any additional Task v10 model must follow the separately reviewed
+[finite capture queue policy](kaggle-v10-daily-capture-queue.md) tracked by
+[#93](https://github.com/p-to-q/aleph/issues/93). That policy fixes six exact catalog identities,
+strict serial execution, one paid POST per invocation, DAILY/MONTHLY reserves, evidence before the
+next entry, and a permanent policy-version breaker. Neither this canonical plan nor an available
+quota independently authorizes a call.
 
 ## Acceptance gates
 
@@ -404,6 +421,7 @@ transformations are asserted only in canonical scorer tests, never in capture te
 - [Kaggle diagnostic runbook](../benchmark/kaggle-diagnostic-runbook.md)
 - [hosted v0.2 runbook](../benchmark/hosted-m0-runbook.md)
 - [legacy Kaggle offline replay](../benchmark/kaggle-runbook.md)
+- [Task v10 finite capture queue](kaggle-v10-daily-capture-queue.md)
 - [frozen protocol config](../../bench/config/frozen_ladder-v0.2.json)
 - [v0.2 result schema](../../schemas/v0.2/aleph-bench-result.schema.json)
 - [canonical verifier](../../bench/engine/verify.py)

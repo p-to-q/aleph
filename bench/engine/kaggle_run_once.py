@@ -11,10 +11,11 @@ import stat
 import sys
 import time
 import uuid
+from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path, PurePosixPath
-from typing import Any, Callable, Iterable, Sequence
+from typing import Any, Callable, Iterable, Iterator, Sequence
 
 from bench.engine.kaggle_push_once import (
     CAPTURE_OUTPUT_PATH,
@@ -59,6 +60,7 @@ _CREATION_ONLY_TASK_VERSION_CEILINGS = {
 }
 DEFAULT_RECONCILE_DELAYS_SECONDS = (0.0, 1.0, 2.0, 4.0, 8.0)
 MAX_CREATION_JOURNAL_BYTES = 2_097_152
+MAX_DISPATCH_AUTHORIZATION_BYTES = 32_768
 _DISPATCH_CLAIM_DIRECTORY = ".aleph-kaggle-run-claims"
 _CREATION_JOURNAL_ROOT_FIELDS = {
     "artifactKind",
@@ -119,6 +121,10 @@ class KaggleRunOnceError(KagglePushOnceError):
     """Raised before dispatch, or after a conclusively skipped schedule."""
 
 
+class KaggleReadUnavailable(KaggleRunOnceError):
+    """A read-only Kaggle observation failed for a transient transport reason."""
+
+
 class KaggleRunOutcomeAmbiguous(KaggleRunOnceError):
     """Raised after dispatch when the unique paid run cannot be proved."""
 
@@ -131,6 +137,23 @@ class VerifiedCreationAuthority:
     canonical_bytes: bytes
     source: dict[str, Any]
     response: dict[str, Any]
+
+
+@dataclass(frozen=True, slots=True)
+class AnchoredDispatchPaths:
+    """Root-fd authority for queue-owned local dispatch artifacts.
+
+    The caller retains ownership of ``control_root_fd``. Every storage
+    operation duplicates it, verifies the activation-pinned identity, and
+    traverses only relative components with ``openat`` and ``O_NOFOLLOW``.
+    """
+
+    control_root_fd: int
+    control_root: Path
+    expected_control_device: int
+    expected_control_inode: int
+    creation_journal_relative_path: PurePosixPath
+    journal_relative_path: PurePosixPath
 
 
 def _authority_object(value: Any, *, role: str) -> dict[str, Any]:
@@ -604,6 +627,531 @@ def read_creation_authority(path: Path) -> bytes:
     return data
 
 
+def _anchored_relative_path(value: PurePosixPath, *, role: str) -> PurePosixPath:
+    if (
+        not isinstance(value, PurePosixPath)
+        or value.is_absolute()
+        or not value.parts
+        or ".." in value.parts
+        or value.name in {"", ".", ".."}
+    ):
+        raise KaggleRunOnceError(
+            f"anchored {role} must be one non-empty relative POSIX path"
+        )
+    return value
+
+
+def _duplicate_anchored_root(paths: AnchoredDispatchPaths) -> int:
+    """Duplicate and verify the caller-owned activation-pinned root fd."""
+
+    if (
+        isinstance(paths.control_root_fd, bool)
+        or not isinstance(paths.control_root_fd, int)
+        or paths.control_root_fd < 0
+        or isinstance(paths.expected_control_device, bool)
+        or not isinstance(paths.expected_control_device, int)
+        or paths.expected_control_device <= 0
+        or isinstance(paths.expected_control_inode, bool)
+        or not isinstance(paths.expected_control_inode, int)
+        or paths.expected_control_inode <= 0
+        or not isinstance(paths.control_root, Path)
+        or not paths.control_root.is_absolute()
+        or not hasattr(os, "geteuid")
+    ):
+        raise KaggleRunOnceError("anchored control-root authority is invalid")
+    descriptor: int | None = None
+    try:
+        descriptor = os.dup(paths.control_root_fd)
+        opened = os.fstat(descriptor)
+        named = os.stat(paths.control_root, follow_symlinks=False)
+    except OSError as exc:
+        if descriptor is not None:
+            os.close(descriptor)
+        raise KaggleRunOnceError(
+            f"cannot verify anchored control root: {exc}"
+        ) from exc
+    if (
+        not stat.S_ISDIR(opened.st_mode)
+        or not stat.S_ISDIR(named.st_mode)
+        or (opened.st_dev, opened.st_ino)
+        != (paths.expected_control_device, paths.expected_control_inode)
+        or (named.st_dev, named.st_ino)
+        != (paths.expected_control_device, paths.expected_control_inode)
+        or opened.st_uid != os.geteuid()
+        or named.st_uid != os.geteuid()
+        or stat.S_IMODE(opened.st_mode) != 0o700
+        or stat.S_IMODE(named.st_mode) != 0o700
+    ):
+        os.close(descriptor)
+        raise KaggleRunOnceError(
+            "anchored control root differs from its activation-pinned identity"
+        )
+    return descriptor
+
+
+def _validate_anchored_paths(
+    paths: AnchoredDispatchPaths,
+    *,
+    creation_journal_path: Path,
+    journal_path: Path,
+) -> None:
+    if not isinstance(paths, AnchoredDispatchPaths):
+        raise KaggleRunOnceError("anchored dispatch paths are invalid")
+    creation_relative = _anchored_relative_path(
+        paths.creation_journal_relative_path,
+        role="creation journal path",
+    )
+    journal_relative = _anchored_relative_path(
+        paths.journal_relative_path,
+        role="run journal path",
+    )
+    if creation_journal_path != paths.control_root.joinpath(
+        *creation_relative.parts
+    ):
+        raise KaggleRunOnceError(
+            "creation journal path differs from anchored authority"
+        )
+    if journal_path != paths.control_root.joinpath(*journal_relative.parts):
+        raise KaggleRunOnceError("run journal path differs from anchored authority")
+    descriptor = _duplicate_anchored_root(paths)
+    os.close(descriptor)
+
+
+@contextmanager
+def _anchored_directory_fd(
+    paths: AnchoredDispatchPaths,
+    relative: PurePosixPath,
+    *,
+    create: bool,
+) -> Iterator[int]:
+    """Open one owned 0700 directory chain without following any alias."""
+
+    required = ("O_NOFOLLOW", "O_CLOEXEC", "O_DIRECTORY")
+    if any(not hasattr(os, flag) for flag in required):
+        raise KaggleRunOnceError(
+            "anchored dispatch storage requires fail-closed filesystem flags"
+        )
+    if relative != PurePosixPath("."):
+        _anchored_relative_path(relative, role="directory path")
+    current_fd: int | None = _duplicate_anchored_root(paths)
+    try:
+        for part in relative.parts:
+            created = False
+            try:
+                next_fd = os.open(
+                    part,
+                    os.O_RDONLY
+                    | os.O_NOFOLLOW
+                    | os.O_CLOEXEC
+                    | os.O_DIRECTORY,
+                    dir_fd=current_fd,
+                )
+            except FileNotFoundError:
+                if not create:
+                    raise
+                os.mkdir(part, mode=0o700, dir_fd=current_fd)
+                os.fsync(current_fd)
+                next_fd = os.open(
+                    part,
+                    os.O_RDONLY
+                    | os.O_NOFOLLOW
+                    | os.O_CLOEXEC
+                    | os.O_DIRECTORY,
+                    dir_fd=current_fd,
+                )
+                created = True
+            try:
+                if created:
+                    os.fchmod(next_fd, 0o700)
+                    os.fsync(next_fd)
+                opened = os.fstat(next_fd)
+                if (
+                    not stat.S_ISDIR(opened.st_mode)
+                    or opened.st_uid != os.geteuid()
+                    or stat.S_IMODE(opened.st_mode) != 0o700
+                ):
+                    raise KaggleRunOnceError(
+                        "anchored dispatch directories must be owned "
+                        "mode-0700 directories"
+                    )
+            except BaseException:
+                os.close(next_fd)
+                raise
+            os.close(current_fd)
+            current_fd = next_fd
+        yield current_fd
+    except KaggleRunOnceError:
+        raise
+    except OSError as exc:
+        raise KaggleRunOnceError(
+            f"cannot traverse anchored control-root directory: {exc}"
+        ) from exc
+    finally:
+        if current_fd is not None:
+            os.close(current_fd)
+
+
+def _read_anchored_creation_authority(paths: AnchoredDispatchPaths) -> bytes:
+    relative = _anchored_relative_path(
+        paths.creation_journal_relative_path,
+        role="creation journal path",
+    )
+    required = ("O_NOFOLLOW", "O_NONBLOCK", "O_CLOEXEC")
+    if any(not hasattr(os, flag) for flag in required):
+        raise KaggleRunOnceError(
+            "anchored creation reader requires fail-closed filesystem flags"
+        )
+    with _anchored_directory_fd(paths, relative.parent, create=False) as parent_fd:
+        try:
+            before = os.stat(
+                relative.name,
+                dir_fd=parent_fd,
+                follow_symlinks=False,
+            )
+        except OSError as exc:
+            raise KaggleRunOnceError(
+                f"cannot read anchored creation authority journal: {exc}"
+            ) from exc
+        if (
+            not stat.S_ISREG(before.st_mode)
+            or before.st_uid != os.geteuid()
+            or before.st_nlink != 1
+            or stat.S_IMODE(before.st_mode) != 0o600
+            or before.st_size <= 0
+            or before.st_size > MAX_CREATION_JOURNAL_BYTES
+        ):
+            raise KaggleRunOnceError(
+                "anchored creation authority must be one owned mode-0600 "
+                "bounded single-link regular file"
+            )
+        descriptor: int | None = None
+        try:
+            descriptor = os.open(
+                relative.name,
+                os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK | os.O_CLOEXEC,
+                dir_fd=parent_fd,
+            )
+            with os.fdopen(descriptor, "rb", closefd=True) as handle:
+                descriptor = None
+                opened = os.fstat(handle.fileno())
+                if (
+                    not stat.S_ISREG(opened.st_mode)
+                    or opened.st_uid != os.geteuid()
+                    or opened.st_nlink != 1
+                    or stat.S_IMODE(opened.st_mode) != 0o600
+                    or (opened.st_dev, opened.st_ino)
+                    != (before.st_dev, before.st_ino)
+                    or opened.st_size != before.st_size
+                    or opened.st_mtime_ns != before.st_mtime_ns
+                    or opened.st_ctime_ns != before.st_ctime_ns
+                ):
+                    raise KaggleRunOnceError(
+                        "anchored creation authority changed while it was opened"
+                    )
+                data = handle.read(MAX_CREATION_JOURNAL_BYTES + 1)
+                after = os.fstat(handle.fileno())
+        except KaggleRunOnceError:
+            raise
+        except OSError as exc:
+            raise KaggleRunOnceError(
+                f"cannot read anchored creation authority journal: {exc}"
+            ) from exc
+        finally:
+            if descriptor is not None:
+                os.close(descriptor)
+        try:
+            final = os.stat(
+                relative.name,
+                dir_fd=parent_fd,
+                follow_symlinks=False,
+            )
+        except OSError:
+            raise KaggleRunOnceError(
+                "anchored creation authority changed while it was read"
+            ) from None
+        identity = (opened.st_dev, opened.st_ino)
+        if (
+            not data
+            or len(data) > MAX_CREATION_JOURNAL_BYTES
+            or after.st_size != len(data)
+            or not stat.S_ISREG(after.st_mode)
+            or after.st_uid != os.geteuid()
+            or after.st_nlink != 1
+            or stat.S_IMODE(after.st_mode) != 0o600
+            or not stat.S_ISREG(final.st_mode)
+            or final.st_uid != os.geteuid()
+            or final.st_nlink != 1
+            or stat.S_IMODE(final.st_mode) != 0o600
+            or (after.st_dev, after.st_ino) != identity
+            or (final.st_dev, final.st_ino) != identity
+            or after.st_mtime_ns != opened.st_mtime_ns
+            or final.st_mtime_ns != opened.st_mtime_ns
+            or after.st_ctime_ns != opened.st_ctime_ns
+            or final.st_ctime_ns != opened.st_ctime_ns
+        ):
+            raise KaggleRunOnceError(
+                "anchored creation authority changed while it was read"
+            )
+        return data
+
+
+def _write_anchored_once(
+    paths: AnchoredDispatchPaths,
+    relative: PurePosixPath,
+    data: bytes,
+    *,
+    role: str,
+    exists_message: str,
+) -> None:
+    relative = _anchored_relative_path(relative, role=role)
+    required = ("O_NOFOLLOW", "O_CLOEXEC")
+    if any(not hasattr(os, flag) for flag in required):
+        raise KaggleRunOnceError(
+            "anchored dispatch writer requires fail-closed filesystem flags"
+        )
+    descriptor: int | None = None
+    with _anchored_directory_fd(paths, relative.parent, create=True) as parent_fd:
+        try:
+            descriptor = os.open(
+                relative.name,
+                os.O_WRONLY
+                | os.O_CREAT
+                | os.O_EXCL
+                | os.O_NOFOLLOW
+                | os.O_CLOEXEC,
+                0o600,
+                dir_fd=parent_fd,
+            )
+            os.fchmod(descriptor, 0o600)
+            opened = os.fstat(descriptor)
+            if (
+                not stat.S_ISREG(opened.st_mode)
+                or opened.st_uid != os.geteuid()
+                or opened.st_nlink != 1
+                or stat.S_IMODE(opened.st_mode) != 0o600
+            ):
+                raise KaggleRunOnceError(
+                    f"anchored {role} is not one owned mode-0600 regular file"
+                )
+            with os.fdopen(descriptor, "wb", closefd=True) as handle:
+                descriptor = None
+                handle.write(data)
+                handle.flush()
+                os.fsync(handle.fileno())
+                written = os.fstat(handle.fileno())
+            if (
+                written.st_size != len(data)
+                or written.st_uid != os.geteuid()
+                or written.st_nlink != 1
+                or stat.S_IMODE(written.st_mode) != 0o600
+            ):
+                raise KaggleRunOnceError(
+                    f"anchored {role} changed while it was written"
+                )
+            try:
+                final = os.stat(
+                    relative.name,
+                    dir_fd=parent_fd,
+                    follow_symlinks=False,
+                )
+            except OSError:
+                raise KaggleRunOnceError(
+                    f"anchored {role} changed after it was written"
+                ) from None
+            if (
+                not stat.S_ISREG(final.st_mode)
+                or (opened.st_dev, opened.st_ino)
+                != (written.st_dev, written.st_ino)
+                or (final.st_dev, final.st_ino)
+                != (written.st_dev, written.st_ino)
+                or final.st_size != len(data)
+                or final.st_uid != os.geteuid()
+                or final.st_nlink != 1
+                or stat.S_IMODE(final.st_mode) != 0o600
+                or final.st_mtime_ns != written.st_mtime_ns
+                or final.st_ctime_ns != written.st_ctime_ns
+            ):
+                raise KaggleRunOnceError(
+                    f"anchored {role} changed after it was written"
+                )
+            os.fsync(parent_fd)
+        except FileExistsError as exc:
+            raise KaggleRunOnceError(exists_message) from exc
+        except KaggleRunOnceError:
+            raise
+        except OSError as exc:
+            # A partially created claim or journal is intentionally retained;
+            # deleting an uncertain retry barrier could permit another POST.
+            raise KaggleRunOnceError(
+                f"cannot durably write anchored {role}: {exc}"
+            ) from exc
+        finally:
+            if descriptor is not None:
+                os.close(descriptor)
+
+
+def _validate_anchored_regular_file(
+    parent_fd: int, name: str, *, role: str
+) -> os.stat_result:
+    descriptor: int | None = None
+    try:
+        named = os.stat(name, dir_fd=parent_fd, follow_symlinks=False)
+        descriptor = os.open(
+            name,
+            os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK | os.O_CLOEXEC,
+            dir_fd=parent_fd,
+        )
+        opened = os.fstat(descriptor)
+    except OSError as exc:
+        raise KaggleRunOnceError(f"cannot inspect anchored {role}: {exc}") from exc
+    finally:
+        if descriptor is not None:
+            os.close(descriptor)
+    if (
+        not stat.S_ISREG(opened.st_mode)
+        or not stat.S_ISREG(named.st_mode)
+        or opened.st_uid != os.geteuid()
+        or named.st_uid != os.geteuid()
+        or opened.st_nlink != 1
+        or named.st_nlink != 1
+        or stat.S_IMODE(opened.st_mode) != 0o600
+        or stat.S_IMODE(named.st_mode) != 0o600
+        or (opened.st_dev, opened.st_ino) != (named.st_dev, named.st_ino)
+        or opened.st_size != named.st_size
+        or opened.st_mtime_ns != named.st_mtime_ns
+        or opened.st_ctime_ns != named.st_ctime_ns
+    ):
+        raise KaggleRunOnceError(
+            f"anchored {role} must be one owned mode-0600 single-link regular file"
+        )
+    return opened
+
+
+def _replace_anchored_journal(
+    paths: AnchoredDispatchPaths,
+    journal: dict[str, Any],
+) -> None:
+    relative = _anchored_relative_path(
+        paths.journal_relative_path,
+        role="run journal path",
+    )
+    data = _canonical_json_bytes(journal)
+    required = ("O_NOFOLLOW", "O_NONBLOCK", "O_CLOEXEC")
+    if any(not hasattr(os, flag) for flag in required):
+        raise KaggleRunOnceError(
+            "anchored journal replacement requires fail-closed filesystem flags"
+        )
+    temporary_name = f".{relative.name}.{uuid.uuid4().hex}.tmp"
+    temporary_fd: int | None = None
+    temporary_exists = False
+    with _anchored_directory_fd(paths, relative.parent, create=False) as parent_fd:
+        _validate_anchored_regular_file(
+            parent_fd, relative.name, role="run journal"
+        )
+        try:
+            temporary_fd = os.open(
+                temporary_name,
+                os.O_WRONLY
+                | os.O_CREAT
+                | os.O_EXCL
+                | os.O_NOFOLLOW
+                | os.O_CLOEXEC,
+                0o600,
+                dir_fd=parent_fd,
+            )
+            temporary_exists = True
+            os.fchmod(temporary_fd, 0o600)
+            with os.fdopen(temporary_fd, "wb", closefd=True) as handle:
+                temporary_fd = None
+                handle.write(data)
+                handle.flush()
+                os.fsync(handle.fileno())
+                written = os.fstat(handle.fileno())
+            if (
+                not stat.S_ISREG(written.st_mode)
+                or written.st_size != len(data)
+                or written.st_uid != os.geteuid()
+                or written.st_nlink != 1
+                or stat.S_IMODE(written.st_mode) != 0o600
+            ):
+                raise KaggleRunOnceError(
+                    "anchored run journal temporary file is invalid"
+                )
+            os.replace(
+                temporary_name,
+                relative.name,
+                src_dir_fd=parent_fd,
+                dst_dir_fd=parent_fd,
+            )
+            temporary_exists = False
+            final = _validate_anchored_regular_file(
+                parent_fd, relative.name, role="run journal"
+            )
+            if (
+                (final.st_dev, final.st_ino)
+                != (written.st_dev, written.st_ino)
+                or final.st_size != len(data)
+            ):
+                raise KaggleRunOnceError(
+                    "anchored run journal changed after replacement"
+                )
+            os.fsync(parent_fd)
+        except KaggleRunOnceError:
+            raise
+        except OSError as exc:
+            raise KaggleRunOnceError(
+                f"cannot durably replace anchored run journal: {exc}"
+            ) from exc
+        finally:
+            if temporary_fd is not None:
+                os.close(temporary_fd)
+            if temporary_exists:
+                try:
+                    os.unlink(temporary_name, dir_fd=parent_fd)
+                except OSError:
+                    pass
+
+
+def _read_dispatch_creation_authority(
+    creation_journal_path: Path,
+    anchored_paths: AnchoredDispatchPaths | None,
+) -> bytes:
+    if anchored_paths is None:
+        return read_creation_authority(creation_journal_path)
+    return _read_anchored_creation_authority(anchored_paths)
+
+
+def _write_initial_dispatch_journal(
+    journal_path: Path,
+    journal: dict[str, Any],
+    anchored_paths: AnchoredDispatchPaths | None,
+) -> None:
+    if anchored_paths is None:
+        _write_initial_journal(journal_path, journal)
+        return
+    _write_anchored_once(
+        anchored_paths,
+        anchored_paths.journal_relative_path,
+        _canonical_json_bytes(journal),
+        role="run journal",
+        exists_message=(
+            "run journal already exists; inspect it and do not retry: "
+            f"{journal_path}"
+        ),
+    )
+
+
+def _replace_dispatch_journal(
+    journal_path: Path,
+    journal: dict[str, Any],
+    anchored_paths: AnchoredDispatchPaths | None,
+) -> None:
+    if anchored_paths is None:
+        _replace_journal(journal_path, journal)
+        return
+    _replace_anchored_journal(anchored_paths, journal)
+
+
 def bind_creation_authority(
     authority: VerifiedCreationAuthority,
     *,
@@ -767,6 +1315,27 @@ def _dispatch_claim_path(
 ) -> Path:
     """Return the receipt-local, journal-path-independent paid-call claim."""
 
+    return (
+        creation_journal_path.parent
+        / _DISPATCH_CLAIM_DIRECTORY
+        / _dispatch_claim_filename(
+            creation_authority=creation_authority,
+            owner=owner,
+            task=task,
+            version=version,
+            model=model,
+        )
+    )
+
+
+def _dispatch_claim_filename(
+    *,
+    creation_authority: VerifiedCreationAuthority,
+    owner: str,
+    task: str,
+    version: int,
+    model: str,
+) -> str:
     key = b"\0".join(
         (
             creation_authority.canonical_bytes,
@@ -776,10 +1345,34 @@ def _dispatch_claim_path(
             model.encode("ascii"),
         )
     )
+    return f"{hashlib.sha256(key).hexdigest()}.json"
+
+
+def _dispatch_claim_relative_path(
+    *,
+    creation_journal_relative_path: PurePosixPath,
+    creation_authority: VerifiedCreationAuthority,
+    owner: str,
+    task: str,
+    version: int,
+    model: str,
+) -> PurePosixPath:
+    """Return the root-relative claim paired with one creation receipt."""
+
+    creation_relative = _anchored_relative_path(
+        creation_journal_relative_path,
+        role="creation journal path",
+    )
     return (
-        creation_journal_path.parent
+        creation_relative.parent
         / _DISPATCH_CLAIM_DIRECTORY
-        / f"{hashlib.sha256(key).hexdigest()}.json"
+        / _dispatch_claim_filename(
+            creation_authority=creation_authority,
+            owner=owner,
+            task=task,
+            version=version,
+            model=model,
+        )
     )
 
 
@@ -842,6 +1435,28 @@ def _write_dispatch_claim(path: Path, claim: dict[str, Any]) -> None:
     finally:
         if descriptor is not None:
             os.close(descriptor)
+
+
+def _write_dispatch_claim_for_storage(
+    path: Path,
+    claim_relative: PurePosixPath,
+    claim: dict[str, Any],
+    anchored_paths: AnchoredDispatchPaths | None,
+) -> None:
+    if anchored_paths is None:
+        _write_dispatch_claim(path, claim)
+        return
+    _write_anchored_once(
+        anchored_paths,
+        claim_relative,
+        _canonical_json_bytes(claim),
+        role="dispatch claim",
+        exists_message=(
+            "a durable dispatch claim already exists for this exact "
+            "creation receipt, task version, and model: "
+            f"{path}"
+        ),
+    )
 
 
 def _positive_int(value: Any, *, label: str) -> int:
@@ -1003,6 +1618,13 @@ def _model_record(model_info: Any, *, expected_model: str) -> dict[str, Any]:
         ),
         "slug": slug,
         "modelProxySlug": proxy_slug,
+        # These catalog booleans are retained for stricter queue policies.
+        # The generic one-shot scheduler still permits a reviewed non-default
+        # version, while a caller-provided guard may require exact values.
+        "parentPublished": getattr(model_info, "published", None),
+        "versionPublished": getattr(version, "published", None),
+        "isDefault": getattr(version, "is_default", None),
+        "allowModelProxy": getattr(version, "allow_model_proxy", None),
         "displayName": getattr(version, "display_name", None) or None,
         "deprecatedAt": _iso_datetime(
             getattr(version, "deprecation_time", None),
@@ -1127,6 +1749,10 @@ def schedule_and_reconcile_once(
     fetch_current_source: Callable[[], dict[str, Any]],
     schedule_run: Callable[[], Any],
     client_versions: dict[str, str],
+    pre_dispatch_guard: (
+        Callable[[dict[str, Any]], dict[str, Any] | None] | None
+    ) = None,
+    anchored_paths: AnchoredDispatchPaths | None = None,
     reconcile_delays: Sequence[float] = DEFAULT_RECONCILE_DELAYS_SECONDS,
     clock: Callable[[], str] = _utc_now,
     sleeper: Callable[[float], None] = time.sleep,
@@ -1140,6 +1766,12 @@ def schedule_and_reconcile_once(
         model=model,
         journal_path=journal_path,
     )
+    if anchored_paths is not None:
+        _validate_anchored_paths(
+            anchored_paths,
+            creation_journal_path=creation_journal_path,
+            journal_path=journal_path,
+        )
     if not reconcile_delays or any(
         isinstance(delay, bool)
         or not isinstance(delay, (int, float))
@@ -1149,7 +1781,9 @@ def schedule_and_reconcile_once(
     ):
         raise KaggleRunOnceError("reconciliation delays must be finite and non-negative")
 
-    retained_authority_bytes = read_creation_authority(creation_journal_path)
+    retained_authority_bytes = _read_dispatch_creation_authority(
+        creation_journal_path, anchored_paths
+    )
     if retained_authority_bytes != creation_authority.canonical_bytes:
         raise KaggleRunOnceError(
             "creation authority does not match the retained original journal"
@@ -1194,7 +1828,6 @@ def schedule_and_reconcile_once(
             "exact task version already has a run for the requested model; "
             "inspect the retained run instead of choosing another journal"
         )
-    quota_before = _quota_record(fetch_quota())
     current_source = _validate_current_source_identity(fetch_current_source())
     creation_authority = verify_creation_authority_bytes(
         creation_authority.canonical_bytes,
@@ -1229,38 +1862,102 @@ def schedule_and_reconcile_once(
     creation_binding = bind_creation_authority(
         creation_authority, task_record=exact_task
     )
-    if read_creation_authority(
-        creation_journal_path
+    if _read_dispatch_creation_authority(
+        creation_journal_path, anchored_paths
     ) != creation_authority.canonical_bytes:
         raise KaggleRunOnceError(
             "creation authority changed during remote preflight"
         )
 
-    claim_path = _dispatch_claim_path(
-        creation_journal_path=creation_journal_path,
-        creation_authority=creation_authority,
-        owner=owner,
-        task=task,
-        version=version,
-        model=model,
-    )
-    _write_dispatch_claim(
-        claim_path,
-        {
-            "claimVersion": 1,
-            "artifactKind": "kaggle_benchmark_model_dispatch_claim",
-            "createdAt": clock(),
-            "target": {
-                "owner": owner,
-                "task": task,
-                "version": version,
-                "model": model,
-            },
-            "creationAuthoritySha256": hashlib.sha256(
-                creation_authority.canonical_bytes
-            ).hexdigest(),
-            "runJournal": str(journal_path.resolve(strict=False)),
+    # Quota is deliberately read at the last read-only boundary. Queue and
+    # budget controllers may add stricter policy through the guard, but they
+    # cannot replace this scheduler or move their check ahead of the final
+    # source, receipt, and run-set revalidation.
+    quota_before = _quota_record(fetch_quota())
+    dispatch_authorization: dict[str, Any] | None = None
+    if pre_dispatch_guard is not None:
+        guarded_value = pre_dispatch_guard(
+            copy.deepcopy(
+                {
+                    "client": client_versions,
+                    "creationAuthority": creation_binding,
+                    "model": exact_model,
+                    "quota": quota_before,
+                    "runs": confirmed_runs,
+                    "source": final_source,
+                    "task": exact_task,
+                }
+            )
+        )
+        if guarded_value is not None:
+            if not isinstance(guarded_value, dict):
+                raise KaggleRunOnceError(
+                    "pre-dispatch guard authorization must be an object"
+                )
+            try:
+                authorization_bytes = _canonical_json_bytes(guarded_value)
+                dispatch_authorization = json.loads(
+                    authorization_bytes.decode("ascii")
+                )
+            except (TypeError, ValueError, UnicodeError, RecursionError) as exc:
+                raise KaggleRunOnceError(
+                    "pre-dispatch guard authorization is not canonical JSON"
+                ) from exc
+            if len(authorization_bytes) > MAX_DISPATCH_AUTHORIZATION_BYTES:
+                raise KaggleRunOnceError(
+                    "pre-dispatch guard authorization exceeds the safety limit"
+                )
+
+    if anchored_paths is None:
+        claim_path = _dispatch_claim_path(
+            creation_journal_path=creation_journal_path,
+            creation_authority=creation_authority,
+            owner=owner,
+            task=task,
+            version=version,
+            model=model,
+        )
+        claim_relative = PurePosixPath(claim_path.name)
+        run_journal_record = str(journal_path.resolve(strict=False))
+    else:
+        claim_relative = _dispatch_claim_relative_path(
+            creation_journal_relative_path=(
+                anchored_paths.creation_journal_relative_path
+            ),
+            creation_authority=creation_authority,
+            owner=owner,
+            task=task,
+            version=version,
+            model=model,
+        )
+        claim_path = anchored_paths.control_root.joinpath(*claim_relative.parts)
+        run_journal_record = str(
+            anchored_paths.control_root.joinpath(
+                *anchored_paths.journal_relative_path.parts
+            )
+        )
+    claim: dict[str, Any] = {
+        "claimVersion": 1,
+        "artifactKind": "kaggle_benchmark_model_dispatch_claim",
+        "createdAt": clock(),
+        "target": {
+            "owner": owner,
+            "task": task,
+            "version": version,
+            "model": model,
         },
+        "creationAuthoritySha256": hashlib.sha256(
+            creation_authority.canonical_bytes
+        ).hexdigest(),
+        "runJournal": run_journal_record,
+    }
+    if dispatch_authorization is not None:
+        claim["dispatchAuthorization"] = dispatch_authorization
+    _write_dispatch_claim_for_storage(
+        claim_path,
+        claim_relative,
+        claim,
+        anchored_paths,
     )
 
     journal: dict[str, Any] = {
@@ -1291,12 +1988,14 @@ def schedule_and_reconcile_once(
         "responseFailure": None,
         "failure": None,
     }
-    _write_initial_journal(journal_path, journal)
+    if dispatch_authorization is not None:
+        journal["dispatchAuthorization"] = dispatch_authorization
+    _write_initial_dispatch_journal(journal_path, journal, anchored_paths)
 
     # This durable state is the no-retry barrier for the only paid call.
     journal["state"] = "dispatching"
     journal["updatedAt"] = clock()
-    _replace_journal(journal_path, journal)
+    _replace_dispatch_journal(journal_path, journal, anchored_paths)
 
     dispatch_failure: dict[str, str] | None = None
     response_failure: dict[str, str] | None = None
@@ -1308,7 +2007,7 @@ def schedule_and_reconcile_once(
         journal["failure"] = dispatch_failure
         journal["state"] = "ambiguous"
         journal["updatedAt"] = clock()
-        _replace_journal(journal_path, journal)
+        _replace_dispatch_journal(journal_path, journal, anchored_paths)
         if not isinstance(exc, Exception):
             raise
     else:
@@ -1325,7 +2024,7 @@ def schedule_and_reconcile_once(
             journal["failure"] = response_failure
             journal["state"] = "ambiguous"
             journal["updatedAt"] = clock()
-            _replace_journal(journal_path, journal)
+            _replace_dispatch_journal(journal_path, journal, anchored_paths)
         else:
             if not journal["response"]["runScheduled"]:
                 journal["state"] = "not_scheduled"
@@ -1339,14 +2038,14 @@ def schedule_and_reconcile_once(
                     journal["quotaAfter"] = _quota_record(fetch_quota())
                 except Exception as exc:
                     journal["quotaAfterFailure"] = _exception_record(exc)
-                _replace_journal(journal_path, journal)
+                _replace_dispatch_journal(journal_path, journal, anchored_paths)
                 raise KaggleRunOnceError(
                     "Kaggle conclusively skipped the requested run; "
                     "inspect the journal"
                 )
             journal["state"] = "returned_unreconciled"
             journal["updatedAt"] = clock()
-            _replace_journal(journal_path, journal)
+            _replace_dispatch_journal(journal_path, journal, anchored_paths)
 
     observations: list[dict[str, Any]] = []
     for attempt, delay in enumerate(reconcile_delays, start=1):
@@ -1397,7 +2096,7 @@ def schedule_and_reconcile_once(
                     "run for the requested model"
                 ),
             }
-            _replace_journal(journal_path, journal)
+            _replace_dispatch_journal(journal_path, journal, anchored_paths)
             raise KaggleRunOutcomeAmbiguous(
                 "paid scheduling outcome is ambiguous; inspect the journal and "
                 "do not schedule again"
@@ -1411,7 +2110,7 @@ def schedule_and_reconcile_once(
             journal["state"] = "ambiguous"
             journal["updatedAt"] = clock()
             journal["failure"] = response_failure
-            _replace_journal(journal_path, journal)
+            _replace_dispatch_journal(journal_path, journal, anchored_paths)
             raise KaggleRunOutcomeAmbiguous(
                 "Kaggle returned a contradictory schedule acknowledgement; "
                 "the new run is recorded but must not be promoted or retried"
@@ -1429,7 +2128,7 @@ def schedule_and_reconcile_once(
         except Exception as exc:
             journal["quotaAfter"] = None
             journal["quotaAfterFailure"] = _exception_record(exc)
-        _replace_journal(journal_path, journal)
+        _replace_dispatch_journal(journal_path, journal, anchored_paths)
         return journal
 
     journal["reconciliation"] = {
@@ -1448,7 +2147,7 @@ def schedule_and_reconcile_once(
     except Exception as exc:
         journal["quotaAfter"] = None
         journal["quotaAfterFailure"] = _exception_record(exc)
-    _replace_journal(journal_path, journal)
+    _replace_dispatch_journal(journal_path, journal, anchored_paths)
     raise KaggleRunOutcomeAmbiguous(
         "paid scheduling outcome is ambiguous; inspect the exact task version, "
         "quota, and journal; do not schedule again"
@@ -1464,6 +2163,10 @@ def run_once(
     journal_path: Path,
     creation_journal_path: Path,
     reconcile_delays: Sequence[float] = DEFAULT_RECONCILE_DELAYS_SECONDS,
+    pre_dispatch_guard: (
+        Callable[[dict[str, Any]], dict[str, Any] | None] | None
+    ) = None,
+    anchored_paths: AnchoredDispatchPaths | None = None,
 ) -> dict[str, Any]:
     """Schedule one exact Kaggle Task/model pair without paid-call retry."""
 
@@ -1474,10 +2177,18 @@ def run_once(
         model=model,
         journal_path=journal_path,
     )
+    if anchored_paths is not None:
+        _validate_anchored_paths(
+            anchored_paths,
+            creation_journal_path=creation_journal_path,
+            journal_path=journal_path,
+        )
     client_versions = _verified_client_versions()
     source_identity = current_capture_source_identity()
     creation_authority = verify_creation_authority_bytes(
-        read_creation_authority(creation_journal_path),
+        _read_dispatch_creation_authority(
+            creation_journal_path, anchored_paths
+        ),
         expected_owner=owner,
         expected_task=task,
         expected_version=version,
@@ -1588,7 +2299,11 @@ def run_once(
             version=version,
             model=model,
             journal_path=journal_path,
-            creation_journal_path=creation_journal_path.resolve(strict=True),
+            creation_journal_path=(
+                creation_journal_path.resolve(strict=True)
+                if anchored_paths is None
+                else creation_journal_path
+            ),
             creation_authority=creation_authority,
             fetch_task=fetch_task,
             fetch_model=fetch_model,
@@ -1599,8 +2314,125 @@ def run_once(
             # KaggleApi.with_retry.
             schedule_run=lambda: schedule(schedule_request),
             client_versions=client_versions,
+            pre_dispatch_guard=pre_dispatch_guard,
+            anchored_paths=anchored_paths,
             reconcile_delays=reconcile_delays,
         )
+
+
+def fetch_model_proxy_quota() -> list[dict[str, Any]]:
+    """Read and normalize the two current Model Proxy quota records.
+
+    This helper is intentionally read-only. Queue finalization uses it after
+    terminal evidence exists because a scheduler's immediate ``quotaAfter``
+    observation may still precede model execution and cannot attest cost.
+    """
+
+    _verified_client_versions()
+    try:
+        from kaggle.api.kaggle_api_extended import KaggleApi
+        from kagglesdk.models.types.model_proxy_api_service import (
+            ApiGetModelProxyQuotasRequest,
+        )
+    except ImportError as exc:
+        raise KaggleRunOnceError(
+            "Kaggle CLI 2.2.4 or newer is required for quota readback"
+        ) from exc
+
+    try:
+        api = KaggleApi()
+        api.authenticate()
+        with api.build_kaggle_client() as client:
+            quotas = client.models.model_proxy_api_client
+            response = api.with_retry(quotas.get_model_proxy_quotas)(
+                ApiGetModelProxyQuotasRequest()
+            )
+    except Exception as exc:
+        raise KaggleReadUnavailable(
+            "Kaggle Model Proxy quota read is temporarily unavailable"
+        ) from exc
+    return _quota_record(response)
+
+
+def fetch_benchmark_task_runs(
+    *, owner: str, task: str, version: int
+) -> list[dict[str, Any]]:
+    """Read the complete normalized run set for one exact Task version.
+
+    This helper is deliberately read-only.  The finite queue uses it while a
+    previously scheduled run is pending so a provider failure, an unexpected
+    extra run, or a completed run without Aleph evidence cannot be mistaken
+    for an indefinitely recoverable local wait.
+    """
+
+    if (
+        not isinstance(owner, str)
+        or not _SLUG_PART.fullmatch(owner)
+        or not isinstance(task, str)
+        or not _SLUG_PART.fullmatch(task)
+    ):
+        raise KaggleRunOnceError("invalid exact Kaggle Task owner or slug")
+    _positive_int(version, label="Task version")
+    _verified_client_versions()
+    try:
+        from kaggle.api.kaggle_api_extended import KaggleApi
+        from kagglesdk.benchmarks.types.benchmark_tasks_api_service import (
+            ApiBenchmarkTaskSlug,
+            ApiListBenchmarkTaskRunsRequest,
+        )
+    except ImportError as exc:
+        raise KaggleRunOnceError(
+            "Kaggle CLI 2.2.4 or newer is required for Task run readback"
+        ) from exc
+
+    slug = ApiBenchmarkTaskSlug()
+    slug.owner_slug = owner
+    slug.task_slug = task
+    slug.version_number = version
+    api = KaggleApi()
+    runs: list[Any] = []
+    page_token = ""
+    seen_tokens: set[str] = set()
+    try:
+        api.authenticate()
+        context = api.build_kaggle_client()
+    except Exception as exc:
+        raise KaggleReadUnavailable(
+            "Kaggle Task run read is temporarily unavailable"
+        ) from exc
+    with context as client:
+        tasks = client.benchmarks.benchmark_tasks_api_client
+        for _ in range(100):
+            request = ApiListBenchmarkTaskRunsRequest()
+            request.task_slug = slug
+            request.page_size = 100
+            if page_token:
+                request.page_token = page_token
+            try:
+                response = api.with_retry(tasks.list_benchmark_task_runs)(request)
+            except Exception as exc:
+                raise KaggleReadUnavailable(
+                    "Kaggle Task run read is temporarily unavailable"
+                ) from exc
+            runs.extend(getattr(response, "runs", None) or ())
+            if len(runs) > 10_000:
+                raise KaggleRunOnceError(
+                    "Kaggle Task run readback exceeded 10,000 records"
+                )
+            page_token = getattr(response, "next_page_token", None) or ""
+            if not page_token:
+                return _run_set(
+                    runs,
+                    expected_owner=owner,
+                    expected_task=task,
+                    expected_version=version,
+                )
+            if page_token in seen_tokens:
+                raise KaggleRunOnceError(
+                    "Kaggle Task run pagination repeated a page token"
+                )
+            seen_tokens.add(page_token)
+    raise KaggleRunOnceError("Kaggle Task run pagination exceeded 100 pages")
 
 
 def main(argv: list[str] | None = None) -> int:

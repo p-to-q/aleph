@@ -3,12 +3,13 @@ from __future__ import annotations
 import importlib.util
 import json
 import os
+import stat
 import sys
 import tempfile
 import threading
 import unittest
 from datetime import datetime, timezone
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from types import ModuleType, SimpleNamespace
 from unittest import mock
 
@@ -131,10 +132,12 @@ def _model(
 ) -> SimpleNamespace:
     return SimpleNamespace(
         id=301,
+        published=True,
         version=SimpleNamespace(
             id=model_id,
             slug=slug,
             published=True,
+            is_default=True,
             allow_model_proxy=True,
             model_proxy_slug="openai/gpt-5.4-mini",
             display_name="GPT-5.4 mini",
@@ -445,6 +448,7 @@ class KaggleRunOnceTests(unittest.TestCase):
         fetch_current_source: object | None = None,
         creation_authority: run_once.VerifiedCreationAuthority | None = None,
         confirmed_runs: list[SimpleNamespace] | None = None,
+        pre_dispatch_guard: object | None = None,
     ) -> tuple[dict[str, object], mock.Mock]:
         schedule = mock.Mock(
             return_value=_response()
@@ -476,11 +480,343 @@ class KaggleRunOnceTests(unittest.TestCase):
             or (lambda: dict(SOURCE_IDENTITY)),
             schedule_run=schedule,
             client_versions={"python": "3.13.7", "kaggle": "2.2.4"},
+            pre_dispatch_guard=pre_dispatch_guard,
             reconcile_delays=(0, 0),
             clock=lambda: "2026-09-23T00:00:00Z",
             sleeper=lambda _delay: None,
         )
         return journal, schedule  # type: ignore[return-value]
+
+    def test_pre_dispatch_guard_observes_final_snapshot_before_claim(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            journal_path = root / "run.json"
+            guard = mock.Mock(
+                return_value={
+                    "artifactKind": "test_dispatch_authorization",
+                    "policySha256": "a" * 64,
+                }
+            )
+            journal, schedule = self._schedule(
+                journal_path,
+                runs=[[], [_run(11)]],
+                pre_dispatch_guard=guard,
+            )
+
+            guard.assert_called_once()
+            snapshot = guard.call_args.args[0]
+            self.assertEqual(snapshot["runs"], [])
+            self.assertEqual(snapshot["model"]["slug"], MODEL)
+            self.assertEqual(
+                {record["period"] for record in snapshot["quota"]},
+                {"DAILY", "MONTHLY"},
+            )
+            schedule.assert_called_once_with()
+            self.assertEqual(journal["state"], "reconciled")
+            self.assertEqual(
+                journal["dispatchAuthorization"], guard.return_value
+            )
+            claims = list(
+                (root / run_once._DISPATCH_CLAIM_DIRECTORY).glob("*.json")
+            )
+            self.assertEqual(len(claims), 1)
+            claim = json.loads(claims[0].read_text(encoding="utf-8"))
+            self.assertEqual(
+                claim["dispatchAuthorization"], guard.return_value
+            )
+
+    def test_invalid_pre_dispatch_authorization_fails_before_durable_state(
+        self,
+    ) -> None:
+        cases = (
+            ("not-object", lambda _snapshot: []),
+            ("non-finite", lambda _snapshot: {"cost": float("nan")}),
+            (
+                "oversized",
+                lambda _snapshot: {
+                    "value": "x" * run_once.MAX_DISPATCH_AUTHORIZATION_BYTES
+                },
+            ),
+        )
+        for name, guard in cases:
+            with self.subTest(name=name), tempfile.TemporaryDirectory() as tmp:
+                root = Path(tmp)
+                journal_path = root / "run.json"
+                schedule = mock.Mock(return_value=_response())
+                with self.assertRaises(KaggleRunOnceError):
+                    self._schedule(
+                        journal_path,
+                        runs=[[]],
+                        schedule_run=schedule,
+                        pre_dispatch_guard=guard,
+                    )
+                schedule.assert_not_called()
+                self.assertFalse(journal_path.exists())
+                self.assertFalse(
+                    (root / run_once._DISPATCH_CLAIM_DIRECTORY).exists()
+                )
+
+    def test_pre_dispatch_guard_failure_leaves_no_claim_journal_or_paid_call(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            journal_path = root / "run.json"
+            schedule = mock.Mock(return_value=_response())
+
+            def reject(_snapshot: dict[str, object]) -> None:
+                raise KaggleRunOnceError("queue policy held")
+
+            with self.assertRaisesRegex(KaggleRunOnceError, "queue policy held"):
+                self._schedule(
+                    journal_path,
+                    runs=[[]],
+                    schedule_run=schedule,
+                    pre_dispatch_guard=reject,
+                )
+
+            schedule.assert_not_called()
+            self.assertFalse(journal_path.exists())
+            self.assertFalse(
+                (root / run_once._DISPATCH_CLAIM_DIRECTORY).exists()
+            )
+
+    def test_anchored_creation_parent_swap_after_guard_blocks_paid_call(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            workspace = Path(tmp)
+            root = workspace / "control"
+            outside = workspace / "outside"
+            root.mkdir(mode=0o700)
+            root.chmod(0o700)
+            outside.mkdir(mode=0o700)
+            creation_relative = PurePosixPath(
+                "creation/dispatch/push-journal.json"
+            )
+            journal_relative = PurePosixPath(
+                "queue/01-model/dispatch/run-journal.json"
+            )
+            authority = _creation_authority()
+            creation_path = root.joinpath(*creation_relative.parts)
+            (root / "creation").mkdir(mode=0o700)
+            creation_path.parent.mkdir(mode=0o700)
+            creation_path.write_bytes(authority.canonical_bytes)
+            creation_path.chmod(0o600)
+            journal_path = root.joinpath(*journal_relative.parts)
+            root_fd = os.open(root, os.O_RDONLY | os.O_DIRECTORY)
+            anchored = run_once.AnchoredDispatchPaths(
+                control_root_fd=root_fd,
+                control_root=root,
+                expected_control_device=root.stat().st_dev,
+                expected_control_inode=root.stat().st_ino,
+                creation_journal_relative_path=creation_relative,
+                journal_relative_path=journal_relative,
+            )
+            schedule = mock.Mock(return_value=_response())
+
+            def swap_creation_parent(
+                _snapshot: dict[str, object],
+            ) -> dict[str, str]:
+                displaced = root / "creation" / "dispatch-original"
+                creation_path.parent.rename(displaced)
+                creation_path.parent.symlink_to(
+                    outside, target_is_directory=True
+                )
+                return {"artifactKind": "test_dispatch_authorization"}
+
+            try:
+                with self.assertRaisesRegex(
+                    KaggleRunOnceError,
+                    "cannot traverse anchored control-root directory",
+                ):
+                    schedule_and_reconcile_once(
+                        owner=OWNER,
+                        task=TASK,
+                        version=VERSION,
+                        model=MODEL,
+                        journal_path=journal_path,
+                        creation_journal_path=creation_path,
+                        creation_authority=authority,
+                        fetch_task=lambda: _task(),
+                        fetch_model=lambda: _model(),
+                        fetch_runs=lambda: [],
+                        fetch_quota=lambda: _quota(),
+                        fetch_current_source=lambda: dict(SOURCE_IDENTITY),
+                        schedule_run=schedule,
+                        client_versions={},
+                        pre_dispatch_guard=swap_creation_parent,
+                        anchored_paths=anchored,
+                        reconcile_delays=(0,),
+                    )
+            finally:
+                os.close(root_fd)
+
+            schedule.assert_not_called()
+            self.assertEqual(list(outside.rglob("*")), [])
+            self.assertFalse(journal_path.exists())
+
+    def test_anchored_journal_parent_swap_after_guard_blocks_paid_call(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            workspace = Path(tmp)
+            root = workspace / "control"
+            outside = workspace / "outside"
+            root.mkdir(mode=0o700)
+            root.chmod(0o700)
+            outside.mkdir(mode=0o700)
+            creation_relative = PurePosixPath(
+                "creation/dispatch/push-journal.json"
+            )
+            journal_relative = PurePosixPath(
+                "queue/01-model/dispatch/run-journal.json"
+            )
+            authority = _creation_authority()
+            creation_path = root.joinpath(*creation_relative.parts)
+            (root / "creation").mkdir(mode=0o700)
+            creation_path.parent.mkdir(mode=0o700)
+            creation_path.write_bytes(authority.canonical_bytes)
+            creation_path.chmod(0o600)
+            journal_path = root.joinpath(*journal_relative.parts)
+            (root / "queue").mkdir(mode=0o700)
+            (root / "queue" / "01-model").mkdir(mode=0o700)
+            journal_path.parent.mkdir(mode=0o700)
+            root_fd = os.open(root, os.O_RDONLY | os.O_DIRECTORY)
+            anchored = run_once.AnchoredDispatchPaths(
+                control_root_fd=root_fd,
+                control_root=root,
+                expected_control_device=root.stat().st_dev,
+                expected_control_inode=root.stat().st_ino,
+                creation_journal_relative_path=creation_relative,
+                journal_relative_path=journal_relative,
+            )
+            schedule = mock.Mock(return_value=_response())
+
+            def swap_journal_parent(
+                _snapshot: dict[str, object],
+            ) -> dict[str, str]:
+                displaced = journal_path.parent.with_name("dispatch-original")
+                journal_path.parent.rename(displaced)
+                journal_path.parent.symlink_to(
+                    outside, target_is_directory=True
+                )
+                return {"artifactKind": "test_dispatch_authorization"}
+
+            try:
+                with self.assertRaisesRegex(
+                    KaggleRunOnceError,
+                    "cannot traverse anchored control-root directory",
+                ):
+                    schedule_and_reconcile_once(
+                        owner=OWNER,
+                        task=TASK,
+                        version=VERSION,
+                        model=MODEL,
+                        journal_path=journal_path,
+                        creation_journal_path=creation_path,
+                        creation_authority=authority,
+                        fetch_task=lambda: _task(),
+                        fetch_model=lambda: _model(),
+                        fetch_runs=lambda: [],
+                        fetch_quota=lambda: _quota(),
+                        fetch_current_source=lambda: dict(SOURCE_IDENTITY),
+                        schedule_run=schedule,
+                        client_versions={},
+                        pre_dispatch_guard=swap_journal_parent,
+                        anchored_paths=anchored,
+                        reconcile_delays=(0,),
+                    )
+            finally:
+                os.close(root_fd)
+
+            schedule.assert_not_called()
+            self.assertEqual(list(outside.rglob("*")), [])
+            claims = list(
+                (
+                    root
+                    / "creation"
+                    / "dispatch"
+                    / run_once._DISPATCH_CLAIM_DIRECTORY
+                ).glob("*.json")
+            )
+            self.assertEqual(len(claims), 1)
+
+    def test_anchored_storage_keeps_claim_and_replaced_journal_private(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp) / "control"
+            root.mkdir(mode=0o700)
+            root.chmod(0o700)
+            creation_relative = PurePosixPath(
+                "creation/dispatch/push-journal.json"
+            )
+            journal_relative = PurePosixPath(
+                "queue/01-model/dispatch/run-journal.json"
+            )
+            authority = _creation_authority()
+            creation_path = root.joinpath(*creation_relative.parts)
+            (root / "creation").mkdir(mode=0o700)
+            creation_path.parent.mkdir(mode=0o700)
+            creation_path.write_bytes(authority.canonical_bytes)
+            creation_path.chmod(0o600)
+            journal_path = root.joinpath(*journal_relative.parts)
+            root_stat = root.stat()
+            root_fd = os.open(root, os.O_RDONLY | os.O_DIRECTORY)
+            anchored = run_once.AnchoredDispatchPaths(
+                control_root_fd=root_fd,
+                control_root=root,
+                expected_control_device=root_stat.st_dev,
+                expected_control_inode=root_stat.st_ino,
+                creation_journal_relative_path=creation_relative,
+                journal_relative_path=journal_relative,
+            )
+            snapshots = iter([[], [], [_run(71)]])
+            schedule = mock.Mock(return_value=_response())
+            try:
+                journal = schedule_and_reconcile_once(
+                    owner=OWNER,
+                    task=TASK,
+                    version=VERSION,
+                    model=MODEL,
+                    journal_path=journal_path,
+                    creation_journal_path=creation_path,
+                    creation_authority=authority,
+                    fetch_task=lambda: _task(),
+                    fetch_model=lambda: _model(),
+                    fetch_runs=lambda: next(snapshots),
+                    fetch_quota=lambda: _quota(),
+                    fetch_current_source=lambda: dict(SOURCE_IDENTITY),
+                    schedule_run=schedule,
+                    client_versions={},
+                    anchored_paths=anchored,
+                    reconcile_delays=(0,),
+                    clock=lambda: "2026-09-23T00:00:00Z",
+                )
+            finally:
+                os.close(root_fd)
+
+            schedule.assert_called_once_with()
+            self.assertEqual(journal["state"], "reconciled")
+            self.assertEqual(stat.S_IMODE(journal_path.stat().st_mode), 0o600)
+            claims = list(
+                (
+                    root
+                    / "creation"
+                    / "dispatch"
+                    / run_once._DISPATCH_CLAIM_DIRECTORY
+                ).glob("*.json")
+            )
+            self.assertEqual(len(claims), 1)
+            self.assertEqual(stat.S_IMODE(claims[0].stat().st_mode), 0o600)
+            for directory in (
+                root / "queue",
+                root / "queue" / "01-model",
+                journal_path.parent,
+                claims[0].parent,
+            ):
+                self.assertEqual(stat.S_IMODE(directory.stat().st_mode), 0o700)
 
     def test_success_schedules_once_and_binds_one_exact_new_run(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -1210,6 +1546,68 @@ class KaggleRunOnceTests(unittest.TestCase):
             [call.args[0] for call in api.with_retry.call_args_list],
         )
         self.assertEqual(journal["reconciliation"]["run"]["id"], 71)
+
+    def test_read_only_run_set_reader_paginates_and_normalizes_exact_version(
+        self,
+    ) -> None:
+        class Request:
+            pass
+
+        task_client = SimpleNamespace(
+            list_benchmark_task_runs=mock.Mock(
+                side_effect=[
+                    SimpleNamespace(runs=[_run(72)], next_page_token="next"),
+                    SimpleNamespace(runs=[_run(71)], next_page_token=""),
+                ]
+            )
+        )
+        client = SimpleNamespace(
+            benchmarks=SimpleNamespace(benchmark_tasks_api_client=task_client)
+        )
+        context = mock.MagicMock()
+        context.__enter__.return_value = client
+        api = mock.Mock()
+        api.build_kaggle_client.return_value = context
+        api.with_retry.side_effect = lambda function: function
+
+        modules: dict[str, ModuleType] = {}
+        for name in (
+            "kaggle",
+            "kaggle.api",
+            "kaggle.api.kaggle_api_extended",
+            "kagglesdk",
+            "kagglesdk.benchmarks",
+            "kagglesdk.benchmarks.types",
+            "kagglesdk.benchmarks.types.benchmark_tasks_api_service",
+        ):
+            modules[name] = ModuleType(name)
+        modules["kaggle.api.kaggle_api_extended"].KaggleApi = mock.Mock(
+            return_value=api
+        )
+        task_types = modules[
+            "kagglesdk.benchmarks.types.benchmark_tasks_api_service"
+        ]
+        task_types.ApiBenchmarkTaskSlug = Request
+        task_types.ApiListBenchmarkTaskRunsRequest = Request
+
+        with (
+            mock.patch.object(
+                run_once, "_verified_client_versions", return_value={}
+            ),
+            mock.patch.dict(sys.modules, modules),
+        ):
+            records = run_once.fetch_benchmark_task_runs(
+                owner=OWNER, task=TASK, version=VERSION
+            )
+
+        self.assertEqual([record["id"] for record in records], [71, 72])
+        self.assertTrue(
+            all(record["model"] == MODEL for record in records)
+        )
+        self.assertEqual(task_client.list_benchmark_task_runs.call_count, 2)
+        second_request = task_client.list_benchmark_task_runs.call_args_list[1].args[0]
+        self.assertEqual(second_request.page_token, "next")
+        api.authenticate.assert_called_once_with()
 
 
 if __name__ == "__main__":
