@@ -46,7 +46,12 @@ const tied = [
 ];
 assert.deepEqual(
   paretoFrontier(tied).map((point) => point.id),
+  ["a-tie", "z-tie"],
+  "paretoFrontier should use a locale-independent code-unit id tie-break"
+);
+assert.deepEqual(
   paretoFrontier([...tied].reverse()).map((point) => point.id),
+  ["a-tie", "z-tie"],
   "paretoFrontier ordering should be independent of input order"
 );
 

@@ -92,12 +92,13 @@ if (!Array.isArray(artifact)) {
         errors.push(`${pointPath}: expected an object`);
         continue;
       }
+      const isExplicit = point.role === "explicit_reconstruction";
 
       if (!Number.isInteger(point.length) || point.length < 0) {
         errors.push(`${pointPath}.length: expected a non-negative integer`);
-      } else if (point.length <= previousLength) {
+      } else if (!isExplicit && point.length <= previousLength) {
         errors.push(`${pointPath}.length: points must be strictly ordered by observed length`);
-      } else {
+      } else if (!isExplicit) {
         previousLength = point.length;
       }
 
@@ -128,7 +129,6 @@ if (!Array.isArray(artifact)) {
         errors.push(`${pointPath}: toktext and toknll must describe the same observed tokens`);
       }
 
-      const isExplicit = point.role === "explicit_reconstruction";
       const hasExplicitLabel = point.label === "Explicit Reconstruction";
       if (point.role !== undefined && !isExplicit) {
         errors.push(`${pointPath}.role: unsupported role ${JSON.stringify(point.role)}`);

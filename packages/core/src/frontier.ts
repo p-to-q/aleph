@@ -47,6 +47,6 @@ export function paretoFrontier(candidates: CandidatePoint[]): CandidatePoint[] {
         b.fit - a.fit ||
         b.stability - a.stability ||
         a.leakage - b.leakage ||
-        a.id.localeCompare(b.id),
+        (a.id < b.id ? -1 : a.id > b.id ? 1 : 0),
     );
 }
