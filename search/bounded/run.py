@@ -13,11 +13,13 @@ from .model import (
     all_coordinates,
     bounded_domain_size,
     budget_value_curve,
+    canonical_json,
     enumerate_landscape,
     evaluate,
     exact_optimum,
     observed_frontier,
     sha256_file,
+    sha256_bytes,
     sha256_json,
     write_json,
 )
@@ -26,6 +28,7 @@ from .model import (
 HERE = Path(__file__).resolve().parent
 DEFAULT_MANIFEST = HERE / "problem.json"
 DEFAULT_RECEIPT = HERE / "results" / "receipt.json"
+DEFAULT_ARCHIVE = HERE / "results" / "candidates.jsonl"
 LANDSCAPES = ("compositional", "opaque")
 PRIORITY_POLICY_SEED = 1729
 SHA256_PRIORITY_POLICY = "sha256_priority_without_replacement_v0"
@@ -187,11 +190,16 @@ def priority_run(
     }
 
 
-def build_receipt(
+def archive_jsonl_bytes(records: list[dict[str, object]]) -> bytes:
+    return "".join(f"{canonical_json(record)}\n" for record in records).encode("utf-8")
+
+
+def build_experiment(
     manifest: ProblemManifest,
     *,
     max_candidate_count: int = DEFAULT_MAX_CANDIDATE_COUNT,
-) -> dict[str, object]:
+    archive_path: str = DEFAULT_ARCHIVE.name,
+) -> tuple[dict[str, object], list[dict[str, object]]]:
     if max_candidate_count <= 0:
         raise ValueError("max_candidate_count must be positive")
     archives: dict[str, list[CandidateObservation]] = {}
@@ -266,7 +274,13 @@ def build_receipt(
     opaque_shortest = landscape_results["opaque"]["exactShortestWithinBound"]
     comp_beam = next(item for item in search_runs if item["id"] == "compositional:beam-1")
     opaque_beam = next(item for item in search_runs if item["id"] == "opaque:beam-1")
-    return {
+    candidate_archive = [
+        item.to_json()
+        for landscape in LANDSCAPES
+        for item in archives[landscape]
+    ]
+    archive_bytes = archive_jsonl_bytes(candidate_archive)
+    receipt = {
         "schemaVersion": RECEIPT_VERSION,
         "problemId": manifest.problem_id,
         "manifestContentSha256": manifest.manifest_hash,
@@ -290,11 +304,13 @@ def build_receipt(
             },
             "timingFields": "excluded_for_byte_stability",
         },
-        "candidateArchive": [
-            item.to_json()
-            for landscape in LANDSCAPES
-            for item in archives[landscape]
-        ],
+        "candidateArchive": {
+            "format": "canonical-jsonl/v0",
+            "path": archive_path,
+            "count": len(candidate_archive),
+            "contentSha256": sha256_json(candidate_archive),
+            "fileSha256": sha256_bytes(archive_bytes),
+        },
         "landscapeResults": landscape_results,
         "searchRuns": search_runs,
         "claims": {
@@ -318,12 +334,28 @@ def build_receipt(
             "pythonVerifier": "independent_reconstruction_with_shared_manifest_parser",
         },
     }
+    return receipt, candidate_archive
+
+
+def build_receipt(
+    manifest: ProblemManifest,
+    *,
+    max_candidate_count: int = DEFAULT_MAX_CANDIDATE_COUNT,
+    archive_path: str = DEFAULT_ARCHIVE.name,
+) -> dict[str, object]:
+    receipt, _ = build_experiment(
+        manifest,
+        max_candidate_count=max_candidate_count,
+        archive_path=archive_path,
+    )
+    return receipt
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Run exact bounded coordinate search.")
     parser.add_argument("--manifest", type=Path, default=DEFAULT_MANIFEST)
     parser.add_argument("--out", type=Path, default=DEFAULT_RECEIPT)
+    parser.add_argument("--archive-out", type=Path, default=DEFAULT_ARCHIVE)
     parser.add_argument(
         "--max-candidate-count",
         type=int,
@@ -333,11 +365,21 @@ def main() -> None:
     args = parser.parse_args()
 
     manifest = ProblemManifest.from_path(args.manifest)
-    receipt = build_receipt(manifest, max_candidate_count=args.max_candidate_count)
+    try:
+        archive_reference = args.archive_out.relative_to(args.out.parent).as_posix()
+    except ValueError as error:
+        raise SystemExit("--archive-out must be inside the receipt output directory") from error
+    receipt, candidate_archive = build_experiment(
+        manifest,
+        max_candidate_count=args.max_candidate_count,
+        archive_path=archive_reference,
+    )
+    args.archive_out.parent.mkdir(parents=True, exist_ok=True)
+    args.archive_out.write_bytes(archive_jsonl_bytes(candidate_archive))
     write_json(args.out, receipt)
     print(
         "bounded-coordinate: "
-        f"{len(receipt['candidateArchive'])} observations, "
+        f"{receipt['candidateArchive']['count']} observations, "
         f"content_sha256={sha256_json(receipt)}, "
         f"file_sha256={sha256_file(args.out)}"
     )

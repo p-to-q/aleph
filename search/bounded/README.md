@@ -53,7 +53,7 @@ python3 -m search.bounded.verify
 python3 -m unittest search/tests/test_bounded_coordinate.py
 ```
 
-The same ten-test suite and golden receipt passed under CPython 3.10.9, 3.11.9, 3.12.3, 3.13.2, and 3.14.7. The code path uses only the standard library.
+The same eleven-test suite and golden receipt/archive passed under CPython 3.10.9, 3.11.9, 3.12.3, 3.13.2, and 3.14.7. The code path uses only the standard library.
 
 The checked-in result is:
 
@@ -66,10 +66,12 @@ The checked-in result is:
 Receipt identities:
 
 - manifest content SHA-256: `05aef719a7651c4e9a0f724fd3cced02912d7cb66e316dbf443fc68a276c51fa`
-- receipt canonical-content SHA-256: `695d50f92f33607603d90400e9fcf9bf242269d781f3e86735653981d5a1e22f`
-- receipt file-byte SHA-256: `ebbab77602d67070bcbaa58ce1897b6d6dc815b6edd00461daffeb320af7c058`
+- receipt canonical-content SHA-256: `12362dc07aa715dc073484b87b210e671d44e7f750da07b06587cb046bc80e39`
+- receipt file-byte SHA-256: `e7f6e8028445280ed4e43d52ec5294d509a4d5cbd42cfc6cc284395cb92b2f1d`
+- candidate-archive canonical-content SHA-256: `fd142e89ec3aacfe0c4870718a42cd782fa6da88272387421bf557afcd4f84c3`
+- candidate-archive file-byte SHA-256: `273b5a53eab00a484bf77c71c78fa6eb76f92302492cb0633b6cfeb702b29ebe`
 
-`verify.py` is a second deterministic Python reconstruction. It independently rebuilds decoding, measurements, candidate identities, representative frontier, policies, and claims, but shares the strict manifest parser and Python runtime. It is not an external replication or formal proof.
+The 682 complete candidate observations live in canonical JSONL rather than being embedded in the summary receipt. `verify.py` checks both parsed content and the actual archive bytes against receipt metadata, then performs a second deterministic Python reconstruction. It independently rebuilds decoding, measurements, candidate identities, representative frontier, policies, and claims, but shares the strict manifest parser and Python runtime. It is not an external replication or formal proof.
 
 The CLI fails before enumeration when a landscape exceeds 100,000 candidates unless an explicit larger `--max-candidate-count` is provided. This prevents a seemingly valid manifest from causing accidental exponential allocation.
 
@@ -108,5 +110,5 @@ It does not establish a distributional effect. A paper-facing experiment must ex
 - `generate_lean.py`: deterministic JSON-to-Lean definition generator;
 - `verify_lean.py`: pinned-build and proof-source receipt generator;
 - `lean/`: generated definition plus handwritten coverage, minimality, and uniqueness proofs;
-- `results/`: byte-stable run, Python verification, and Lean verification receipts;
+- `results/`: byte-stable summary receipt, complete canonical-JSONL candidate archive, Python verification, and Lean verification receipt;
 - `../tests/test_bounded_coordinate.py`: boundary, mutation, determinism, portability, parity, and artifact-drift tests.

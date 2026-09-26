@@ -14,6 +14,7 @@ from .model import ProblemManifest, sha256_file, sha256_json, write_json
 HERE = Path(__file__).resolve().parent
 DEFAULT_MANIFEST = HERE / "problem.json"
 DEFAULT_RECEIPT = HERE / "results" / "receipt.json"
+DEFAULT_ARCHIVE = HERE / "results" / "candidates.jsonl"
 DEFAULT_VERIFICATION = HERE / "results" / "verification.json"
 LANDSCAPES = ("compositional", "opaque")
 PRIORITY_POLICY_SEED = 1729
@@ -50,14 +51,21 @@ def _independent_decode(
     )
 
 
-def _canonical_hash(value: object) -> str:
-    encoded = json.dumps(
+def _canonical_json(value: object) -> str:
+    return json.dumps(
         value,
         ensure_ascii=False,
         sort_keys=True,
         separators=(",", ":"),
-    ).encode("utf-8")
-    return hashlib.sha256(encoded).hexdigest()
+    )
+
+
+def _canonical_hash(value: object) -> str:
+    return hashlib.sha256(_canonical_json(value).encode("utf-8")).hexdigest()
+
+
+def _archive_jsonl_bytes(records: list[dict[str, object]]) -> bytes:
+    return "".join(f"{_canonical_json(record)}\n" for record in records).encode("utf-8")
 
 
 def _candidate_json(
@@ -286,6 +294,7 @@ def independently_rebuild_receipt(
     manifest: ProblemManifest,
     *,
     max_candidate_count: int = DEFAULT_MAX_CANDIDATE_COUNT,
+    archive_path: str = DEFAULT_ARCHIVE.name,
 ) -> dict[str, object]:
     if max_candidate_count <= 0:
         raise ValueError("max_candidate_count must be positive")
@@ -344,6 +353,12 @@ def independently_rebuild_receipt(
     opaque_shortest = landscape_results["opaque"]["exactShortestWithinBound"]
     comp_beam = next(run for run in search_runs if run["id"] == "compositional:beam-1")
     opaque_beam = next(run for run in search_runs if run["id"] == "opaque:beam-1")
+    candidate_archive = [
+        point
+        for landscape in LANDSCAPES
+        for point in all_archives[landscape]
+    ]
+    archive_bytes = _archive_jsonl_bytes(candidate_archive)
     return {
         "schemaVersion": RECEIPT_VERSION,
         "problemId": manifest.problem_id,
@@ -368,11 +383,13 @@ def independently_rebuild_receipt(
             },
             "timingFields": "excluded_for_byte_stability",
         },
-        "candidateArchive": [
-            point
-            for landscape in LANDSCAPES
-            for point in all_archives[landscape]
-        ],
+        "candidateArchive": {
+            "format": "canonical-jsonl/v0",
+            "path": archive_path,
+            "count": len(candidate_archive),
+            "contentSha256": _canonical_hash(candidate_archive),
+            "fileSha256": hashlib.sha256(archive_bytes).hexdigest(),
+        },
         "landscapeResults": landscape_results,
         "searchRuns": search_runs,
         "claims": {
@@ -403,12 +420,14 @@ def verify_receipt_data(
     receipt: object,
     *,
     max_candidate_count: int = DEFAULT_MAX_CANDIDATE_COUNT,
+    archive_path: str = DEFAULT_ARCHIVE.name,
 ) -> list[str]:
     if not isinstance(receipt, dict):
         return ["receipt must be an object"]
     expected = independently_rebuild_receipt(
         manifest,
         max_candidate_count=max_candidate_count,
+        archive_path=archive_path,
     )
     if receipt == expected:
         return []
@@ -422,30 +441,73 @@ def verify_receipt_data(
     return errors
 
 
+def verify_archive_data(
+    manifest: ProblemManifest,
+    receipt: object,
+    candidate_archive: object,
+) -> list[str]:
+    if not isinstance(receipt, dict) or not isinstance(receipt.get("candidateArchive"), dict):
+        return ["receipt candidateArchive metadata must be an object"]
+    if not isinstance(candidate_archive, list) or not all(
+        isinstance(point, dict) for point in candidate_archive
+    ):
+        return ["candidate archive must be a list of objects"]
+    expected = [
+        point
+        for landscape in LANDSCAPES
+        for point in _archive(manifest, landscape)
+    ]
+    errors = []
+    if candidate_archive != expected:
+        errors.append("candidate archive differs from independent deterministic reconstruction")
+    metadata = receipt["candidateArchive"]
+    archive_bytes = _archive_jsonl_bytes(candidate_archive)
+    if metadata.get("count") != len(candidate_archive):
+        errors.append("candidate archive count does not match receipt metadata")
+    if metadata.get("contentSha256") != _canonical_hash(candidate_archive):
+        errors.append("candidate archive content hash does not match receipt metadata")
+    if metadata.get("fileSha256") != hashlib.sha256(archive_bytes).hexdigest():
+        errors.append("candidate archive file hash does not match receipt metadata")
+    return errors
+
+
 def build_verification(
     manifest: ProblemManifest,
     receipt: object,
+    candidate_archive: object,
     *,
     receipt_file_sha256: str,
+    archive_file_sha256: str,
     max_candidate_count: int = DEFAULT_MAX_CANDIDATE_COUNT,
+    archive_path: str = DEFAULT_ARCHIVE.name,
 ) -> dict[str, object]:
     errors = verify_receipt_data(
         manifest,
         receipt,
         max_candidate_count=max_candidate_count,
+        archive_path=archive_path,
     )
+    errors.extend(verify_archive_data(manifest, receipt, candidate_archive))
+    if (
+        isinstance(receipt, dict)
+        and isinstance(receipt.get("candidateArchive"), dict)
+        and receipt["candidateArchive"].get("fileSha256") != archive_file_sha256
+    ):
+        errors.append("candidate archive bytes do not match the receipt file hash")
     return {
         "schemaVersion": VERIFICATION_VERSION,
         "problemId": manifest.problem_id,
         "manifestContentSha256": manifest.manifest_hash,
         "receiptContentSha256": sha256_json(receipt),
         "receiptFileSha256": receipt_file_sha256,
+        "archiveFileSha256": archive_file_sha256,
         "verified": not errors,
         "verifierScope": "independent_python_reconstruction_with_shared_manifest_parser_not_formal_verification",
         "checks": [
             "manifest_contract",
             "candidate_identity_and_measurements",
             "archive_content_digest",
+            "external_candidate_archive",
             "bounded_exact_optimum",
             "observation_preserving_representative_frontier",
             "coordinate_budget_witness_separation",
@@ -460,6 +522,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Independently verify a bounded-coordinate receipt.")
     parser.add_argument("--manifest", type=Path, default=DEFAULT_MANIFEST)
     parser.add_argument("--receipt", type=Path, default=DEFAULT_RECEIPT)
+    parser.add_argument("--archive", type=Path, default=DEFAULT_ARCHIVE)
     parser.add_argument("--out", type=Path, default=DEFAULT_VERIFICATION)
     parser.add_argument(
         "--max-candidate-count",
@@ -471,11 +534,23 @@ def main() -> None:
 
     manifest = ProblemManifest.from_path(args.manifest)
     receipt = json.loads(args.receipt.read_text(encoding="utf-8"))
+    try:
+        archive_reference = args.archive.relative_to(args.receipt.parent).as_posix()
+    except ValueError as error:
+        raise SystemExit("--archive must be inside the receipt directory") from error
+    candidate_archive = [
+        json.loads(line)
+        for line in args.archive.read_text(encoding="utf-8").splitlines()
+        if line
+    ]
     verification = build_verification(
         manifest,
         receipt,
+        candidate_archive,
         receipt_file_sha256=sha256_file(args.receipt),
+        archive_file_sha256=sha256_file(args.archive),
         max_candidate_count=args.max_candidate_count,
+        archive_path=archive_reference,
     )
     write_json(args.out, verification)
     if verification["errors"]:

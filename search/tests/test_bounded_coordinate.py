@@ -23,16 +23,22 @@ from search.bounded.model import (
     write_json,
 )
 from search.bounded.generate_lean import render_problem
-from search.bounded.run import build_receipt
-from search.bounded.verify import build_verification, verify_receipt_data
+from search.bounded.run import archive_jsonl_bytes, build_experiment, build_receipt
+from search.bounded.verify import (
+    build_verification,
+    verify_archive_data,
+    verify_receipt_data,
+)
 from search.bounded.verify_lean import expected_lean_receipt
 
 
 MANIFEST_PATH = BOUNDED_ROOT / "problem.json"
 RECEIPT_PATH = BOUNDED_ROOT / "results" / "receipt.json"
+ARCHIVE_PATH = BOUNDED_ROOT / "results" / "candidates.jsonl"
 VERIFICATION_PATH = BOUNDED_ROOT / "results" / "verification.json"
 LEAN_VERIFICATION_PATH = BOUNDED_ROOT / "results" / "lean-verification.json"
-EXPECTED_RECEIPT_FILE_SHA256 = "ebbab77602d67070bcbaa58ce1897b6d6dc815b6edd00461daffeb320af7c058"
+EXPECTED_RECEIPT_FILE_SHA256 = "e7f6e8028445280ed4e43d52ec5294d509a4d5cbd42cfc6cc284395cb92b2f1d"
+EXPECTED_ARCHIVE_FILE_SHA256 = "273b5a53eab00a484bf77c71c78fa6eb76f92302492cb0633b6cfeb702b29ebe"
 
 
 class BoundedCoordinateTests(unittest.TestCase):
@@ -70,7 +76,7 @@ class BoundedCoordinateTests(unittest.TestCase):
                 self.assertLessEqual(witness.length, value["coordinateTokenBudget"])
 
     def test_matched_beam_budget_exposes_the_feedback_geometry_gap(self) -> None:
-        receipt = build_receipt(self.manifest)
+        receipt, candidate_archive = build_experiment(self.manifest)
         runs = {run["id"]: run for run in receipt["searchRuns"]}
         compositional = runs["compositional:beam-1"]
         opaque = runs["opaque:beam-1"]
@@ -97,7 +103,7 @@ class BoundedCoordinateTests(unittest.TestCase):
             )
 
         archive_coordinates = {
-            point["id"]: point["coordinate"] for point in receipt["candidateArchive"]
+            point["id"]: point["coordinate"] for point in candidate_archive
         }
         compositional_priority = runs["compositional:priority-16-seed-1729"]
         opaque_priority = runs["opaque:priority-16-seed-1729"]
@@ -107,24 +113,48 @@ class BoundedCoordinateTests(unittest.TestCase):
         )
 
     def test_seeded_receipt_is_byte_stable_and_independently_verifiable(self) -> None:
-        first = build_receipt(self.manifest)
-        second = build_receipt(self.manifest)
+        first, first_archive = build_experiment(self.manifest)
+        second, second_archive = build_experiment(self.manifest)
         first_bytes = json.dumps(first, sort_keys=True, separators=(",", ":"))
         second_bytes = json.dumps(second, sort_keys=True, separators=(",", ":"))
         self.assertEqual(first_bytes, second_bytes)
+        self.assertEqual(
+            archive_jsonl_bytes(first_archive),
+            archive_jsonl_bytes(second_archive),
+        )
         self.assertEqual(verify_receipt_data(self.manifest, first), [])
         with tempfile.TemporaryDirectory() as temp_dir:
-            first_path = Path(temp_dir) / "first.json"
-            second_path = Path(temp_dir) / "second.json"
+            first_dir = Path(temp_dir) / "first"
+            second_dir = Path(temp_dir) / "second"
+            first_dir.mkdir()
+            second_dir.mkdir()
+            first_path = first_dir / "receipt.json"
+            second_path = second_dir / "receipt.json"
+            first_archive_path = first_dir / "candidates.jsonl"
+            second_archive_path = second_dir / "candidates.jsonl"
             write_json(first_path, first)
             write_json(second_path, second)
+            first_archive_path.write_bytes(archive_jsonl_bytes(first_archive))
+            second_archive_path.write_bytes(archive_jsonl_bytes(second_archive))
             self.assertEqual(first_path.read_bytes(), second_path.read_bytes())
+            self.assertEqual(
+                first_archive_path.read_bytes(),
+                second_archive_path.read_bytes(),
+            )
             self.assertEqual(sha256_file(first_path), sha256_file(second_path))
 
             env = os.environ.copy()
             env["PYTHONHASHSEED"] = "1"
             subprocess.run(
-                [sys.executable, "-m", "search.bounded.run", "--out", str(first_path)],
+                [
+                    sys.executable,
+                    "-m",
+                    "search.bounded.run",
+                    "--out",
+                    str(first_path),
+                    "--archive-out",
+                    str(first_archive_path),
+                ],
                 cwd=REPOSITORY_ROOT,
                 env=env,
                 check=True,
@@ -133,7 +163,15 @@ class BoundedCoordinateTests(unittest.TestCase):
             )
             env["PYTHONHASHSEED"] = "999"
             subprocess.run(
-                [sys.executable, "-m", "search.bounded.run", "--out", str(second_path)],
+                [
+                    sys.executable,
+                    "-m",
+                    "search.bounded.run",
+                    "--out",
+                    str(second_path),
+                    "--archive-out",
+                    str(second_archive_path),
+                ],
                 cwd=REPOSITORY_ROOT,
                 env=env,
                 check=True,
@@ -141,6 +179,7 @@ class BoundedCoordinateTests(unittest.TestCase):
                 text=True,
             )
             self.assertEqual(first_path.read_bytes(), second_path.read_bytes())
+            self.assertEqual(first_archive_path.read_bytes(), second_archive_path.read_bytes())
 
     def test_manifest_is_immutable_and_fit_penalizes_extra_output(self) -> None:
         source = json.loads(MANIFEST_PATH.read_text(encoding="utf-8"))
@@ -200,15 +239,25 @@ class BoundedCoordinateTests(unittest.TestCase):
 
     def test_checked_in_results_match_fresh_reconstruction(self) -> None:
         receipt = json.loads(RECEIPT_PATH.read_text(encoding="utf-8"))
-        self.assertEqual(receipt, build_receipt(self.manifest))
+        candidate_archive = [
+            json.loads(line)
+            for line in ARCHIVE_PATH.read_text(encoding="utf-8").splitlines()
+            if line
+        ]
+        expected_receipt, expected_archive = build_experiment(self.manifest)
+        self.assertEqual(receipt, expected_receipt)
+        self.assertEqual(candidate_archive, expected_archive)
         self.assertEqual(sha256_file(RECEIPT_PATH), EXPECTED_RECEIPT_FILE_SHA256)
+        self.assertEqual(sha256_file(ARCHIVE_PATH), EXPECTED_ARCHIVE_FILE_SHA256)
         verification = json.loads(VERIFICATION_PATH.read_text(encoding="utf-8"))
         self.assertEqual(
             verification,
             build_verification(
                 self.manifest,
                 receipt,
+                candidate_archive,
                 receipt_file_sha256=sha256_file(RECEIPT_PATH),
+                archive_file_sha256=sha256_file(ARCHIVE_PATH),
             ),
         )
         lean_verification = json.loads(
@@ -220,29 +269,50 @@ class BoundedCoordinateTests(unittest.TestCase):
         )
 
     def test_verifier_rejects_measurement_lineage_and_manifest_mutations(self) -> None:
-        receipt = build_receipt(self.manifest)
-        mutations = []
+        receipt, candidate_archive = build_experiment(self.manifest)
+        archive_mutations = []
 
-        wrong_length = copy.deepcopy(receipt)
-        wrong_length["candidateArchive"][0]["length"] = 99
-        mutations.append(wrong_length)
+        wrong_length = copy.deepcopy(candidate_archive)
+        wrong_length[0]["length"] = 99
+        archive_mutations.append(wrong_length)
 
-        wrong_fit = copy.deepcopy(receipt)
-        wrong_fit["candidateArchive"][7]["fit"] = 1.0
-        mutations.append(wrong_fit)
+        wrong_fit = copy.deepcopy(candidate_archive)
+        wrong_fit[7]["fit"] = 1.0
+        archive_mutations.append(wrong_fit)
+
+        for mutation in archive_mutations:
+            with self.subTest(archive_mutation=True):
+                self.assertTrue(verify_archive_data(self.manifest, receipt, mutation))
+
+        receipt_mutations = []
 
         wrong_lineage = copy.deepcopy(receipt)
         beam = next(run for run in wrong_lineage["searchRuns"] if run["lineage"])
         beam["lineage"][0]["parentCoordinate"] = ["forged"]
-        mutations.append(wrong_lineage)
+        receipt_mutations.append(wrong_lineage)
 
         wrong_manifest = copy.deepcopy(receipt)
         wrong_manifest["manifestContentSha256"] = "0" * 64
-        mutations.append(wrong_manifest)
+        receipt_mutations.append(wrong_manifest)
 
-        for mutation in mutations:
+        for mutation in receipt_mutations:
             with self.subTest(mutated_fields=list(mutation)):
                 self.assertTrue(verify_receipt_data(self.manifest, mutation))
+
+    def test_verifier_rejects_archive_byte_hash_mismatch(self) -> None:
+        receipt, candidate_archive = build_experiment(self.manifest)
+        verification = build_verification(
+            self.manifest,
+            receipt,
+            candidate_archive,
+            receipt_file_sha256="0" * 64,
+            archive_file_sha256="f" * 64,
+        )
+        self.assertFalse(verification["verified"])
+        self.assertIn(
+            "candidate archive bytes do not match the receipt file hash",
+            verification["errors"],
+        )
 
 
 if __name__ == "__main__":
