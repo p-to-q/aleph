@@ -1,16 +1,17 @@
 #!/usr/bin/env python3
-"""Publish a raw frontier JSON as a monotone L̂ frontier.
+"""Publish raw observations as an observed length/distortion frontier.
 
-L̂ is a *best known upper bound*: more search can only improve it, never
-regress it. So by default this UNIONS the new run's points with whatever is
-already published (per target) before taking the monotone lower envelope —
-a worse run can never lose a better prior result. `--no-merge` to override.
+The product view contains only actual observations. A cumulative value function
+may reuse a witness at a later budget threshold, but it may not manufacture a
+new CandidatePoint by overwriting that witness's measured length. By default
+this unions incoming and previously published observations per target before
+selecting the view. Use `--no-merge` to ignore the prior artifact.
 """
 import argparse, json, sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
-from aleph_search import monotone  # noqa: E402
+from aleph_search import observed_length_distortion_frontier  # noqa: E402
 
 SITE = "/Users/simonsun/Desktop/Repositories/aleph/web/public/aleph-frontier.json"
 
@@ -43,15 +44,17 @@ def main():
         nt = new_by_key.get(t["key"])
         if nt and nt.get("points"):
             merged = {**t, **nt}
-            merged["points"] = monotone(list(nt["points"]) + list(t.get("points", [])))
+            merged["points"] = observed_length_distortion_frontier(
+                list(nt["points"]) + list(t.get("points", []))
+            )
             result.append(merged)
         else:
             if t.get("points"):
-                t["points"] = monotone(t["points"])
+                t["points"] = observed_length_distortion_frontier(t["points"])
             result.append(t)
     for t in incoming:
         if t["key"] not in seen:
-            t["points"] = monotone(t["points"])
+            t["points"] = observed_length_distortion_frontier(t["points"])
             result.append(t)
 
     outp.write_text(json.dumps(result, ensure_ascii=False, indent=2))

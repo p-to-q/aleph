@@ -46,10 +46,16 @@ export function selectedCandidateIndex(run: AlephRun, candidate: CandidatePoint)
   return run.candidates.findIndex((item) => item.id === candidate.id);
 }
 
-export function candidateEndpoint(run: AlephRun, index: number) {
-  if (index === 0) return "Shortest Found";
-  if (index === run.candidates.length - 1) return "Explicit Reconstruction";
-  return "Compression Path";
+export function candidateEndpoint(candidate: CandidatePoint) {
+  if (
+    candidate.role === "explicit_reconstruction" ||
+    candidate.id === "explicit" ||
+    candidate.id === "explicit-reconstruction" ||
+    candidate.label === "Explicit Reconstruction"
+  ) {
+    return "Explicit Reconstruction";
+  }
+  return "Observed Candidate";
 }
 
 export function candidateSummary(candidate: CandidatePoint) {

@@ -11,7 +11,7 @@ Usage:
   python aleph_search.py --targets borges --out frontier.json \
       --candidates 4 --refine 1 --eval-model auto
 """
-import argparse, json, os, re, statistics, sys, time
+import argparse, json, math, os, re, statistics, sys, time
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
@@ -281,22 +281,72 @@ def hardest_tokens(toks, nll, k=8):
     return out
 
 
+def _observed_point_key(point):
+    """A total, input-order-independent tie-break over one observed record."""
+    return (
+        point["epsilon"],
+        str(point.get("prompt") or ""),
+        str(point.get("output") or ""),
+        json.dumps(point, ensure_ascii=False, sort_keys=True, separators=(",", ":"), default=str),
+    )
+
+
+def _validate_observed_point(point, index):
+    if not isinstance(point, dict):
+        raise ValueError(f"point[{index}] must be an object")
+    length = point.get("length")
+    if isinstance(length, bool) or not isinstance(length, int) or length < 0:
+        raise ValueError(f"point[{index}].length must be a non-negative integer")
+    epsilon = point.get("epsilon")
+    if (
+        isinstance(epsilon, bool)
+        or not isinstance(epsilon, (int, float))
+        or not math.isfinite(epsilon)
+        or epsilon < 0
+    ):
+        raise ValueError(f"point[{index}].epsilon must be a finite non-negative number")
+
+
+def observed_length_distortion_frontier(points):
+    """Select an observed length/distortion frontier without mutating records.
+
+    The returned scientific points are canonical-equal to input observations.
+    A cumulative best-at-budget staircase is a different object: it may repeat a
+    witness candidate at later thresholds, but it must never rewrite that
+    candidate's measured ``length``. A tagged Explicit Reconstruction record is
+    retained as a baseline even when a shorter observation dominates it.
+    """
+    observed = [dict(point) for point in points]
+    for index, point in enumerate(observed):
+        _validate_observed_point(point, index)
+
+    explicit = [point for point in observed if point.get("role") == "explicit_reconstruction"]
+    candidates = [point for point in observed if point.get("role") != "explicit_reconstruction"]
+
+    by_length = {}
+    for point in candidates:
+        length = point["length"]
+        incumbent = by_length.get(length)
+        if incumbent is None or _observed_point_key(point) < _observed_point_key(incumbent):
+            by_length[length] = point
+
+    frontier = []
+    best_epsilon = math.inf
+    for point in sorted(by_length.values(), key=lambda item: (item["length"], _observed_point_key(item))):
+        if point["epsilon"] < best_epsilon:
+            frontier.append(point)
+            best_epsilon = point["epsilon"]
+
+    if explicit:
+        baseline = min(explicit, key=lambda item: (item["length"], _observed_point_key(item)))
+        if baseline not in frontier:
+            frontier.append(baseline)
+    return frontier
+
+
 def monotone(points):
-    """L̂ is monotone by construction: the best prompt with |p| ≤ L is at least
-    as good as any shorter one. Collapse the raw measured points to that
-    non-increasing-ε staircase (still real data — just the lower envelope), so
-    the curve reads as a true rate-distortion frontier left→right."""
-    by_len = {}
-    for p in points:
-        L = p["length"]
-        if L not in by_len or p["epsilon"] < by_len[L]["epsilon"]:
-            by_len[L] = p
-    out, best = [], None
-    for p in sorted(by_len.values(), key=lambda d: d["length"]):
-        if best is None or p["epsilon"] < best["epsilon"]:
-            best = p
-        out.append({**best, "length": p["length"]})
-    return out
+    """Backward-compatible alias for the observation-preserving frontier view."""
+    return observed_length_distortion_frontier(points)
 
 
 def search_target(theta, metric, prop, key, spec, n_cand, n_refine):
@@ -353,9 +403,12 @@ def search_target(theta, metric, prop, key, spec, n_cand, n_refine):
         "prompt": id_prompt, "length": theta.ntokens(id_prompt),
         "similarity": round(s_id, 4), "stability": 1.0,
         "output": gi, "toktext": itoks, "toknll": inll,
+        "label": "Explicit Reconstruction",
+        "role": "explicit_reconstruction",
     })
     return {"key": key, "label": spec["label"], "targetTokens": y_tok,
-            "evalModel": theta.repo, "points": monotone(points)}
+            "evalModel": theta.repo,
+            "points": observed_length_distortion_frontier(points)}
 
 
 def pick_model(arg):

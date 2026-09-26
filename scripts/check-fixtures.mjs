@@ -1,4 +1,5 @@
 import { readdirSync, readFileSync } from "node:fs";
+import { paretoFrontier } from "../packages/core/src/frontier.ts";
 
 const schema = JSON.parse(readFileSync("schemas/aleph-run.schema.json", "utf8"));
 const manifest = JSON.parse(readFileSync("packages/fixtures/src/manifest.json", "utf8"));
@@ -78,8 +79,28 @@ function checkFixtureInvariants(file, run) {
   if (!run.candidates.some((candidate) => candidate.id === run.selectedCandidateId)) {
     errors.push("selected candidate missing");
   }
-  if (!run.candidates.some((candidate) => candidate.id === "explicit" && candidate.label === "Explicit Reconstruction" && candidate.leakage > 0.8)) {
-    errors.push("explicit reconstruction baseline missing or not marked leaky");
+  const candidateIds = run.candidates.map((candidate) => candidate.id);
+  if (new Set(candidateIds).size !== candidateIds.length) {
+    errors.push("candidate ids must be unique");
+  }
+  const explicitCandidates = run.candidates.filter(
+    (candidate) => candidate.role === "explicit_reconstruction",
+  );
+  if (explicitCandidates.length !== 1) {
+    errors.push("expected exactly one role-tagged explicit reconstruction baseline");
+  } else if (explicitCandidates[0].label !== "Explicit Reconstruction") {
+    errors.push("explicit reconstruction role and label disagree");
+  }
+  const derivedRanks = new Map(
+    paretoFrontier(run.candidates).map((candidate, index) => [candidate.id, index + 1]),
+  );
+  for (const candidate of run.candidates) {
+    const expectedRank = derivedRanks.get(candidate.id);
+    if (candidate.frontierRank !== expectedRank) {
+      errors.push(
+        `${candidate.id}: frontierRank ${String(candidate.frontierRank)} does not match derived rank ${String(expectedRank)}`,
+      );
+    }
   }
   if (!run.candidates.some((candidate) => candidate.label === "Shortest Found Candidate")) {
     errors.push("shortest found candidate missing");

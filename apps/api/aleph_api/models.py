@@ -93,6 +93,7 @@ class SearchConfig(BaseModel):
 
 class SearchCandidatePoint(BaseModel):
     id: str
+    role: Literal["candidate", "explicit_reconstruction"] | None = None
     label: str
     prompt: str
     output: str

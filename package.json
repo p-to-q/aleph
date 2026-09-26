@@ -21,7 +21,7 @@
     "search:preflight": "${ALEPH_PY:-python3} search/preflight.py",
     "dev": "npm --workspace web run dev",
     "build": "npm --workspace web run build",
-    "test": "node scripts/check-core.mjs && node scripts/check-contract.mjs && node scripts/check-fixtures.mjs && node scripts/check-repo.mjs"
+    "test": "node scripts/check-core.mjs && node scripts/check-contract.mjs && node scripts/check-fixtures.mjs && node scripts/check-public-frontier.mjs && node scripts/check-repo.mjs && python3 -m unittest discover -s search/tests -p 'test_*.py'"
   },
   "dependencies": {
     "react": "18.3.1",

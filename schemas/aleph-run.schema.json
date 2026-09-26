@@ -52,6 +52,7 @@
       "required": ["id", "label", "prompt", "output", "tokens", "fit", "stability", "compression", "leakage"],
       "properties": {
         "id": { "type": "string" },
+        "role": { "enum": ["candidate", "explicit_reconstruction"] },
         "label": { "type": "string" },
         "prompt": { "type": "string" },
         "output": { "type": "string" },

@@ -1,5 +1,6 @@
 export type AlephMode = "unrestricted" | "non_leaking";
 export type ObservationMode = "fixture" | "mock" | "black_box" | "white_box" | "simulated";
+export type CandidateRole = "candidate" | "explicit_reconstruction";
 
 export type TargetOutput = {
   text: string;
@@ -23,6 +24,7 @@ export type SearchConfig = {
 
 export type CandidatePoint = {
   id: string;
+  role?: CandidateRole;
   label: string;
   prompt: string;
   output: string;
