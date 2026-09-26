@@ -1,0 +1,330 @@
+{
+  "artifactKind": "aleph_bench_kaggle_queue_predecessor_manifest",
+  "closedWorld": {
+    "forbiddenRelativePaths": [
+      "queue/02-gemma-4-31b-it/completion.json",
+      "queue/02-gemma-4-31b-it/terminal-quota.json",
+      "queue/03-gpt-5.4-mini-2026-03-17",
+      "queue/04-qwen3-235b-a22b-instruct-2507",
+      "queue/05-gemini-3.8-flash",
+      "queue/06-claude-sonnet-4-5-20250929"
+    ],
+    "requiredDirectoryRelativePaths": [
+      "creation",
+      "creation/bundle",
+      "creation/dispatch",
+      "creation/dispatch/.aleph-kaggle-run-claims",
+      "queue",
+      "queue/01-grok-4.20-0309-non-reasoning",
+      "queue/01-grok-4.20-0309-non-reasoning/bundle",
+      "queue/01-grok-4.20-0309-non-reasoning/dispatch",
+      "queue/02-gemma-4-31b-it",
+      "queue/02-gemma-4-31b-it/bundle",
+      "queue/02-gemma-4-31b-it/dispatch"
+    ]
+  },
+  "controlRoot": {
+    "device": 16777230,
+    "inode": 125050827,
+    "mode": "0700",
+    "ownerUid": 503,
+    "writerId": "aleph-local-v10"
+  },
+  "fixedEligibility": {
+    "canonicalScoringInputEligible": false,
+    "huggingFaceEligible": false,
+    "leaderboardEligible": false,
+    "publicationEligible": false,
+    "resultEligible": false,
+    "scoreEligible": false
+  },
+  "manifestId": "aleph-bench-v0.2-kaggle-v10-predecessor-v1",
+  "manifestVersion": 1,
+  "predecessor": {
+    "breaker": {
+      "failureMessage": "live exact Task run set drifted",
+      "relativePath": ".aleph-kaggle-v10-queue-breaker.json",
+      "sha256": "6e0b53a09431d8ffa6008ed28bb7d7d8387c979b141b3cac0cff6351c3e6d33a"
+    },
+    "executionCommit": "ba7e69171d6e861bb92d42191077ad36e9d4773d",
+    "policy": {
+      "id": "aleph-bench-v0.2-kaggle-capture-queue-v1",
+      "relativePath": "bench/config/kaggle-capture-queue-v1.json",
+      "sha256": "221e5b1ce8d8096f364dbadc6ae2fd076f3397b548068e5443d4ccdfc0cde9e3"
+    }
+  },
+  "requiredFiles": [
+    {
+      "bytes": 706,
+      "mode": "0600",
+      "nlink": 1,
+      "relativePath": ".aleph-kaggle-v10-queue-breaker.json",
+      "role": "predecessor permanent breaker",
+      "sha256": "6e0b53a09431d8ffa6008ed28bb7d7d8387c979b141b3cac0cff6351c3e6d33a"
+    },
+    {
+      "bytes": 782,
+      "mode": "0600",
+      "nlink": 1,
+      "relativePath": ".aleph-kaggle-v10-queue-control.json",
+      "role": "predecessor control-root sentinel",
+      "sha256": "1b46ae46a34dd698f817954656e23431f6919bf02a435bef50200a0d71bc49aa"
+    },
+    {
+      "bytes": 0,
+      "mode": "0600",
+      "nlink": 1,
+      "relativePath": ".aleph-kaggle-v10-queue.lock",
+      "role": "predecessor local lease marker",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "bytes": 21393,
+      "mode": "0600",
+      "nlink": 1,
+      "relativePath": "creation/bundle/aleph-bench-v0-2-capture-canary-v10-run-3193338-capture.json",
+      "role": "creation capture payload",
+      "sha256": "70bd34d8ff976a52414c92b2be4970e827aff347f73d1d926a7ff44688326413"
+    },
+    {
+      "bytes": 2289,
+      "mode": "0600",
+      "nlink": 1,
+      "relativePath": "creation/bundle/aleph-bench-v0-2-capture-canary-v10-run-3193338-evidence.json",
+      "role": "creation evidence envelope",
+      "sha256": "5be3eab6aad4e37eaa4af944ac4fff0f3d8459d1926a31e50027141bc387618d"
+    },
+    {
+      "bytes": 43749,
+      "mode": "0600",
+      "nlink": 1,
+      "relativePath": "creation/bundle/aleph-bench-v0-2-capture-canary-v10-run-3193338-task-source.py",
+      "role": "creation generated task source",
+      "sha256": "df9a9cd7387df5392c07c11a88149001e3cdaf67551c35b14530690c1f4ee0db"
+    },
+    {
+      "bytes": 122177,
+      "mode": "0600",
+      "nlink": 1,
+      "relativePath": "creation/bundle/aleph-bench-v0-2-capture-canary-v10-run-3193338.zip",
+      "role": "creation Kaggle output archive",
+      "sha256": "78cefd24c2e31fdad80dbdf65ffcfbc918b1be3fb06053a0648cb18ec95421cf"
+    },
+    {
+      "bytes": 1161,
+      "mode": "0600",
+      "nlink": 1,
+      "relativePath": "creation/dispatch/.aleph-kaggle-run-claims/b8ad6bd09b8b9ddf81285b52f9e67896bab58fe53c1fa5bc7cb021e0d53f8a83.json",
+      "role": "Grok paid-call claim",
+      "sha256": "097b1da444e2805b3974125fee66368d4b219b0a1e23cae2565a4057e052be0f"
+    },
+    {
+      "bytes": 1105,
+      "mode": "0600",
+      "nlink": 1,
+      "relativePath": "creation/dispatch/.aleph-kaggle-run-claims/ff1e0bb28a9b242b43046a1259630a8dab58b6f62220710d6bbc1cff44750d31.json",
+      "role": "Gemma paid-call claim",
+      "sha256": "534c62c215b2a6e092bb332dcb6f2c3ea2a5222b2367660d814bb7f1b9380186"
+    },
+    {
+      "bytes": 1668,
+      "mode": "0600",
+      "nlink": 1,
+      "relativePath": "creation/dispatch/push-journal.json",
+      "role": "original Task creation journal",
+      "sha256": "f6c4360dc843bede4e6020dece9ee5e91f7b2e8935ce819c1600cb8dc219f672"
+    },
+    {
+      "bytes": 16148,
+      "mode": "0600",
+      "nlink": 1,
+      "relativePath": "queue/01-grok-4.20-0309-non-reasoning/bundle/aleph-bench-v0-2-capture-canary-v10-run-3201166-capture.json",
+      "role": "Grok capture payload",
+      "sha256": "550cee2d053b4e72e2858f35cb91b487b134e741c7474aea6fd991333cd02d25"
+    },
+    {
+      "bytes": 6792,
+      "mode": "0600",
+      "nlink": 1,
+      "relativePath": "queue/01-grok-4.20-0309-non-reasoning/bundle/aleph-bench-v0-2-capture-canary-v10-run-3201166-dispatch-journal.json",
+      "role": "Grok bundled dispatch journal",
+      "sha256": "ebba185ca9026d412d28b195c710a51243f874cff6fb337ff8bf2131c1298aec"
+    },
+    {
+      "bytes": 2789,
+      "mode": "0600",
+      "nlink": 1,
+      "relativePath": "queue/01-grok-4.20-0309-non-reasoning/bundle/aleph-bench-v0-2-capture-canary-v10-run-3201166-evidence.json",
+      "role": "Grok evidence envelope",
+      "sha256": "6745294956ee20fe9490dacadb01ab6ce2443e61dac66005488719da99485253"
+    },
+    {
+      "bytes": 43749,
+      "mode": "0600",
+      "nlink": 1,
+      "relativePath": "queue/01-grok-4.20-0309-non-reasoning/bundle/aleph-bench-v0-2-capture-canary-v10-run-3201166-task-source.py",
+      "role": "Grok generated task source",
+      "sha256": "df9a9cd7387df5392c07c11a88149001e3cdaf67551c35b14530690c1f4ee0db"
+    },
+    {
+      "bytes": 116721,
+      "mode": "0600",
+      "nlink": 1,
+      "relativePath": "queue/01-grok-4.20-0309-non-reasoning/bundle/aleph-bench-v0-2-capture-canary-v10-run-3201166.zip",
+      "role": "Grok Kaggle output archive",
+      "sha256": "56aceff09093b1bdece0f448281d6f4c9e387babf8c85d613d231339dbe94943"
+    },
+    {
+      "bytes": 1446,
+      "mode": "0600",
+      "nlink": 1,
+      "relativePath": "queue/01-grok-4.20-0309-non-reasoning/completion.json",
+      "role": "Grok completion receipt",
+      "sha256": "76b5ad94f4833536b56799ff5a45d4e4a65888ed9797da9fd2d5c17f31c2efb2"
+    },
+    {
+      "bytes": 6660,
+      "mode": "0600",
+      "nlink": 1,
+      "relativePath": "queue/01-grok-4.20-0309-non-reasoning/decision.json",
+      "role": "Grok queue decision",
+      "sha256": "a6474fc59fec48415a7808e2444e08f3872aa2f2d40f6a2c36b73cfd11aec250"
+    },
+    {
+      "bytes": 6792,
+      "mode": "0600",
+      "nlink": 1,
+      "relativePath": "queue/01-grok-4.20-0309-non-reasoning/dispatch/run-journal.json",
+      "role": "Grok operational dispatch journal",
+      "sha256": "ebba185ca9026d412d28b195c710a51243f874cff6fb337ff8bf2131c1298aec"
+    },
+    {
+      "bytes": 1993,
+      "mode": "0600",
+      "nlink": 1,
+      "relativePath": "queue/01-grok-4.20-0309-non-reasoning/terminal-quota.json",
+      "role": "Grok terminal quota receipt",
+      "sha256": "b06f75081fae44b14243f3d2bfae42b964aed197b1910ae1c4b0ae115c26d95c"
+    },
+    {
+      "bytes": 16844,
+      "mode": "0600",
+      "nlink": 1,
+      "relativePath": "queue/02-gemma-4-31b-it/bundle/aleph-bench-v0-2-capture-canary-v10-run-3201633-capture.json",
+      "role": "Gemma capture payload",
+      "sha256": "b0b55dc4e15fe7f46cd50d759e51ff17017258dd4fef6d32c5b794a10a0ed3ff"
+    },
+    {
+      "bytes": 6974,
+      "mode": "0600",
+      "nlink": 1,
+      "relativePath": "queue/02-gemma-4-31b-it/bundle/aleph-bench-v0-2-capture-canary-v10-run-3201633-dispatch-journal.json",
+      "role": "Gemma bundled dispatch journal",
+      "sha256": "79657b12001f15c96fcab6364944b353d8a7eedfe22a7975f4a50f5541ad210f"
+    },
+    {
+      "bytes": 2747,
+      "mode": "0600",
+      "nlink": 1,
+      "relativePath": "queue/02-gemma-4-31b-it/bundle/aleph-bench-v0-2-capture-canary-v10-run-3201633-evidence.json",
+      "role": "Gemma evidence envelope",
+      "sha256": "e8291cea982680264b9b5c10c10e82962a195a4a90200392f90e1cdbf0812619"
+    },
+    {
+      "bytes": 43749,
+      "mode": "0600",
+      "nlink": 1,
+      "relativePath": "queue/02-gemma-4-31b-it/bundle/aleph-bench-v0-2-capture-canary-v10-run-3201633-task-source.py",
+      "role": "Gemma generated task source",
+      "sha256": "df9a9cd7387df5392c07c11a88149001e3cdaf67551c35b14530690c1f4ee0db"
+    },
+    {
+      "bytes": 117202,
+      "mode": "0600",
+      "nlink": 1,
+      "relativePath": "queue/02-gemma-4-31b-it/bundle/aleph-bench-v0-2-capture-canary-v10-run-3201633.zip",
+      "role": "Gemma Kaggle output archive",
+      "sha256": "89bbc115964a84b45bbbf40d0d19de5755279e15d764ffa383a01c9afe0825d9"
+    },
+    {
+      "bytes": 7790,
+      "mode": "0600",
+      "nlink": 1,
+      "relativePath": "queue/02-gemma-4-31b-it/decision.json",
+      "role": "Gemma queue decision",
+      "sha256": "c9b3d4496407596f9d4e04d0beed0f05f09ee62b50418caf8e1c04566bccafe7"
+    },
+    {
+      "bytes": 6974,
+      "mode": "0600",
+      "nlink": 1,
+      "relativePath": "queue/02-gemma-4-31b-it/dispatch/run-journal.json",
+      "role": "Gemma operational dispatch journal",
+      "sha256": "79657b12001f15c96fcab6364944b353d8a7eedfe22a7975f4a50f5541ad210f"
+    }
+  ],
+  "semanticState": {
+    "inheritedDispatchLedger": [
+      {
+        "accountingBasis": "verified_v1_terminal_quota",
+        "decisionCreatedAt": "2026-09-25T17:30:44.070006Z",
+        "declaredPolicyDebitUsd": "0.25",
+        "modelVersionSlug": "grok-4.20-0309-non-reasoning",
+        "originalOrder": 1,
+        "runId": 3201166,
+        "verifiedTerminalCostUpperBoundUsd": "0.00273975000000347"
+      },
+      {
+        "accountingBasis": "declared_policy_debit_without_terminal_receipt",
+        "decisionCreatedAt": "2026-09-25T17:34:25.401999Z",
+        "declaredPolicyDebitUsd": "0.05",
+        "modelVersionSlug": "gemma-4-31b-it",
+        "originalOrder": 2,
+        "runId": 3201633,
+        "verifiedTerminalCostUpperBoundUsd": null
+      }
+    ],
+    "remoteStartingRunSet": [
+      {
+        "modelVersionSlug": "gemini-3.7-flash",
+        "runId": 3193338,
+        "state": "BENCHMARK_TASK_RUN_STATE_COMPLETED"
+      },
+      {
+        "modelVersionSlug": "grok-4.20-0309-non-reasoning",
+        "runId": 3201166,
+        "state": "BENCHMARK_TASK_RUN_STATE_COMPLETED"
+      },
+      {
+        "modelVersionSlug": "gemma-4-31b-it",
+        "runId": 3201633,
+        "state": "BENCHMARK_TASK_RUN_STATE_COMPLETED"
+      }
+    ],
+    "terminalEvidence": {
+      "gemma": {
+        "completionReceipt": "required_absent",
+        "costClaim": "no_isolated_terminal_cost_available",
+        "terminalQuotaReceipt": "required_absent"
+      },
+      "grok": {
+        "completionReceipt": "required_present",
+        "costClaim": "verified_terminal_upper_bound",
+        "terminalQuotaReceipt": "required_present"
+      }
+    }
+  },
+  "target": {
+    "captureSourceSha256": "df9a9cd7387df5392c07c11a88149001e3cdaf67551c35b14530690c1f4ee0db",
+    "creationJournalSha256": "f6c4360dc843bede4e6020dece9ee5e91f7b2e8935ce819c1600cb8dc219f672",
+    "datasetRefs": [
+      "jahyee/aleph-bench-v02-scorer-conformance"
+    ],
+    "notebookSha256": "5f4103d304c057ec3e100d6750ff4052c41b7b3961c85d3c09fb7e14d6d04071",
+    "owner": "jahyee",
+    "slug": "aleph-bench-v0-2-capture-canary",
+    "sourceKernelId": 135410138,
+    "version": 10
+  },
+  "trackingIssue": "https://github.com/p-to-q/aleph/issues/96"
+}
