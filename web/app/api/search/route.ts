@@ -23,6 +23,7 @@ type CandidatePrompt = {
 
 type CandidatePoint = {
   id: string
+  role: 'candidate' | 'explicit_reconstruction'
   label: string
   prompt: string
   output: string
@@ -31,7 +32,6 @@ type CandidatePoint = {
   stability: number
   compression: number
   leakage: number
-  frontierRank: number
   note: string
 }
 
@@ -97,6 +97,8 @@ function mockSearch(targetText: string, label?: string) {
         ? 1
         : Math.min(candidate.plannedFit, similarityScore(targetText, output) + 0.18)
     return {
+      id: candidate.id,
+      role: candidate.kind === 'explicit' ? 'explicit_reconstruction' as const : 'candidate' as const,
       label: candidate.label,
       prompt: candidate.prompt,
       output,
@@ -130,6 +132,8 @@ async function hostedBlackBoxSearch(targetText: string, label?: string) {
   for (const candidate of candidates) {
     if (candidate.kind === 'explicit') {
       points.push({
+        id: candidate.id,
+        role: 'explicit_reconstruction' as const,
         label: candidate.label,
         prompt: candidate.prompt,
         output: targetText,
@@ -150,6 +154,8 @@ async function hostedBlackBoxSearch(targetText: string, label?: string) {
     const stability = outputStability(outputs)
 
     points.push({
+      id: candidate.id,
+      role: 'candidate' as const,
       label: candidate.label,
       prompt: candidate.prompt,
       output,
@@ -208,6 +214,8 @@ function buildRun({
   metric: string
   observationMode: ObservationMode
   points: Array<{
+    id: string
+    role: CandidatePoint['role']
     label: string
     prompt: string
     output: string
@@ -219,10 +227,11 @@ function buildRun({
 }) {
   const explicitPrompt = `Reproduce the following output exactly:\n\n${targetText}`
   const explicitTokens = Math.max(1, tokenCount(explicitPrompt))
-  const candidates: CandidatePoint[] = points.map((point, index) => {
+  const candidates: CandidatePoint[] = points.map((point) => {
     const tokens = tokenCount(point.prompt)
     return {
-      id: `search-point-${index + 1}`,
+      id: point.id,
+      role: point.role,
       label: point.label,
       prompt: point.prompt,
       output: point.output,
@@ -231,7 +240,6 @@ function buildRun({
       stability: round4(point.stability),
       compression: round4(1 - tokens / explicitTokens),
       leakage: leakageScore(point.prompt, targetText),
-      frontierRank: index + 1,
       note: point.note,
     }
   })
@@ -515,7 +523,7 @@ function selectCandidate(candidates: CandidatePoint[]) {
   return candidates.reduce((best, candidate) => {
     const bestScore = candidateScore(best)
     const score = candidateScore(candidate)
-    return score > bestScore ? candidate : best
+    return score > bestScore || (score === bestScore && candidate.id < best.id) ? candidate : best
   }, candidates[0]).id
 }
 

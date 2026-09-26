@@ -100,6 +100,7 @@ def _mock_search(request_body: SearchRequest) -> SearchResponse:
         points.append(
             {
                 "label": candidate.label,
+                "role": "explicit_reconstruction" if candidate.kind == "explicit" else "candidate",
                 "prompt": candidate.prompt,
                 "output": output,
                 "length": prompt_tokens,
@@ -156,6 +157,15 @@ def _to_search_response(
         )
         for index, point in enumerate(points)
     ]
+    candidate_ids = [candidate.id for candidate in candidates]
+    if len(set(candidate_ids)) != len(candidate_ids):
+        raise HTTPException(status_code=502, detail="Local search returned duplicate candidate identities.")
+    explicit_count = sum(candidate.role == "explicit_reconstruction" for candidate in candidates)
+    if explicit_count != 1:
+        raise HTTPException(
+            status_code=502,
+            detail="Local search must return exactly one Explicit Reconstruction baseline.",
+        )
     selected = _select_candidate(candidates)
 
     return SearchResponse(
@@ -195,12 +205,13 @@ def _candidate_from_point(
     stability = _bounded_float(point.get("stability"), default=1.0)
     avg_nll = _average_nll(point.get("toknll"))
     label = _point_label(point, index=index)
-    if index == 0 and label != "Explicit Reconstruction":
-        label = "Shortest Found"
+    role = _point_role(point, label)
+    candidate_id = _point_id(point, index=index)
 
     return SearchCandidatePoint(
-        id=f"search-point-{index + 1}",
+        id=candidate_id,
         label=label,
+        role=role,
         prompt=prompt,
         output=output,
         tokens=length,
@@ -209,7 +220,6 @@ def _candidate_from_point(
         compression=max(0.0, min(1.0, 1 - (length / explicit_tokens))),
         leakage=leakage_score(prompt, target_text),
         nll=avg_nll,
-        frontierRank=index + 1,
         note=_candidate_note(adapter, avg_nll),
     )
 
@@ -225,13 +235,16 @@ def _explicit_prompt_from_points(points: list[dict[str, Any]], target_text: str)
 def _select_candidate(candidates: list[SearchCandidatePoint]) -> str:
     if not candidates:
         return ""
-    best = max(
+    best = min(
         candidates,
         key=lambda candidate: (
-            candidate.fit * 0.55
-            + candidate.stability * 0.2
-            + candidate.compression * 0.2
-            - candidate.leakage * 0.1
+            -(
+                candidate.fit * 0.55
+                + candidate.stability * 0.2
+                + candidate.compression * 0.2
+                - candidate.leakage * 0.1
+            ),
+            candidate.id,
         ),
     )
     return best.id
@@ -241,9 +254,34 @@ def _point_label(point: dict[str, Any], *, index: int) -> str:
     raw = point.get("label")
     if isinstance(raw, str) and raw:
         return raw
-    if index == 0:
-        return "Shortest Found"
-    return f"Frontier Point {index + 1}"
+    if point.get("role") == "explicit_reconstruction":
+        return "Explicit Reconstruction"
+    return f"Observed Candidate {index + 1}"
+
+
+def _point_role(point: dict[str, Any], label: str) -> str:
+    if point.get("role") == "explicit_reconstruction" or label == "Explicit Reconstruction":
+        return "explicit_reconstruction"
+    return "candidate"
+
+
+def _point_id(point: dict[str, Any], *, index: int) -> str:
+    """Derive a stable observation identity independent of array ordering."""
+    raw_id = point.get("id")
+    if isinstance(raw_id, str) and raw_id.strip():
+        return raw_id.strip()
+    label = _point_label(point, index=index)
+    canonical = {**point, "role": _point_role(point, label)}
+    digest = sha1(
+        json.dumps(
+            canonical,
+            ensure_ascii=False,
+            sort_keys=True,
+            separators=(",", ":"),
+            default=str,
+        ).encode("utf-8")
+    ).hexdigest()[:12]
+    return f"candidate-{digest}"
 
 
 def _candidate_note(adapter: str, avg_nll: float | None) -> str:
@@ -267,7 +305,7 @@ def _observations(points: list[dict[str, Any]], mode: str) -> SearchObservations
                     else 1.0 - float(point.get("similarity") or 0.0),
                     4,
                 ),
-                "candidateId": f"search-point-{index + 1}",
+                "candidateId": _point_id(point, index=index),
             }
             for index, point in enumerate(points)
         ],

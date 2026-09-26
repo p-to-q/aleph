@@ -88,7 +88,8 @@ def _quick(theta, metric, prop, y):
     explicit = {"epsilon": round(1.0 - sid, 4), "prompt": idp,
                 "length": theta.ntokens(idp), "similarity": round(sid, 4),
                 "stability": 1.0, "output": gi,
-                "label": "Explicit Reconstruction"}
+                "label": "Explicit Reconstruction",
+                "role": "explicit_reconstruction"}
     try:
         toks, nll = theta.score(idp, y)
         if toks and len(toks) == len(nll):
@@ -99,7 +100,7 @@ def _quick(theta, metric, prop, y):
     pts.append(explicit)
     return {"key": "custom", "label": "your text",
             "targetTokens": y_tok, "evalModel": EVAL_MODEL,
-            "points": A.monotone(pts)}
+            "points": A.observed_length_distortion_frontier(pts)}
 
 
 @app.post("/search")

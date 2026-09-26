@@ -20,7 +20,7 @@ interface ParetoFrontierProps {
 }
 
 export function ParetoFrontier({ run, selected, selectedIndex, onSelect }: ParetoFrontierProps) {
-  const endpoint = candidateEndpoint(run, selectedIndex);
+  const endpoint = candidateEndpoint(selected);
 
   return (
     <>
@@ -66,7 +66,7 @@ export function ParetoFrontier({ run, selected, selectedIndex, onSelect }: Paret
         </div>
 
         <div className="slider-row">
-          <span>Shortest Found</span>
+          <span>Shortest observed</span>
           <input
             type="range"
             min="0"

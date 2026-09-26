@@ -30,8 +30,12 @@ def main() -> None:
     assert mock_data["observations"]["mode"] == "mock", mock_data
     assert mock_data["target"]["text"] == TARGET, mock_data
     assert mock_data["config"]["budget"]["candidates"] == len(mock_data["candidates"]), mock_data
-    assert mock_data["candidates"][0]["label"] == "Shortest Found", mock_data
-    assert any(candidate["label"] == "Explicit Reconstruction" for candidate in mock_data["candidates"]), mock_data
+    assert all("frontierRank" not in candidate for candidate in mock_data["candidates"]), mock_data
+    assert any(
+        candidate.get("role") == "explicit_reconstruction"
+        and candidate["label"] == "Explicit Reconstruction"
+        for candidate in mock_data["candidates"]
+    ), mock_data
     assert mock_data["selectedCandidateId"] in {candidate["id"] for candidate in mock_data["candidates"]}, mock_data
 
     previous_url = os.environ.get("ALEPH_MLX_SEARCH_URL")
@@ -68,9 +72,12 @@ def main() -> None:
     assert live_data["config"]["model"] == "mlx-community/Qwen3-smoke-4bit", live_data
     assert live_data["config"]["budget"]["candidates"] == 2, live_data
     assert live_data["config"]["budget"]["timeLimitSeconds"] == 0.12, live_data
-    assert live_data["candidates"][0]["label"] == "Shortest Found", live_data
-    assert live_data["candidates"][0]["frontierRank"] == 1, live_data
+    assert live_data["candidates"][0]["label"] == "Observed Candidate 1", live_data
+    assert live_data["candidates"][0]["role"] == "candidate", live_data
+    assert "frontierRank" not in live_data["candidates"][0], live_data
     assert live_data["candidates"][1]["label"] == "Explicit Reconstruction", live_data
+    assert live_data["candidates"][1]["role"] == "explicit_reconstruction", live_data
+    assert "frontierRank" not in live_data["candidates"][1], live_data
     assert live_data["candidates"][1]["nll"] == 0.3, live_data
     assert live_data["observations"]["tokenLoss"][0]["token"] == "A", live_data
 
@@ -164,10 +171,11 @@ def _check_run_invariants(name: str, run: dict[str, Any], errors: list[str]) -> 
         errors.append(f"{name}: candidate budget should match candidate count")
     if selected not in {candidate.get("id") for candidate in candidates}:
         errors.append(f"{name}: selected candidate missing")
-    if not any(candidate.get("label") == "Shortest Found" for candidate in candidates):
-        errors.append(f"{name}: Shortest Found label missing")
-    if not any(candidate.get("label") == "Explicit Reconstruction" for candidate in candidates):
-        errors.append(f"{name}: Explicit Reconstruction label missing")
+    explicit = [candidate for candidate in candidates if candidate.get("role") == "explicit_reconstruction"]
+    if len(explicit) != 1:
+        errors.append(f"{name}: expected exactly one explicit reconstruction role")
+    elif explicit[0].get("label") != "Explicit Reconstruction":
+        errors.append(f"{name}: explicit reconstruction label mismatch")
 
 
 def _fake_live_search(url: str, payload: dict[str, object]) -> dict[str, object]:
@@ -197,7 +205,7 @@ def _fake_live_search(url: str, payload: dict[str, object]) -> dict[str, object]
                 "output": TARGET,
                 "toktext": ["A", " small", " place"],
                 "toknll": [0.2, 0.3, 0.4],
-                "label": "Explicit Reconstruction",
+                "role": "explicit_reconstruction",
             },
         ],
     }

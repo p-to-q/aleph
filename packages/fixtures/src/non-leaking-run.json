@@ -58,7 +58,7 @@
       "compression": 0.38,
       "leakage": 0.16,
       "nll": 1.34,
-      "frontierRank": 3,
+      "frontierRank": 4,
       "note": "Default non-leaking point: good fit while staying below the fixture leakage threshold."
     },
     {
@@ -72,11 +72,12 @@
       "compression": 0.38,
       "leakage": 0.62,
       "nll": 0.72,
-      "frontierRank": 4,
+      "frontierRank": 3,
       "note": "Included as a rejected-style point to show why non-leaking mode penalizes copied phrasing."
     },
     {
       "id": "explicit",
+      "role": "explicit_reconstruction",
       "label": "Explicit Reconstruction",
       "prompt": "Please reproduce the following text exactly: A small prompt can recover a long passage only when the model already carries enough structure to complete the missing shape.",
       "output": "A small prompt can recover a long passage only when the model already carries enough structure to complete the missing shape.",
