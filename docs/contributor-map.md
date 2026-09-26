@@ -37,6 +37,8 @@ Read this file when you are new to the repository and need to know where work be
 ## Research and framing
 
 - `docs/research/research-process.md` — research receipts and how each source changes the project.
+- `docs/plans/iclr-readable-coordinate-program.md` — proposed ICLR mainline: readable/raw
+  compression paths, working reverse search, source interventions, and falsification gates.
 - `docs/plans/research-and-benchmark-hardening.md` — current validity-first program for Aleph and Aleph-Bench.
 - `docs/decisions/0005-aleph-bench-authority.md` — canonical benchmark target, temporary source branch, and release topology.
 - `docs/research/prior-art.md` — relationship to ARCA, GCG, inversion, and instrumentation references.
