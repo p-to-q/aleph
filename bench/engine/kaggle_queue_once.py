@@ -65,6 +65,7 @@ _RETRY_EPSILON = timedelta(microseconds=1)
 _QUOTA_ARITHMETIC_TOLERANCE = Decimal("1e-9")
 _MIN_MONTHLY_ADVANCE = timedelta(days=20)
 _MAX_MONTHLY_ADVANCE = timedelta(days=40)
+_RUN_SET_DIAGNOSTIC_SAMPLE_SIZE = 8
 _LOCK_PATH = PurePosixPath(".aleph-kaggle-v10-queue.lock")
 
 
@@ -2836,10 +2837,48 @@ def _validate_live_run_set(
         {"id": item["id"], "model": item["model"]} for item in expected
     ]
     if observed_identity != expected_identity:
-        raise KaggleQueueBreaker("live exact Task run set drifted")
+        def summarize(items: list[dict[str, Any]]) -> dict[str, Any]:
+            return {
+                "count": len(items),
+                "sample": items[:_RUN_SET_DIAGNOSTIC_SAMPLE_SIZE],
+                "sampleTruncated": len(items) > _RUN_SET_DIAGNOSTIC_SAMPLE_SIZE,
+                "sha256": hashlib.sha256(
+                    _canonical_json_bytes(items)
+                ).hexdigest(),
+            }
+
+        detail = json.dumps(
+            {
+                "expected": summarize(expected_identity),
+                "observed": summarize(observed_identity),
+            },
+            ensure_ascii=True,
+            separators=(",", ":"),
+            sort_keys=True,
+        )
+        raise KaggleQueueBreaker(f"live exact Task run set drifted: {detail}")
     for index, item in enumerate(expected):
         if item["state"] is not None and normalized[index]["state"] != item["state"]:
-            raise KaggleQueueBreaker("live exact Task terminal state drifted")
+            detail = json.dumps(
+                {
+                    "expected": {
+                        "id": item["id"],
+                        "model": item["model"],
+                        "state": item["state"],
+                    },
+                    "observed": {
+                        "id": normalized[index]["id"],
+                        "model": normalized[index]["model"],
+                        "state": normalized[index]["state"],
+                    },
+                },
+                ensure_ascii=True,
+                separators=(",", ":"),
+                sort_keys=True,
+            )
+            raise KaggleQueueBreaker(
+                f"live exact Task terminal state drifted: {detail}"
+            )
     if pending is None:
         return None
     return next(item for item in normalized if item["id"] == pending["id"])
@@ -2893,6 +2932,31 @@ def _scan_entries(
             raise KaggleQueueBreaker(
                 "queue entry has an orphan decision or dispatch artifact"
             )
+        # A finalized entry is already bound by its immutable completion and
+        # terminal-quota receipts. Reconstruct that prefix before comparing the
+        # live run set at the first unfinished entry (or the exhausted-queue
+        # check). Comparing while revisiting an earlier finalized entry would
+        # misclassify every legitimate later queue run as unexpected.
+        if completion_exists:
+            if not terminal_exists:
+                raise KaggleQueueBreaker(
+                    "queue completion exists without its terminal-quota receipt"
+                )
+            item = _load_or_finalize_entry(
+                root=root,
+                policy=policy,
+                entry=entry,
+                completed_before=completed,
+                writer_id=writer_id,
+                control_identity=control_identity,
+                execution=execution,
+                creation_path=creation_path,
+                creation_authority=creation_authority,
+                clock=clock,
+                quota_reader=quota_reader,
+            )
+            completed.append(item)
+            continue
         pending_run = _validate_pending_entry(
             root=root,
             policy=policy,
@@ -2939,10 +3003,6 @@ def _scan_entries(
         if live_pending["state"] != _COMPLETED_RUN_STATE:
             raise KaggleQueueBreaker(
                 "Aleph evidence exists before the live run is completed"
-            )
-        if completion_exists and not terminal_exists:
-            raise KaggleQueueBreaker(
-                "queue completion exists without its terminal-quota receipt"
             )
         item = _load_or_finalize_entry(
             root=root,

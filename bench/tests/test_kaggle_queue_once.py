@@ -1723,8 +1723,158 @@ class KaggleQueueFinalizationAndBreakerTests(unittest.TestCase):
 
             self.assertEqual(result["status"], "breaker")
             self.assertIn("live exact Task run set drifted", result["reason"])
+            self.assertIn('"expected"', result["reason"])
+            self.assertIn('"observed"', result["reason"])
+            self.assertIn("4999999", result["reason"])
             self.assertEqual(replacement.delegate_calls, 0)
             self.assertEqual(replacement.paid_posts, 0)
+
+    def test_large_unexpected_run_set_retains_bounded_diagnostics(self) -> None:
+        with QueueHarness() as harness:
+            self._prepare_first_dispatch(harness)
+            harness.extra_live_runs.extend(
+                _queue_run(
+                    5_000_000 + index,
+                    f"unexpected-model-{index}",
+                    state="BENCHMARK_TASK_RUN_STATE_QUEUED",
+                )
+                for index in range(250)
+            )
+            replacement = FakeDispatcher(harness, run_id=4100002)
+
+            result = harness.invoke(dispatcher=replacement)
+
+            self.assertEqual(result["status"], "breaker")
+            self.assertIn("live exact Task run set drifted", result["reason"])
+            self.assertIn('"count":252', result["reason"])
+            self.assertIn('"sampleTruncated":true', result["reason"])
+            self.assertIn('"sha256"', result["reason"])
+            self.assertLess(len(result["reason"]), 4_000)
+            self.assertEqual(replacement.delegate_calls, 0)
+            self.assertEqual(replacement.paid_posts, 0)
+
+    def test_second_completed_entry_reenters_with_full_durable_frontier(
+        self,
+    ) -> None:
+        with QueueHarness() as harness:
+            _first_dispatcher, first, first_journal_bytes = (
+                self._prepare_first_dispatch(harness)
+            )
+            first_bundle = _fake_bundle(
+                harness,
+                entry=first,
+                run_id=4100001,
+                journal_bytes=first_journal_bytes,
+            )
+            _publish_fake_evidence_marker(first_bundle)
+            harness.set_live_run_state(
+                4100001, "BENCHMARK_TASK_RUN_STATE_COMPLETED"
+            )
+
+            second = harness.policy["queue"][1]
+            first_completed_runs = [
+                _baseline_run(),
+                _queue_run(4100001, first["modelVersionSlug"]),
+            ]
+            second_dispatcher = FakeDispatcher(
+                harness,
+                runs=first_completed_runs,
+                quota=_quota(daily_used=0.11, monthly_used=0.31),
+                run_id=4100002,
+            )
+            bundles = {first_bundle.evidence_path: first_bundle}
+
+            def load_bundle(path: Path) -> SimpleNamespace:
+                return bundles[Path(path)]
+
+            with mock.patch.object(
+                queue, "load_verified_capture_bundle", side_effect=load_bundle
+            ):
+                second_result = harness.invoke(
+                    dispatcher=second_dispatcher,
+                    now=lambda: NOW + timedelta(seconds=1),
+                    quota_reader=lambda: _quota(
+                        daily_used=0.11, monthly_used=0.31
+                    ),
+                )
+
+            self.assertEqual(
+                second_result["status"], "dispatched", msg=second_result
+            )
+            self.assertEqual(second_result["completedEntries"], 1)
+            self.assertEqual(
+                second_result["selected"],
+                {"modelVersionSlug": second["modelVersionSlug"], "order": 2},
+            )
+            self.assertEqual(second_dispatcher.paid_posts, 1)
+
+            waiting_dispatcher = FakeDispatcher(harness, run_id=4100003)
+            with mock.patch.object(
+                queue, "load_verified_capture_bundle", side_effect=load_bundle
+            ):
+                waiting = harness.invoke(
+                    dispatcher=waiting_dispatcher,
+                    now=lambda: NOW + timedelta(seconds=2),
+                )
+
+            self.assertEqual(waiting["status"], "held", msg=waiting)
+            self.assertEqual(waiting["completedEntries"], 1)
+            self.assertIn("awaiting terminal", waiting["reason"])
+            self.assertEqual(waiting_dispatcher.delegate_calls, 0)
+            self.assertEqual(waiting_dispatcher.paid_posts, 0)
+            self.assertFalse(
+                (harness.control_root / queue._BREAKER_PATH).exists()
+            )
+
+            second_journal_path = (
+                harness.control_root / second["journalRelativePath"]
+            )
+            second_bundle = _fake_bundle(
+                harness,
+                entry=second,
+                run_id=4100002,
+                journal_bytes=second_journal_path.read_bytes(),
+            )
+            _publish_fake_evidence_marker(second_bundle)
+            bundles[second_bundle.evidence_path] = second_bundle
+            harness.set_live_run_state(
+                4100002, "BENCHMARK_TASK_RUN_STATE_COMPLETED"
+            )
+
+            third = harness.policy["queue"][2]
+            two_completed_runs = [
+                *first_completed_runs,
+                _queue_run(4100002, second["modelVersionSlug"]),
+            ]
+            third_dispatcher = FakeDispatcher(
+                harness,
+                runs=two_completed_runs,
+                quota=_quota(daily_used=0.12, monthly_used=0.32),
+                run_id=4100003,
+            )
+            with mock.patch.object(
+                queue, "load_verified_capture_bundle", side_effect=load_bundle
+            ):
+                third_result = harness.invoke(
+                    dispatcher=third_dispatcher,
+                    now=lambda: NOW + timedelta(seconds=3),
+                    quota_reader=lambda: _quota(
+                        daily_used=0.12, monthly_used=0.32
+                    ),
+                )
+
+            self.assertEqual(
+                third_result["status"], "dispatched", msg=third_result
+            )
+            self.assertEqual(third_result["completedEntries"], 2)
+            self.assertEqual(
+                third_result["selected"],
+                {"modelVersionSlug": third["modelVersionSlug"], "order": 3},
+            )
+            self.assertEqual(third_dispatcher.paid_posts, 1)
+            self.assertFalse(
+                (harness.control_root / queue._BREAKER_PATH).exists()
+            )
 
     def test_verified_bundle_uses_independent_terminal_quota_receipt(self) -> None:
         with QueueHarness() as harness:

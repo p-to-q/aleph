@@ -205,6 +205,20 @@ every member is `0600`, and only then invoke the queue controller again. The run
 binder and controller. Provider error, an extra run, or platform completion without that complete
 Aleph evidence is a permanent breaker, not permission to retry.
 
+The controller compares Kaggle's live run set with the **complete durable local
+frontier**: every finalized queue entry plus the one current journal-bound run,
+if any. It does not compare a finalized early entry with a partial prefix of
+that frontier, because a legitimate later queue run would then look like an
+extra run. A run-set identity or terminal-state breaker records bounded
+expected and observed details in its failure message so the incident can be
+audited without reconstructing it from chat history.
+
+A breaker written by an older controller remains immutable even when a later
+controller fixes the defect that caused it. Do not delete, rename, or overwrite
+that receipt. Continuing the same remote Task after such an incident requires
+a separately reviewed successor policy and authority migration that binds the
+old breaker and evidence; see [issue #95](https://github.com/p-to-q/aleph/issues/95).
+
 The binder pins the real output directory, requires it to be owned and empty, explicitly enforces
 directory mode `0700` and member mode `0600` independent of ambient `umask`, writes the envelope
 last, then reloads the exact closed-world bundle before reporting success. Keep `umask 077` as
