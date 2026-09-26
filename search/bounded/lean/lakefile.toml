@@ -4,4 +4,3 @@ defaultTargets = ["BoundedCoordinate"]
 
 [[lean_lib]]
 name = "BoundedCoordinate"
-

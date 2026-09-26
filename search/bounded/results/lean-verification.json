@@ -1,25 +1,79 @@
 {
+  "axiomAudit": {
+    "auditSourceContentSha256": "ebcfbc8d4d95af8cbb562867fd0c0101ec8e012ca748a611cf2187671a640fe8",
+    "expectedDependenciesMatched": true,
+    "method": "lean_print_axioms_exact_dependency_match_v0",
+    "publicTheoremAxioms": {
+      "BoundedCoordinate.compositional_bounded_witness_is_unique": [
+        "propext",
+        "Quot.sound"
+      ],
+      "BoundedCoordinate.compositional_has_no_witness_of_length_le_three": [
+        "propext",
+        "Quot.sound"
+      ],
+      "BoundedCoordinate.compositional_published_frontier_is_observed": [
+        "propext",
+        "Quot.sound"
+      ],
+      "BoundedCoordinate.compositional_witness_reconstructs": [],
+      "BoundedCoordinate.coordinate_mem_coordinatesOfLength": [
+        "propext",
+        "Quot.sound"
+      ],
+      "BoundedCoordinate.coordinate_mem_coordinatesUpTo_of_length_le": [
+        "propext",
+        "Quot.sound"
+      ],
+      "BoundedCoordinate.observe_mem_observationsUpTo_of_length_le": [
+        "propext",
+        "Quot.sound"
+      ],
+      "BoundedCoordinate.opaque_bounded_witness_is_unique": [
+        "propext",
+        "Quot.sound"
+      ],
+      "BoundedCoordinate.opaque_has_no_witness_of_length_le_three": [
+        "propext",
+        "Quot.sound"
+      ],
+      "BoundedCoordinate.opaque_published_frontier_is_observed": [
+        "propext",
+        "Quot.sound"
+      ],
+      "BoundedCoordinate.opaque_witness_reconstructs": [],
+      "BoundedCoordinate.token_mem_alphabet": [
+        "propext"
+      ],
+      "BoundedCoordinate.witness_has_length_four": []
+    },
+    "publicTheoremCount": 13
+  },
   "compiled": true,
   "forbiddenProofDeclarations": {
     "BoundedCoordinate.lean": [],
     "BoundedCoordinate/Basic.lean": [],
+    "BoundedCoordinate/GeneratedFrontier.lean": [],
     "BoundedCoordinate/GeneratedProblem.lean": []
   },
+  "generatedFrontierCurrent": true,
   "generatedProblemCurrent": true,
   "leanVersion": "4.34.1",
   "manifestContentSha256": "05aef719a7651c4e9a0f724fd3cced02912d7cb66e316dbf443fc68a276c51fa",
   "problemId": "shared-witness-feedback-geometry-v0",
-  "projectContentSha256": "81af92126a43fff795ecbf828c034807f08d9a65fbeb3922fac0cad6f6679f83",
+  "projectContentSha256": "d52a86ccd190014ddc05c1dc00c9b2db53fceb90fa071905063551f71ff7c4e7",
   "provedClaims": [
     "declared_witness_reconstructs_in_both_decoders",
     "all_coordinates_of_length_at_most_three_fail_in_both_decoders",
-    "the_bounded_exact_witness_is_unique_through_length_four_in_both_decoders"
+    "the_bounded_exact_witness_is_unique_through_length_four_in_both_decoders",
+    "published_frontier_observations_are_unchanged_members_of_the_bounded_enumeration"
   ],
   "schemaVersion": "bounded-coordinate-lean-verification/v0",
-  "scope": "generated_finite_formal_model_not_python_receipt_or_frontier_verification",
+  "scope": "generated_finite_model_and_published_frontier_membership_not_python_algorithm_verification",
   "sourceContentSha256": {
-    "BoundedCoordinate.lean": "d1a9aff18d7064e2564b50e71b5461fef81fb967563c4e17068b96b99a558325",
-    "BoundedCoordinate/Basic.lean": "1bec5e19d096a3ed727798a11a7a84842d7499632836aebab6b49635eeec383a",
+    "BoundedCoordinate.lean": "fd5b1690981f13d018f272a9a78f54943b4e27abacf2421a0fb928a6021bd986",
+    "BoundedCoordinate/Basic.lean": "b26ccaeeaa74292680f6c401e8800d8c17da0598aba8a56b36d4a36526eac667",
+    "BoundedCoordinate/GeneratedFrontier.lean": "e09f5debdc468212f0a673a0feba4bf89a34167d3e0b844d12c9ce8af76ab53b",
     "BoundedCoordinate/GeneratedProblem.lean": "06b4ddf2af7f9a97609c9a940f251a5367b20ea9f91daa5b43ba29c041a0b7bc"
   },
   "toolchain": "leanprover/lean4:v4.34.1"

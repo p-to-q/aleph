@@ -260,12 +260,30 @@ def all_coordinates(alphabet: Sequence[str], max_length: int) -> Iterator[tuple[
         yield from coordinates_of_length(alphabet, length)
 
 
-def bounded_domain_size(alphabet_size: int, max_length: int) -> int:
+def bounded_domain_size(
+    alphabet_size: int,
+    max_length: int,
+    *,
+    stop_after: int | None = None,
+) -> int:
     if alphabet_size <= 0:
         raise ValueError("alphabet_size must be positive")
     if max_length < 0:
         raise ValueError("max_length must be non-negative")
-    return sum(alphabet_size**length for length in range(max_length + 1))
+    if stop_after is not None and stop_after < 0:
+        raise ValueError("stop_after must be non-negative")
+    if alphabet_size == 1:
+        exact = max_length + 1
+        return exact if stop_after is None or exact <= stop_after else stop_after + 1
+
+    total = 0
+    term = 1
+    for _ in range(max_length + 1):
+        total += term
+        if stop_after is not None and total > stop_after:
+            return stop_after + 1
+        term *= alphabet_size
+    return total
 
 
 def decode(manifest: ProblemManifest, landscape: str, coordinate: Sequence[str]) -> str:

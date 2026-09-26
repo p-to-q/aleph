@@ -22,14 +22,19 @@ from search.bounded.model import (
     sha256_file,
     write_json,
 )
-from search.bounded.generate_lean import render_problem
+from search.bounded.generate_lean import render_frontier, render_problem
 from search.bounded.run import archive_jsonl_bytes, build_experiment, build_receipt
 from search.bounded.verify import (
     build_verification,
     verify_archive_data,
     verify_receipt_data,
 )
-from search.bounded.verify_lean import expected_lean_receipt
+from search.bounded.verify_lean import (
+    EXPECTED_PUBLIC_THEOREM_AXIOMS,
+    expected_lean_receipt,
+    parse_axiom_audit_output,
+    public_theorem_names,
+)
 
 
 MANIFEST_PATH = BOUNDED_ROOT / "problem.json"
@@ -37,7 +42,7 @@ RECEIPT_PATH = BOUNDED_ROOT / "results" / "receipt.json"
 ARCHIVE_PATH = BOUNDED_ROOT / "results" / "candidates.jsonl"
 VERIFICATION_PATH = BOUNDED_ROOT / "results" / "verification.json"
 LEAN_VERIFICATION_PATH = BOUNDED_ROOT / "results" / "lean-verification.json"
-EXPECTED_RECEIPT_FILE_SHA256 = "e7f6e8028445280ed4e43d52ec5294d509a4d5cbd42cfc6cc284395cb92b2f1d"
+EXPECTED_RECEIPT_FILE_SHA256 = "ae4bacf3739d3015cf0c71ccbe7c9da249d29a7ac0514c79173ec23d3c89bc7b"
 EXPECTED_ARCHIVE_FILE_SHA256 = "273b5a53eab00a484bf77c71c78fa6eb76f92302492cb0633b6cfeb702b29ebe"
 
 
@@ -98,18 +103,18 @@ class BoundedCoordinateTests(unittest.TestCase):
                 1,
             )
             self.assertEqual(
-                runs[f"{landscape}:priority-16-seed-1729"]["logicalAdaptiveRounds"],
+                runs[f"{landscape}:random-16-seed-1729"]["logicalAdaptiveRounds"],
                 1,
             )
 
         archive_coordinates = {
             point["id"]: point["coordinate"] for point in candidate_archive
         }
-        compositional_priority = runs["compositional:priority-16-seed-1729"]
-        opaque_priority = runs["opaque:priority-16-seed-1729"]
+        compositional_random = runs["compositional:random-16-seed-1729"]
+        opaque_random = runs["opaque:random-16-seed-1729"]
         self.assertEqual(
-            [archive_coordinates[item] for item in compositional_priority["evaluationCandidateIds"]],
-            [archive_coordinates[item] for item in opaque_priority["evaluationCandidateIds"]],
+            [archive_coordinates[item] for item in compositional_random["evaluationCandidateIds"]],
+            [archive_coordinates[item] for item in opaque_random["evaluationCandidateIds"]],
         )
 
     def test_seeded_receipt_is_byte_stable_and_independently_verifiable(self) -> None:
@@ -228,14 +233,113 @@ class BoundedCoordinateTests(unittest.TestCase):
 
     def test_domain_guard_fails_before_exponential_enumeration(self) -> None:
         raw = json.loads(MANIFEST_PATH.read_text(encoding="utf-8"))
-        raw["maxCoordinateTokens"] = 10
+        raw["maxCoordinateTokens"] = 1_000_000_000
         manifest = ProblemManifest.from_mapping(raw)
-        with self.assertRaisesRegex(ValueError, "exceeding the explicit limit"):
+        with self.assertRaisesRegex(ValueError, "exceeds the explicit limit"):
             build_receipt(manifest, max_candidate_count=1_000)
 
     def test_generated_lean_problem_matches_the_manifest(self) -> None:
         generated = BOUNDED_ROOT / "lean" / "BoundedCoordinate" / "GeneratedProblem.lean"
         self.assertEqual(generated.read_text(encoding="utf-8"), render_problem(self.manifest))
+
+    def test_generated_lean_frontier_is_bound_to_the_published_artifacts(self) -> None:
+        receipt = json.loads(RECEIPT_PATH.read_text(encoding="utf-8"))
+        candidate_archive = [
+            json.loads(line)
+            for line in ARCHIVE_PATH.read_text(encoding="utf-8").splitlines()
+            if line
+        ]
+        generated = (
+            BOUNDED_ROOT / "lean" / "BoundedCoordinate" / "GeneratedFrontier.lean"
+        )
+        self.assertEqual(
+            generated.read_text(encoding="utf-8"),
+            render_frontier(
+                self.manifest,
+                receipt,
+                candidate_archive,
+                receipt_file_sha256=sha256_file(RECEIPT_PATH),
+                archive_file_sha256=sha256_file(ARCHIVE_PATH),
+            ),
+        )
+
+    def test_axiom_audit_inventory_is_complete_and_parseable(self) -> None:
+        theorem_names = public_theorem_names()
+        lines = []
+        for name in theorem_names:
+            dependencies = EXPECTED_PUBLIC_THEOREM_AXIOMS[name]
+            if dependencies:
+                lines.append(
+                    f"'{name}' depends on axioms: [{', '.join(dependencies)}]"
+                )
+            else:
+                lines.append(f"'{name}' does not depend on any axioms")
+        self.assertEqual(
+            parse_axiom_audit_output("\n".join(lines), theorem_names),
+            EXPECTED_PUBLIC_THEOREM_AXIOMS,
+        )
+        with self.assertRaisesRegex(ValueError, "incomplete Lean axiom audit"):
+            parse_axiom_audit_output("\n".join(lines[:-1]), theorem_names)
+
+    def test_cli_normalizes_paths_before_enforcing_artifact_containment(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            output_dir = root / "results"
+            receipt_argument = output_dir / "uncreated" / ".." / "receipt.json"
+            archive_path = output_dir / "candidates.jsonl"
+            verification_argument = output_dir / "audit" / ".." / "verification.json"
+            subprocess.run(
+                [
+                    sys.executable,
+                    "-m",
+                    "search.bounded.run",
+                    "--out",
+                    str(receipt_argument),
+                    "--archive-out",
+                    str(archive_path),
+                ],
+                cwd=REPOSITORY_ROOT,
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+            subprocess.run(
+                [
+                    sys.executable,
+                    "-m",
+                    "search.bounded.verify",
+                    "--receipt",
+                    str(receipt_argument),
+                    "--archive",
+                    str(archive_path),
+                    "--out",
+                    str(verification_argument),
+                ],
+                cwd=REPOSITORY_ROOT,
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+            self.assertTrue((output_dir / "receipt.json").is_file())
+            self.assertTrue((output_dir / "verification.json").is_file())
+
+            outside = subprocess.run(
+                [
+                    sys.executable,
+                    "-m",
+                    "search.bounded.run",
+                    "--out",
+                    str(output_dir / "receipt.json"),
+                    "--archive-out",
+                    str(root / "outside.jsonl"),
+                ],
+                cwd=REPOSITORY_ROOT,
+                check=False,
+                capture_output=True,
+                text=True,
+            )
+            self.assertNotEqual(outside.returncode, 0)
+            self.assertIn("must be inside", outside.stderr)
 
     def test_checked_in_results_match_fresh_reconstruction(self) -> None:
         receipt = json.loads(RECEIPT_PATH.read_text(encoding="utf-8"))

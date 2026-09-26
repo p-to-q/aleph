@@ -8,7 +8,7 @@ from fractions import Fraction
 from pathlib import Path
 from typing import Mapping, Sequence
 
-from .model import ProblemManifest, sha256_file, sha256_json, write_json
+from .model import ProblemManifest
 
 
 HERE = Path(__file__).resolve().parent
@@ -17,10 +17,10 @@ DEFAULT_RECEIPT = HERE / "results" / "receipt.json"
 DEFAULT_ARCHIVE = HERE / "results" / "candidates.jsonl"
 DEFAULT_VERIFICATION = HERE / "results" / "verification.json"
 LANDSCAPES = ("compositional", "opaque")
-PRIORITY_POLICY_SEED = 1729
+RANDOM_BASELINE_SEED = 1729
 RECEIPT_VERSION = "bounded-coordinate-receipt/v0"
 VERIFICATION_VERSION = "bounded-coordinate-verification/v0"
-SHA256_PRIORITY_POLICY = "sha256_priority_without_replacement_v0"
+SEEDED_RANDOM_POLICY = "seeded_sha256_random_without_replacement_v0"
 DEFAULT_MAX_CANDIDATE_COUNT = 100_000
 
 
@@ -62,6 +62,37 @@ def _canonical_json(value: object) -> str:
 
 def _canonical_hash(value: object) -> str:
     return hashlib.sha256(_canonical_json(value).encode("utf-8")).hexdigest()
+
+
+def _sha256_file(path: Path) -> str:
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def _write_json(path: Path, value: object) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(
+        json.dumps(value, ensure_ascii=False, sort_keys=True, indent=2) + "\n",
+        encoding="utf-8",
+    )
+
+
+def _bounded_domain_size(
+    alphabet_size: int,
+    max_length: int,
+    *,
+    stop_after: int,
+) -> int:
+    if alphabet_size == 1:
+        exact = max_length + 1
+        return exact if exact <= stop_after else stop_after + 1
+    total = 0
+    term = 1
+    for _ in range(max_length + 1):
+        total += term
+        if total > stop_after:
+            return stop_after + 1
+        term *= alphabet_size
+    return total
 
 
 def _archive_jsonl_bytes(records: list[dict[str, object]]) -> bytes:
@@ -245,7 +276,7 @@ def _beam_run(
     }
 
 
-def _priority_run(
+def _random_run(
     manifest: ProblemManifest,
     landscape: str,
     budget: int,
@@ -260,8 +291,8 @@ def _priority_run(
         key=lambda coordinate: (
             _canonical_hash(
                 {
-                    "policy": SHA256_PRIORITY_POLICY,
-                    "seed": PRIORITY_POLICY_SEED,
+                    "policy": SEEDED_RANDOM_POLICY,
+                    "seed": RANDOM_BASELINE_SEED,
                     "searchSpaceContentSha256": _search_space_content_hash(manifest),
                     "coordinate": list(coordinate),
                 }
@@ -276,11 +307,11 @@ def _priority_run(
     ]
     first_hit = _first_hit(sampled)
     return {
-        "id": f"{landscape}:priority-{budget}-seed-{PRIORITY_POLICY_SEED}",
+        "id": f"{landscape}:random-{budget}-seed-{RANDOM_BASELINE_SEED}",
         "landscape": landscape,
-        "policy": SHA256_PRIORITY_POLICY,
+        "policy": SEEDED_RANDOM_POLICY,
         "evaluationBudget": budget,
-        "seed": PRIORITY_POLICY_SEED,
+        "seed": RANDOM_BASELINE_SEED,
         "evaluationCandidateIds": [point["id"] for point in sampled],
         "lineage": [],
         "firstHitEvaluationOrdinal": first_hit,
@@ -298,15 +329,15 @@ def independently_rebuild_receipt(
 ) -> dict[str, object]:
     if max_candidate_count <= 0:
         raise ValueError("max_candidate_count must be positive")
-    domain_size = sum(
-        len(manifest.alphabet) ** length
-        for length in range(manifest.max_coordinate_tokens + 1)
+    domain_size = _bounded_domain_size(
+        len(manifest.alphabet),
+        manifest.max_coordinate_tokens,
+        stop_after=max_candidate_count,
     )
     if domain_size > max_candidate_count:
         raise ValueError(
-            "bounded domain has "
-            f"{domain_size} candidates per landscape, exceeding the explicit "
-            f"limit {max_candidate_count}"
+            "bounded domain exceeds the explicit limit of "
+            f"{max_candidate_count} candidates per landscape"
         )
     all_archives = {landscape: _archive(manifest, landscape) for landscape in LANDSCAPES}
     landscape_results = {}
@@ -319,7 +350,7 @@ def independently_rebuild_receipt(
         landscape_runs = [
             _exhaustive_run(landscape, archive),
             _beam_run(manifest, landscape),
-            _priority_run(manifest, landscape, matched_budget),
+            _random_run(manifest, landscape, matched_budget),
         ]
         additional_policy_work = sum(
             int(run["candidateEvaluatorCalls"])
@@ -328,7 +359,7 @@ def independently_rebuild_receipt(
         )
         landscape_results[landscape] = {
             "candidateCount": len(archive),
-            "archiveContentSha256": sha256_json(archive),
+            "archiveContentSha256": _canonical_hash(archive),
             "exactShortestWithinBound": {
                 "candidateId": optimum["id"],
                 "coordinate": optimum["coordinate"],
@@ -373,7 +404,7 @@ def independently_rebuild_receipt(
                 "maxCandidateCountPerLandscape": max_candidate_count,
             },
             "matchedEvaluationBudget": matched_budget,
-            "prioritySeed": PRIORITY_POLICY_SEED,
+            "randomBaselineSeed": RANDOM_BASELINE_SEED,
             "workAccounting": {
                 "candidateEvaluatorCalls": "actual_calls_for_the_named_policy",
                 "logicalAdaptiveRounds": "policy_dependency_depth_with_unbounded_parallelism",
@@ -494,15 +525,36 @@ def build_verification(
         and receipt["candidateArchive"].get("fileSha256") != archive_file_sha256
     ):
         errors.append("candidate archive bytes do not match the receipt file hash")
+    domain_size = _bounded_domain_size(
+        len(manifest.alphabet),
+        manifest.max_coordinate_tokens,
+        stop_after=max_candidate_count,
+    )
+    matched_budget = _matched_search_budget(manifest)
+    full_domain_passes_per_landscape = 2
+    full_domain_reconstructions = (
+        len(LANDSCAPES) * full_domain_passes_per_landscape * domain_size
+    )
+    policy_reconstructions = len(LANDSCAPES) * 2 * matched_budget
     return {
         "schemaVersion": VERIFICATION_VERSION,
         "problemId": manifest.problem_id,
         "manifestContentSha256": manifest.manifest_hash,
-        "receiptContentSha256": sha256_json(receipt),
+        "receiptContentSha256": _canonical_hash(receipt),
         "receiptFileSha256": receipt_file_sha256,
         "archiveFileSha256": archive_file_sha256,
         "verified": not errors,
         "verifierScope": "independent_python_reconstruction_with_shared_manifest_parser_not_formal_verification",
+        "verificationWorkAccounting": {
+            "fullDomainPassesPerLandscape": full_domain_passes_per_landscape,
+            "fullDomainCandidateReconstructions": full_domain_reconstructions,
+            "additionalPolicyCandidateReconstructions": policy_reconstructions,
+            "totalCandidateReconstructions": (
+                full_domain_reconstructions + policy_reconstructions
+            ),
+            "logicalPasses": 2,
+            "timingFields": "excluded_for_byte_stability",
+        },
         "checks": [
             "manifest_contract",
             "candidate_identity_and_measurements",
@@ -533,26 +585,28 @@ def main() -> None:
     args = parser.parse_args()
 
     manifest = ProblemManifest.from_path(args.manifest)
-    receipt = json.loads(args.receipt.read_text(encoding="utf-8"))
+    receipt_path = args.receipt.resolve()
+    archive_path = args.archive.resolve()
+    receipt = json.loads(receipt_path.read_text(encoding="utf-8"))
     try:
-        archive_reference = args.archive.relative_to(args.receipt.parent).as_posix()
+        archive_reference = archive_path.relative_to(receipt_path.parent).as_posix()
     except ValueError as error:
         raise SystemExit("--archive must be inside the receipt directory") from error
     candidate_archive = [
         json.loads(line)
-        for line in args.archive.read_text(encoding="utf-8").splitlines()
+        for line in archive_path.read_text(encoding="utf-8").splitlines()
         if line
     ]
     verification = build_verification(
         manifest,
         receipt,
         candidate_archive,
-        receipt_file_sha256=sha256_file(args.receipt),
-        archive_file_sha256=sha256_file(args.archive),
+        receipt_file_sha256=_sha256_file(receipt_path),
+        archive_file_sha256=_sha256_file(archive_path),
         max_candidate_count=args.max_candidate_count,
         archive_path=archive_reference,
     )
-    write_json(args.out, verification)
+    _write_json(args.out, verification)
     if verification["errors"]:
         for error in verification["errors"]:
             print(f"error: {error}")

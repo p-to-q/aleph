@@ -1,5 +1,6 @@
 import Std
 import BoundedCoordinate.GeneratedProblem
+import BoundedCoordinate.GeneratedFrontier
 
 namespace BoundedCoordinate
 
@@ -10,6 +11,48 @@ def coordinatesOfLength : Nat → List (List Token)
 
 def coordinatesUpTo (bound : Nat) : List (List Token) :=
   (List.range (bound + 1)).flatMap coordinatesOfLength
+
+structure Observation where
+  coordinate : List Token
+  output : List Bool
+  matchCount : Nat
+  comparisonLength : Nat
+  exact : Bool
+  deriving BEq, DecidableEq, Repr
+
+def alignedMatches : List Bool → List Bool → Nat
+  | [], _ => 0
+  | _, [] => 0
+  | left :: lefts, right :: rights =>
+      (if left = right then 1 else 0) + alignedMatches lefts rights
+
+def observe
+    (decode : List Token → List Bool)
+    (coordinate : List Token) : Observation :=
+  let output := decode coordinate
+  {
+    coordinate := coordinate
+    output := output
+    matchCount := alignedMatches target output
+    comparisonLength := max target.length output.length
+    exact := output == target
+  }
+
+def observationsFor
+    (decode : List Token → List Bool)
+    (coordinates : List (List Token)) : List Observation :=
+  coordinates.map (observe decode)
+
+def observationsUpTo
+    (decode : List Token → List Bool)
+    (bound : Nat) : List Observation :=
+  observationsFor decode (coordinatesUpTo bound)
+
+def compositionalPublishedFrontier : List Observation :=
+  observationsFor compositionalDecode compositionalPublishedFrontierCoordinates
+
+def opaquePublishedFrontier : List Observation :=
+  observationsFor opaqueDecode opaquePublishedFrontierCoordinates
 
 theorem token_mem_alphabet (token : Token) : token ∈ alphabet := by
   cases token <;> simp [alphabet]
@@ -29,6 +72,15 @@ theorem coordinate_mem_coordinatesUpTo_of_length_le
   apply List.mem_flatMap.mpr
   exact ⟨coordinate.length, List.mem_range.mpr (Nat.lt_succ_of_le h),
     coordinate_mem_coordinatesOfLength coordinate⟩
+
+theorem observe_mem_observationsUpTo_of_length_le
+    (decode : List Token → List Bool)
+    (coordinate : List Token)
+    {bound : Nat}
+    (h : coordinate.length ≤ bound) :
+    observe decode coordinate ∈ observationsUpTo decode bound := by
+  apply List.mem_map.mpr
+  exact ⟨coordinate, coordinate_mem_coordinatesUpTo_of_length_le coordinate h, rfl⟩
 
 theorem witness_has_length_four : witness.length = 4 := by
   decide
@@ -88,5 +140,31 @@ theorem opaque_bounded_witness_is_unique
     coordinate = witness :=
   opaque_enumeration_has_unique_bounded_witness coordinate
     (coordinate_mem_coordinatesUpTo_of_length_le coordinate hLength) hDecode
+
+private theorem compositional_published_frontier_coordinates_within_bound :
+    ∀ coordinate ∈ compositionalPublishedFrontierCoordinates,
+      coordinate.length ≤ 4 := by
+  decide
+
+private theorem opaque_published_frontier_coordinates_within_bound :
+    ∀ coordinate ∈ opaquePublishedFrontierCoordinates,
+      coordinate.length ≤ 4 := by
+  decide
+
+theorem compositional_published_frontier_is_observed :
+    ∀ observation ∈ compositionalPublishedFrontier,
+      observation ∈ observationsUpTo compositionalDecode 4 := by
+  intro observation h
+  obtain ⟨coordinate, hCoordinate, rfl⟩ := List.mem_map.mp h
+  exact observe_mem_observationsUpTo_of_length_le compositionalDecode coordinate
+    (compositional_published_frontier_coordinates_within_bound coordinate hCoordinate)
+
+theorem opaque_published_frontier_is_observed :
+    ∀ observation ∈ opaquePublishedFrontier,
+      observation ∈ observationsUpTo opaqueDecode 4 := by
+  intro observation h
+  obtain ⟨coordinate, hCoordinate, rfl⟩ := List.mem_map.mp h
+  exact observe_mem_observationsUpTo_of_length_le opaqueDecode coordinate
+    (opaque_published_frontier_coordinates_within_bound coordinate hCoordinate)
 
 end BoundedCoordinate

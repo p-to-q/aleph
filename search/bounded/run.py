@@ -30,8 +30,8 @@ DEFAULT_MANIFEST = HERE / "problem.json"
 DEFAULT_RECEIPT = HERE / "results" / "receipt.json"
 DEFAULT_ARCHIVE = HERE / "results" / "candidates.jsonl"
 LANDSCAPES = ("compositional", "opaque")
-PRIORITY_POLICY_SEED = 1729
-SHA256_PRIORITY_POLICY = "sha256_priority_without_replacement_v0"
+RANDOM_BASELINE_SEED = 1729
+SEEDED_RANDOM_POLICY = "seeded_sha256_random_without_replacement_v0"
 DEFAULT_MAX_CANDIDATE_COUNT = 100_000
 
 
@@ -43,21 +43,22 @@ def matched_search_budget(search_space: PublicSearchSpace) -> int:
     return len(search_space.alphabet) * search_space.max_coordinate_tokens
 
 
-def sha256_priority_sample(
+def seeded_random_sample(
     search_space: PublicSearchSpace,
     coordinates: list[tuple[str, ...]],
     *,
     budget: int,
     seed: int,
 ) -> list[tuple[str, ...]]:
+    """Return one reproducible hash-priority realization without replacement."""
     if budget < 0 or budget > len(coordinates):
-        raise ValueError("priority-sampling budget exceeds the bounded domain")
+        raise ValueError("seeded-random budget exceeds the bounded domain")
     return sorted(
         coordinates,
         key=lambda coordinate: (
             sha256_json(
                 {
-                    "policy": SHA256_PRIORITY_POLICY,
+                    "policy": SEEDED_RANDOM_POLICY,
                     "seed": seed,
                     "searchSpaceContentSha256": search_space.content_hash,
                     "coordinate": list(coordinate),
@@ -156,7 +157,7 @@ def beam_run(
     }
 
 
-def priority_run(
+def random_run(
     search_space: PublicSearchSpace,
     landscape: str,
     evaluator: Evaluator,
@@ -164,10 +165,11 @@ def priority_run(
     budget: int,
     seed: int,
 ) -> dict[str, object]:
+    """Evaluate a registered seeded pseudorandom baseline realization."""
     coordinates = list(
         all_coordinates(search_space.alphabet, search_space.max_coordinate_tokens)
     )[1:]
-    sampled_coordinates = sha256_priority_sample(
+    sampled_coordinates = seeded_random_sample(
         search_space,
         coordinates,
         budget=budget,
@@ -176,9 +178,9 @@ def priority_run(
     sampled = [evaluator(coordinate) for coordinate in sampled_coordinates]
     first_hit = _first_hit(sampled)
     return {
-        "id": f"{landscape}:priority-{budget}-seed-{seed}",
+        "id": f"{landscape}:random-{budget}-seed-{seed}",
         "landscape": landscape,
-        "policy": SHA256_PRIORITY_POLICY,
+        "policy": SEEDED_RANDOM_POLICY,
         "evaluationBudget": budget,
         "seed": seed,
         "evaluationCandidateIds": [item.id for item in sampled],
@@ -210,12 +212,12 @@ def build_experiment(
     domain_size = bounded_domain_size(
         len(search_space.alphabet),
         search_space.max_coordinate_tokens,
+        stop_after=max_candidate_count,
     )
     if domain_size > max_candidate_count:
         raise ValueError(
-            "bounded domain has "
-            f"{domain_size} candidates per landscape, exceeding the explicit "
-            f"limit {max_candidate_count}"
+            "bounded domain exceeds the explicit limit of "
+            f"{max_candidate_count} candidates per landscape"
         )
     matched_budget = matched_search_budget(search_space)
     for landscape in LANDSCAPES:
@@ -231,12 +233,12 @@ def build_experiment(
         landscape_runs = [
             exhaustive_run(landscape, archive),
             beam_run(search_space, landscape, evaluator),
-            priority_run(
+            random_run(
                 search_space,
                 landscape,
                 evaluator,
                 budget=matched_budget,
-                seed=PRIORITY_POLICY_SEED,
+                seed=RANDOM_BASELINE_SEED,
             ),
         ]
         additional_policy_work = sum(
@@ -294,7 +296,7 @@ def build_experiment(
                 "maxCandidateCountPerLandscape": max_candidate_count,
             },
             "matchedEvaluationBudget": matched_budget,
-            "prioritySeed": PRIORITY_POLICY_SEED,
+            "randomBaselineSeed": RANDOM_BASELINE_SEED,
             "workAccounting": {
                 "candidateEvaluatorCalls": "actual_calls_for_the_named_policy",
                 "logicalAdaptiveRounds": "policy_dependency_depth_with_unbounded_parallelism",
@@ -365,8 +367,10 @@ def main() -> None:
     args = parser.parse_args()
 
     manifest = ProblemManifest.from_path(args.manifest)
+    receipt_out = args.out.resolve()
+    archive_out = args.archive_out.resolve()
     try:
-        archive_reference = args.archive_out.relative_to(args.out.parent).as_posix()
+        archive_reference = archive_out.relative_to(receipt_out.parent).as_posix()
     except ValueError as error:
         raise SystemExit("--archive-out must be inside the receipt output directory") from error
     receipt, candidate_archive = build_experiment(
@@ -374,14 +378,14 @@ def main() -> None:
         max_candidate_count=args.max_candidate_count,
         archive_path=archive_reference,
     )
-    args.archive_out.parent.mkdir(parents=True, exist_ok=True)
-    args.archive_out.write_bytes(archive_jsonl_bytes(candidate_archive))
-    write_json(args.out, receipt)
+    archive_out.parent.mkdir(parents=True, exist_ok=True)
+    archive_out.write_bytes(archive_jsonl_bytes(candidate_archive))
+    write_json(receipt_out, receipt)
     print(
         "bounded-coordinate: "
         f"{receipt['candidateArchive']['count']} observations, "
         f"content_sha256={sha256_json(receipt)}, "
-        f"file_sha256={sha256_file(args.out)}"
+        f"file_sha256={sha256_file(receipt_out)}"
     )
 
 
