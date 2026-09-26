@@ -1,0 +1,7 @@
+name = "bounded-coordinate"
+version = "0.1.0"
+defaultTargets = ["BoundedCoordinate"]
+
+[[lean_lib]]
+name = "BoundedCoordinate"
+

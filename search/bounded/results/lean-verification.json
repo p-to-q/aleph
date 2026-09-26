@@ -1,0 +1,26 @@
+{
+  "compiled": true,
+  "forbiddenProofDeclarations": {
+    "BoundedCoordinate.lean": [],
+    "BoundedCoordinate/Basic.lean": [],
+    "BoundedCoordinate/GeneratedProblem.lean": []
+  },
+  "generatedProblemCurrent": true,
+  "leanVersion": "4.34.1",
+  "manifestContentSha256": "05aef719a7651c4e9a0f724fd3cced02912d7cb66e316dbf443fc68a276c51fa",
+  "problemId": "shared-witness-feedback-geometry-v0",
+  "projectContentSha256": "81af92126a43fff795ecbf828c034807f08d9a65fbeb3922fac0cad6f6679f83",
+  "provedClaims": [
+    "declared_witness_reconstructs_in_both_decoders",
+    "all_coordinates_of_length_at_most_three_fail_in_both_decoders",
+    "the_bounded_exact_witness_is_unique_through_length_four_in_both_decoders"
+  ],
+  "schemaVersion": "bounded-coordinate-lean-verification/v0",
+  "scope": "generated_finite_formal_model_not_python_receipt_or_frontier_verification",
+  "sourceContentSha256": {
+    "BoundedCoordinate.lean": "d1a9aff18d7064e2564b50e71b5461fef81fb967563c4e17068b96b99a558325",
+    "BoundedCoordinate/Basic.lean": "1bec5e19d096a3ed727798a11a7a84842d7499632836aebab6b49635eeec383a",
+    "BoundedCoordinate/GeneratedProblem.lean": "06b4ddf2af7f9a97609c9a940f251a5367b20ea9f91daa5b43ba29c041a0b7bc"
+  },
+  "toolchain": "leanprover/lean4:v4.34.1"
+}

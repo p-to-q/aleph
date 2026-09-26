@@ -1,0 +1,20 @@
+{
+  "checks": [
+    "manifest_contract",
+    "candidate_identity_and_measurements",
+    "archive_content_digest",
+    "bounded_exact_optimum",
+    "observation_preserving_representative_frontier",
+    "coordinate_budget_witness_separation",
+    "search_trace_and_lineage",
+    "declared_claims"
+  ],
+  "errors": [],
+  "manifestContentSha256": "05aef719a7651c4e9a0f724fd3cced02912d7cb66e316dbf443fc68a276c51fa",
+  "problemId": "shared-witness-feedback-geometry-v0",
+  "receiptContentSha256": "695d50f92f33607603d90400e9fcf9bf242269d781f3e86735653981d5a1e22f",
+  "receiptFileSha256": "ebbab77602d67070bcbaa58ce1897b6d6dc815b6edd00461daffeb320af7c058",
+  "schemaVersion": "bounded-coordinate-verification/v0",
+  "verified": true,
+  "verifierScope": "independent_python_reconstruction_with_shared_manifest_parser_not_formal_verification"
+}
