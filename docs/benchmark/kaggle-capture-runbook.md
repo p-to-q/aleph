@@ -15,6 +15,12 @@ manual scheduler primitive below is not standing authorization: only the merged 
 controller may select a policy entry, and it may delegate at most one paid POST after every current
 gate passes.
 
+Operational note (2026-09-26): v1 is permanently stopped by its retained breaker after two queue
+dispatches. Do not invoke it again or clear its root. The
+[GPT-only successor](../plans/kaggle-v10-gpt-successor.md) is a contract under review and does not
+authorize activation or a paid call until its verifier, activator, controller, tests, merge-SHA
+readback, and automation pins are complete. The saved daily automation remains paused.
+
 ## Preconditions
 
 - Use a clean checkout of the reviewed benchmark authority branch.

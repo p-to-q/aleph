@@ -1,8 +1,11 @@
 # Kaggle Task v10 finite capture queue
 
-- Status: activation-gated; no queue dispatch is authorized until the policy and controller are
-  merged and the saved automation is updated to the exact merge commit and policy digest
+- Status: permanently stopped at entry 2 by v1 breaker
+  `6e0b53a09431d8ffa6008ed28bb7d7d8387c979b141b3cac0cff6351c3e6d33a`; the frontier fix in
+  [#95](https://github.com/p-to-q/aleph/issues/95) does not clear or reactivate this policy
 - Tracking issue: [#93](https://github.com/p-to-q/aleph/issues/93)
+- Successor plan: [GPT-only one-shot authority](kaggle-v10-gpt-successor.md), tracked by
+  [#96](https://github.com/p-to-q/aleph/issues/96)
 - Parent: [#59](https://github.com/p-to-q/aleph/issues/59)
 - Formal-score blockers: [#77](https://github.com/p-to-q/aleph/issues/77) and
   [#78](https://github.com/p-to-q/aleph/issues/78)
@@ -15,6 +18,11 @@ Run one finite, reviewable sequence of private six-call transport/capture canari
 reviewed Kaggle Task v10. The sequence broadens provider/runtime compatibility evidence without
 turning routine automation into an open-ended spender or confusing a captured response with a
 benchmark score.
+
+This section records the original v1 objective. Operationally, v1 dispatched and retained Grok
+and Gemma, then latched its permanent breaker before Gemma terminal finalization. No remaining
+entry in this policy is authorized. The checked-in policy and this plan are retained as immutable
+history; continuation requires the separately reviewed successor authority linked above.
 
 This policy is deliberately narrower than “use the available quota.” It authorizes only six exact
 catalog versions, at most one paid scheduling request per invocation, with closed-world evidence
