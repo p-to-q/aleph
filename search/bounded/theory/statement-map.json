@@ -1,0 +1,229 @@
+{
+  "schemaVersion": "finite-theory-statement-map/v0",
+  "theoryId": "finite-theory-v0",
+  "statements": [
+    {
+      "id": "FT-01",
+      "claim": "For a finite coordinate domain, H(r) <= s if and only if L(s) <= r.",
+      "assumptions": [
+        "Costs and residuals are exact non-negative integers.",
+        "The domain is an explicit finite list.",
+        "The minimum of an empty feasible set is positive infinity."
+      ],
+      "pythonCheck": "check_ft01_threshold_duality",
+      "leanModule": "BoundedCoordinate.FiniteTheory",
+      "leanTheorem": "BoundedCoordinate.FiniteTheory.finite_threshold_duality",
+      "scope": "Finite exact integers only; None in Python and none in Lean denote positive infinity.",
+      "review": {
+        "status": "approved",
+        "reviewer": "codex-agent:finite-verifier-design-2026-09-27",
+        "independence": "did_not_author_definitions"
+      }
+    },
+    {
+      "id": "FT-02",
+      "claim": "Increasing the charged-cost budget cannot worsen the finite structure value.",
+      "assumptions": [
+        "The coordinate domain and target-indexed residual function are fixed.",
+        "The larger budget is at least the smaller budget."
+      ],
+      "pythonCheck": "check_ft02_structure_monotonicity",
+      "leanModule": "BoundedCoordinate.FiniteTheory",
+      "leanTheorem": "BoundedCoordinate.FiniteTheory.structure_monotone",
+      "scope": "Finite exhaustive budget grid through the greatest declared cost plus one.",
+      "review": {
+        "status": "approved",
+        "reviewer": "codex-agent:finite-verifier-design-2026-09-27",
+        "independence": "did_not_author_definitions"
+      }
+    },
+    {
+      "id": "FT-03",
+      "claim": "Relaxing the residual threshold cannot increase the least charged cost.",
+      "assumptions": [
+        "The coordinate domain and charged-cost function are fixed.",
+        "The larger residual threshold is at least the smaller threshold."
+      ],
+      "pythonCheck": "check_ft03_threshold_monotonicity",
+      "leanModule": "BoundedCoordinate.FiniteTheory",
+      "leanTheorem": "BoundedCoordinate.FiniteTheory.threshold_monotone",
+      "scope": "Finite exhaustive residual grid through the greatest declared residual plus one.",
+      "review": {
+        "status": "approved",
+        "reviewer": "codex-agent:finite-verifier-design-2026-09-27",
+        "independence": "did_not_author_definitions"
+      }
+    },
+    {
+      "id": "FT-04",
+      "claim": "The direct two-part minimum equals the minimum of budget plus the exact structure value over declared finite cost levels.",
+      "assumptions": [
+        "Every charged cost is an exact non-negative integer.",
+        "The budget set contains every charged-cost level declared by the finite domain."
+      ],
+      "pythonCheck": "check_ft04_two_part_identity",
+      "leanModule": "BoundedCoordinate.FiniteTheory",
+      "leanTheorem": "BoundedCoordinate.FiniteTheory.two_part_identity",
+      "scope": "The finite declared cost levels encode min_r(r + H(r)); this is not an unbounded or continuous optimization claim.",
+      "review": {
+        "status": "approved",
+        "reviewer": "codex-agent:finite-verifier-design-2026-09-27",
+        "independence": "did_not_author_definitions"
+      }
+    },
+    {
+      "id": "FT-05",
+      "claim": "The structure curve of a finite archive subset is an upper bound on the full-domain structure curve.",
+      "assumptions": [
+        "Every archive coordinate is an unchanged member of the declared full domain.",
+        "Cost and residual functions are identical on archive and domain members."
+      ],
+      "pythonCheck": "check_ft05_archive_upper_bound",
+      "leanModule": "BoundedCoordinate.FiniteTheory",
+      "leanTheorem": "BoundedCoordinate.FiniteTheory.archive_upper_bound",
+      "scope": "Subset upper bound only; no claim that a finite archive has found the full-domain optimum.",
+      "review": {
+        "status": "approved",
+        "reviewer": "codex-agent:finite-verifier-design-2026-09-27",
+        "independence": "did_not_author_definitions"
+      }
+    },
+    {
+      "id": "FT-06",
+      "claim": "Appending unchanged coordinates to an archive cannot worsen its exact structure curve.",
+      "assumptions": [
+        "The later archive begins with the complete earlier archive in the same order.",
+        "All appended coordinates belong to the same declared system."
+      ],
+      "pythonCheck": "check_ft06_append_only_archive_monotonicity",
+      "leanModule": "BoundedCoordinate.FiniteTheory",
+      "leanTheorem": "BoundedCoordinate.FiniteTheory.append_only_archive_monotone",
+      "scope": "Append-only finite archives; replacement or mutation of prior records is excluded.",
+      "review": {
+        "status": "approved",
+        "reviewer": "codex-agent:finite-verifier-design-2026-09-27",
+        "independence": "did_not_author_definitions"
+      }
+    },
+    {
+      "id": "FT-07",
+      "claim": "Passing a larger conjunctive verifier suite implies passing each declared subset suite.",
+      "assumptions": [
+        "Suite acceptance is conjunction over named checks.",
+        "Every check in the smaller suite occurs in the larger suite."
+      ],
+      "pythonCheck": "check_ft07_suite_subset_implication",
+      "leanModule": "BoundedCoordinate.FiniteTheory",
+      "leanTheorem": "BoundedCoordinate.FiniteTheory.suite_inclusion",
+      "scope": "One-way subset implication only; the converse is intentionally not claimed.",
+      "review": {
+        "status": "approved",
+        "reviewer": "codex-agent:finite-verifier-design-2026-09-27",
+        "independence": "did_not_author_definitions"
+      }
+    },
+    {
+      "id": "FT-08",
+      "claim": "Any item satisfying the declared Pareto-representative predicate is a source-list member and is nondominated under the declared objective-vector relation.",
+      "assumptions": [
+        "All compared objective vectors are complete and have the same declared dimensions.",
+        "Strict dominance means componentwise no worse and strictly better in at least one component."
+      ],
+      "pythonCheck": "check_ft08_pareto_soundness",
+      "leanModule": "BoundedCoordinate.FiniteTheory",
+      "leanTheorem": "BoundedCoordinate.FiniteTheory.pareto_sound",
+      "scope": "Lean proves only this conditional implication by unpacking the predicate; it does not prove that a computed frontier coincides with the predicate. Python separately checks emitted records, nondominance, and byte-reconstructed artifact identity.",
+      "review": {
+        "status": "approved",
+        "reviewer": "codex-agent:finite-verifier-design-2026-09-27",
+        "independence": "did_not_author_definitions"
+      }
+    },
+    {
+      "id": "FT-09",
+      "claim": "Every nondominated objective vector has exactly its deterministic first-source representative in the finite Pareto output.",
+      "assumptions": [
+        "The source order is fixed.",
+        "Duplicate objective vectors are represented by their first source occurrence."
+      ],
+      "pythonCheck": "check_ft09_pareto_completeness",
+      "leanModule": "BoundedCoordinate.FiniteTheory",
+      "leanTheorem": "BoundedCoordinate.FiniteTheory.pareto_complete",
+      "scope": "Objective-vector completeness with deterministic duplicate representation, not semantic diversity.",
+      "review": {
+        "status": "approved",
+        "reviewer": "codex-agent:finite-verifier-design-2026-09-27",
+        "independence": "did_not_author_definitions"
+      }
+    },
+    {
+      "id": "FC-01",
+      "claim": "A target-independent compiler transfers each source witness to cost budget r+a and residual bound s+b.",
+      "assumptions": [
+        "One coordinate-only mapping is reused for every declared target.",
+        "Every source coordinate maps into the declared destination domain.",
+        "The compiler satisfies its declared additive cost overhead and targetwise residual slack."
+      ],
+      "pythonCheck": "check_fc01_witness_transfer",
+      "leanModule": "BoundedCoordinate.Compiler",
+      "leanTheorem": "BoundedCoordinate.Compiler.compiler_witness_transfer",
+      "scope": "Finite declared systems and additive bounds only; no tokenizer or natural-language preservation claim.",
+      "review": {
+        "status": "approved",
+        "reviewer": "codex-agent:finite-verifier-design-2026-09-27",
+        "independence": "did_not_author_definitions"
+      }
+    },
+    {
+      "id": "FC-02",
+      "claim": "Compiler witness transfer induces the corresponding finite structure-curve and threshold-curve directional bounds.",
+      "assumptions": [
+        "All FC-01 compiler obligations hold.",
+        "The source and destination use the same ordered target set."
+      ],
+      "pythonCheck": "check_fc02_curve_transfer",
+      "leanModule": "BoundedCoordinate.Compiler",
+      "leanTheorem": "BoundedCoordinate.Compiler.compiler_structure_threshold_transfer",
+      "scope": "Directional finite bounds with explicit additive overhead and slack; no reverse inequality is implied.",
+      "review": {
+        "status": "approved",
+        "reviewer": "codex-agent:finite-verifier-design-2026-09-27",
+        "independence": "did_not_author_definitions"
+      }
+    },
+    {
+      "id": "FC-03",
+      "claim": "Composition of two target-independent compilers adds their declared cost overheads and residual slacks.",
+      "assumptions": [
+        "The first compiler destination is the second compiler source.",
+        "Both compilers satisfy complete coverage and bound obligations."
+      ],
+      "pythonCheck": "check_fc03_composition",
+      "leanModule": "BoundedCoordinate.Compiler",
+      "leanTheorem": "BoundedCoordinate.Compiler.compiler_composition",
+      "scope": "Finite coordinate mappings with additive bounds; compiler content digests bind the endpoints.",
+      "review": {
+        "status": "approved",
+        "reviewer": "codex-agent:finite-verifier-design-2026-09-27",
+        "independence": "did_not_author_definitions"
+      }
+    },
+    {
+      "id": "FC-04",
+      "claim": "Directional compiler bounds hold generally, and opposite zero-residual-slack compilers give a threshold sandwich up to their separate cost overheads.",
+      "assumptions": [
+        "Both directional compiler mappings satisfy complete finite obligations.",
+        "The threshold sandwich additionally requires zero residual slack in both directions."
+      ],
+      "pythonCheck": "check_fc04_zero_slack_threshold_sandwich",
+      "leanModule": "BoundedCoordinate.Compiler",
+      "leanTheorem": "BoundedCoordinate.Compiler.zero_slack_threshold_sandwich",
+      "scope": "The zero-slack sandwich is not asserted for positive residual slack; each direction retains its own cost overhead.",
+      "review": {
+        "status": "approved",
+        "reviewer": "codex-agent:finite-verifier-design-2026-09-27",
+        "independence": "did_not_author_definitions"
+      }
+    }
+  ]
+}
