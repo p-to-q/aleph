@@ -34,7 +34,7 @@ AlephRun
 │  ├─ decoding
 │  ├─ metric
 │  ├─ budget
-│  └─ mode: unrestricted | non_leaking
+│  └─ mode: unrestricted | non_leaking  # legacy wire value; suite-relative only
 ├─ CandidatePoint[]
 └─ ObservationSet
 ```
@@ -43,7 +43,7 @@ AlephRun
 
 | Area | Owns | Must not own |
 |---|---|---|
-| `packages/core` | types, pure metric helpers, frontier helpers, leakage helpers | React state, HTTP, model runtime |
+| `packages/core` | types, pure metric helpers, frontier helpers, legacy surface-copy helper | React state, HTTP, model runtime |
 | `packages/fixtures` | stable sample runs | product claims, real model evidence |
 | `packages/ui` | reusable panel shells | search strategy, scoring truth |
 | `web` | current product composition, interaction, visual state | hidden business logic or new data contracts |
@@ -65,7 +65,7 @@ Future model integrations should use adapters behind the run contract:
 
 - `mock` adapter: deterministic fixture-like runs for UI work;
 - `local_mlx_search` adapter: wraps the current `search/` experiment behind the product API;
-- `hosted_black_box` adapter: repeated sampling, similarity, leakage, stability;
+- `hosted_black_box` adapter: repeated sampling, fidelity, stability, and typed observable evidence;
 - `local_white_box` adapter: logits, token NLL, teacher-forced likelihood;
 - `arca` adapter: length-scanned discrete optimization;
 - `gcg` adapter: hard-prompt optimization when tokenizer/model support is known.

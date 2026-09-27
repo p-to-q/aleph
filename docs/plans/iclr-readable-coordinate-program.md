@@ -32,8 +32,9 @@ to turn the object into an empirical science and a working system:
 
 The paper has one primary object and two linked evidence programs:
 
-> **Accessibility:** What is the shortest known prompt coordinate that reliably elicits target
-> \(y\) from a fixed model, and what is lost when we require that coordinate to remain human-readable?
+> **Accessibility:** What is the oracle prompt-coordinate length `L*` for reliably eliciting target
+> \(y\) from a fixed model, how tightly can a declared search upper-bound it with `L_hat`, and what
+> is lost when we require that coordinate to remain human-readable?
 
 > **Interpretation:** When that coordinate works, what information channel makes it work, and what
 > can be identified only after intervention?
@@ -932,10 +933,15 @@ Four different resources must remain separate in notation and artifacts:
    comparison.
 
 \(K_U(\bar c)\) is not computable. Operational comparisons therefore report a named, canonical
-serialization length for the checkpoint, runtime, tokenizer, and interface bundle only as an
-auditable computable upper bound, never as measured Kolmogorov complexity. A panel may additionally
-amortize that full-stack description over a frozen target set, but the panel and amortization rule
-must be fixed before observing results.
+serialization size for the checkpoint, runtime, tokenizer, and interface bundle as an auditable
+computable proxy, never as measured Kolmogorov complexity. When an actual prefix-complexity upper
+bound is needed, apply a declared computable self-delimiting encoder to that serialization:
+\[
+K_U(\bar c)\le
+\left|\operatorname{enc}_{\mathrm{pf}}(\operatorname{ser}(\bar c))\right|+O_U(1).
+\]
+A panel may additionally amortize that encoded full-stack description over a frozen target set, but
+the panel and amortization rule must be fixed before observing results.
 
 Calling \(\widehat L_{A,B}\) “resource-bounded Kolmogorov complexity” would collapse items 2 and 3.
 Calling prompt length alone an MDL score would omit the decoder/model description and residual code.
@@ -1171,11 +1177,16 @@ not necessarily historical source; `PromptRecoverability` is not model-mediated 
 `SelfCitation` is not causal attribution. Natural-model work may combine observations from these
 types, but only controlled interventions identify `AssociationEffect`.
 
-A successful target-conditioned coordinate necessarily carries target-selection information because
-the search itself sees \(y\). Tested noncopy therefore cannot mean \(I(P;Y)=0\) or “no system can
-recover the target.” It is a decoder-class-relative channel policy: copy/code decoders may be
-prohibited, while declared semantic, public-reference, or model-mediated resolution may be allowed,
-with every side-information source charged. A title or citation can have high
+Tested noncopy cannot be defined as \(I(P;Y)=0\). Under deterministic exact decoding over a declared
+target distribution, \(f(P)=Y\) implies \(H(Y\mid P)=0\) and hence \(I(P;Y)=H(Y)\). Under stochastic
+or approximate success, however, merely observing that search was conditioned on \(y\) does not by
+itself prove dependence: a searcher may emit a constant prompt, and any information lower bound needs
+an explicit target distribution and error condition (for example, a finite-target Fano-style bound).
+Conversely, distribution-level independence does not classify the channel used by an individual
+prompt; a constant prompt may itself contain copied material. Tested noncopy is therefore a
+decoder-class-relative channel policy rather than a zero-mutual-information condition: copy/code
+decoders may be prohibited, while declared semantic, public-reference, or model-mediated resolution
+may be allowed, with every side-information source charged. A title or citation can have high
 `PromptRecoverability` without being classified as surface or encoded copy.
 
 Every `TrainingInfluence` claim names its intervention unit: document, duplicate-equivalence cluster,
@@ -1234,9 +1245,10 @@ A finite suite cannot upper-bound every possible reconstructor: passing it suppo
 copy reconstructor in suite version \(\mathcal V_{\mathrm{copy}}\) exceeded its declared threshold.”
 “Non-leaking” is allowed only as shorthand with suite version and thresholds attached.
 
-A one-time-pad counterexample makes the boundary concrete: if \(p=E_k(y)\) with an undeclared key
-\(k\) stored in model state or interface scaffolding, then a prompt-only probe can see a string
-independent of \(y\) while the keyed evaluator reconstructs \(y\) exactly. No finite prompt-only suite
+A one-time-pad counterexample makes the boundary concrete. Let random target \(Y\) range over fixed
+length bit strings, draw an equal-length uniform key \(K\) independently of \(Y\), and publish prompt
+\(P=Y\oplus K\) while keeping \(K\) in model state or interface scaffolding. Then \(P\) is independent
+of \(Y\), yet the keyed evaluator reconstructs \(Y=P\oplus K\) exactly. No finite prompt-only suite
 rules out such shared-state channels. The typed interface encoding, full rendered-input accounting,
 and lineage-complete trace audit are therefore part of the evidence rather than bookkeeping extras.
 
@@ -1422,13 +1434,15 @@ credible asymptotic population claim.
 ### T1c — a synergy counterexample to additive source bits
 
 Let \(\Pi\) be a uniformly random permutation on \(n\) targets, let key \(K\) be uniform and
-independent, and let \(Y=\Pi(K)\). Then \(I(Y;K)=0\) and \(I(Y;\Pi)=0\), while
+independent of \(\Pi\), and let \(Y=\Pi(K)\). Then \(I(Y;K)=0\) and \(I(Y;\Pi)=0\), while
 \(I(Y;(K,\Pi))=H(Y)=\log_2 n\). Neither marginal source predicts the target, yet the pair determines
 it; “pure synergy” is only a secondary interpretation relative to a declared partial-information
 decomposition satisfying marginal/joint consistency. This elementary
-counterexample prohibits an additive accounting of “bits from the prompt” and “bits from the
-weights.” It motivates interaction contrasts and partial-information analyses, but does not by itself
-select one unique decomposition or establish a new information-theoretic measure.
+counterexample refutes accounting that simply adds the two marginal mutual informations
+\(I(Y;K)+I(Y;\Pi)\). It does not prohibit additive allocations that explicitly distribute the
+interaction term, such as a declared Shapley or partial-information decomposition. It motivates
+interaction contrasts and partial-information analyses, but does not by itself select one unique
+decomposition or establish a new information-theoretic measure.
 
 ### T1d — opaque-key discovery lower bound
 
@@ -1489,8 +1503,10 @@ decoder execution cost separate from researcher search cost.
 
 Let \(0\le\beta<1\). From the complete effective run description \(\bar c\), require one uniform
 procedure to enumerate the exact legal prompt domain, decode its one-codeword-per-object prefix code,
-and approximate the finite-output-plus-EOS probabilities \(P_{\bar c}(z\mid p)\). Use the convention
-\(-\log_2 0=+\infty\). Kraft's inequality then holds, and define
+and lower-approximate every finite-output-plus-EOS probability \(P_{\bar c}(z\mid p)\) by a computable
+increasing sequence of rationals, uniformly in \((z,p)\). Certified arbitrary-error computability is
+a stronger sufficient condition. Use the convention \(-\log_2 0=+\infty\). Kraft's inequality then
+holds, and define
 
 \[
 Q_{\bar c}(z)=\sum_p2^{-C_\tau(p)}P_{\bar c}(z\mid p),\qquad
@@ -2401,9 +2417,9 @@ Platform-specific publication rules are:
   at a time; preattached content-addressed assets; controller-managed quota and retrieval; no package
   installation or undeclared network dependency in the billable path. “Hosted pass” requires task
   completion, downloaded-artifact readback, checksum validation, and offline aggregate replay.
-  Hosted completion proves runtime only. `official` additionally requires complete declared coverage
-  and observed model identity satisfying the frozen deployment policy; alias-only or unknown identity
-  remains diagnostic.
+  Hosted completion plus artifact readback documents one pinned runtime execution only. `official`
+  additionally requires complete declared coverage and observed model identity satisfying the frozen
+  deployment policy; alias-only or unknown identity remains diagnostic.
 - **Hugging Face:** one canonical dataset/release entry with immutable revision and content digest;
   clearly separated releases, requests/status, sample details, and aggregate results; dataset card
   with protocol, license/datasheet, deployment-identity policy, failure/coverage definitions, and
@@ -2456,11 +2472,12 @@ This is the code-level delta between the prototype and the research instrument.
 - leakage is not enforced inside the search loop;
 - baselines are not budget matched.
 
-There is also a correctness bug in `monotone()`: when a shorter candidate remains best at a later
-length, the function copies that candidate and overwrites its measured length with the later length.
-That creates a pseudo-candidate whose prompt/output and objective coordinate came from different
-observations. A cumulative value function may repeat the best value at larger *budgets*, but those
-points must be labeled as budget thresholds, not emitted as measured candidate coordinates.
+PR #100 fixed the `monotone()` correctness bug: the old implementation copied a shorter candidate
+to a later length and overwrote its measured coordinate, creating a pseudo-candidate whose
+prompt/output and objective coordinate came from different observations. The historical public MLX
+frontier predates that repair and remains invalid until regenerated from actual evaluations and
+receipts. A cumulative value function may repeat the best value at larger *budgets*, but those points
+must be labeled as budget thresholds, not emitted as measured candidate coordinates.
 
 ### Frontier and provenance
 
@@ -2629,10 +2646,13 @@ claims. No product or metric behavior changes.
 
 Acceptance: a reviewer can state the paper claim, its closest collisions, and what would falsify it.
 
-### PR 1 — measurement correctness
+### PR 1 — measurement correctness (partially landed in PR #100)
 
-- remove pseudo-candidate coordinates from `monotone()`;
-- separate observed candidate points from cumulative budget value functions;
+Landed: remove pseudo-candidate coordinates from `monotone()`, preserve observed candidates, and
+separate observed frontier points from cumulative budget value functions.
+
+Remaining:
+
 - assign canonical names to existing copy and provenance proxies;
 - add adversarial and metamorphic regression tests;
 - correct public language that treats the found statistic as the oracle construct.
@@ -2640,10 +2660,14 @@ Acceptance: a reviewer can state the paper claim, its closest collisions, and wh
 Acceptance: every displayed candidate is a real evaluated candidate, and every metric name resolves to
 one implementation and version.
 
-### PR 2 — research artifact kernel
+### PR 2 — research artifact kernel (bounded bootstrap landed in PR #103)
 
-Add versioned manifests, append-only candidate/evaluation events, separate budget ledgers, and a toy
-finite evaluator with exhaustive ground truth.
+Landed: `bounded-coordinate-v0` supplies one strict finite manifest, exhaustive ground truth,
+independent Python replay, canonical receipts, and scoped Lean checks.
+
+Remaining: general versioned manifests, append-only candidate/evaluation events, the complete
+six-account ledger, interruption/resume semantics, the larger finite fixture/algorithm family, and
+the threshold/compiler statement map.
 
 Acceptance: exhaustive toy search defines ground truth and heuristic search reports regret against it.
 Given one committed event log, uninterrupted materialization, interruption plus resume, and exporter

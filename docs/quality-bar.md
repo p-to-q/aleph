@@ -23,13 +23,15 @@ A contributor should be able to answer these within minutes:
 
 Use:
 
-- shortest known prompt;
-- fixed model / decoding / metric / budget;
+- shortest found prompt, or `L_hat`, for an observed archive;
+- oracle `L*` only for the declared mathematical minimum;
+- fixed model / decoding / metric / prompt domain / tokenizer / reliability contract;
 - explicit reconstruction baseline;
 - compression path;
 - candidate point;
 - Pareto frontier;
-- leakage score;
+- versioned surface-copy proxy when referring to the legacy `leakage` wire field;
+- typed copy, recoverability, reference, provenance, and trace-integrity evidence;
 - observation mode.
 
 Avoid:
@@ -39,6 +41,8 @@ Avoid:
 - context window as semantic endpoint;
 - white-box language without logits;
 - fixture values as evidence.
+- unqualified “leakage score” as a provenance or memorization measure;
+- universal “non-leaking” claims from a finite probe suite.
 
 ### Code shape
 
@@ -62,7 +66,7 @@ Before merging a meaningful change, ask:
 - Did the change preserve the target-output-first product identity?
 - Did it keep the slider tied to discrete candidates?
 - Did it preserve the explicit reconstruction and shortest-found endpoints?
-- Did it keep leakage visible?
+- Did it keep typed copy/provenance evidence visible without promoting the legacy scalar?
 - Did it label mock/simulated data?
 - Did it reduce confusion for the next contributor?
 - Did it avoid committing to unresolved research choices?

@@ -36,16 +36,31 @@ Read this file when you are new to the repository and need to know where work be
 
 ## Research and framing
 
+- `docs/plans/iclr-readable-coordinate-program.md` — **governing PR0 research contract**: closest
+  collisions, readable/raw compression paths, working reverse search, typed provenance, source
+  interventions, falsification gates, and the reviewable PR sequence. Read this first.
 - `docs/research/research-process.md` — research receipts and how each source changes the project.
-- `docs/plans/iclr-readable-coordinate-program.md` — proposed ICLR mainline: readable/raw
-  compression paths, working reverse search, source interventions, and falsification gates.
+- `docs/research/math-computation-ai-systems.md` — evidence-graded survey and system decomposition for
+  program synthesis, theorem proving, test-time search, verification, reproducibility, and human
+  checkability; it reports research routes, not Aleph results.
+- `docs/plans/model-relative-coordinate-landmarks.md` — long-horizon mathematical/computational
+  program: coordinate structure functions, finite BCS ground truth, Lean bootstrap, description versus
+  discovery, source identifiability, role contracts, and R0--R4 gates.
 - `docs/plans/research-and-benchmark-hardening.md` — current validity-first program for Aleph and Aleph-Bench.
 - `docs/decisions/0005-aleph-bench-authority.md` — canonical benchmark target, temporary source branch, and release topology.
-- `docs/research/prior-art.md` — relationship to ARCA, GCG, inversion, and instrumentation references.
+- `docs/research/prior-art.md` — Aleph's CS center of gravity and relationship to prompt search,
+  mathematical-discovery systems, inversion, instrumentation, and benchmark runtimes.
+- `docs/source-ledger.md` — versioned compact primary-source index with an evidence cutoff and explicit
+  transfer boundaries; URLs are inspected references, not stability guarantees.
 - `docs/research/implementation-routes.md` — staged implementation options.
 - `docs/research/compression-definition.md` — model-relative description-length framing.
 - `docs/research/research-directions.md` — which research families matter now, later, or only as contrast.
 - `docs/claim-ledger.md` — claim-to-evidence map for convergence between accounts.
+
+The repository definitions, frozen protocols, and versioned artifacts are authoritative. Kaggle is a
+hosted runtime/portability surface; Hugging Face is a public data and result distribution surface;
+GitHub is the code and governance entry. A successful platform run is not, by itself, a scientific
+definition, proof, or official benchmark result.
 
 ## Process
 

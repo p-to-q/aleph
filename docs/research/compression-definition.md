@@ -1,27 +1,50 @@
 # Compression Definition
 
-Aleph estimates a model-relative description length, not strict Kolmogorov complexity.
+Aleph defines a model-relative description-length object and measures algorithm-conditioned
+shortest-found upper bounds. It does not estimate strict Kolmogorov complexity.
 
 For a fixed model `theta`, decoding strategy `d`, metric `m`, target output `y`, and allowed distortion `epsilon`:
 
 ```text
-L*_{theta,d,m}(epsilon) = min |p|
-  such that m(M_{theta,d}(p), y) >= 1 - epsilon
+rho(p; y, epsilon) =
+  Pr_{Z ~ M_{theta,d}(. | p)}[m(Z, y) >= 1 - epsilon]
+
+L*_{theta,d,m}(y; epsilon, beta) = min |p|
+  over all prompts in the declared coordinate domain
+  such that rho(p; y, epsilon) >= 1 - beta
 ```
 
-Operationally, Aleph searches under a finite budget:
+For deterministic decoding, `rho` is a zero-or-one special case.
+
+Operationally, searcher `A` observes only a budget- and random-state-dependent archive:
 
 ```text
-p* = argmin_p [ target_loss(y | p) + lambda * |p| + gamma * variance(M(p)) + eta * leakage(p, y) ]
+L_hat_{A,B,omega}(y; epsilon, beta) = min |p|
+  over prompts actually observed by that run
+  whose protected confirmation supports rho(p; y, epsilon) >= 1 - beta
 ```
 
-In white-box settings, `target_loss(y | p)` may be teacher-forced NLL or a related model-internal likelihood score. In black-box settings, it must be approximated from generated outputs and visible metrics rather than implied as a hidden truth.
+The search budget belongs to `L_hat`, not `L*`. An exact checker establishes feasibility directly.
+Otherwise, conditional on the declared simultaneous-coverage event, a protected-confirmed candidate
+that meets the population reliability threshold constructively upper-bounds `L*`; the event's
+stated coverage controls the confidence of that claim. Search-time point estimates remain
+provisional. Exhausting the coordinate domain or supplying a sound cheaper-prefix certificate can
+close the remaining optimality gap, but neither substitutes for candidate-feasibility evidence.
+Scientific artifacts preserve a versioned metric vector and raw
+observations. A separately named optimizer or UI projection may use a scalar rule, but it does not
+replace the multidimensional record or define the research construct.
+
+In white-box settings, `target_loss(y | p)` may be teacher-forced NLL or a related model-internal
+likelihood score. In black-box settings, NLL remains `unknown` or absent; generated outputs support
+separately named empirical fidelity and reliability metrics, not an approximation silently relabeled
+as model-internal likelihood.
 
 The UI should expose the consequences:
 
 - lower distortion usually requires longer prompts;
 - shorter prompts usually reduce stability;
-- leakage can make a prompt look artificially strong;
+- surface copying, recoverable encoding, trace contamination, and source evidence can make a prompt
+  look strong for different reasons and must remain typed separately;
 - the frontier is discrete, not a smooth guaranteed curve.
 
 ## Endpoint definitions

@@ -2,7 +2,10 @@
 
 > **Aleph is a reverse prompt search engine.**
 >
-> Given a target output, a fixed model, a fixed decoding rule, a fixed metric, and a fixed search budget, Aleph searches for the **shortest known prompt coordinates** that can reproduce or approximate the target, then visualizes the compression path from explicit reconstruction to compact prompt coordinates.
+> Given a target output and declared run conditions, Aleph searches for the **shortest found prompt
+> coordinates** that can reproduce or approximate the target, then visualizes the observed path from
+> explicit reconstruction to compact coordinates. The search-independent oracle `L*` is a separate
+> mathematical object; a finite run reports `L_hat`.
 
 Read the full project thesis in [THESIS.md](THESIS.md).
 
@@ -25,7 +28,9 @@ Read the full project thesis in [THESIS.md](THESIS.md).
 - every word in the book now being read
 - and everything else
 
-Aleph adopts that image for model output space: the model contains a finite library of possible continuations, and a prompt is a coordinate that opens one region of that space.
+Aleph adopts that image for model output space: a fixed model and decoding rule induce a
+distribution over possible continuations, and a prompt is a coordinate that changes that
+distribution.
 
 a small place for seeing too much,<br/>
 gently.
@@ -34,7 +39,10 @@ gently.
 
 - A target-output-first interface, not a prompt-polishing assistant.
 - A compression slider over discrete Pareto candidate points.
-- A workbench for prompt length, target fit, stability, leakage, token loss, attribution, and evals.
+- A workbench for prompt length, target fit, stability, token loss, attribution, and evals. The
+  research contract distinguishes typed copy, recoverability, reference, provenance, and trace
+  evidence; the current UI/run wire still exposes a legacy surface-copy scalar while that migration
+  remains open.
 - A repository shaped for human and agent continuation: clear thesis, visible artifact, receipts, limitations, and small reviewable changes.
 
 ## What it is not
@@ -64,27 +72,52 @@ into a search problem:
 
 ```text
 given target y, fixed model theta, decoding d, metric m, and budget B
-search for the shortest known prompt p
-such that m(M_{theta,d}(p), y) is high enough
+search for the shortest found prompt p
+whose generated output is reliably close enough to y
 ```
 
-What we are trying to measure is not "the perfect prompt" in the abstract. It is a bounded, model-relative object: under fixed run conditions, how short can the prompt get before the output stops holding together?
-
-A compact way to write that down is:
+What we are trying to define is not "the perfect prompt" in the abstract. The definition-level
+object is model-relative but search-independent:
 
 ```text
-L*_{theta,d,m,B}(epsilon) = min |p|
-  over prompts searched within budget B
-  such that m(M_{theta,d}(p), y) >= 1 - epsilon
+rho(p; y, epsilon) =
+  Pr_{Z ~ M_{theta,d}(. | p)}[m(Z, y) >= 1 - epsilon]
+
+L*_{theta,d,m}(y; epsilon, beta) = min |p|
+  over all prompts in the declared coordinate domain
+  such that rho(p; y, epsilon) >= 1 - beta
 ```
 
-And the practical scoring view looks more like:
+For deterministic decoding, `rho` is a zero-or-one special case.
+
+An actual Aleph run cannot assume that it found this oracle minimum. For searcher `A`, budget `B`,
+and random state `omega`, it reports a separate found statistic:
+
+```text
+L_hat_{A,B,omega}(y; epsilon, beta) = min |p|
+  over prompts actually observed by that run
+  whose protected confirmation supports rho(p; y, epsilon) >= 1 - beta
+```
+
+The search budget belongs only to the second quantity. Conditional on the declared
+simultaneous-coverage event, a protected-confirmed coordinate whose population reliability meets the
+declared threshold constructively upper-bounds `L*`; the event's stated coverage controls the
+confidence of that claim. This is not evidence that the global minimum was reached. Search-time point
+estimates remain provisional.
+
+An early practical scoring sketch compressed those concerns into one scalar:
 
 ```text
 score(p) = fit(p, y) - lambda * length(p) - gamma * instability(p) - eta * leakage(p, y)
 ```
 
-In plain language: we want prompts that are shorter, still close to the target, stable when rerun, and not secretly cheating by copying the answer.
+That formula is retained only as historical context. The governing
+[PR0 research contract](docs/plans/iclr-readable-coordinate-program.md) supersedes an undocumented
+composite score and a scalar `leakage` construct: scientific artifacts preserve a versioned metric
+vector, typed provenance/recoverability channels, and the raw observations from which any explicitly
+named scheduler or UI projection is derived. In plain language, we still want prompts that are
+shorter, faithful, and stable, while distinguishing surface copying, recoverability, trace integrity,
+and causal-source evidence instead of laundering them into one number.
 
 That is also why the slider matters. We do not think Aleph is really about one magic prompt. We think it is about a **compression path**:
 
@@ -100,12 +133,19 @@ So the current working beliefs behind Aleph are:
 - We care more about the **path** than a single final prompt.
 - We expect the frontier to be **discrete and Pareto-shaped**, not smooth.
 - We treat **Shortest Found** as an honest left endpoint and **Explicit Reconstruction** as an honest right baseline.
-- We treat leakage as part of the science, not a footnote: a prompt that copies the answer is different from a prompt that compresses it.
+- We treat typed provenance and recoverability evidence as part of the science, not a footnote: a
+  surface-copy proxy, a reversible reconstruction test, search-trace integrity, and a causal-source
+  intervention answer different questions.
 - We expect multiple implementation routes to matter: hosted black-box loops, local white-box scoring, and later deeper search adapters.
 
 We did not arrive at this in a vacuum. A few existing lines of work mattered a lot:
 
-- Reverse fixed-output search, especially [ARCA / auditing-llms](https://github.com/ejones313/auditing-llms), made it clear that this is not only a metaphor. Searching from output back to prompt is a real optimization problem.
+- [ACR / MiniPrompt](https://arxiv.org/abs/2404.15146) is the closest mandatory empirical neighbor:
+  it already operationalizes target-first shortest-input compression with the model as decompressor.
+- [Prompting Complexity](https://arxiv.org/abs/2607.06145) is the closest formal neighbor for
+  fixed-model shortest plausible prompts.
+- [ARCA / auditing-llms](https://github.com/ejones313/auditing-llms) remains a useful lower-level
+  fixed-length raw-coordinate comparator, not Aleph's closest predecessor or product identity.
 - [TextGrad](https://arxiv.org/abs/2406.07496) gave us a useful computational metaphor: even when the system is not differentiable end-to-end, you can still think in terms of gradient-like improvement over text.
 - [llm-attacks / GCG](https://github.com/llm-attacks/llm-attacks) showed a more aggressive route through hard-prompt search. We take that seriously, but we do not want Aleph to inherit an attack-first identity by default.
 
@@ -123,9 +163,13 @@ The next phase is to get more serious without getting more rigid.
 Near-term research tracks:
 
 - Clarify the workbench object: target output, candidate path, dashboard, evidence mode, and next action should read cleanly without docs.
-- Settle a first scoring story: metric composition, leakage, stability, and when target NLL is optional evidence versus required product truth.
+- Implement the PR0 measurement contract: versioned fit/stability views, typed provenance and
+  recoverability channels, explicit missingness, and named projections only where a scheduler or UI
+  requires one.
 - Keep both real-run routes visible: hosted black-box behavior and local white-box/MLX evidence should coexist without being conflated.
-- Turn prior art into explicit route choices: ARCA, GCG, reflective/Pareto search, black-box prompt optimization, and soft-prompt routes should each end up as "now", "later", or "contrast only".
+- Reproduce MiniPrompt/ACR as the mandatory closest empirical baseline, then compare lower-level
+  ARCA/GCG raw-coordinate routes and other search adapters behind the same archive and evaluator
+  boundary.
 - Keep the repository file-first: runs, research notes, and future decisions should survive without chat history.
 
 ## Current status
@@ -154,9 +198,10 @@ docs/                 Thesis support, strategy, architecture, research, UI, deci
 scripts/              Repository health checks that run without external installs
 ```
 
-Start with [docs/contributor-map.md](docs/contributor-map.md) if you are joining the project. The current implementation path and fallbacks are in [docs/strategy.md](docs/strategy.md).
-For the clearest snapshot of what is settled, implemented, researched, and still open, read [docs/state-of-play.md](docs/state-of-play.md).
-Near-term follow-up work lives in [docs/next-backlog.md](docs/next-backlog.md).
+Start with [docs/contributor-map.md](docs/contributor-map.md) if you are joining the project.
+[docs/state-of-play.md](docs/state-of-play.md) is the current confidence map, and
+[docs/next-backlog.md](docs/next-backlog.md) owns implementation priority.
+[docs/strategy.md](docs/strategy.md) preserves the historical product-shell and fallback rationale.
 
 ## Quick start
 
@@ -209,9 +254,10 @@ The static HTML prototype is available at:
 apps/web/static/aleph-atlas-console.html
 ```
 
-## Short-term plan
+## Completed launch phase
 
-The current maintainer strategy is file-first, UI-first, and adapter-honest. If model runtime fails, the fixture path must still communicate the thesis without pretending to be live evidence.
+The first product-shell phase was file-first, UI-first, and adapter-honest. Its completed gates remain
+useful fallbacks, but the current gate is a PR0-conformant replayable research run.
 
 - [x] Ship a frontend-led console using fixtures and explicitly labeled observations.
 - [x] Preserve the compression slider as the main interaction.
@@ -220,14 +266,20 @@ The current maintainer strategy is file-first, UI-first, and adapter-honest. If 
 - [x] Add a server-side hosted black-box API adapter for real prompt/output candidates.
 - [x] Add real local MLX token traces for `spring` and `crush` fixtures.
 
-## Long-term plan
+## Research implementation horizon
+
+The ordered, acceptance-gated version of this list lives in
+[docs/next-backlog.md](docs/next-backlog.md).
 
 - [x] Add a model-adapter API with hosted black-box and local MLX routes.
-- [ ] Support repeated sampling, leakage scoring, and Pareto reranking.
+- [ ] Support repeated sampling, versioned metric vectors, typed provenance/recoverability evidence,
+  and Pareto reranking without an undocumented composite.
 - [ ] Add teacher-forced likelihood and token-level loss when logits are available.
-- [ ] Add deletion ablation, prompt-token attribution, non-leaking mode, saved runs, and research reports.
+- [ ] Add deletion ablation, prompt-token attribution, channel-qualified tested-noncopy modes, saved
+  runs, and research reports; never promote a finite probe suite to universal non-leakage.
 - [ ] Clarify the workbench object so target, candidate path, dashboard, evidence mode, and next action read cleanly without docs.
-- [ ] Decide which deeper search routes deserve first-class adapters: ARCA, GCG, reflective/Pareto search, or soft-prompt projection.
+- [ ] Reproduce MiniPrompt/ACR as the mandatory closest baseline; keep ARCA/GCG as lower-level raw
+  comparators and evaluate reflective/Pareto or soft-prompt routes as separately named adapters.
 - [ ] Build a benchmark/report mode without letting Aleph collapse into just another leaderboard.
 - [ ] Get accused, at least once, of reinventing Kolmogorov complexity for prompts; answer with receipts, caveats, and a cleaner run contract.
 
