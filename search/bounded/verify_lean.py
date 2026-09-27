@@ -222,7 +222,11 @@ def expected_lean_receipt(
     toolchain = (LEAN_ROOT / "lean-toolchain").read_text(encoding="utf-8").strip()
     theorem_names = public_theorem_names()
     axiom_source = render_axiom_audit(theorem_names)
-    theorem_axioms = public_theorem_axioms or EXPECTED_PUBLIC_THEOREM_AXIOMS
+    theorem_axioms = (
+        EXPECTED_PUBLIC_THEOREM_AXIOMS
+        if public_theorem_axioms is None
+        else public_theorem_axioms
+    )
     if set(theorem_axioms) != set(theorem_names):
         raise ValueError("Lean axiom receipt does not cover every public theorem")
     normalized_axioms = {

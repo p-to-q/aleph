@@ -280,6 +280,15 @@ class BoundedCoordinateTests(unittest.TestCase):
         )
         with self.assertRaisesRegex(ValueError, "incomplete Lean axiom audit"):
             parse_axiom_audit_output("\n".join(lines[:-1]), theorem_names)
+        with self.assertRaisesRegex(
+            ValueError,
+            "does not cover every public theorem",
+        ):
+            expected_lean_receipt(
+                self.manifest,
+                lean_version="4.34.1",
+                public_theorem_axioms={},
+            )
 
     def test_cli_normalizes_paths_before_enforcing_artifact_containment(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
