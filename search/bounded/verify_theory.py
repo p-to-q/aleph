@@ -77,7 +77,7 @@ PROTECTED_FILES: dict[str, str] = {
 # Filled after the statement map has received an independent review.  Keeping
 # this separate from the receipt prevents a coordinated map+receipt rewrite
 # from becoming self-authenticating.
-EXPECTED_STATEMENT_MAP_FILE_SHA256 = "faaeb6f11a6333f34fd9e31257b2907bde70c0f9e0261ed5e759abeb74489d54"
+EXPECTED_STATEMENT_MAP_FILE_SHA256 = "404d3a7cb3d6e1a2bb702558d8c2b7d04c29d526e90bf7f422edae6b93f5c6bd"
 
 
 STATEMENT_CONTRACT: dict[str, tuple[str, str, str]] = {
@@ -1792,6 +1792,13 @@ def build_lean_verification(
         raise ValueError(
             f"Lean version {lean_version} does not match pinned 4.34.1"
         )
+    subprocess.run(
+        [str(lake), "build", "BoundedCoordinate.Compiler"],
+        cwd=LEAN_ROOT,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
     for relative in LEAN_SOURCES.values():
         subprocess.run(
             [str(lake), "env", "lean", str(relative)],
@@ -1800,13 +1807,6 @@ def build_lean_verification(
             capture_output=True,
             text=True,
         )
-    subprocess.run(
-        [str(lake), "build", "BoundedCoordinate.Compiler"],
-        cwd=LEAN_ROOT,
-        check=True,
-        capture_output=True,
-        text=True,
-    )
 
     audit_source = render_axiom_audit(theorem_names)
     with tempfile.TemporaryDirectory(

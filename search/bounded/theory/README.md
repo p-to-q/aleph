@@ -42,10 +42,11 @@ python3 -m search.bounded.verify_theory --manifest search/bounded/theory/manifes
 python3 -m unittest search.tests.test_finite_theory
 ```
 
-Compile the two new modules explicitly with the pinned Lean 4.34.1 `lake`; do not import them through the protected #103 root module:
+Build the dependency target first, then compile the two new modules explicitly with the pinned Lean 4.34.1 `lake`. This order also works in a fresh checkout where no `.olean` files exist. Do not import them through the protected #103 root module:
 
 ```bash
 cd search/bounded/lean
+/path/to/lean-4.34.1/bin/lake build BoundedCoordinate.Compiler
 /path/to/lean-4.34.1/bin/lake env lean BoundedCoordinate/FiniteTheory.lean
 /path/to/lean-4.34.1/bin/lake env lean BoundedCoordinate/Compiler.lean
 ```

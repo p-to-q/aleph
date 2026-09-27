@@ -22,6 +22,8 @@ from search.bounded.compiler import (
     parse_manifest_compilers,
 )
 from search.bounded.finite_theory import (
+    MAX_THEORY_SCALAR,
+    EncodingSpec,
     FiniteSystem,
     TheoryManifest,
     check_ft01_threshold_duality,
@@ -357,20 +359,113 @@ class FiniteTheoryTests(unittest.TestCase):
             self.assertTrue(check_ft03_threshold_monotonicity(singleton, target))
             self.assertTrue(check_ft04_two_part_identity(singleton, target))
 
+    def test_computed_query_naturals_can_exceed_manifest_scalar_cap(self) -> None:
+        beyond_manifest_cap = MAX_THEORY_SCALAR + 1
+        self.assertEqual(
+            structure(self.source.coordinates, "alpha", beyond_manifest_cap),
+            0,
+        )
+        self.assertEqual(
+            threshold(
+                self.source.coordinates,
+                "alpha",
+                beyond_manifest_cap,
+            ),
+            4,
+        )
+        for invalid in (-1, 1.0, True):
+            with self.subTest(invalid=invalid):
+                for query in (structure, threshold):
+                    with self.subTest(query=query.__name__):
+                        with self.assertRaisesRegex(
+                            ValueError,
+                            "non-negative exact integer",
+                        ):
+                            query(self.source.coordinates, "alpha", invalid)
+
+        oversized_manifest = raw_manifest()
+        oversized_point = oversized_manifest["systems"][0]["coordinates"][0]
+        oversized_point["residuals"]["alpha"] = beyond_manifest_cap
+        oversized_point["objectives"]["alpha_residual"] = beyond_manifest_cap
+        rehash(oversized_manifest)
+        with self.assertRaisesRegex(ValueError, "scalar limit"):
+            TheoryManifest.from_mapping(oversized_manifest)
+
+        adjusted_draft = replace(
+            self.forward,
+            id="source-to-destination-large-adjustment",
+            cost_overhead_bits=MAX_THEORY_SCALAR,
+            residual_slack=MAX_THEORY_SCALAR,
+            declared_content_sha256="",
+        )
+        adjusted = replace(
+            adjusted_draft,
+            declared_content_sha256=adjusted_draft.content_sha256,
+        )
+        self.assertTrue(
+            check_fc02_curve_transfer(
+                adjusted,
+                self.source,
+                self.destination,
+            )
+        )
+
+    def test_system_level_prefix_and_rendering_collisions_are_reachable(self) -> None:
+        prefix_collision = raw_manifest()
+        prefix_source = prefix_collision["systems"][0]
+        prefix_point = prefix_source["coordinates"][1]
+        prefix_point["codeBits"] = "00000"
+        rehash(prefix_collision)
+        original_encode = EncodingSpec.encode
+
+        def encode_with_collision(
+            encoding: EncodingSpec,
+            role: str,
+            payload_bits: str,
+        ) -> str:
+            if role == "source" and payload_bits == "0":
+                return "00000"
+            return original_encode(encoding, role, payload_bits)
+
+        with mock.patch.object(
+            EncodingSpec,
+            "encode",
+            autospec=True,
+            side_effect=encode_with_collision,
+        ):
+            with self.assertRaisesRegex(ValueError, "not prefix-free"):
+                TheoryManifest.from_mapping(prefix_collision)
+
+        rendering_collision = raw_manifest()
+        rendering_source = rendering_collision["systems"][0]
+        rendering_point = rendering_source["coordinates"][1]
+        rendering_point["rendering"] = "source:"
+        rehash(rendering_collision)
+        original_render = EncodingSpec.render
+
+        def render_with_collision(
+            encoding: EncodingSpec,
+            role: str,
+            payload_bits: str,
+        ) -> str:
+            if role == "source" and payload_bits == "0":
+                return "source:"
+            return original_render(encoding, role, payload_bits)
+
+        with mock.patch.object(
+            EncodingSpec,
+            "render",
+            autospec=True,
+            side_effect=render_with_collision,
+        ):
+            with self.assertRaisesRegex(
+                ValueError,
+                "lossy duplicate renderings",
+            ):
+                TheoryManifest.from_mapping(rendering_collision)
+
     def test_corrupt_coordinates_fail_closed(self) -> None:
         mutations = [
-            (
-                "prefix collision",
-                lambda point, system: (
-                    point.update(
-                        {
-                            "payloadBits": "",
-                            "codeBits": "0000",
-                            "rendering": "source:",
-                        }
-                    )
-                ),
-            ),
             (
                 "incorrect charged cost",
                 lambda point, system: (
@@ -399,10 +494,6 @@ class FiniteTheoryTests(unittest.TestCase):
             (
                 "duplicate ID",
                 lambda point, system: point.update({"id": "s-empty"}),
-            ),
-            (
-                "lossy rendering",
-                lambda point, system: point.update({"rendering": "source:"}),
             ),
             (
                 "uncharged scaffold",

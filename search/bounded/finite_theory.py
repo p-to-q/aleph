@@ -75,9 +75,14 @@ def _string(value: object, path: str) -> str:
     return value
 
 
-def _nat(value: object, path: str) -> int:
+def _query_nat(value: object, path: str) -> int:
     if isinstance(value, bool) or not isinstance(value, int) or value < 0:
         raise ValueError(f"{path} must be a non-negative exact integer")
+    return value
+
+
+def _nat(value: object, path: str) -> int:
+    value = _query_nat(value, path)
     if value > MAX_THEORY_SCALAR:
         raise ValueError(f"{path} exceeds the finite-theory scalar limit")
     return value
@@ -127,7 +132,7 @@ def inf_le(left: InfinityNat, right: InfinityNat) -> bool:
 
 
 def inf_add(value: InfinityNat, amount: int) -> InfinityNat:
-    _nat(amount, "amount")
+    _query_nat(amount, "amount")
     return None if value is None else value + amount
 
 
@@ -459,7 +464,7 @@ def structure(
     target: str,
     budget: int,
 ) -> InfinityNat:
-    _nat(budget, "budget")
+    _query_nat(budget, "budget")
     feasible = [
         point.residual(target)
         for point in coordinates
@@ -473,7 +478,7 @@ def threshold(
     target: str,
     residual_limit: int,
 ) -> InfinityNat:
-    _nat(residual_limit, "residual_limit")
+    _query_nat(residual_limit, "residual_limit")
     feasible = [
         point.charged_bit_cost
         for point in coordinates
@@ -711,10 +716,10 @@ def _validate_theory_work(manifest: "TheoryManifest") -> None:
     )
     max_residual = max(
         (
-            coordinate.residual(target)
+            residual
             for system in manifest.systems
             for coordinate in system.coordinates
-            for target in manifest.targets
+            for _, residual in coordinate.residuals
         ),
         default=0,
     )

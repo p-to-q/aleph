@@ -16,12 +16,12 @@
   "fixtureId": "finite-theory-v0-fixture",
   "manifestFileSha256": "1aae049a0df71c48f324f7c835b8b53dda7703b51bb85a6c5caf851c746cb23b",
   "protectedBaselineContentSha256": "c3601f2e4be25bc896e9b4ed7699539dfc16629130e0cf5e7c9c8f5d1726ebdf",
-  "receiptContentSha256": "40e4531d9eb97887e40f1ac1db52d65277a926b24cfb282b2cb8b6f21301fdc0",
-  "receiptFileSha256": "36cf631293075a71e494415086fde61d7dd0ba5cccdcbd2d9766570a37f03c0a",
+  "receiptContentSha256": "7ee76c884f10de3e88dcf0b3220995fae5646c8cfeae2e040a5a08d57f9adc9c",
+  "receiptFileSha256": "53c89f96a4a0a810b6b184c8dac2f3553cc31f9d7545b3e609bc5348f608365a",
   "schemaVersion": "finite-theory-verification/v0",
-  "statementMapFileSha256": "faaeb6f11a6333f34fd9e31257b2907bde70c0f9e0261ed5e759abeb74489d54",
+  "statementMapFileSha256": "404d3a7cb3d6e1a2bb702558d8c2b7d04c29d526e90bf7f422edae6b93f5c6bd",
   "theoryId": "finite-theory-v0",
   "verified": true,
   "verifierScope": "independent_standard_library_reconstruction_not_Lean_or_English_semantics_verification",
-  "verifierSourceSha256": "a6db9dcadd45431429c484c83ea1727d3b8c001fb6e8d5ce5ee325abccb9d7db"
+  "verifierSourceSha256": "2315f9e6f112d1b46c2c6459e663fbafd1c0eb220df3364a17ce49851d85f8e6"
 }

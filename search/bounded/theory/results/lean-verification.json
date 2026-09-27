@@ -81,11 +81,11 @@
     "BoundedCoordinate/FiniteTheory.lean": []
   },
   "leanVersion": "4.34.1",
-  "projectContentSha256": "700b5598c7c7d1a20c9052796931c3c1117f72a7108fb0e5691e69a2cb5c170c",
+  "projectContentSha256": "a711d714f2de9934412f33b9d793bf5e4f6c96375b6526a9b0184e073606a1ed",
   "protectedBaselineContentSha256": "c3601f2e4be25bc896e9b4ed7699539dfc16629130e0cf5e7c9c8f5d1726ebdf",
   "schemaVersion": "finite-theory-lean-verification/v0",
   "scope": "encoded_finite_propositions_only_not_Python_English_intent_tokenizers_readability_or_LLM_runtime",
-  "statementMapFileSha256": "faaeb6f11a6333f34fd9e31257b2907bde70c0f9e0261ed5e759abeb74489d54",
+  "statementMapFileSha256": "404d3a7cb3d6e1a2bb702558d8c2b7d04c29d526e90bf7f422edae6b93f5c6bd",
   "theoryId": "finite-theory-v0",
   "toolchain": "leanprover/lean4:v4.34.1"
 }

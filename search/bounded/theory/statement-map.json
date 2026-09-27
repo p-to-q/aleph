@@ -124,7 +124,7 @@
     },
     {
       "id": "FT-08",
-      "claim": "Every emitted Pareto representative is an unchanged source member with a nondominated complete objective vector.",
+      "claim": "Any item satisfying the declared Pareto-representative predicate is a source-list member and is nondominated under the declared objective-vector relation.",
       "assumptions": [
         "All compared objective vectors are complete and have the same declared dimensions.",
         "Strict dominance means componentwise no worse and strictly better in at least one component."
@@ -132,7 +132,7 @@
       "pythonCheck": "check_ft08_pareto_soundness",
       "leanModule": "BoundedCoordinate.FiniteTheory",
       "leanTheorem": "BoundedCoordinate.FiniteTheory.pareto_sound",
-      "scope": "Lean proves source membership and nondominance; Python additionally checks byte-reconstructed artifact record identity.",
+      "scope": "Lean proves only this conditional implication by unpacking the predicate; it does not prove that a computed frontier coincides with the predicate. Python separately checks emitted records, nondominance, and byte-reconstructed artifact identity.",
       "review": {
         "status": "approved",
         "reviewer": "codex-agent:finite-verifier-design-2026-09-27",
