@@ -31,7 +31,8 @@ The repository preserves these decisions:
 - The left endpoint is Shortest Found, not a guaranteed global optimum.
 - The right endpoint is Explicit Reconstruction, not merely context-window length.
 - The frontier is discrete and budget-bounded.
-- Leakage score is first-class.
+- The legacy `leakage` wire field is a first-class surface-copy proxy; paper-facing evidence keeps
+  copy, recoverability, reference, provenance, and trace-integrity channels distinct.
 - White-box observations must be labeled honestly.
 - Fixture and simulated observations must not be presented as real model evidence.
 - Open decisions remain visible in `docs/open-questions.md`.

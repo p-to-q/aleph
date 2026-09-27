@@ -26,11 +26,16 @@ scripts/check-repo.mjs
 - Local Markdown links resolve.
 - Template placeholders are not left in active files.
 - Maintenance route language matches the current artifact-first shape.
-- Glossary, claim ledger, and active-doc claim language preserve settled terminology and avoid unguarded overclaims.
-- Core helpers preserve expected Pareto frontier, leakage score, and compression ratio behavior.
+- The glossary and claim ledger contain a finite required phrase set, the quality bar retains a
+  finite avoid-list, and four guarded regex patterns reject a small set of known overclaim phrasings
+  in active Markdown. This is not general semantic or claim-consistency validation.
+- Core helpers preserve expected observed-frontier, compression-ratio, and legacy `leakageScore`
+  surface-copy-proxy behavior; this is wire/helper regression coverage, not PR0 evidence validation.
 - Core enum contracts stay aligned with `schemas/aleph-run.schema.json`.
 - AlephRun fixture JSON files validate against `schemas/aleph-run.schema.json`.
-- Fixture runs preserve enough candidate points, the explicit reconstruction baseline, shortest-found endpoint, selected candidate, observation mode, and non-leaking leakage threshold.
+- Fixture runs preserve enough candidate points, the explicit reconstruction baseline, shortest-found
+  endpoint, selected candidate, observation mode, and the legacy `non-leaking` fixture threshold.
+  Passing that fixture check does not establish channel-qualified tested noncopy.
 - The fixture manifest indexes every fixture run exactly once and keeps id, label, mode, and observation mode aligned.
 - Reference screenshots are not kept in the archive.
 - `optional/` is not active as a template leftover.
@@ -60,10 +65,10 @@ git diff --check
 ```
 
 Also run a server-configured hosted smoke against `/health` and `/api/search`
-when the release depends on hosted black-box mode. A passing hosted smoke proves
-the adapter can return real prompt/output candidates as `black_box`
-observations; it does not prove token NLL, logits, or a globally shortest
-prompt.
+when the release depends on hosted black-box mode. A passing hosted smoke
+documents that the pinned adapter/configuration returned prompt/output
+candidates as `black_box` observations in that run; it does not prove general
+runtime support, token NLL, logits, or a globally shortest prompt.
 
 ## API smoke
 

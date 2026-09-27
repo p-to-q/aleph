@@ -33,37 +33,47 @@ Acceptance gate:
 - `origin/main` is the clear default base.
 - No branch exists only because the Hackathon rush forgot it.
 
-## P1: First Real Run Loop
+## P1: First Research-Grade Replayable Run
 
-Goal: replace one fixture path with a real black-box or local adapter path without changing UI data shape.
+Status: product hosted-black-box and local-MLX loops exist. Their historical outputs are not a
+PR0-conformant research archive.
 
-Tasks:
-
-- Choose hosted black-box or local adapter as the first repeatable run route.
-- Return candidates, selected candidate, and observations as `AlephRun`.
-- Make failure modes visible in the UI and API response.
-- Record a verification receipt in `docs/verification.md`.
-
-Acceptance gate:
-
-- One command can produce a non-fixture `AlephRun`.
-- The UI can load it without a parallel model.
-
-## P1: Metric And Leakage Decision
-
-Goal: stop treating scoring as a vague placeholder.
+Goal: produce one pinned open-weight run with a complete archive and lossless `AlephRun` projection.
 
 Tasks:
 
-- Compare exact/edit distance, char n-gram, embedding similarity, LLM judge, and composite scoring.
-- Define leakage with n-gram overlap plus copy ratio first; consider entity-copy limits separately.
-- Add tests for edge cases: empty prompt, explicit reconstruction, paraphrase, named entities, numbers.
-- Record the chosen default in a decision note if it affects the run contract or public claims.
+- separate proposal and evaluation roles and prohibit target-copy fallback;
+- record every candidate, failure, retry, lineage edge, exact tokenizer cost, model revision, and
+  resource delta before deriving a frontier;
+- freeze a shortlist, run protected fresh confirmation, and independently replay the bundle;
+- export `AlephRun` through an explicit candidate-to-observation projection map.
 
 Acceptance gate:
 
-- Candidate ranking can be explained from visible sub-scores.
-- Non-leaking mode has a testable rule, even if it remains conservative.
+- one real non-fixture open-weight canary produces a versioned bundle, even if its scientific result
+  is negative;
+- replay and corruption tests pass, and the UI projection never rewrites an observation.
+
+## P1: Metric And Typed-Evidence Implementation
+
+Status: PR0 supersedes the old composite/scalar decision. Target-family calibration and implementation
+remain open.
+
+Goal: implement the versioned metric vector and finite evidence channels without collapsing them.
+
+Tasks:
+
+- freeze target-family fidelity metrics, calibration sets, intervals, and explicit missingness;
+- version surface-copy, deterministic-decoding, public-reference, recoverability, and trace-integrity
+  channels with declared side information and nulls;
+- add empty prompt, explicit reconstruction, paraphrase, entity/number, base64/hex, hidden-key, and
+  contaminated-trace cases;
+- permit a scalar only as a named scheduler/UI projection over the preserved vector.
+
+Acceptance gate:
+
+- every paper-facing value resolves to one implementation/version and raw observation;
+- passing a finite suite is labeled only relative to that suite and its thresholds.
 
 ## P1: File-First Run Import/Export
 
@@ -98,34 +108,36 @@ Acceptance gate:
 
 ## P2: Research Route Review
 
-Goal: use research to widen the implementation horizon without smuggling it into product claims.
+Status: completed at the route-selection level by PR0, prior-art, and the landmark/system program.
+
+Goal: turn only accepted routes into separately audited adapters.
 
 Tasks:
 
-- Revisit ARCA and Reversing LLMs for fixed-length prompt search.
-- Revisit GCG/nanoGCG for hard-prompt optimization risk and integration cost.
-- Revisit probe sampling only if optimization speed becomes the bottleneck.
-- Keep embedding inversion as contrast material unless it changes the product path.
+- reproduce MiniPrompt/ACR as the mandatory closest empirical baseline;
+- add ARCA/GCG as lower-level raw-coordinate comparators where compatible;
+- keep probe sampling conditional on a measured optimization bottleneck;
+- keep embedding inversion as contrast material unless it changes the product path.
 
 Acceptance gate:
 
 - Each route ends as one of: implement next, keep as adapter candidate, reject for now, or needs more evidence.
 
-## P2: Research-Phase Mainline
+## P2: Research-Phase Mainline — completed
 
-Goal: make the next phase legible now that the first short-term plan is mostly complete.
+Status: PR0, `model-relative-coordinate-landmarks.md`, and
+`math-computation-ai-systems.md` now make the next phase legible.
 
-Tasks:
+Follow-up:
 
-- Write down the repository's current research program in one place.
-- Separate workbench identity from benchmark-only or optimizer-only framings.
-- Decide which research families are "near-term route", "future adapter", or "contrast only".
-- Keep README, thesis, and backlog aligned with that distinction.
+- open small implementation issues for finite theory, the replayable real-model engine, and later
+  source/leakage experiments;
+- keep README, thesis, state-of-play, and backlog synchronized as gates land.
 
 Acceptance gate:
 
-- A new contributor can explain Aleph's next phase without reading chat transcripts.
-- The repo has one explicit research-direction document and linked backlog items.
+- a new contributor can explain Aleph's next phase without reading chat transcripts;
+- every implementation issue names one acceptance gate and the governing research contract.
 
 ## P2: White-box / Black-box Evidence Split
 

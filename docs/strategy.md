@@ -1,10 +1,15 @@
 # Strategy
 
-This file records the maintainer-level path decision after the final review pass. It is intentionally practical: keep the current main line strong, define fallbacks, and leave room for ambition without letting speculation become product fact.
+This file records the historical product-shell strategy that made the first console demonstrable.
+It remains useful for its fallback ladder and `AlephRun` boundaries, but it is **not the current
+research roadmap**. PR0, `docs/state-of-play.md`,
+`docs/plans/iclr-readable-coordinate-program.md`, and
+`docs/plans/model-relative-coordinate-landmarks.md` supersede its scalar metric and staged-search
+assumptions.
 
-## Current global optimum
+## Historical product-shell decision
 
-The best current path is:
+The historical path was:
 
 ```text
 frontend-led console
@@ -17,9 +22,10 @@ frontend-led console
   -> white-box scoring when logits are available
 ```
 
-This path maximizes the chance of a Hackathon demo that works while preserving the long-term research surface.
+This path maximized the chance of a working Hackathon demo while preserving a research surface. The
+current next gate is a PR0-conformant replayable run, not another fixture-led product milestone.
 
-## Why this is better than model-first
+## Why this was chosen over model-first
 
 A model-first build can fail for reasons unrelated to the product thesis: runtime setup, hardware, latency, tokenization, model quality, API access, cost, or prompt search instability.
 
@@ -66,14 +72,17 @@ Use the first fallback that preserves the thesis.
 - No database unless JSON export/import is already stable.
 - No ARCA/GCG integration unless it is isolated behind an adapter boundary.
 
-## Long-term line
+## Historical staged product sketch
+
+The following stages explain earlier sequencing. They are retained as provenance, not as an active
+claim that scalar leakage or an adapter alone satisfies the current research contract.
 
 ### v1: Black-box workbench
 
 - Real model adapter behind API boundary.
 - Candidate generation and scoring services.
 - Repeated sampling for stability.
-- Leakage scoring.
+- The legacy surface-copy proxy, clearly labeled and kept separate from typed PR0 evidence.
 - JSON import/export and saved run files.
 
 ### v2: White-box probability microscope
@@ -95,14 +104,16 @@ Use the first fallback that preserves the thesis.
 ### v4: Research product
 
 - Cross-model transfer.
-- Non-leaking benchmark suite.
+- A versioned tested-noncopy probe suite with declared channels, side information, thresholds, and
+  budget.
 - Run gallery.
 - Exported research cards.
 - Batch mode for output families.
 
-## Small modifications worth doing next
+## Historical local modifications
 
-These are local optima that improve the whole system without forcing hard product decisions:
+These items came from the console phase. Open items may still be useful, but
+`docs/next-backlog.md` is authoritative for current priority:
 
 1. ~~Split `apps/web/src/main.tsx` into components.~~ Done: `main.tsx` is now a pure composition layer; logic lives in `useAlephRun`, `runClient`, `runView`.
 2. Add run JSON import (export already ships).

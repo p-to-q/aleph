@@ -17,6 +17,8 @@ const requiredGlossaryTerms = [
   "Observation mode",
   "Non-leaking mode",
   "Token loss",
+  "Oracle coordinate length",
+  "Found coordinate length",
   "Model-relative description length"
 ];
 

@@ -31,15 +31,18 @@ The repository should be comfortable for three readers:
 - The Hackathon build remains frontend-led and fixture-backed.
 - Real model search is adapter work, not a prerequisite for UI/product clarity.
 - White-box panels cannot claim truth without logits or internals.
-- Leakage is a first-class metric, not a nice-to-have.
+- Typed surface-copy, recoverability, trace-integrity, and source evidence are first-class; no one
+  scalar `leakage` field may impersonate them.
 
 ## First-round choices still open
 
-Open questions are tracked in `docs/open-questions.md`; implementation path and fallbacks are tracked in `docs/strategy.md`. The most important are:
+Open questions are tracked in `docs/open-questions.md`; active implementation priorities are in
+`docs/next-backlog.md`; and `docs/strategy.md` retains historical product-shell fallbacks. The
+most important open choices are:
 
-- first real adapter;
-- default metric;
-- leakage formula;
+- first PR0-conformant research-grade adapter and archive;
+- primary versioned metrics and calibration thresholds;
+- first typed copy/recoverability probe suite and thresholds;
 - first search strategy;
 - persistence strategy;
 - console-vs-landing emphasis.
@@ -56,12 +59,13 @@ These are intentionally left flexible. Do not resolve them silently in code.
 
 ## Next best changes
 
-1. Split the React console into real components while preserving `AlephRun`.
-2. Add JSON import/export for runs.
-3. Add a mock API route that returns the fixture shape.
-4. Add tests for `leakageScore`, `paretoFrontier`, and `compressionRatio`.
-5. Add a visible observation-mode badge to each panel.
-6. Add a black-box adapter spike only after the UI uses the fixture cleanly.
+1. Land the finite-theory statement map and threshold/compiler checks without rewriting PR #103's
+   golden artifact.
+2. Implement one PR0-conformant real-model search archive with a six-account ledger and independent
+   replay.
+3. Reproduce MiniPrompt/ACR behind the same archive and evaluator boundary.
+4. Add JSON import with schema validation while preserving `AlephRun` projection identity.
+5. Migrate the legacy scalar `leakage` wire field only through a versioned typed-evidence change.
 
 ## Review cadence
 

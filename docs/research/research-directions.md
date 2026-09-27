@@ -2,6 +2,11 @@
 
 This file turns Aleph's prior-art scan into a forward-looking research map. It is not a promise to implement every route. It is a way to decide what belongs in the product, what belongs in adapters, and what belongs only in research notes.
 
+The governing [PR0 research contract](../plans/iclr-readable-coordinate-program.md) supersedes the
+older route map wherever it previously treated ARCA as the closest predecessor, flattened evidence
+into one composite score, or used one scalar `leakage` variable. This file now names routes against
+that contract; it does not fork the definitions.
+
 ## Why this file exists
 
 Aleph has moved past the first question of "is this only a metaphor?" The answer is now strong enough to proceed:
@@ -23,11 +28,11 @@ Aleph should keep treating **compression path** as the primary object.
 
 ```text
 target output
-  -> run conditions
-  -> candidate prompts
-  -> generated/scored outputs
-  -> frontier over shortness, fit, stability, leakage, and optional loss
-  -> observations that explain the current point
+  -> frozen coordinate/model/metric contract
+  -> searcher, budget, random state, and complete trace
+  -> append-only candidates and observations
+  -> multidimensional confirmed frontier views
+  -> typed copy, recoverability, trace-integrity, and source evidence
 ```
 
 This means the project should not collapse into any single one of these:
@@ -44,9 +49,11 @@ The product identity is narrower and stronger:
 
 ## Six research families
 
-### 1. Fixed-output reverse prompting
+### 1. Target-first compression and fixed-output reverse prompting
 
-Closest examples: ARCA / `auditing-llms`, especially the "Reversing LLMs" path.
+Closest empirical example: ACR/MiniPrompt. Closest formal neighbor: Prompting Complexity. ARCA /
+`auditing-llms`, especially the "Reversing LLMs" path, is a lower-level fixed-length raw-coordinate
+comparator.
 
 What this contributes:
 
@@ -56,9 +63,10 @@ What this contributes:
 
 What Aleph should take:
 
-- reverse search is real;
+- reverse search and variable-length target-first compression are established neighboring problems;
 - prompt length should be a first-class search variable;
-- future adapters may optimize toward fixed outputs directly.
+- MiniPrompt must be reproduced as the mandatory closest white-box baseline;
+- lower-level adapters may optimize toward fixed outputs directly.
 
 What Aleph should not inherit:
 
@@ -111,7 +119,8 @@ Closest examples: GEPA and other multi-objective or reflection-driven optimizers
 
 What this contributes:
 
-- a natural way to treat shortness, fit, stability, and leakage as a frontier instead of a single score;
+- a natural way to preserve shortness, fit, stability, and typed evidence channels as a
+  multidimensional frontier instead of one undocumented score;
 - a reminder that Aleph should expose tradeoffs rather than flattening them.
 
 What Aleph should take:
@@ -163,16 +172,18 @@ What Aleph should not inherit:
 - the claim that Aleph is recovering the original hidden prompt;
 - vector-to-text inversion as the central product route.
 
-## What is now missing from the repository
+## What remains to implement
 
-The repository already has a stable thesis, a visible run contract, and a credible first UI. What is still under-specified is the post-Hackathon research phase.
+The governing PR0 contract, the landmark program, and this route map now state which research families
+matter and distinguish the product mainline from adapter candidates. The remaining gap is executable
+delivery, not another competing roadmap.
 
 The main missing pieces are:
 
-- a shared statement of which research families matter now versus later;
-- a clearer distinction between product mainline and adapter candidates;
-- issue-ready research questions that go beyond "keep polishing the launch surface";
-- a roadmap for turning black-box, white-box, and hybrid evidence into stable product observations.
+- issue-ready manifests for the finite-theory and real-model search tranches;
+- the first PR0-conformant real-model archive, resource ledger, and independent replay;
+- mandatory MiniPrompt reproduction and budget-matched lower-level comparators; and
+- synchronized promotion of validated black-box, white-box, and hybrid evidence into product views.
 
 ## Near-term research program
 
@@ -185,31 +196,36 @@ Goal: make the product object legible and trustworthy.
 Focus:
 
 - dashboard language for ordinary users versus research mode;
-- explicit leakage handling;
+- explicit, channel-qualified copy/recoverability and trace-integrity handling;
 - stable candidate/frontier semantics;
 - clearer left/right endpoint explanations.
 
-### Track B. Scoring contract
+### Track B. Metric and evidence contract
 
 Goal: decide what makes a candidate "better" in Aleph.
 
 Focus:
 
-- composite metric design;
-- leakage score definition;
+- versioned metric vectors, calibrated thresholds, and explicit missingness;
+- separately named scheduler/UI projections that never replace raw observations;
+- surface-copy, recoverability, trace-integrity, and source channels with distinct semantics;
 - stability/reproducibility measurement;
 - when target NLL becomes a required field versus optional evidence.
 
-### Track C. First real search loops
+### Track C. First research-grade replayable search loops
 
-Goal: move from fixtures to repeatable real runs without overclaiming.
+Goal: promote existing hosted/MLX product spikes into repeatable scientific runs without treating
+their historical outputs as evidence.
 
 Focus:
 
 - hosted black-box candidate generation and evaluation;
-- local MLX/Qwen scoring and shallow search;
-- file-first import/export of `AlephRun` artifacts;
+- pinned local open-weight search with a full append-only archive and independent verifier;
+- file-first research bundles plus a lossless projection into `AlephRun`;
 - adapter honesty in the UI.
+
+The historical MLX frontier is not performance evidence; it must not be reused until every displayed
+point is regenerated from actual observations under the repaired frontier semantics.
 
 ### Track D. Deeper research adapters
 
@@ -217,11 +233,11 @@ Goal: keep harder methods in reach without forcing them into v1.
 
 Focus:
 
-- ARCA-style fixed-length prompt search;
-- GCG-style hard-prompt search;
+- mandatory MiniPrompt/ACR reproduction;
+- ARCA/GCG-style lower-level raw-coordinate comparators;
 - reflective/Pareto optimization;
 - soft-prompt-to-hard-prompt projection;
-- non-leaking mode and deletion ablation.
+- channel-qualified tested-copy/recoverability modes and deletion ablation.
 
 ## Recommended output types
 
@@ -239,7 +255,10 @@ Use:
 ## Current maintainer recommendation
 
 1. Keep Aleph's core identity as a compression workbench, not a generic optimizer.
-2. Treat reverse fixed-output search as the closest research family.
-3. Treat Pareto / leakage / stability as first-class product concerns, not polish.
+2. Treat ACR/MiniPrompt as the closest empirical baseline and Prompting Complexity as the closest
+   formal neighbor; use ARCA/GCG as lower-level raw-coordinate comparators.
+3. Treat multidimensional Pareto structure, typed evidence channels, and stability as first-class
+   product concerns, not polish.
 4. Let hosted black-box and local white-box routes coexist as evidence modes.
-5. Park ARCA/GCG/soft-prompt work as explicit future adapters until the run contract and scoring story are more stable.
+5. Land the mandatory MiniPrompt reproduction behind the shared archive/evaluator contract; add
+   ARCA/GCG and soft-prompt routes only as separately audited adapters.

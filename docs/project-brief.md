@@ -4,11 +4,15 @@ Aleph is a reverse prompt compression workbench.
 
 ## One-line definition
 
-Given a target output, a fixed model, fixed decoding, fixed metric, and fixed search budget, Aleph searches for the shortest known prompt that can reproduce or approximate the target output and visualizes the compression path.
+Given a target output and declared run conditions, Aleph searches for the shortest confirmed prompt
+found in its observed archive and visualizes the path to explicit reconstruction. The oracle
+coordinate length `L*` remains distinct from the run statistic `L_hat`.
 
 ## User promise
 
-Paste a target output, generate a path of candidate prompts, drag across the compression slider, and see how prompt length, target fit, stability, leakage, token loss, attribution, waveform, and eval results change.
+Paste a target output, generate a path of candidate prompts, drag across the compression slider, and
+inspect prompt length, target fit, stability, the legacy surface-copy proxy, token loss, attribution,
+waveform, and eval results. Paper-facing runs additionally preserve the typed PR0 evidence vector.
 
 ## Developer promise
 
@@ -27,14 +31,18 @@ The interface centers on a compression slider, but the slider is not the only in
 
 ## Constraint language
 
-Every run must record:
+Every current `AlephRun` must record:
 
 - model theta;
 - decoding strategy d;
-- metric m;
+- metric wire identifier (with a versioned manifest for paper-facing runs);
 - search budget B;
-- leakage mode;
+- legacy `SearchConfig.mode` wire value (not scientific leakage evidence);
 - observation mode.
+
+A research-grade bundle additionally records the search algorithm/version, random state, exact model
+and tokenizer revisions, append-only candidate/event archive, protected confirmation protocol, typed
+metric/evidence manifest, and `ResourceLedger`.
 
 ## Non-goals
 

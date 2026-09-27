@@ -37,7 +37,7 @@ for (const phrase of ["Core hypothesis", "What Is Settled", "Research Converted 
   if (!state.includes(phrase)) throw new Error(`state of play missing section: ${phrase}`);
 }
 const backlog = readFileSync("docs/next-backlog.md", "utf8");
-for (const phrase of ["P0: Make The Active Surface Unambiguous", "P1: First Real Run Loop", "P1: Metric And Leakage Decision", "P2: Research Route Review"]) {
+for (const phrase of ["P0: Make The Active Surface Unambiguous", "P1: First Research-Grade Replayable Run", "P1: Metric And Typed-Evidence Implementation", "P2: Research Route Review"]) {
   if (!backlog.includes(phrase)) throw new Error(`next backlog missing item: ${phrase}`);
 }
 const thesis = readFileSync("THESIS.md", "utf8");
@@ -55,7 +55,7 @@ for (const phrase of ["Fallback ladder", "console-first", "AlephRun"]) {
   if (!strategy.includes(phrase)) throw new Error(`strategy missing phrase: ${phrase}`);
 }
 const quality = readFileSync("docs/quality-bar.md", "utf8");
-for (const phrase of ["shortest known prompt", "mock/simulated", "next correct move"]) {
+for (const phrase of ["shortest found prompt", "mock/simulated", "next correct move"]) {
   if (!quality.includes(phrase)) throw new Error(`quality bar missing phrase: ${phrase}`);
 }
 console.log("check-repo: ok");
