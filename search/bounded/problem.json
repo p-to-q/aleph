@@ -1,0 +1,32 @@
+{
+  "schemaVersion": "bounded-coordinate-problem/v0",
+  "id": "shared-witness-feedback-geometry-v0",
+  "alphabet": ["A", "B", "C", "D"],
+  "target": "10011100",
+  "maxCoordinateTokens": 4,
+  "cost": {
+    "unit": "coordinate_token",
+    "formula": "len(tokens)"
+  },
+  "fit": {
+    "id": "aligned_exact_bit_matches_v1",
+    "denominator": "max_target_output_length",
+    "missingOrExtraPositionsMismatch": true
+  },
+  "landscapes": {
+    "compositional": {
+      "type": "chunk_concat",
+      "chunks": {
+        "A": "10",
+        "B": "01",
+        "C": "11",
+        "D": "00"
+      }
+    },
+    "opaque": {
+      "type": "exact_lookup",
+      "witness": ["A", "B", "C", "D"],
+      "fallback": "00000000"
+    }
+  }
+}
