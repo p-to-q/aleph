@@ -38,7 +38,8 @@ Acceptance gate:
 Status: product hosted-black-box and local-MLX loops exist. Their historical outputs are not a
 PR0-conformant research archive.
 
-Goal: produce one pinned open-weight run with a complete archive and lossless `AlephRun` projection.
+Goal: produce one pinned open-weight run with a complete research bundle and a lossless selected-view
+`AlephRun` projection that links to that bundle by stable content identity.
 
 Tasks:
 
@@ -46,13 +47,16 @@ Tasks:
 - record every candidate, failure, retry, lineage edge, exact tokenizer cost, model revision, and
   resource delta before deriving a frontier;
 - freeze a shortlist, run protected fresh confirmation, and independently replay the bundle;
-- export `AlephRun` through an explicit candidate-to-observation projection map.
+- export `AlephRun` through an explicit candidate-to-observation projection map and retain a stable
+  link to the complete archive/event bundle.
 
 Acceptance gate:
 
 - one real non-fixture open-weight canary produces a versioned bundle, even if its scientific result
   is negative;
-- replay and corruption tests pass, and the UI projection never rewrites an observation.
+- replay and corruption tests pass; the UI projection preserves the selected candidate and every
+  referenced observation exactly. It need not embed the complete research archive, but its bundle
+  reference must resolve and verify.
 
 ## P1: Metric And Typed-Evidence Implementation
 

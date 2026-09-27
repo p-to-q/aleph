@@ -634,10 +634,12 @@ inaccessible under a declared search interface.
 The first exact separation uses a finite black-box equality oracle. Let a secret coordinate
 \(S\) be uniform on \(\{0,1\}^k\), and let the decoder return target \(y\) exactly only when
 \(p=S\). All legal coordinates have fixed cost \(k\) under the declared fixed-length code. Then a
-perfect coordinate of cost \(k\) exists in every instance, while any adaptive algorithm that receives
-only success/failure and makes \(q\le2^k\) distinct queries succeeds with probability at most
-\(q/2^k\). Thus description length is \(O(k)\) and the median black-box discovery work is
-\(\Theta(2^k)\).
+perfect coordinate of cost \(k\) exists in every instance. Define discovery success here as
+receiving a positive oracle response on one of the queried coordinates; a final unqueried guess is
+not counted. Any adaptive algorithm that receives only success/failure and makes
+\(q\le2^k\) distinct queries therefore succeeds with probability at most \(q/2^k\). If a protocol
+allows one additional unqueried final guess, the bound is \((q+1)/2^k\). Under either convention,
+description length is \(O(k)\) and median black-box discovery work is \(\Theta(2^k)\).
 
 The long-horizon problem is to characterize how that separation changes under structured feedback,
 compositional coordinate languages, gradients/logits, model-guided proposal distributions,

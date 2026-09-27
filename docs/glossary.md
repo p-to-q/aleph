@@ -41,8 +41,8 @@ finite search found the global minimum.
 **Found coordinate length**: `L_hat`, the minimum confirmed cost in an observed archive. It is
 algorithm-, budget-, seed-, tokenizer-, and confirmation-protocol-relative. With an exact checker it
 is an upper bound on `L*` when the candidate belongs to the declared domain; with statistical or
-human confirmation, that upper-bound statement holds only on the declared simultaneous-coverage
-event.
+human confirmation, that statement holds only on a declared simultaneous-coverage event that entails
+candidate feasibility.
 
 **Model-relative description length**: The family containing the oracle quantity `L*`, found
 upper bounds such as `L_hat`, and their declared model, decoding, metric, prompt-domain, tokenizer,

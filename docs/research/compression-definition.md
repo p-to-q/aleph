@@ -24,10 +24,12 @@ L_hat_{A,B,omega}(y; epsilon, beta) = min |p|
   whose protected confirmation supports rho(p; y, epsilon) >= 1 - beta
 ```
 
-The search budget belongs to `L_hat`, not `L*`. Unless the coordinate domain is exhausted or a
-sound cheaper-prefix certificate is available, the confirmed shortest-found value constructively
-upper-bounds `L*` only conditional on the declared simultaneous-coverage event; the event's stated
-coverage controls the confidence of that claim. Search-time point estimates remain provisional.
+The search budget belongs to `L_hat`, not `L*`. An exact checker establishes feasibility directly.
+Otherwise, conditional on the declared simultaneous-coverage event, a protected-confirmed candidate
+that meets the population reliability threshold constructively upper-bounds `L*`; the event's
+stated coverage controls the confidence of that claim. Search-time point estimates remain
+provisional. Exhausting the coordinate domain or supplying a sound cheaper-prefix certificate can
+close the remaining optimality gap, but neither substitutes for candidate-feasibility evidence.
 Scientific artifacts preserve a versioned metric vector and raw
 observations. A separately named optimizer or UI projection may use a scalar rule, but it does not
 replace the multidimensional record or define the research construct.

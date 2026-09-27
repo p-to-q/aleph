@@ -363,14 +363,15 @@ comparison. Token count, UTF-8 bytes, and Unicode scalar count remain separate o
 With deterministic decoding and an exact feasibility checker, a witnessed candidate of cost \(r\)
 is a constructive upper bound on the corresponding threshold length in that fixed coordinate system.
 With stochastic decoding or human-measured eligibility, a freshly confirmed candidate
-constructively upper-bounds the corresponding threshold length only conditional on the declared
-simultaneous-coverage event; the event's stated coverage controls the confidence of that claim.
-Search-time point estimates remain provisional and later evidence may change the confirmed view. In
-either regime, the
-found curve is algorithm-, budget-, and random-state-conditioned. It is not a global optimum, an
+constructively upper-bounds the corresponding threshold length only conditional on a declared
+simultaneous-coverage event that entails candidate feasibility; the event's stated coverage controls
+the confidence of that claim. Search-time point estimates remain provisional and later evidence may
+change the confirmed view. In either regime, the found curve is algorithm-, budget-, and
+random-state-conditioned. It is not a global optimum, an
 unbiased estimator of the oracle curve, or evidence that an unvisited shorter coordinate does not
-exist. Only exhaustive enumeration of the declared finite domain or a sound lower-bound certificate
-closes that gap. FunSearch and AlphaEvolve are useful here because their population mechanics make
+exist. Exhausting the declared finite domain or supplying a sound cheaper-prefix certificate can
+close the remaining optimality gap once feasibility evidence is valid; neither substitutes for
+candidate-feasibility evidence. FunSearch and AlphaEvolve are useful here because their population mechanics make
 discovery work visible; their closed production scale does not change the accounting rule
 ([FunSearch repository](https://github.com/google-deepmind/funsearch),
 [AlphaEvolve white paper](https://storage.googleapis.com/deepmind-media/DeepMind.com/Blog/alphaevolve-a-gemini-powered-coding-agent-for-designing-advanced-algorithms/AlphaEvolve.pdf)).

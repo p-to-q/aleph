@@ -86,9 +86,10 @@ L_hat_{A,B,omega}(y; epsilon, beta) = min |p|
 ```
 
 Budget belongs to the found statistic, not the oracle construct. Conditional on the declared
-simultaneous-coverage event, a confirmed shortest-found result constructively upper-bounds `L*`;
-the event's stated coverage controls the confidence of that claim. Search-time point estimates
-remain provisional. Only exhaustive coverage or a sound cheaper-prefix certificate
+simultaneous-coverage event, a protected-confirmed result whose population reliability meets the
+declared threshold constructively upper-bounds `L*`; the event's stated coverage controls the
+confidence of that claim. Search-time point estimates remain provisional. Only exhaustive coverage
+or a sound cheaper-prefix certificate
 closes the optimality gap. This is deliberately not strict Kolmogorov complexity. Strict Kolmogorov
 complexity is defined relative to an abstract universal machine. Aleph freezes a concrete model
 interface, tokenizer, decoding rule, metric family, coordinate domain, and code-length convention.

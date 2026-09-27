@@ -100,9 +100,10 @@ L_hat_{A,B,omega}(y; epsilon, beta) = min |p|
 ```
 
 The search budget belongs only to the second quantity. Conditional on the declared
-simultaneous-coverage event, a confirmed shortest-found coordinate constructively upper-bounds
-`L*`; the event's stated coverage controls the confidence of that claim. This is not evidence that
-the global minimum was reached. Search-time point estimates remain provisional.
+simultaneous-coverage event, a protected-confirmed coordinate whose population reliability meets the
+declared threshold constructively upper-bounds `L*`; the event's stated coverage controls the
+confidence of that claim. This is not evidence that the global minimum was reached. Search-time point
+estimates remain provisional.
 
 An early practical scoring sketch compressed those concerns into one scalar:
 
