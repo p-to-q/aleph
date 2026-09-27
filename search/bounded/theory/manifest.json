@@ -1,0 +1,310 @@
+{
+  "archives": [
+    {
+      "coordinateIds": [],
+      "id": "source-empty",
+      "systemId": "source-v0"
+    },
+    {
+      "coordinateIds": [
+        "s-empty"
+      ],
+      "id": "source-first",
+      "systemId": "source-v0"
+    },
+    {
+      "coordinateIds": [
+        "s-empty",
+        "s-0",
+        "s-1"
+      ],
+      "id": "source-later",
+      "systemId": "source-v0"
+    },
+    {
+      "coordinateIds": [
+        "s-empty",
+        "s-0",
+        "s-1",
+        "s-00",
+        "s-01"
+      ],
+      "id": "source-complete",
+      "systemId": "source-v0"
+    }
+  ],
+  "compilers": [
+    {
+      "contentSha256": "6f06dd52dbb571831e49d0b31b5bb45ee8dfe17498b73a7ed37d323cc2c97294",
+      "costOverheadBits": 2,
+      "destinationSystemContentSha256": "93bbafbcdf5b0b69e898bb35b2fa0f9cc917e1ac6468c4d113dcf4e75291ae93",
+      "destinationSystemId": "destination-v0",
+      "id": "source-to-destination-v0",
+      "mapping": {
+        "s-0": "d-0",
+        "s-00": "d-00",
+        "s-01": "d-01",
+        "s-1": "d-1",
+        "s-empty": "d-empty"
+      },
+      "residualSlack": 0,
+      "sourceSystemContentSha256": "2c0718b0aa55f7c39cbdaeeb98edb2d0b160f5d6e1a0969c809e51d84ff77b6d",
+      "sourceSystemId": "source-v0"
+    },
+    {
+      "contentSha256": "1f9c76b3256a815aa85e8f8b42076d226ca386c1a0d9c6085763760c3c8ac206",
+      "costOverheadBits": 0,
+      "destinationSystemContentSha256": "2c0718b0aa55f7c39cbdaeeb98edb2d0b160f5d6e1a0969c809e51d84ff77b6d",
+      "destinationSystemId": "source-v0",
+      "id": "destination-to-source-v0",
+      "mapping": {
+        "d-0": "s-0",
+        "d-00": "s-00",
+        "d-01": "s-01",
+        "d-1": "s-1",
+        "d-empty": "s-empty"
+      },
+      "residualSlack": 0,
+      "sourceSystemContentSha256": "93bbafbcdf5b0b69e898bb35b2fa0f9cc917e1ac6468c4d113dcf4e75291ae93",
+      "sourceSystemId": "destination-v0"
+    }
+  ],
+  "id": "finite-theory-v0-fixture",
+  "objectiveNames": [
+    "charged_bit_cost",
+    "alpha_residual",
+    "beta_residual"
+  ],
+  "schemaVersion": "finite-theory-manifest/v0",
+  "systems": [
+    {
+      "contentSha256": "2c0718b0aa55f7c39cbdaeeb98edb2d0b160f5d6e1a0969c809e51d84ff77b6d",
+      "coordinates": [
+        {
+          "chargedBitCost": 4,
+          "codeBits": "0000",
+          "id": "s-empty",
+          "objectives": {
+            "alpha_residual": 6,
+            "beta_residual": 5,
+            "charged_bit_cost": 4
+          },
+          "payloadBits": "",
+          "rendering": "source:",
+          "residuals": {
+            "alpha": 6,
+            "beta": 5
+          },
+          "role": "source"
+        },
+        {
+          "chargedBitCost": 5,
+          "codeBits": "00010",
+          "id": "s-0",
+          "objectives": {
+            "alpha_residual": 4,
+            "beta_residual": 5,
+            "charged_bit_cost": 5
+          },
+          "payloadBits": "0",
+          "rendering": "source:0",
+          "residuals": {
+            "alpha": 4,
+            "beta": 5
+          },
+          "role": "source"
+        },
+        {
+          "chargedBitCost": 5,
+          "codeBits": "00011",
+          "id": "s-1",
+          "objectives": {
+            "alpha_residual": 4,
+            "beta_residual": 5,
+            "charged_bit_cost": 5
+          },
+          "payloadBits": "1",
+          "rendering": "source:1",
+          "residuals": {
+            "alpha": 4,
+            "beta": 5
+          },
+          "role": "source"
+        },
+        {
+          "chargedBitCost": 6,
+          "codeBits": "001000",
+          "id": "s-00",
+          "objectives": {
+            "alpha_residual": 2,
+            "beta_residual": 3,
+            "charged_bit_cost": 6
+          },
+          "payloadBits": "00",
+          "rendering": "source:00",
+          "residuals": {
+            "alpha": 2,
+            "beta": 3
+          },
+          "role": "source"
+        },
+        {
+          "chargedBitCost": 6,
+          "codeBits": "001001",
+          "id": "s-01",
+          "objectives": {
+            "alpha_residual": 0,
+            "beta_residual": 2,
+            "charged_bit_cost": 6
+          },
+          "payloadBits": "01",
+          "rendering": "source:01",
+          "residuals": {
+            "alpha": 0,
+            "beta": 2
+          },
+          "role": "source"
+        }
+      ],
+      "encoding": {
+        "kind": "typed-fixed-width-length-prefix/v0",
+        "lengthWidth": 3,
+        "roleTags": {
+          "source": "0"
+        }
+      },
+      "id": "source-v0"
+    },
+    {
+      "contentSha256": "93bbafbcdf5b0b69e898bb35b2fa0f9cc917e1ac6468c4d113dcf4e75291ae93",
+      "coordinates": [
+        {
+          "chargedBitCost": 4,
+          "codeBits": "0000",
+          "id": "d-empty",
+          "objectives": {
+            "alpha_residual": 6,
+            "beta_residual": 5,
+            "charged_bit_cost": 4
+          },
+          "payloadBits": "",
+          "rendering": "literal:",
+          "residuals": {
+            "alpha": 6,
+            "beta": 5
+          },
+          "role": "literal"
+        },
+        {
+          "chargedBitCost": 7,
+          "codeBits": "1000010",
+          "id": "d-0",
+          "objectives": {
+            "alpha_residual": 4,
+            "beta_residual": 5,
+            "charged_bit_cost": 7
+          },
+          "payloadBits": "0",
+          "rendering": "compiled:0",
+          "residuals": {
+            "alpha": 4,
+            "beta": 5
+          },
+          "role": "compiled"
+        },
+        {
+          "chargedBitCost": 7,
+          "codeBits": "1000011",
+          "id": "d-1",
+          "objectives": {
+            "alpha_residual": 4,
+            "beta_residual": 5,
+            "charged_bit_cost": 7
+          },
+          "payloadBits": "1",
+          "rendering": "compiled:1",
+          "residuals": {
+            "alpha": 4,
+            "beta": 5
+          },
+          "role": "compiled"
+        },
+        {
+          "chargedBitCost": 6,
+          "codeBits": "001000",
+          "id": "d-00",
+          "objectives": {
+            "alpha_residual": 2,
+            "beta_residual": 3,
+            "charged_bit_cost": 6
+          },
+          "payloadBits": "00",
+          "rendering": "literal:00",
+          "residuals": {
+            "alpha": 2,
+            "beta": 3
+          },
+          "role": "literal"
+        },
+        {
+          "chargedBitCost": 6,
+          "codeBits": "001001",
+          "id": "d-01",
+          "objectives": {
+            "alpha_residual": 0,
+            "beta_residual": 2,
+            "charged_bit_cost": 6
+          },
+          "payloadBits": "01",
+          "rendering": "literal:01",
+          "residuals": {
+            "alpha": 0,
+            "beta": 2
+          },
+          "role": "literal"
+        }
+      ],
+      "encoding": {
+        "kind": "typed-fixed-width-length-prefix/v0",
+        "lengthWidth": 3,
+        "roleTags": {
+          "compiled": "100",
+          "literal": "0"
+        }
+      },
+      "id": "destination-v0"
+    }
+  ],
+  "targets": [
+    "alpha",
+    "beta"
+  ],
+  "verificationOutcomes": [
+    [],
+    [
+      "syntax"
+    ],
+    [
+      "semantic"
+    ],
+    [
+      "syntax",
+      "semantic"
+    ]
+  ],
+  "verifierSuites": [
+    {
+      "checkIds": [
+        "syntax"
+      ],
+      "id": "basic"
+    },
+    {
+      "checkIds": [
+        "syntax",
+        "semantic"
+      ],
+      "id": "strict"
+    }
+  ]
+}

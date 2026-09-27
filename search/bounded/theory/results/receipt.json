@@ -1,0 +1,676 @@
+{
+  "archiveEvidence": [
+    {
+      "archiveId": "source-empty",
+      "coordinateIds": [],
+      "isDomainSubset": true,
+      "systemId": "source-v0"
+    },
+    {
+      "archiveId": "source-first",
+      "coordinateIds": [
+        "s-empty"
+      ],
+      "isDomainSubset": true,
+      "systemId": "source-v0"
+    },
+    {
+      "archiveId": "source-later",
+      "coordinateIds": [
+        "s-empty",
+        "s-0",
+        "s-1"
+      ],
+      "isDomainSubset": true,
+      "systemId": "source-v0"
+    },
+    {
+      "archiveId": "source-complete",
+      "coordinateIds": [
+        "s-empty",
+        "s-0",
+        "s-1",
+        "s-00",
+        "s-01"
+      ],
+      "isDomainSubset": true,
+      "systemId": "source-v0"
+    }
+  ],
+  "compilerEvidence": [
+    {
+      "compilerId": "source-to-destination-v0",
+      "costBound": true,
+      "costOverheadBits": 2,
+      "destinationMembership": true,
+      "destinationSystemId": "destination-v0",
+      "residualBound": true,
+      "residualSlack": 0,
+      "sourceCoverage": true,
+      "sourceSystemId": "source-v0",
+      "targetIndependent": true
+    },
+    {
+      "compilerId": "destination-to-source-v0",
+      "costBound": true,
+      "costOverheadBits": 0,
+      "destinationMembership": true,
+      "destinationSystemId": "source-v0",
+      "residualBound": true,
+      "residualSlack": 0,
+      "sourceCoverage": true,
+      "sourceSystemId": "destination-v0",
+      "targetIndependent": true
+    }
+  ],
+  "compositionEvidence": [
+    {
+      "costOverheadBits": 2,
+      "destinationSystemId": "source-v0",
+      "firstCompilerId": "source-to-destination-v0",
+      "mapping": {
+        "s-0": "s-0",
+        "s-00": "s-00",
+        "s-01": "s-01",
+        "s-1": "s-1",
+        "s-empty": "s-empty"
+      },
+      "residualSlack": 0,
+      "secondCompilerId": "destination-to-source-v0",
+      "sourceSystemId": "source-v0",
+      "valid": true
+    },
+    {
+      "costOverheadBits": 2,
+      "destinationSystemId": "destination-v0",
+      "firstCompilerId": "destination-to-source-v0",
+      "mapping": {
+        "d-0": "d-0",
+        "d-00": "d-00",
+        "d-01": "d-01",
+        "d-1": "d-1",
+        "d-empty": "d-empty"
+      },
+      "residualSlack": 0,
+      "secondCompilerId": "source-to-destination-v0",
+      "sourceSystemId": "destination-v0",
+      "valid": true
+    }
+  ],
+  "encodingEvidence": [
+    {
+      "coordinateCount": 5,
+      "injective": true,
+      "kraft": {
+        "denominator": 32,
+        "numerator": 5
+      },
+      "losslessRendering": true,
+      "prefixFree": true,
+      "rawChargedOrderInversionWitness": null,
+      "systemId": "source-v0"
+    },
+    {
+      "coordinateCount": 5,
+      "injective": true,
+      "kraft": {
+        "denominator": 64,
+        "numerator": 7
+      },
+      "losslessRendering": true,
+      "prefixFree": true,
+      "rawChargedOrderInversionWitness": [
+        "d-0",
+        "d-00"
+      ],
+      "systemId": "destination-v0"
+    }
+  ],
+  "fixtureId": "finite-theory-v0-fixture",
+  "manifest": {
+    "contentSha256": "299a33e6794a9a7da24aad9bf543955035e67561514cce77988e0e83761164c7",
+    "fileSha256": "1aae049a0df71c48f324f7c835b8b53dda7703b51bb85a6c5caf851c746cb23b"
+  },
+  "protectedBaseline": {
+    "contentSha256": "c3601f2e4be25bc896e9b4ed7699539dfc16629130e0cf5e7c9c8f5d1726ebdf",
+    "fileCount": 21,
+    "files": [
+      {
+        "path": "search/__init__.py",
+        "sha256": "daa65e247d006dcf55e13ada332215d2384f9287fb258f18f94d18ca6196315b"
+      },
+      {
+        "path": "search/bounded/README.md",
+        "sha256": "1323fd3ffc388a9e4bd644653d547bed52c9dadfdb0948a03c67f8500ada9092"
+      },
+      {
+        "path": "search/bounded/__init__.py",
+        "sha256": "0d11c3bdcffe8ddf082a4435f1591c0ec31c1119098a7aaa6955919c1d3ca1cc"
+      },
+      {
+        "path": "search/bounded/generate_lean.py",
+        "sha256": "fbf00da31793399cfeec7807ae8c4faff9422dea4fa31fced62c1b387c302262"
+      },
+      {
+        "path": "search/bounded/lean/BoundedCoordinate.lean",
+        "sha256": "fd5b1690981f13d018f272a9a78f54943b4e27abacf2421a0fb928a6021bd986"
+      },
+      {
+        "path": "search/bounded/lean/BoundedCoordinate/Basic.lean",
+        "sha256": "b26ccaeeaa74292680f6c401e8800d8c17da0598aba8a56b36d4a36526eac667"
+      },
+      {
+        "path": "search/bounded/lean/BoundedCoordinate/GeneratedFrontier.lean",
+        "sha256": "e09f5debdc468212f0a673a0feba4bf89a34167d3e0b844d12c9ce8af76ab53b"
+      },
+      {
+        "path": "search/bounded/lean/BoundedCoordinate/GeneratedProblem.lean",
+        "sha256": "06b4ddf2af7f9a97609c9a940f251a5367b20ea9f91daa5b43ba29c041a0b7bc"
+      },
+      {
+        "path": "search/bounded/lean/lake-manifest.json",
+        "sha256": "18e2960aa611b114b820e90fef81ff3555325f9ff6e198011d5dcd00dacf2235"
+      },
+      {
+        "path": "search/bounded/lean/lakefile.toml",
+        "sha256": "8dd2a9db8c709478b11cdf442955bcf0257eff7400a092eef9365867458687e7"
+      },
+      {
+        "path": "search/bounded/lean/lean-toolchain",
+        "sha256": "d5edba4e4b8faad9c1baeadb265716d20d03be4d1a2647dc5e35b0c0325bea7b"
+      },
+      {
+        "path": "search/bounded/model.py",
+        "sha256": "70e57a4c1298c7d1449444190dd21f9fb684e31c4358cd423b69be4f18423760"
+      },
+      {
+        "path": "search/bounded/problem.json",
+        "sha256": "6822ce4c80b720e9148e5f9c5af9679655eb4b7659c941b5d9ee460067b80408"
+      },
+      {
+        "path": "search/bounded/results/candidates.jsonl",
+        "sha256": "273b5a53eab00a484bf77c71c78fa6eb76f92302492cb0633b6cfeb702b29ebe"
+      },
+      {
+        "path": "search/bounded/results/lean-verification.json",
+        "sha256": "59cf47fa3f4cca59a3a697f57fbfe42aded7ded255bc31e045cc5363058aebfa"
+      },
+      {
+        "path": "search/bounded/results/receipt.json",
+        "sha256": "ae4bacf3739d3015cf0c71ccbe7c9da249d29a7ac0514c79173ec23d3c89bc7b"
+      },
+      {
+        "path": "search/bounded/results/verification.json",
+        "sha256": "6a9906d2776009a95bf50a6a7737981eb5d9e8a60d6e99a5bf082ce968a655f8"
+      },
+      {
+        "path": "search/bounded/run.py",
+        "sha256": "ccfc331f2e4243fc9ca5ea43c6654afd8790039f4bfbb4fca2bc6828c90845ba"
+      },
+      {
+        "path": "search/bounded/verify.py",
+        "sha256": "0537ad21f8975dd467c493f42a047127222a62b465c021de2688b84c4fa41552"
+      },
+      {
+        "path": "search/bounded/verify_lean.py",
+        "sha256": "effe1c6daf30a8caa813d19ae52ddee7da3762a0f16f817d818a58e500341b8d"
+      },
+      {
+        "path": "search/tests/test_bounded_coordinate.py",
+        "sha256": "0db2eb29284dd4c62a8190e5af03735d0f4e05e5acea4ed87e87c85214f873f6"
+      }
+    ],
+    "policy": "exact-file-sha256/v0",
+    "sourceCommit": "179194ca2524a0d37f797684010e600c70a65774"
+  },
+  "schemaVersion": "finite-theory-receipt/v0",
+  "scope": {
+    "claimsKolmogorovComplexity": false,
+    "claimsNaturalLanguageIntentVerification": false,
+    "claimsOpenLlmPromptSearch": false,
+    "claimsTokenizerInvariance": false,
+    "finiteExactIntegersOnly": true,
+    "fullDeclaredDomainsOnly": true,
+    "noneMeansPositiveInfinity": true
+  },
+  "statementChecks": [
+    {
+      "id": "FT-01",
+      "passed": true,
+      "pythonCheck": "check_ft01_threshold_duality"
+    },
+    {
+      "id": "FT-02",
+      "passed": true,
+      "pythonCheck": "check_ft02_structure_monotonicity"
+    },
+    {
+      "id": "FT-03",
+      "passed": true,
+      "pythonCheck": "check_ft03_threshold_monotonicity"
+    },
+    {
+      "id": "FT-04",
+      "passed": true,
+      "pythonCheck": "check_ft04_two_part_identity"
+    },
+    {
+      "id": "FT-05",
+      "passed": true,
+      "pythonCheck": "check_ft05_archive_upper_bound"
+    },
+    {
+      "id": "FT-06",
+      "passed": true,
+      "pythonCheck": "check_ft06_append_only_archive_monotonicity"
+    },
+    {
+      "id": "FT-07",
+      "passed": true,
+      "pythonCheck": "check_ft07_suite_subset_implication"
+    },
+    {
+      "id": "FT-08",
+      "passed": true,
+      "pythonCheck": "check_ft08_pareto_soundness"
+    },
+    {
+      "id": "FT-09",
+      "passed": true,
+      "pythonCheck": "check_ft09_pareto_completeness"
+    },
+    {
+      "id": "FC-01",
+      "passed": true,
+      "pythonCheck": "check_fc01_witness_transfer"
+    },
+    {
+      "id": "FC-02",
+      "passed": true,
+      "pythonCheck": "check_fc02_curve_transfer"
+    },
+    {
+      "id": "FC-03",
+      "passed": true,
+      "pythonCheck": "check_fc03_composition"
+    },
+    {
+      "id": "FC-04",
+      "passed": true,
+      "pythonCheck": "check_fc04_zero_slack_threshold_sandwich"
+    }
+  ],
+  "statementMap": {
+    "contentSha256": "4af3ab0b650a24d0ee7c40dca319aff62a7a097ec7cb32d0c70581f4325b8126",
+    "fileSha256": "faaeb6f11a6333f34fd9e31257b2907bde70c0f9e0261ed5e759abeb74489d54"
+  },
+  "suiteEvidence": [
+    {
+      "implicationHolds": true,
+      "largerSuiteId": "strict",
+      "outcomesChecked": 4,
+      "subsetSuiteId": "basic"
+    }
+  ],
+  "systemEvidence": [
+    {
+      "pareto": {
+        "candidateIds": [
+          "s-empty",
+          "s-0",
+          "s-01"
+        ],
+        "objectiveVectors": [
+          [
+            4,
+            6,
+            5
+          ],
+          [
+            5,
+            4,
+            5
+          ],
+          [
+            6,
+            0,
+            2
+          ]
+        ],
+        "policy": "first-source-occurrence-per-vector/v0"
+      },
+      "systemId": "source-v0",
+      "targets": {
+        "alpha": {
+          "maxCost": 6,
+          "maxResidual": 6,
+          "structure": [
+            {
+              "budget": 0,
+              "value": null
+            },
+            {
+              "budget": 1,
+              "value": null
+            },
+            {
+              "budget": 2,
+              "value": null
+            },
+            {
+              "budget": 3,
+              "value": null
+            },
+            {
+              "budget": 4,
+              "value": 6
+            },
+            {
+              "budget": 5,
+              "value": 4
+            },
+            {
+              "budget": 6,
+              "value": 0
+            },
+            {
+              "budget": 7,
+              "value": 0
+            }
+          ],
+          "threshold": [
+            {
+              "residualLimit": 0,
+              "value": 6
+            },
+            {
+              "residualLimit": 1,
+              "value": 6
+            },
+            {
+              "residualLimit": 2,
+              "value": 6
+            },
+            {
+              "residualLimit": 3,
+              "value": 6
+            },
+            {
+              "residualLimit": 4,
+              "value": 5
+            },
+            {
+              "residualLimit": 5,
+              "value": 5
+            },
+            {
+              "residualLimit": 6,
+              "value": 4
+            },
+            {
+              "residualLimit": 7,
+              "value": 4
+            }
+          ],
+          "twoPart": {
+            "byDeclaredCostLevels": 6,
+            "direct": 6
+          }
+        },
+        "beta": {
+          "maxCost": 6,
+          "maxResidual": 5,
+          "structure": [
+            {
+              "budget": 0,
+              "value": null
+            },
+            {
+              "budget": 1,
+              "value": null
+            },
+            {
+              "budget": 2,
+              "value": null
+            },
+            {
+              "budget": 3,
+              "value": null
+            },
+            {
+              "budget": 4,
+              "value": 5
+            },
+            {
+              "budget": 5,
+              "value": 5
+            },
+            {
+              "budget": 6,
+              "value": 2
+            },
+            {
+              "budget": 7,
+              "value": 2
+            }
+          ],
+          "threshold": [
+            {
+              "residualLimit": 0,
+              "value": null
+            },
+            {
+              "residualLimit": 1,
+              "value": null
+            },
+            {
+              "residualLimit": 2,
+              "value": 6
+            },
+            {
+              "residualLimit": 3,
+              "value": 6
+            },
+            {
+              "residualLimit": 4,
+              "value": 6
+            },
+            {
+              "residualLimit": 5,
+              "value": 4
+            },
+            {
+              "residualLimit": 6,
+              "value": 4
+            }
+          ],
+          "twoPart": {
+            "byDeclaredCostLevels": 8,
+            "direct": 8
+          }
+        }
+      }
+    },
+    {
+      "pareto": {
+        "candidateIds": [
+          "d-empty",
+          "d-01"
+        ],
+        "objectiveVectors": [
+          [
+            4,
+            6,
+            5
+          ],
+          [
+            6,
+            0,
+            2
+          ]
+        ],
+        "policy": "first-source-occurrence-per-vector/v0"
+      },
+      "systemId": "destination-v0",
+      "targets": {
+        "alpha": {
+          "maxCost": 7,
+          "maxResidual": 6,
+          "structure": [
+            {
+              "budget": 0,
+              "value": null
+            },
+            {
+              "budget": 1,
+              "value": null
+            },
+            {
+              "budget": 2,
+              "value": null
+            },
+            {
+              "budget": 3,
+              "value": null
+            },
+            {
+              "budget": 4,
+              "value": 6
+            },
+            {
+              "budget": 5,
+              "value": 6
+            },
+            {
+              "budget": 6,
+              "value": 0
+            },
+            {
+              "budget": 7,
+              "value": 0
+            },
+            {
+              "budget": 8,
+              "value": 0
+            }
+          ],
+          "threshold": [
+            {
+              "residualLimit": 0,
+              "value": 6
+            },
+            {
+              "residualLimit": 1,
+              "value": 6
+            },
+            {
+              "residualLimit": 2,
+              "value": 6
+            },
+            {
+              "residualLimit": 3,
+              "value": 6
+            },
+            {
+              "residualLimit": 4,
+              "value": 6
+            },
+            {
+              "residualLimit": 5,
+              "value": 6
+            },
+            {
+              "residualLimit": 6,
+              "value": 4
+            },
+            {
+              "residualLimit": 7,
+              "value": 4
+            }
+          ],
+          "twoPart": {
+            "byDeclaredCostLevels": 6,
+            "direct": 6
+          }
+        },
+        "beta": {
+          "maxCost": 7,
+          "maxResidual": 5,
+          "structure": [
+            {
+              "budget": 0,
+              "value": null
+            },
+            {
+              "budget": 1,
+              "value": null
+            },
+            {
+              "budget": 2,
+              "value": null
+            },
+            {
+              "budget": 3,
+              "value": null
+            },
+            {
+              "budget": 4,
+              "value": 5
+            },
+            {
+              "budget": 5,
+              "value": 5
+            },
+            {
+              "budget": 6,
+              "value": 2
+            },
+            {
+              "budget": 7,
+              "value": 2
+            },
+            {
+              "budget": 8,
+              "value": 2
+            }
+          ],
+          "threshold": [
+            {
+              "residualLimit": 0,
+              "value": null
+            },
+            {
+              "residualLimit": 1,
+              "value": null
+            },
+            {
+              "residualLimit": 2,
+              "value": 6
+            },
+            {
+              "residualLimit": 3,
+              "value": 6
+            },
+            {
+              "residualLimit": 4,
+              "value": 6
+            },
+            {
+              "residualLimit": 5,
+              "value": 4
+            },
+            {
+              "residualLimit": 6,
+              "value": 4
+            }
+          ],
+          "twoPart": {
+            "byDeclaredCostLevels": 8,
+            "direct": 8
+          }
+        }
+      }
+    }
+  ],
+  "theoryId": "finite-theory-v0"
+}

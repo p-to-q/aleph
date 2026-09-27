@@ -1,0 +1,91 @@
+{
+  "axiomAudit": {
+    "auditSourceContentSha256": "687f536642895506b90d0a90ba8afb2470163c287f8d6965c48af9d822b8869a",
+    "expectedDependenciesMatched": true,
+    "mappedTheoremCount": 13,
+    "method": "lean-print-axioms-exact-match/v0",
+    "publicTheoremAxioms": {
+      "BoundedCoordinate.Compiler.compiler_composition": [
+        "Quot.sound",
+        "propext"
+      ],
+      "BoundedCoordinate.Compiler.compiler_structure_threshold_transfer": [
+        "Classical.choice",
+        "Quot.sound",
+        "propext"
+      ],
+      "BoundedCoordinate.Compiler.compiler_witness_transfer": [
+        "Quot.sound",
+        "propext"
+      ],
+      "BoundedCoordinate.Compiler.zero_slack_threshold_sandwich": [
+        "Classical.choice",
+        "Quot.sound",
+        "propext"
+      ],
+      "BoundedCoordinate.FiniteTheory.append_only_archive_monotone": [
+        "Classical.choice",
+        "Quot.sound",
+        "propext"
+      ],
+      "BoundedCoordinate.FiniteTheory.archive_upper_bound": [
+        "Classical.choice",
+        "Quot.sound",
+        "propext"
+      ],
+      "BoundedCoordinate.FiniteTheory.finite_threshold_duality": [
+        "Classical.choice",
+        "Quot.sound",
+        "propext"
+      ],
+      "BoundedCoordinate.FiniteTheory.pareto_complete": [
+        "Quot.sound",
+        "propext"
+      ],
+      "BoundedCoordinate.FiniteTheory.pareto_sound": [
+        "propext"
+      ],
+      "BoundedCoordinate.FiniteTheory.structure_monotone": [
+        "Classical.choice",
+        "Quot.sound",
+        "propext"
+      ],
+      "BoundedCoordinate.FiniteTheory.suite_inclusion": [],
+      "BoundedCoordinate.FiniteTheory.threshold_monotone": [
+        "Classical.choice",
+        "Quot.sound",
+        "propext"
+      ],
+      "BoundedCoordinate.FiniteTheory.two_part_identity": [
+        "Classical.choice",
+        "Quot.sound",
+        "propext"
+      ]
+    }
+  },
+  "compiled": true,
+  "compiledModules": [
+    {
+      "fileSha256": "7d4ef1c4087f23a819eac0382f420faba3abdbe573377dc7e3c1cd89bd76ba59",
+      "module": "BoundedCoordinate.FiniteTheory",
+      "path": "BoundedCoordinate/FiniteTheory.lean"
+    },
+    {
+      "fileSha256": "eaba131b1a3979ea8b1817d58e4781137658db06149dc91f40bc717319bcb208",
+      "module": "BoundedCoordinate.Compiler",
+      "path": "BoundedCoordinate/Compiler.lean"
+    }
+  ],
+  "forbiddenProofDeclarations": {
+    "BoundedCoordinate/Compiler.lean": [],
+    "BoundedCoordinate/FiniteTheory.lean": []
+  },
+  "leanVersion": "4.34.1",
+  "projectContentSha256": "700b5598c7c7d1a20c9052796931c3c1117f72a7108fb0e5691e69a2cb5c170c",
+  "protectedBaselineContentSha256": "c3601f2e4be25bc896e9b4ed7699539dfc16629130e0cf5e7c9c8f5d1726ebdf",
+  "schemaVersion": "finite-theory-lean-verification/v0",
+  "scope": "encoded_finite_propositions_only_not_Python_English_intent_tokenizers_readability_or_LLM_runtime",
+  "statementMapFileSha256": "faaeb6f11a6333f34fd9e31257b2907bde70c0f9e0261ed5e759abeb74489d54",
+  "theoryId": "finite-theory-v0",
+  "toolchain": "leanprover/lean4:v4.34.1"
+}
