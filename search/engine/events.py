@@ -183,6 +183,12 @@ def _payload_errors(event_type: str, phase: str, payload: Mapping[str, Any]) -> 
     for key in ("requestId", "reservationId", "candidateId"):
         if key in required:
             non_empty_str(key)
+    if event_type == "run_started" and "createdAt" in payload:
+        # PR B: a run may declare a fixed creation timestamp (never read from
+        # the wall clock). Extra payload keys are otherwise allowed, but a
+        # declared value that is not a non-empty str must fail closed because
+        # the exporter copies it into the strict AlephRun schema.
+        non_empty_str("createdAt")
     if "runId" in required:
         non_empty_str("runId")
     if "reason" in required:

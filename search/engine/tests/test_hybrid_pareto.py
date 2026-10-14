@@ -7,6 +7,7 @@ test writes a complete, verifiable run bundle.
 
 from __future__ import annotations
 
+import json
 import tempfile
 import unittest
 from pathlib import Path
@@ -823,3 +824,69 @@ class TestStopRuleHangRegression(unittest.TestCase):
         self.assertEqual(len(result.promoted_candidate_ids), 1)
         report = verify_bundle(result.root)
         self.assertTrue(report.ok, report.errors)
+
+
+class TestDeclaredRunMetadata(unittest.TestCase):
+    """PR B export plumbing: the run may declare a timestamp and always pins
+    its frozen configuration as bundle evidence."""
+
+    def _run_with_created_at(self, tmp, created_at):
+        actors = make_actors()
+        return run_hybrid_search(
+            tmp / "bundle",
+            "hybrid-created-at",
+            make_config(),
+            make_confirmation(),
+            EchoProposalAdapter(actors[0]),
+            FixtureEvaluationAdapter(actors[1]),
+            target_digest=TARGET_DIGEST,
+            target_content=TARGET,
+            known_metrics=KNOWN_METRICS,
+            nesting_rule=NESTING_RULE,
+            scheduler_model="hybrid-pareto-v0",
+            model_manifest=MODEL_MANIFEST,
+            coordinate_cost=demo_coordinate_cost,
+            run_created_at=created_at,
+        )
+
+    def test_declared_created_at_is_written_to_run_started(self) -> None:
+        tmp = fresh_tmp()
+        result = self._run_with_created_at(tmp, "2026-10-15T00:00:00Z")
+        events = events_of(result.root)
+        self.assertEqual(events[0].payload["createdAt"], "2026-10-15T00:00:00Z")
+
+    def test_no_declared_created_at_leaves_run_started_minimal(self) -> None:
+        tmp = fresh_tmp()
+        result = self._run_with_created_at(tmp, None)
+        events = events_of(result.root)
+        self.assertNotIn("createdAt", events[0].payload)
+
+    def test_invalid_created_at_rejected(self) -> None:
+        tmp = fresh_tmp()
+        for bad in ("", 42, True):
+            with self.assertRaises(SchedulerError):
+                self._run_with_created_at(Path(tmp / str(bad).replace("/", "_")), bad)
+
+    def test_search_frozen_pins_frozen_config_blob(self) -> None:
+        tmp = fresh_tmp()
+        result = run_case(tmp)
+        events = events_of(result.root)
+        frozen = next(event for event in events if event.event_type == "search_frozen")
+        from search.engine.hybrid_pareto import frozen_config_from_canonical
+        from search.engine.canonical import canonical_bytes, digest
+
+        self.assertIn("frozenConfigDigest", frozen.payload)
+        declared = frozen.payload["frozenConfigDigest"]
+        self.assertIn(declared, frozen.blob_digests)
+        snapshot = read_bundle(result.root)
+        blob = snapshot.blobs[declared]
+        self.assertEqual(digest(frozen_config_from_canonical(json.loads(blob)).to_canonical()), declared)
+        self.assertEqual(canonical_bytes(frozen_config_from_canonical(json.loads(blob)).to_canonical()), blob)
+
+    def test_confirmation_payload_pins_same_config_digest(self) -> None:
+        tmp = fresh_tmp()
+        result = run_case(tmp)
+        events = events_of(result.root)
+        frozen = next(event for event in events if event.event_type == "search_frozen")
+        completed = next(event for event in events if event.event_type == "confirmation_completed")
+        self.assertEqual(completed.payload["frozenConfigDigest"], frozen.payload["frozenConfigDigest"])

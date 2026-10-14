@@ -664,12 +664,22 @@ class _Scheduler:
         shortlist = sorted(
             self._promoted, key=lambda cid: (-self._promoted_metric[cid], cid)
         )
-        self._emit("search_frozen", "freeze", {
-            "archiveDigest": self._archive_digest,
-            "shortlistCandidateIds": list(shortlist),
-            "selectionRule": SELECTION_RULE,
-            "discoveryContextDigest": self._confirmation.discovery_context_digest,
-        })
+        # The frozen configuration is pinned into the bundle as a
+        # content-addressed blob so a run is fully replayed from the bundle
+        # alone; the projection exporter copies config fields from it.
+        config_digest = self._config.config_digest
+        self._emit(
+            "search_frozen",
+            "freeze",
+            {
+                "archiveDigest": self._archive_digest,
+                "shortlistCandidateIds": list(shortlist),
+                "selectionRule": SELECTION_RULE,
+                "discoveryContextDigest": self._confirmation.discovery_context_digest,
+                "frozenConfigDigest": config_digest,
+            },
+            blobs={config_digest: canonical_bytes(self._config.to_canonical())},
+        )
         session = ConfirmationSession(
             self._confirmation,
             tuple(shortlist),
@@ -817,8 +827,19 @@ def run_hybrid_search(
     model_manifest: Mapping[str, Any],
     coordinate_cost: Callable[[Candidate], CoordinateCost],
     target_content: str | None = None,
+    run_created_at: str | None = None,
 ) -> HybridRunResult:
-    """Run one complete hybrid Pareto search and return its verifiable result."""
+    """Run one complete hybrid Pareto search and return its verifiable result.
+
+    ``run_created_at``, when given, is a caller-declared run timestamp carried
+    on ``run_started``. The scheduler never reads the wall clock, so a run with
+    the same declaration replays byte-identically; runs without one simply
+    carry no timestamp (and their exports fail closed for the strict
+    ``createdAt`` field).
+    """
+    if run_created_at is not None:
+        if not isinstance(run_created_at, str) or not run_created_at:
+            raise SchedulerError("run_created_at must be a non-empty str")
     if not isinstance(config, FrozenConfig):
         raise SchedulerError("run_hybrid_search requires a FrozenConfig")
     if not isinstance(confirmation, ConfirmationSpec):
@@ -849,6 +870,9 @@ def run_hybrid_search(
         nesting_rule=nesting_rule,
         scheduler_model=scheduler_model,
         model_manifest=model_manifest,
+        run_started_payload=(
+            {"createdAt": run_created_at} if run_created_at is not None else None
+        ),
     )
     scheduler = _Scheduler(
         bundle, run_id, config, confirmation, proposal, evaluation, coordinate_cost

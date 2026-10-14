@@ -292,3 +292,36 @@ class TestMaterialization(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestRunStartedPayloadExtras(unittest.TestCase):
+    def test_declared_created_at_lands_in_run_started(self) -> None:
+        tmp = fresh_tmpdir()
+        config = demo_bundle_config(run_id="declared-at")
+        bundle = RunBundle.create(
+            tmp / "bundle",
+            **config,
+            run_started_payload={"createdAt": "2026-10-15T00:00:00Z"},
+        )
+        snapshot = read_bundle(bundle.root)
+        self.assertEqual(snapshot.events[0].payload["createdAt"], "2026-10-15T00:00:00Z")
+        self.assertEqual(snapshot.events[0].payload["runId"], "declared-at")
+
+    def test_run_started_payload_cannot_override_run_id(self) -> None:
+        tmp = fresh_tmpdir()
+        with self.assertRaises(ArchiveError):
+            RunBundle.create(
+                tmp / "bundle",
+                **demo_bundle_config(),
+                run_started_payload={"runId": "impostor"},
+            )
+
+    def test_run_started_payload_must_be_a_mapping(self) -> None:
+        tmp = fresh_tmpdir()
+        with self.assertRaises(ArchiveError):
+            RunBundle.create(tmp / "bundle", **demo_bundle_config(), run_started_payload="junk")
+
+    def test_default_run_started_payload_is_unchanged(self) -> None:
+        root = make_demo_bundle(fresh_tmpdir())
+        snapshot = read_bundle(root)
+        self.assertEqual(snapshot.events[0].payload, {"runId": DEMO_RUN_ID})
