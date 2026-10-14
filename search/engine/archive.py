@@ -103,9 +103,6 @@ _DECODER_RESOURCE_KEYS = (
 # Per-call search-work extras declared by receipts (W_search evidence).
 _SEARCH_WORK_RESOURCE_KEYS = ("retries", "cacheMisses")
 
-_VERIFY_WORK_KEYS = ("replays", "tests", "humanChecks", "proofChecks")
-
-
 class ArchiveError(ValueError):
     """Raised when the bundle layout or an append-only rule is violated."""
 

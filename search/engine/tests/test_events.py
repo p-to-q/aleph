@@ -100,6 +100,28 @@ class TestEventConstruction(unittest.TestCase):
                 payload={"candidateId": "c", "reason": "invented-reason"},
             )
 
+    def test_null_required_fields_rejected(self) -> None:
+        with self.assertRaises(EventError):
+            make_event(
+                event_type="candidate_rejected",
+                payload={"candidateId": "c", "reason": None},
+            )
+        with self.assertRaises(EventError):
+            make_event(
+                event_type="search_frozen",
+                payload={
+                    "archiveDigest": digest("a"),
+                    "shortlistCandidateIds": [],
+                    "selectionRule": "r",
+                    "discoveryContextDigest": None,
+                },
+            )
+        with self.assertRaises(EventError):
+            make_event(
+                event_type="confirmation_started",
+                payload={"confirmationContextDigest": digest("ctx"), "seed": None},
+            )
+
     def test_receipt_events_require_a_blob(self) -> None:
         for event_type, payload in (
             ("proposal_succeeded", {"requestId": "r", "reservationId": "rsv", "candidateIds": ["c"]}),

@@ -160,13 +160,11 @@ def _payload_errors(event_type: str, phase: str, payload: Mapping[str, Any]) -> 
 
     def non_empty_str(key: str) -> None:
         value = payload.get(key)
-        if value is not None and (not isinstance(value, str) or not value):
+        if not isinstance(value, str) or not value:
             errors.append(f"{event_type}.{key} must be a non-empty str")
 
     def id_list(key: str, *, allow_empty: bool) -> None:
         value = payload.get(key)
-        if value is None:
-            return
         if not isinstance(value, list) or not all(
             isinstance(item, str) and item for item in value
         ):
@@ -179,7 +177,7 @@ def _payload_errors(event_type: str, phase: str, payload: Mapping[str, Any]) -> 
 
     def digest_field(key: str) -> None:
         value = payload.get(key)
-        if value is not None and not is_digest(value):
+        if not is_digest(value):
             errors.append(f"{event_type}.{key} must be a well-formed digest")
 
     for key in ("requestId", "reservationId", "candidateId"):
