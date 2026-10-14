@@ -10,7 +10,7 @@ alone.
 
 ## 1. Two quantities, one object
 
-Notation follows `compression-definition.md` and `../claim-ledger.md`.
+Notation follows `compression-definition.md` and `docs/claim-ledger.md`.
 
 **Definition (oracle value).**
 `L*_{theta,d,m}(y; epsilon, beta)` = the minimum prompt length over the
@@ -42,7 +42,7 @@ guarantee `L̂_{A,B,omega} = L*` across all targets for a non-trivial model:
 otherwise `A` would solve a semi-computable minimization uniformly
 (section 7). So the gap `L̂ − L*` is not an implementation bug; it is the
 object itself. Reporting `L̂` without implying `L*` is the repository's
-standing rule (`../claim-ledger.md`: a finite search does not estimate or prove
+standing rule (`docs/claim-ledger.md`: a finite search does not estimate or prove
 `L*` without an additional theorem).
 
 ## 2. Relation to Kolmogorov complexity
