@@ -6,7 +6,7 @@ Status: research draft (stage 1, 2026-10-15). Companion to
 This file formalizes the leakage object and its measurement. It defines
 surface-copy proxies as one typed channel among many and never as a general
 leakage or provenance score. Product thresholds remain open (section 9);
-the vocabulary follows `claim-ledger.md` and `open-questions.md` ("3. Leakage
+the vocabulary follows `../claim-ledger.md` and `../open-questions.md` ("3. Leakage
 score").
 
 ## 1. Object and problem
@@ -56,11 +56,11 @@ be declared, never implied.
 **Scope note.** Every component of `ℓ` measures surface overlap between `p`
 and `y`. The vector is a **surface-copy proxy suite**, one typed channel of
 the provenance contract — it is not a general leakage score, and it must not
-be relabeled as one (see section 3 and `open-questions.md` #3).
+be relabeled as one (see section 3 and `../open-questions.md` #3).
 
 ## 3. Typed channels (which kind of leakage is this?)
 
-`open-questions.md` #3 and `claim-ledger.md` require the channels that can make
+`../open-questions.md` #3 and `../claim-ledger.md` require the channels that can make
 a prompt look strong for different reasons to remain typed separately:
 
 - **surface copy** — verbatim or near-verbatim spans of `y` in `p`
@@ -74,11 +74,11 @@ a prompt look strong for different reasons to remain typed separately:
   contains `y` (URL, citation, dataset identifier);
 - **training influence / memorization** — unobservable in black-box mode;
 - **extractability, association effect, self-citation, search-trace
-  integrity** — separate channels per `open-questions.md` #3.
+  integrity** — separate channels per `../open-questions.md` #3.
 
 The scalar `leaked` may constrain or schedule search only; the full channel
 vector remains the scientific artifact. Universal "non-leaking" language is
-prohibited (`open-questions.md` #3).
+prohibited (`../open-questions.md` #3).
 
 ## 4. Information-theoretic grounding
 
@@ -132,11 +132,12 @@ L*(y; epsilon, beta)` for all `δ`: the leakage constraint only removes
 feasible prompts.
 
 **Theorem (copy makes the free endpoint degenerate).** If the metric tolerates
-reproduction — i.e. for the given `(epsilon, beta)` the
-explicit-reconstruction prompt `copy(y)` satisfies
+reproduction — i.e. the explicit-reconstruction prompt `copy(y)` lies in the
+declared coordinate domain and satisfies
 `rho(copy(y); y, epsilon) ≥ 1 − beta` — then
-`L*(y; epsilon, beta) ≤ |copy(y)|`, and for that prompt `CR_char(copy(y), y)`
-can be made arbitrarily close to 1 while `leaked ≈ 1`. In words: without a
+`L*(y; epsilon, beta) ≤ |copy(y)|`. For the canonical
+explicit-reconstruction template, which contains `y` verbatim,
+`CR_char(copy(y), y) = 1` and `leaked ≈ 1`. In words: without a
 leakage constraint the free minimum is dominated by carriers, not coordinates.
 This is the formal restatement of "explicit reconstruction is a baseline, and
 a leaky shortest prompt is a fake left endpoint" (`compression-definition.md`).
@@ -195,7 +196,7 @@ difference between the teacher-forced NLL of `y` given `p` and given the
 leakage-removed prompt `p \ copy-spans`, i.e. how much of the likelihood is
 supplied by copied spans. This is a computable, model-internal estimator that
 dominates the string proxies in principle. It stays a research measurement
-until a local adapter exposes it; per `claim-ledger.md`, no white-box label
+until a local adapter exposes it; per `../claim-ledger.md`, no white-box label
 without logits or model internals.
 
 ## 9. Open questions
