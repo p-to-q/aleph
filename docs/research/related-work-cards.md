@@ -61,7 +61,7 @@ recovering one prompt.
   Schwarzschild et al., NeurIPS 2024, arXiv:2404.15146 (also card C9): a
   fixed-length suffix optimizes a target string's compression ratio with
   teacher-forced logits; the mandatory closest white-box baseline
-  (`prior-art.md`, `open-questions.md` #4). **Name disambiguation:** the ACL
+  (`prior-art.md`, `docs/open-questions.md` #4). **Name disambiguation:** the ACL
   2024 paper *MinPrompt: Graph-based Minimal Prompt Data Augmentation for
   Few-shot QA* (Cui et al., arXiv:2310.05007) is a few-shot data-augmentation
   method and is **not** the intended reference; all repo citations mean
