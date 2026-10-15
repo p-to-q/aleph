@@ -134,6 +134,11 @@ Acceptance gate:
 
 Status: completed at the route-selection level by PR0, prior-art, and the landmark/system program.
 
+Status update (2026-10-15): the MiniPrompt/ACR reproduction is scoped with a recorded gate note
+and a feasibility receipt ([miniprompt-reproduction-note.md](research/miniprompt-reproduction-note.md),
+[2026-10-15-miniprompt-feasibility-receipt.md](research/2026-10-15-miniprompt-feasibility-receipt.md));
+implementation follows in its own PR.
+
 Goal: turn only accepted routes into separately audited adapters.
 
 Tasks:
