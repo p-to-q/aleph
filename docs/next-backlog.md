@@ -81,6 +81,12 @@ Acceptance gate:
 
 ## P1: File-First Run Import/Export
 
+Status: the engine-side import is implemented — `search/engine/import_aleph_run.py` (read-only,
+fail-closed; bundle replay and re-derivation; standalone files labeled `replay_verified=false`
+unless anchored) with fixture round trips in `search/engine/tests/test_import_aleph_run.py`.
+Still open: wiring export/import into the product open-file flow, so the acceptance gate below is
+not met yet.
+
 Goal: make the product match the repository thesis.
 
 Tasks:

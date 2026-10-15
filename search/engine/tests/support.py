@@ -12,10 +12,15 @@ import tempfile
 from pathlib import Path
 from typing import Any, Callable, Mapping
 
-from search.engine.archive import _atomic_write
-from search.engine.canonical import canonical_bytes, canonical_json, digest_bytes
+from search.engine.archive import RunBundle, _atomic_write
+from search.engine.canonical import canonical_bytes, canonical_json, digest, digest_bytes
 from search.engine.events import Event, event_from_canonical, stream_digest
-from search.engine.fixtures.demo import build_demo_bundle
+from search.engine.fixtures.demo import (
+    DEMO_NESTING_RULE,
+    DEMO_SCHEDULED_CREATED_AT,
+    build_demo_bundle,
+    scheduled_demo_manifest,
+)
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 
@@ -27,6 +32,30 @@ def fresh_tmpdir() -> Path:
 def make_demo_bundle(tmp: Path, name: str = "bundle") -> Path:
     root = tmp / name
     return build_demo_bundle(root)
+
+
+def aborted_bundle(tmp: Path, name: str = "aborted") -> Path:
+    """A minimal closed run aborted before any freeze: kernel-legal, no exports.
+
+    The run closes with ``run_completed.status == "aborted"``; it is not a
+    completed (exportable) run, so export and import must both refuse it.
+    """
+    root = tmp / name
+    target = "aborted probe target"
+    bundle = RunBundle.create(
+        root,
+        run_id=f"{name}-001",
+        target_digest=digest_bytes(target.encode("utf-8")),
+        target_content=target,
+        known_metrics=("fit",),
+        adapter_digests=(digest({"adapter": "aborted-probe"}),),
+        nesting_rule=DEMO_NESTING_RULE,
+        scheduler_model="hybrid-pareto-v0",
+        model_manifest=scheduled_demo_manifest(),
+        run_started_payload={"createdAt": DEMO_SCHEDULED_CREATED_AT},
+    )
+    bundle.close(status="aborted")
+    return root
 
 
 def read_event_records(root: Path) -> list[dict[str, Any]]:

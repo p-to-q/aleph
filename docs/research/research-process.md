@@ -200,9 +200,9 @@ backfill items are listed there and mirrored in "Current gaps".
 - `search/` computes token-level NLL for precomputed runs, but the product API does not yet expose a stable white-box observation contract.
 - No deletion ablation is implemented.
 - No persistence layer is chosen beyond the run bundle; the practice survey is recorded
-  ([`persistence-layer-practice-review.md`](persistence-layer-practice-review.md)) and the next
-  structural step (a strict, fail-closed import surface) is identified; a database stays deferred
-  with recorded triggers.
+  ([`persistence-layer-practice-review.md`](persistence-layer-practice-review.md)) and the strict
+  fail-closed import surface is implemented (`search/engine/import_aleph_run.py`); a database stays
+  deferred with recorded triggers.
 - The post-Hackathon research mainline was previously implicit; it now needs to stay synchronized across README, research docs, and backlog.
 - PR [#103](https://github.com/p-to-q/aleph/pull/103) merged on 2026-09-27 at
   [`179194ca2524a0d37f797684010e600c70a65774`](https://github.com/p-to-q/aleph/commit/179194ca2524a0d37f797684010e600c70a65774),
