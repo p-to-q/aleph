@@ -77,10 +77,11 @@ Options:
 - soft-prompt route later.
 
 Settled boundary: MiniPrompt/ACR is the mandatory closest white-box empirical baseline and Prompting
-Complexity is the direct formal neighbor. ARCA/GCG are lower-level raw comparators. The historical MLX
-frontier export supplies no valid performance point until repaired and regenerated. The open question
-is whether compression continuation with residual repair improves discovery at matched work after all
-methods pass through one evaluator, archive, and confirmation boundary.
+Complexity is the direct formal neighbor. ARCA/GCG are lower-level raw comparators. The historical
+MLX frontier export supplied no valid performance point; the public artifact has since been
+regenerated from actual evaluations with per-point receipts. The open question is whether
+compression continuation with residual repair improves discovery at matched work after all methods
+pass through one evaluator, archive, and confirmation boundary.
 
 ### 5. Research mainline after the first release
 

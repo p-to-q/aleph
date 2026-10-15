@@ -50,7 +50,9 @@ serialization, scheduler, confirmation, harness and packaging surfaces) is recor
 persistence-layer survey is recorded in
 [persistence-layer-practice-review.md](persistence-layer-practice-review.md); the product
 run-file import note (product open/save surface) is recorded in
-[product-run-file-import-note.md](product-run-file-import-note.md). Remaining backfill items are
+[product-run-file-import-note.md](product-run-file-import-note.md); the frontier receipts note
+(regenerated public frontier with digest-linked receipts) is recorded in
+[frontier-receipts-note.md](frontier-receipts-note.md). Remaining backfill items are
 listed in the surveys and mirrored in "Current gaps".
 
 ## Sources inspected
@@ -225,16 +227,18 @@ listed in the surveys and mirrored in "Current gaps".
   [#102](https://github.com/p-to-q/aleph/issues/102). It supplies exact shortest-coordinate ground
   truth for one finite synthetic two-landscape world as the first BCS R1 bootstrap tranche, not full
   `BCS-v0`, the full algorithm family, a compiler study, or real-model calibration.
-- The merged tranche's bounded Lean project proves coverage, no shorter witness, bounded uniqueness,
-  and published representative-frontier observation membership for its generated finite model. It
-  does not prove the planned
-  threshold-duality/compiler theorems, verify the Python frontier-selection implementation, or
-  exercise a statement-fidelity protocol on an Aleph claim.
+- The bounded-coordinate tranche (#103) proves coverage, no shorter witness, bounded uniqueness, and
+  published representative-frontier observation membership for its finite model; the finite-theory
+  tranche (#108) adds the threshold-duality/compiler statement map (FT-01–FT-09, FC-01–FC-04) with
+  independent Python checks and scoped, axiom-audited Lean theorems (issues #102/#105 closed).
+  Neither tranche verifies the Python frontier-selection implementation or exercises a
+  statement-fidelity protocol on an Aleph claim.
 - No long-run compute study yet publishes all six `ResourceLedger/0.1.0` accounts, typed human
   provenance, and a stable discovery scaling curve.
-- PR #100 fixed the frontier mutation bug in code, but the historical MLX-derived public frontier
-  JSON remains invalid until every displayed point is linked to an actual evaluation and the artifact
-  is regenerated with receipts.
+- PR #100 fixed the frontier mutation bug in code, and the public MLX frontier has now been
+  regenerated from actual evaluations (2026-10-15): every displayed point was re-measured under one
+  declared procedure, carries a per-point receipt (`web/public/aleph-frontier.receipts.json`), and
+  is linked to the artifact by canonical digest, enforced by `scripts/check-public-frontier.mjs`.
 
 These gaps belong in roadmap or issues, not in hidden assumptions.
 - `kbench` (Kaggle Benchmarks) interop is not designed; the Aleph-Bench release checklist is not

@@ -82,13 +82,29 @@ class Theta:
 
 # ---------- distortion metric ----------
 class Metric:
-    def __init__(self):
-        self.kind = "embed"
+    def __init__(self, kind=None):
+        """Distortion metric with an explicit, declared selection.
+
+        ``kind``: ``None`` keeps the original auto behavior (try embedding,
+        fall back to char n-gram). ``"embed"`` requires sentence-transformers
+        and fails loudly when it is unavailable. ``"ngram"`` selects the
+        declared char trigram overlap without touching the embedding stack.
+        Declared-metric runs must pass an explicit kind so a reported number
+        can never silently change metric kind (see
+        docs/plans/iclr-readable-coordinate-program.md, "the embedding metric
+        silently becomes a character n-gram metric when loading fails").
+        """
+        self.kind = kind or "embed"
+        if self.kind == "ngram":
+            print("[metric] char trigram overlap (declared kind)", flush=True)
+            return
         try:
             from sentence_transformers import SentenceTransformer
             self.m = SentenceTransformer("all-MiniLM-L6-v2")
             print("[metric] sentence-transformers all-MiniLM-L6-v2", flush=True)
         except Exception as e:  # robust fallback so the pipeline never blocks
+            if kind == "embed":
+                raise
             print(f"[metric] embed unavailable ({e}); char-ngram fallback", flush=True)
             self.kind = "ngram"
 

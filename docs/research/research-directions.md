@@ -224,8 +224,9 @@ Focus:
 - file-first research bundles plus a lossless projection into `AlephRun`;
 - adapter honesty in the UI.
 
-The historical MLX frontier is not performance evidence; it must not be reused until every displayed
-point is regenerated from actual observations under the repaired frontier semantics.
+The historical MLX frontier is not performance evidence. The displayed public artifact has since
+been regenerated from actual observations under the repaired frontier semantics, with every point
+re-measured and linked to a per-point receipt by canonical digest (`search/frontier_receipts.py`).
 
 ### Track D. Deeper research adapters
 

@@ -62,6 +62,19 @@ need Node with default type stripping (>= 22.18); the root `engines.node` floor 
 
 Record broader checks in `docs/verification.md`.
 
+## Public frontier receipts
+
+`npm test` runs `scripts/check-public-frontier.mjs`, which validates the public MLX frontier artifact
+(`web/public/aleph-frontier.json`) together with its receipt sidecar
+(`web/public/aleph-frontier.receipts.json`, schema `aleph-frontier-receipts/0.1.0`). Every displayed
+measured point must match exactly one receipt through `receiptDigest`; the checker recomputes the
+receipt, prompt, and output digests with the native-JS canonicalization in
+`scripts/aleph-canonical.mjs` (Node-side only — the browser digest path remains its own undecided
+surface), re-derives the receipt counts, and fails closed on orphaned displayed receipts, duplicate
+digests, measurement mismatches, or broken digest linkage. It establishes artifact-to-evaluation
+linkage and canonical form; it does not establish that the measurements satisfy the research
+measurement contracts, and it never calls a model.
+
 ## Release gate
 
 Before a formal release, run:

@@ -1,8 +1,9 @@
 # State of Play
 
 This is the current confidence map for Aleph after the Hackathon, PR0 research contract, frontier
-repair, bounded-coordinate bootstrap, and the engine/research wave (#109–#114). Use it when asking:
-what is true, what is implemented, what is only researched, and what should happen next?
+repair and regeneration, bounded-coordinate bootstrap, and the engine/research wave (#109–#114). Use
+it when asking: what is true, what is implemented, what is only researched, and what should happen
+next?
 
 ## Core hypothesis
 
@@ -40,7 +41,7 @@ This is a product/research hypothesis with enough evidence to build around, but 
 | Fixtures | Multiple demo runs with explicit fixture/simulated modes. | `packages/fixtures/src/` |
 | API boundary | FastAPI mock route and local MLX adapter wrapper. | `apps/api/` |
 | Local live search spike | MLX/Qwen route can produce AlephRun-compatible adapter output when a local MLX setup is running; Apple Silicon is the known maintainer path and Linux CUDA is now an upstream MLX backend path. | `search/`, `docs/verification.md` |
-| Frontier correctness repair | PR #100 preserves real observed candidates instead of fabricated repeated-length coordinates; the historical public MLX export remains invalid until regenerated from receipts. | `packages/core/src/frontier.ts`, `search/aleph_search.py` |
+| Frontier correctness and regeneration | PR #100 preserves real observed candidates instead of fabricated repeated-length coordinates; the public MLX frontier has since been regenerated from actual evaluations — every displayed point re-measured under one declared procedure and linked by canonical digest to a per-point receipt (`web/public/aleph-frontier.receipts.json`), with linkage enforced by `scripts/check-public-frontier.mjs`. | `packages/core/src/frontier.ts`, `search/aleph_search.py`, `search/frontier_receipts.py` |
 | Exact finite bootstrap | PR #103 adds exhaustive bounded-coordinate ground truth, independent Python replay, receipts, and scoped Lean checks. It is the first BCS R1 tranche, not full BCS or a real-model result. | `search/bounded/` |
 | Engine artifact kernel | PR #109 (PR A): canonical serialization, typed proposal/evaluation contracts, append-only run bundle with materialized views, a pure replay adapter, and an independent fail-closed verifier; fixture-driven, no model calls. | `search/engine/` |
 | Hybrid-Pareto search slice | PR #113/#114 (PR B): protected single-use confirmation, deterministic operators, a budget-reserved hybrid scheduler under a frozen declared config, and a measurement-lossless `AlephRun` projection with verifier attestation; end-to-end runs are deterministic fixtures; the pinned MLX canary is still open (PR C). | `search/engine/` |
@@ -94,11 +95,13 @@ What should I try next?
 
 The next phase should start from executable research contracts rather than more surface area:
 
-1. Extend the merged finite bootstrap with the threshold/compiler statement map and independent checks.
+1. Done: the finite bootstrap now carries the threshold/compiler statement map with independent
+   Python checks and scoped Lean theorems (PR #108; issues #102/#105 closed).
 2. Real-model evidence for the search line: the archive, separated proposal/evaluation roles, fresh
    confirmation, the six-account ledger, and independent replay are merged as the fixture-driven
-   PR B slice (#109/#113); next comes one pinned open-weight MLX canary (PR C), then regenerated
-   public evidence from receipts.
+   PR B slice (#109/#113); the pinned open-weight MLX canary (PR C) is implemented with its PR open
+   (#118), and the public MLX frontier has been regenerated from actual evaluations with per-point
+   receipts (`search/frontier_receipts.py`).
 3. Reproduce MiniPrompt/ACR behind the same archive and evaluator boundary.
 4. Done: the product open-file flow (`web/app/lib/run-file.ts` plus open/save controls) returns a
    saved run to the app with its selected candidate intact and labels it a projection; the strict
