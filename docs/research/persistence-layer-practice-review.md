@@ -191,6 +191,12 @@ prior-art basis, and a database is explicitly deferred with recorded triggers.
 surface; (ii) concurrent writers or multi-machine sync become real; (iii) manifest scanning across
 bundles outgrows the UI. Until then: no database, no index, no dependency.
 
+**Update (2026-10-15, later).** The import surface is implemented as
+`search/engine/import_aleph_run.py`: read-only and fail-closed; bundle mode replays the stream and
+re-derives the projection, while a standalone `aleph-run.json` file is checked against canonical
+bytes, the strict schema, and the artifact-ref digest and is labeled `replay_verified=false` unless
+anchored to a verified bundle. The triggers above are unchanged.
+
 ## 7. What does not change
 
 - No new module, format, or dependency; the engine stays standard library and file-based.

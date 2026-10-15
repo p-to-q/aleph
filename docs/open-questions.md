@@ -137,6 +137,13 @@ strict, fail-closed JSON import surface (`docs/state-of-play.md`, Next Correct M
 stays deferred with explicit re-evaluation triggers (saved-run workflow with cross-run queries;
 concurrent writers; bundle scans outgrowing the UI).
 
+Update (2026-10-15, later): the strict import surface is implemented —
+`search/engine/import_aleph_run.py`. It is read-only and fail-closed: bundle mode replays the
+stream and re-derives the projection; a standalone `aleph-run.json` import is checked against
+canonical bytes, the strict schema, and the artifact-ref digest, but is labeled
+`replay_verified=false` unless anchored to a verified bundle. The database triggers above are
+unchanged.
+
 ### 9. Computer-science paper identity
 
 Options:

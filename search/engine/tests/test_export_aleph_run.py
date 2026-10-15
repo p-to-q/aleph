@@ -34,7 +34,7 @@ from search.engine.fixtures.demo import (
     scheduled_demo_seeds,
 )
 from search.engine.hybrid_pareto import run_hybrid_search
-from search.engine.tests.support import fresh_tmpdir
+from search.engine.tests.support import aborted_bundle, fresh_tmpdir
 from search.engine.verify import verify_bundle
 
 # Imported after the fixture import above so a missing exporter fails these
@@ -102,26 +102,6 @@ def proposal_receipts(root: Path) -> dict:
             for index, candidate in enumerate(receipt["candidates"]):
                 found[candidate["candidateId"]] = (event.blob_digests[0], index)
     return found
-
-
-def aborted_bundle(tmp, name="aborted") -> Path:
-    """A minimal closed run aborted before any freeze: kernel-legal, no exports."""
-    root = tmp / name
-    target = "aborted probe target"
-    bundle = RunBundle.create(
-        root,
-        run_id=f"{name}-001",
-        target_digest=digest_bytes(target.encode("utf-8")),
-        target_content=target,
-        known_metrics=("fit",),
-        adapter_digests=(digest({"adapter": "aborted-probe"}),),
-        nesting_rule=DEMO_NESTING_RULE,
-        scheduler_model="hybrid-pareto-v0",
-        model_manifest=scheduled_demo_manifest(),
-        run_started_payload={"createdAt": DEMO_SCHEDULED_CREATED_AT},
-    )
-    bundle.close(status="aborted")
-    return root
 
 
 class TestExportHappyPath(unittest.TestCase):
