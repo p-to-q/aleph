@@ -126,6 +126,8 @@ stratum, `tau`, `k`, reruns, bootstrap samples, dataset identity, or leakage thr
 
 - **Uncertainty on every number**: bootstrap CIs over items; for stochastic decoding, `n` reruns per
   point with mean fidelity and variance; flag high-variance frontier points rather than hiding them.
+  The method is fixed in [`09-metric-validity-and-rigor.md`](09-metric-validity-and-rigor.md) §7
+  (stratified item-level bootstrap; paired by-item comparisons; n ≥ 30 per claimed cell).
 - **Per-stratum breakdown**: never report only the aggregate; canonical-recall is always broken out.
 - **Error analysis**: ship an "incompressible targets" gallery — the items each model cannot get below
   a fidelity threshold at any short length, with the hardest target tokens (the repo's
