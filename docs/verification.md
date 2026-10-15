@@ -244,3 +244,20 @@ visible candidate label: Explicit Reconstruction
 visible token panel caption: TOKEN NLL FROM LOCAL ADAPTER OUTPUT
 API unavailable banner: absent
 ```
+
+## Token NLL evidence contract pass: 2026-10-15
+
+Account B verified the adapter evidence contract on branch `codex/adapter-evidence-contract`
+(base `f619a1d`, code state `d4e5145` plus docs):
+
+```text
+npm run lint: ok (10 checks)
+npm test: ok — search/tests 66, engine 444 (skipped=3), canonical parity 126/2448
+apps/api pytest: 25 passed
+apps/api smoke: ok
+npm --workspace web run build: ok
+live smoke (search/server.py + apps/api): white_box, entries=10 min=0 max=0, no leaked server
+```
+
+Live receipt: [research/2026-10-15-token-nll-receipt.md](research/2026-10-15-token-nll-receipt.md).
+Contract note: [research/token-nll-evidence-note.md](research/token-nll-evidence-note.md).

@@ -97,8 +97,8 @@
       "required": ["token", "loss"],
       "properties": {
         "token": { "type": "string" },
-        "loss": { "type": "number" },
-        "rank": { "type": "integer" },
+        "loss": { "type": "number", "minimum": 0 },
+        "rank": { "type": "integer", "minimum": 1 },
         "topAlternatives": { "type": "array", "items": { "type": "string" } }
       }
     },

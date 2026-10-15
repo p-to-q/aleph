@@ -110,6 +110,14 @@ Acceptance gate:
 
 Goal: make token loss and attribution real only when evidence supports them.
 
+Status: landed for the token NLL channel — the entry shape is pinned in the schema and
+`TokenLossPoint` (`check-contract`), exercised by `check-fixtures`/`check-run-file`, the local
+adapter fails closed to `black_box` on malformed traces, the product separates receipt-linked
+measured points from fixture data, and a live local MLX receipt covers the shape
+(`docs/research/token-nll-evidence-note.md`, `docs/research/2026-10-15-token-nll-receipt.md`).
+Deletion ablation stays deferred (last task); broader white-box panel wiring stays under the
+split section below.
+
 Tasks:
 
 - Decide which `ObservationSet` fields are required for token NLL.
@@ -158,6 +166,9 @@ Acceptance gate:
 ## P2: White-box / Black-box Evidence Split
 
 Goal: let both evidence modes grow without confusing users or contributors.
+
+Status: recorded for the token NLL channel
+(`docs/research/token-nll-evidence-note.md`); the rest of the split remains open.
 
 Tasks:
 

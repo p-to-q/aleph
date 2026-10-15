@@ -3,7 +3,10 @@ from __future__ import annotations
 from aleph_api.models import SearchCandidatePoint, SearchRequest
 from aleph_api.services.local_mlx_search import (
     _candidate_from_point,
+    _observation_mode,
+    _observations,
     _select_candidate,
+    _token_loss,
     run_search,
 )
 
@@ -101,3 +104,57 @@ def test_selection_tie_breaks_by_candidate_id_independent_of_input_order() -> No
 
     assert _select_candidate([first, second]) == "candidate-a"
     assert _select_candidate([second, first]) == "candidate-a"
+
+
+def test_token_loss_contract_accepts_only_shape_valid_traces() -> None:
+    point = {"toktext": ["A", " small", " place"], "toknll": [0.2, 0.3, 0.4]}
+    assert _token_loss([point]) == [
+        {"token": "A", "loss": 0.2},
+        {"token": " small", "loss": 0.3},
+        {"token": " place", "loss": 0.4},
+    ]
+    assert _observation_mode([point]) == "white_box"
+
+    # loss 0 is a valid boundary; integer losses normalize to float
+    boundary = {"toktext": ["A", " b"], "toknll": [0, 1]}
+    assert _token_loss([boundary]) == [{"token": "A", "loss": 0.0}, {"token": " b", "loss": 1.0}]
+
+    # negative zero (float32 saturation) normalizes to positive zero
+    saturated = {"toktext": ["A"], "toknll": [-0.0]}
+    entries = _token_loss([saturated])
+    assert entries == [{"token": "A", "loss": 0.0}]
+    assert entries is not None and __import__("math").copysign(1.0, entries[0]["loss"]) == 1.0
+
+
+def test_token_loss_contract_fails_closed_to_black_box() -> None:
+    cases = [
+        {},
+        {"toktext": [], "toknll": []},
+        {"toktext": ["A"], "toknll": []},
+        {"toktext": ["A"], "toknll": [0.1, 0.2]},
+        {"toktext": ["A"], "toknll": [-0.1]},
+        {"toktext": ["A"], "toknll": [float("inf")]},
+        {"toktext": ["A"], "toknll": [float("nan")]},
+        {"toktext": ["A"], "toknll": [10**400]},
+        {"toktext": [7], "toknll": [0.1]},
+        {"toktext": ["A"], "toknll": ["0.1"]},
+        {"toktext": "A", "toknll": 0.1},
+    ]
+    for point in cases:
+        assert _token_loss([point]) is None, point
+        assert _observation_mode([point]) == "black_box", point
+
+    # an invalid newer point does not shadow an older valid trace
+    older = {"toktext": ["A"], "toknll": [0.5]}
+    newer_invalid = {"toktext": ["B"], "toknll": [0.1, 0.2]}
+    assert _token_loss([older, newer_invalid]) == [{"token": "A", "loss": 0.5}]
+
+
+def test_observations_omit_token_loss_unless_white_box_trace_is_valid() -> None:
+    point = {"toktext": ["A", " b"], "toknll": [0.25, 0.5]}
+    payload = _observations([point], _observation_mode([point])).model_dump(exclude_none=True)
+    assert payload["mode"] == "white_box"
+    assert payload["tokenLoss"] == [{"token": "A", "loss": 0.25}, {"token": " b", "loss": 0.5}]
+
+    black = _observations([{"toktext": [], "toknll": []}], "black_box")
+    assert "tokenLoss" not in black.model_dump(exclude_none=True)

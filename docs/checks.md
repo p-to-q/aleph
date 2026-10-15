@@ -42,6 +42,12 @@ need Node with default type stripping (>= 22.18); the root `engines.node` floor 
   opens, keeps candidate identity and the selected candidate, saves back byte-for-byte when it was
   opened from a file, and crafted invalid files fail closed with clear issues. Digest
   recomputation, replay, and duplicate-key strictness are engine-side and are not asserted here.
+- The token NLL evidence entry is pinned in the schema and exercised from the contract side: one
+  `{token, loss ≥ 0}` per decoded token (optional 1-based `rank`, `topAlternatives`, no hidden
+  fields), in lockstep with the exported `TokenLossPoint` type; `check-fixtures.mjs` passes a
+  shape-valid white-box trace and fails closed on six malformed traces; `check-run-file.mjs`
+  accepts the loss-0 boundary in the product loader and rejects negative losses and non-1-based
+  ranks. Contract note: [research/token-nll-evidence-note.md](research/token-nll-evidence-note.md).
 - Fixture runs preserve enough candidate points, the explicit reconstruction baseline, shortest-found
   endpoint, selected candidate, observation mode, and the legacy `non-leaking` fixture threshold.
   Passing that fixture check does not establish channel-qualified tested noncopy.
@@ -57,7 +63,9 @@ need Node with default type stripping (>= 22.18); the root `engines.node` floor 
 - That an accepted run file is authentic: digests are not recomputed (the engine importer does
   that) and duplicate object keys are not detected.
 - Hosted model credentials are present, external providers are reachable, or a live model returns good candidates.
-- Token loss, attribution, or waveform values are real model internals.
+- That a token NLL trace is authentic model internals: the checks above pin the entry shape only,
+  and shape validity does not establish provenance; only the live adapter path (with its recorded
+  receipt) covers a real local model run. Attribution and waveform values remain fixture-shaped.
 - External URLs are still live.
 
 Record broader checks in `docs/verification.md`.
