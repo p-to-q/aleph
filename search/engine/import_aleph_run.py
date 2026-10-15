@@ -275,14 +275,13 @@ def _load_export_value(
                 f"({len(payload)} bytes on disk, {len(expected)} expected)"
             )
         return None, errors
-    schema_clean = True
     try:
         schema_errors = validate_against_schema(
             value, schema_path if schema_path is not None else DEFAULT_SCHEMA_PATH
         )
     except ExportError as error:
-        schema_clean = False
         schema_errors = [str(error)]
+    schema_clean = not schema_errors
     errors.extend(schema_errors)
     _check_artifact_ref(value, errors)
     if schema_clean:

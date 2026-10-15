@@ -340,11 +340,19 @@ class TestFileStrictness(unittest.TestCase):
         wrong_type = load_value(self.root)
         wrong_type["candidates"][0]["fit"] = "high"
         refresh_digest(wrong_type)
+        hostile_candidates = load_value(self.root)
+        hostile_candidates["candidates"] = [1]
+        refresh_digest(hostile_candidates)
+        hostile_config = load_value(self.root)
+        hostile_config["config"] = "x"
+        refresh_digest(hostile_config)
         cases = [
             ("unexpected property", unexpected, "unexpected property extra"),
             ("missing property", missing, "missing required property selectedCandidateId"),
             ("out of range", out_of_range, "above maximum"),
             ("wrong type", wrong_type, "expected number"),
+            ("hostile candidates", hostile_candidates, "expected object"),
+            ("hostile config", hostile_config, "expected object"),
         ]
         for name, value, fragment in cases:
             with self.subTest(name):
