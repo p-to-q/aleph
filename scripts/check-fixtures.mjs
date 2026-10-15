@@ -160,6 +160,46 @@ if (!Array.isArray(manifest.fixtures)) {
   if (defaultCount !== 1) errors.push("manifest.json: expected exactly one default fixture");
 }
 
+// Token NLL evidence contract cases (docs/research/token-nll-evidence-note.md):
+// a shape-valid white-box trace must validate through the schema, and
+// malformed traces must fail closed with a clear message.
+{
+  const observations = schema.$defs.observations;
+  const observationErrors = (value) => {
+    const caseErrors = [];
+    validateValue(observations, value, "$.observations", caseErrors);
+    return caseErrors;
+  };
+  const valid = observationErrors({
+    mode: "white_box",
+    tokenLoss: [
+      { token: "A", loss: 0 },
+      { token: " b", loss: 1.25, rank: 1, topAlternatives: ["B"] },
+    ],
+  });
+  if (valid.length) errors.push(`token NLL contract: valid white-box trace should pass: ${valid.join("; ")}`);
+  const cases = [
+    [{ mode: "white_box", tokenLoss: [{ token: "A", loss: -0.1 }] }, "below minimum 0", "negative loss"],
+    [{ mode: "white_box", tokenLoss: [{ token: "A", loss: 0.5, rank: 0 }] }, "below minimum 1", "zero rank"],
+    [{ mode: "white_box", tokenLoss: [{ token: "A" }] }, "missing required property loss", "missing loss"],
+    [{ mode: "white_box", tokenLoss: [{ token: 7, loss: 0.5 }] }, "expected string", "non-string token"],
+    [{ mode: "white_box", tokenLoss: [{ token: "A", loss: "x" }] }, "expected number", "non-number loss"],
+    [
+      { mode: "white_box", tokenLoss: [{ token: "A", loss: 0.5, extra: 1 }] },
+      "unexpected property extra",
+      "extra field",
+    ],
+  ];
+  for (const [value, needle, label] of cases) {
+    const caseErrors = observationErrors(value);
+    if (!caseErrors.some((error) => error.includes(needle))) {
+      errors.push(
+        `token NLL contract: ${label} should fail with "${needle}", got: ${caseErrors.join("; ") || "no errors"}`,
+      );
+    }
+  }
+}
+
 if (errors.length) {
   console.error("Fixture contract check failed:");
   for (const error of errors) console.error(`- ${error}`);

@@ -108,6 +108,26 @@ rejected(mutate(sampleRaw, (value) => { value.candidates[0].tokens = -1; }), "be
 rejected(mutate(sampleRaw, (value) => { value.candidates[0].role = "x"; }), "expected one of candidate, explicit_reconstruction", "invalid role");
 rejected(mutate(sampleRaw, (value) => { value.config.mode = "x"; }), "expected one of unrestricted, non_leaking", "invalid config mode");
 rejected(mutate(sampleRaw, (value) => { value.observations.mode = "x"; }), "expected one of fixture, mock, black_box, white_box, simulated", "invalid observation mode");
+// Token NLL evidence contract (docs/research/token-nll-evidence-note.md): the
+// product loader enforces the same schema rules; loss 0 is a valid boundary,
+// negative losses and non-1-based ranks fail closed.
+parseOk(
+  mutate(sampleRaw, (value) => {
+    value.observations.tokenLoss[0].loss = 0;
+    delete value.observations.tokenLoss[0].rank;
+  }),
+  "zero-loss token NLL boundary"
+);
+rejected(
+  mutate(sampleRaw, (value) => { value.observations.tokenLoss[0].loss = -0.5; }),
+  "below minimum 0",
+  "negative token NLL loss"
+);
+rejected(
+  mutate(sampleRaw, (value) => { value.observations.tokenLoss[0].rank = 0; }),
+  "below minimum 1",
+  "non-1-based token rank"
+);
 rejected(mutate(sampleRaw, (value) => { value.config.budget.candidates += 1; }), "must equal the candidate count", "budget candidate count mismatch");
 rejected(mutate(sampleRaw, (value) => { value.config.budget.maxPromptTokens = 1; }), "must be at least the maximum candidate token count", "budget below observed token max");
 // The engine-derived exact maximum also opens (the fixtures pin the declared-cap style).

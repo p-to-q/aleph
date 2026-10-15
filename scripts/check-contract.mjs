@@ -66,4 +66,36 @@ assert.ok(
   "AlephRun should carry artifactRef as an optional field"
 );
 
+// P2 adapter evidence contract (docs/research/token-nll-evidence-note.md):
+// the schema and the exported type must agree on the token NLL entry shape,
+// and the recorded numeric rules (non-negative loss, 1-based rank) must hold.
+const tokenLoss = schema.$defs.tokenLoss;
+const tokenLossTypeMatch = types.match(/export type TokenLossPoint = \{([\s\S]*?)\n\};/);
+assert.ok(tokenLossTypeMatch, "missing exported TokenLossPoint type");
+const tokenLossFields = [...tokenLossTypeMatch[1].matchAll(/(\w+)(\?)?:/g)];
+assert.deepEqual(
+  [...tokenLoss.required].sort(),
+  tokenLossFields.filter((match) => !match[2]).map((match) => match[1]).sort(),
+  "tokenLoss schema required fields should match TokenLossPoint"
+);
+assert.deepEqual(
+  Object.keys(tokenLoss.properties).sort(),
+  tokenLossFields.map((match) => match[1]).sort(),
+  "tokenLoss schema properties should match TokenLossPoint"
+);
+assert.equal(tokenLoss.additionalProperties, false, "tokenLoss should reject hidden fields");
+assert.equal(tokenLoss.properties.loss.minimum, 0, "token NLL losses are non-negative");
+assert.equal(tokenLoss.properties.rank.minimum, 1, "token ranks are 1-based");
+const observationsTokenLoss = schema.$defs.observations.properties.tokenLoss;
+assert.equal(observationsTokenLoss.type, "array", "observations.tokenLoss should be an array");
+assert.equal(
+  observationsTokenLoss.items.$ref,
+  "#/$defs/tokenLoss",
+  "observations.tokenLoss should reference the tokenLoss definition"
+);
+assert.ok(
+  /tokenLoss\?: TokenLossPoint\[\];/.test(types),
+  "ObservationSet should carry tokenLoss as an optional field"
+);
+
 console.log("check-contract: ok");
