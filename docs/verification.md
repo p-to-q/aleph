@@ -261,3 +261,20 @@ live smoke (search/server.py + apps/api): white_box, entries=10 min=0 max=0, no 
 
 Live receipt: [research/2026-10-15-token-nll-receipt.md](research/2026-10-15-token-nll-receipt.md).
 Contract note: [research/token-nll-evidence-note.md](research/token-nll-evidence-note.md).
+
+## MiniPrompt reproduction pass: 2026-10-16
+
+Method-level reproduction of the pinned MiniPrompt/ACR scan on MLX (`search/miniprompt/`; gate note
+[research/miniprompt-reproduction-note.md](research/miniprompt-reproduction-note.md)):
+
+```text
+npm run lint: ok (10 checks)
+npm test: ok — search/tests 90 (66 + 24 new), engine 444 (skipped=3), miniprompt MLX suite 5 skipped (no MLX), canonical parity 126/2448
+MLX suite (search/.venv): 5 tests ok — pinned identity, pin-mismatch fail-closed, greedy re-check of both feasibility acquisitions, pause/resume
+canary run: search/miniprompt/receipts/canary-hello-001 — acquired `hello world` at n=5/4/3 free tokens (steps 34/50/21), n=2 not acquired in 200 steps; numFreeTokens=3
+control run: search/miniprompt/receipts/control-jumps-001 — not acquired under declared budgets; stopped at the declared attempt bound
+receipt verification (no MLX): both receipts ok via `python3 -m search.miniprompt.cli verify`
+```
+
+Receipt hashes are pinned in `search/miniprompt/receipts/MANIFEST.sha256`. The independent verifier
+pass is recorded in the pull-request thread.

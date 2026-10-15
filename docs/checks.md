@@ -83,6 +83,24 @@ digests, measurement mismatches, or broken digest linkage. It establishes artifa
 linkage and canonical form; it does not establish that the measurements satisfy the research
 measurement contracts, and it never calls a model.
 
+## MiniPrompt reproduction checks
+
+`npm test` also runs `search/tests/test_miniprompt.py` (pure standard library) and the
+MLX-gated smoke tests in `search/miniprompt/tests/` (skipped without MLX; run them with
+`search/.venv`). The pure tests pin the strict config parser and digests, the scan-policy
+state machine to concrete upstream sequences, the seeded sampling derivations, receipt
+construction, and the fail-closed receipt verifier via tamper probes whose digests are
+re-fixed after tampering, so the semantic checks must fire on their own. The verifier is also
+the no-MLX `verify` command:
+
+```bash
+python3 -m search.miniprompt.cli verify search/miniprompt/receipts/canary-hello-001
+```
+
+It replays the declared scan policy across recorded outcomes and checks each acquisition's
+evidence chain (all-match plus greedy continuation) canonically; it does not re-run the model,
+and running a scan itself needs the pinned MLX environment.
+
 ## Release gate
 
 Before a formal release, run:

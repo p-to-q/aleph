@@ -1,0 +1,7 @@
+loading pinned model mlx-community/Qwen3-1.7B-4bit@3b1b1768f8f8…
+target 'jumps over the lazy dog' -> 6 token(s): [73, 11793, 916, 279, 15678, 5562]
+attempt 0: n_free=5 steps_budget=60
+attempt 0: acquired=False steps=60 solutionLoss=2.241045
+attempt 1: n_free=10 steps_budget=72
+attempt 1: acquired=False steps=72 solutionLoss=1.565769
+receipt written: /private/tmp/aleph-miniprompt/runs/control-jumps-001/receipt.json (success=False numFreeTokens=30 attempts=2 stopReason=max_attempts)
