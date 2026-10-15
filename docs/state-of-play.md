@@ -103,7 +103,11 @@ The next phase should start from executable research contracts rather than more 
    PR B slice (#109/#113); the pinned open-weight MLX canary (PR C) is implemented with its PR open
    (#118), and the public MLX frontier has been regenerated from actual evaluations with per-point
    receipts (`search/frontier_receipts.py`).
-3. Reproduce MiniPrompt/ACR behind the same archive and evaluator boundary.
+3. Reproduce MiniPrompt/ACR behind the same archive and evaluator boundary — scoped by the
+   recorded gate note and feasibility receipt
+   (`docs/research/miniprompt-reproduction-note.md`,
+   `docs/research/2026-10-15-miniprompt-feasibility-receipt.md`); implementation is the next
+   slice.
 4. Done: the product open-file flow (`web/app/lib/run-file.ts` plus open/save controls) returns a
    saved run to the app with its selected candidate intact and labels it a projection; the strict
    engine importer (`search/engine/import_aleph_run.py`) remains the verification surface.
