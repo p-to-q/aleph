@@ -9,8 +9,8 @@ import { downloadTextFor, parseRunFile, RUN_FILE_LIMITS } from "../web/app/lib/r
 // explicitly not asserted here.
 //
 // Runtime: Node >= 22.18 (default TypeScript type stripping — same requirement
-// as scripts/check-core.mjs / scripts/check-fixtures.mjs); the engines.node
-// floor mismatch is tracked in docs/next-backlog.md (P3).
+// as scripts/check-core.mjs / scripts/check-fixtures.mjs); the package.json
+// engines floor matches since the P3 decision (docs/next-backlog.md, 2026-10-15).
 
 const fixtures = [
   "packages/fixtures/src/sample-run.json",

@@ -21,6 +21,10 @@ scripts/check-run-file.mjs
 scripts/check-repo.mjs
 ```
 
+The TypeScript-importing checks (`check-core.mjs`, `check-fixtures.mjs`, `check-run-file.mjs`)
+need Node with default type stripping (>= 22.18); the root `engines.node` floor states the same
+(docs/next-backlog.md P3 decision, 2026-10-15).
+
 ## What these checks prove
 
 - Required repository files exist.
