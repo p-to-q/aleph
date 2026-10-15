@@ -12,6 +12,7 @@ import argparse
 import os
 import sys
 from datetime import UTC, datetime
+from math import isfinite
 
 from fastapi import HTTPException
 
@@ -50,12 +51,27 @@ def main() -> None:
     assert data["observations"]["mode"] in {"black_box", "white_box"}, data
     assert data["config"]["budget"]["candidates"] == len(data["candidates"]), data
     assert data["selectedCandidateId"] in {candidate["id"] for candidate in data["candidates"]}, data
-    token_nll_present = bool(data["observations"].get("tokenLoss")) or any(
-        "nll" in candidate for candidate in data["candidates"]
-    )
-    if token_nll_present:
+    token_loss = data["observations"].get("tokenLoss")
+    if token_loss is not None:
         assert data["observations"]["mode"] == "white_box", data
+        assert isinstance(token_loss, list) and token_loss, data
+        for entry in token_loss:
+            assert isinstance(entry, dict) and isinstance(entry.get("token"), str), data
+            loss = entry.get("loss")
+            assert (
+                isinstance(loss, (int, float))
+                and not isinstance(loss, bool)
+                and isfinite(loss)
+                and loss >= 0
+            ), data
         assert any(candidate["label"] == "Explicit Reconstruction" for candidate in data["candidates"]), data
+        token_nll_present = True
+        losses = [float(entry["loss"]) for entry in token_loss]
+        token_nll_shape = f"entries={len(losses)} min={min(losses):.6g} max={max(losses):.6g}"
+    else:
+        assert data["observations"]["mode"] == "black_box", data
+        token_nll_present = False
+        token_nll_shape = "none (black_box)"
     source_mode = data["observations"]["mode"]
     command = f"npm run api:live-smoke -- --url {args.url!r} --target {args.target!r} --label {args.label!r}"
 
@@ -77,7 +93,10 @@ def main() -> None:
     print(f"Candidate count: {len(data['candidates'])}")
     print(f"Selected candidate id: {data['selectedCandidateId']}")
     print(f"Token NLL present: {str(token_nll_present).lower()}")
+    print(f"Token NLL shape: {token_nll_shape}")
     print(f"Claim supported: apps/api can adapt a live local MLX search response into an AlephRun-compatible {source_mode} response.")
+    if token_nll_present:
+        print("Shape claim: the adapted response carries a non-empty token NLL trace whose entries are {token: str, loss: finite >= 0}.")
     print("Claim not supported: globally shortest prompt, production readiness, or white-box UI completeness.")
     print("```")
 

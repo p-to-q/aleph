@@ -4,6 +4,7 @@ import json
 import os
 from datetime import UTC, datetime
 from hashlib import sha1
+from math import isfinite
 from typing import Any
 from urllib import error, request
 
@@ -320,14 +321,38 @@ def _observations(points: list[dict[str, Any]], mode: str) -> SearchObservations
 
 
 def _token_loss(points: list[dict[str, Any]]) -> list[dict[str, object]] | None:
+    """Return the newest shape-valid token NLL trace, or ``None``.
+
+    Contract (docs/research/token-nll-evidence-note.md): a white-box trace is
+    a non-empty list of ``{token: str, loss: float >= 0}`` entries with one
+    finite, non-negative loss per decoded token. Anything else means the
+    trace is unavailable, and the adapter fails closed to ``black_box``
+    instead of emitting partial evidence.
+    """
     for point in reversed(points):
         tokens = point.get("toktext")
         losses = point.get("toknll")
-        if isinstance(tokens, list) and isinstance(losses, list) and len(tokens) == len(losses):
-            return [
-                {"token": str(token), "loss": float(loss)}
-                for token, loss in zip(tokens, losses, strict=False)
-            ]
+        if not isinstance(tokens, list) or not isinstance(losses, list):
+            continue
+        if not tokens or len(tokens) != len(losses):
+            continue
+        entries: list[dict[str, object]] = []
+        valid = True
+        for token, loss in zip(tokens, losses, strict=True):
+            if (
+                not isinstance(token, str)
+                or isinstance(loss, bool)
+                or not isinstance(loss, (int, float))
+            ):
+                valid = False
+                break
+            value = float(loss)
+            if not isfinite(value) or value < 0:
+                valid = False
+                break
+            entries.append({"token": token, "loss": value})
+        if valid:
+            return entries
     return None
 
 
