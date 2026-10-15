@@ -36,6 +36,19 @@ program and its proof/search/compute gates are maintained in
 larger readable-coordinate program remains the source of truth for estimands, falsification gates, and
 the implementation sequence.
 
+## Structural decision research gate
+
+Since 2026-10-15, every structural decision (a new module, format, dependency, process, or public
+surface) must be preceded by a recorded prior-art survey — same-family repositories,
+specifications/standards, and practitioner documentation — filed as a research note (or an ADR
+update) with sources and access dates, the F/I/U evidence tags, and an explicit statement of what
+changes in our structure. Structural work that skips the gate does not merge.
+
+Backfill status: the engine and benchmark-packaging survey (artifact kernel, canonical
+serialization, scheduler, confirmation, harness and packaging surfaces) is recorded in
+[engine-and-benchmark-practice-review.md](engine-and-benchmark-practice-review.md). Remaining
+backfill items are listed there and mirrored in "Current gaps".
+
 ## Sources inspected
 
 | Source | URL | What was observed | Effect on Aleph |
@@ -70,6 +83,17 @@ the implementation sequence.
 | Garden path sentences and LLMs | https://aclanthology.org/2025.ccl-1.43.pdf | Garden path sentences have local or temporary ambiguity that can force reanalysis; Li, Ji, and Li (2025) find LLMs show garden-path effects in syntactic analysis, with cross-lingual differences between English and Chinese. | Adds a cautious lens for Custom API short prompts that appear strange but model-effective: call them garden-path-like prompt coordinates, not proven garden path sentences. See `docs/research/garden-path-prompts.md`. |
 | vec2text / embedding inversion | https://github.com/vec2text/vec2text and https://arxiv.org/abs/2310.06816 | Embedding inversion reconstructs text from vector representations; related but solves a different inversion problem. | Keep as adjacent prior art; do not conflate with prompt-coordinate search. |
 | Aquin | https://www.aquin.app/ | Instrumentation language: Observe & Find, Simulate & Fix, Debug & Improve, token attribution, loss curves, exposure vectors, evals. | Use as UI/instrumentation inspiration; translate safety/model-debug panels into compression-specific panels. |
+
+| in-toto Statement v1.0 | https://github.com/in-toto/attestation/blob/9294e52190339981e15ff4a8196c44b24dd95fbc/spec/v1.0/statement.md | Attestation middle layer: subject (digest-matched) + predicateType + predicate; SLSA provenance builds on it. | Map bundle=subject, projection=predicate in engine docs; keep digest-only matching; optional vocabulary follow-up. |
+| SLSA v1.0 Provenance | https://slsa.dev/spec/v1.0/provenance | Build definition (external parameters, resolved dependencies) + run details (builder, invocation metadata, byproducts). | Vocabulary reference for separating frozen plan vs run evidence; no dependency. |
+| RFC 8785 (JCS) | https://www.rfc-editor.org/rfc/rfc8785.txt | Canonical JSON for signing/hashing: UTF-16 property order, ECMAScript primitives, no Unicode normalization; big numbers as strings (App. D). | Document `aleph-canonical/0.1.0` divergences (NFC, code-point order, Python number formatting); add conformance vectors; JCS interop is an open question. |
+| lm-evaluation-harness | https://github.com/EleutherAI/lm-evaluation-harness | Results via `--output_path` + `--log_samples`; sample caches by (model, task); results+samples as Hub/W&B artifacts. | Aleph-Bench releases must ship config+versions+seeds+digests+samples in a conventional shape. |
+| Kaggle Benchmarks | https://github.com/Kaggle/kaggle-benchmarks ; https://github.com/Kaggle/kaggle-cli/blob/main/docs/benchmarks.md | `@kbench.task` + assertions; CLI push/run/status/log/download/publish; model proxy credentials; downloadable results. | `kbench` interop is the concrete Kaggle surface for Aleph-Bench; design slice needed. |
+| BetterBench | https://arxiv.org/abs/2411.12990 ; https://betterbench.stanford.edu | Design/implementation/documentation/maintenance criteria; minimum-QA checklist; significance reporting and replication gaps; contamination mitigations. | Adopt a minimum-QA checklist for Aleph-Bench releases; report uncertainty. |
+| Croissant (MLCommons) | https://mlcommons.org/working-groups/data/croissant/ | Dataset metadata format adopted by Kaggle and Hugging Face. | Publish Croissant metadata with Aleph-Bench dataset releases. |
+| Dwork et al. reusable holdout | https://www.science.org/doi/10.1126/science.aaa9375 | Holdout reuse inflates selection overfitting; controlled reuse has a cost. | Cite lineage for protected confirmation; keep one-shot rule. |
+| Pre-registration for Predictive Modeling | https://arxiv.org/abs/2311.18807 | Register the analysis plan before confirmation; report inconclusive outcomes. | Supports `ConfirmationSpec` + `indeterminate` design; cite in docs. |
+| DSPy MIPROv2 | https://dspy.ai/api/optimizers/MIPROv2/ | Surrogate-guided search over grounded proposals; budget presets; minibatch evaluation. | Scheduler docs paragraph; backlog: surrogate/crowding/racing options. |
 
 ## Settled conclusions from research
 
@@ -118,6 +142,22 @@ the implementation sequence.
   capability that still requires an Aleph-specific conformance receipt rather than assumed parity.
 - That spike should be treated as an experiment engine, not as the stable product API contract.
 
+- The engine's attestation-style structure (bundle→subject, projection record→predicate, digest
+  matching) is consistent with in-toto/SLSA practice; record the mapping instead of reinventing
+  vocabulary.
+- `aleph-canonical/0.1.0` intentionally diverges from RFC 8785 (NFC text, code-point key order,
+  Python number formatting, exact integers); acceptable while only the Python verifier computes
+  digests, but it must be documented and pinned by conformance vectors; JCS interoperability is an
+  explicit open question.
+- The hybrid scheduler's frontier-first split (declared acquisition schedules; declared metric
+  defines the front) matches multi-objective/racing practice in spirit and is more auditable; v1 may
+  borrow crowding-distance parent selection, staged racing, and surrogate proposals without changing v0.
+- Protected confirmation is effectively a pre-registered single-use holdout with a first-class
+  `indeterminate` outcome — stronger than common practice; cite the lineage.
+- Aleph-Bench releases should follow harness conventions: results+samples+versions+digests as
+  first-class artifacts, a minimum-QA checklist (BetterBench-derived), Croissant metadata, and an
+  explicit plan for the Kaggle Benchmarks (`kbench`) surface.
+
 ## Implementation implications
 
 - `packages/core` owns the shared types and pure helpers.
@@ -138,6 +178,15 @@ the implementation sequence.
 - GitHub, Hugging Face, and Kaggle are publication and runtime-evidence surfaces. A successful hosted
   job demonstrates portability only after artifact readback; it does not define the scientific
   construct or by itself validate a benchmark score.
+
+- Engine docs: add a "relation to attestation practice" note (in-toto/SLSA mapping) to the artifact
+  kernel docs; add prior-art paragraphs to `confirmation.py` and `hybrid_pareto.py` when those files
+  are next touched (PR B branch).
+- Canonical profile: add a decision record + fixed conformance vectors; treat JCS compatibility as a
+  decision to be made only when a non-Python consumer exists.
+- Aleph-Bench packaging: ship a release checklist (design/implementation/documentation/maintenance),
+  publish results with samples, add Croissant metadata to dataset releases, and design the `kbench`
+  task wrapper before any Kaggle-hosted bench claims.
 
 ## Current gaps
 
@@ -165,3 +214,10 @@ the implementation sequence.
   is regenerated with receipts.
 
 These gaps belong in roadmap or issues, not in hidden assumptions.
+- `kbench` (Kaggle Benchmarks) interop is not designed; the Aleph-Bench release checklist is not
+  yet written.
+- Canonical-profile conformance vectors are not yet in the test suite; the JCS interoperability
+  decision is pending a real cross-language consumer.
+- Statistical-significance reporting policy for Aleph-Bench scores is not defined.
+- The review's own follow-ups (engine doc vocabulary, v1 scheduler options) are tracked in
+  `engine-and-benchmark-practice-review.md`; none block current PRs.
