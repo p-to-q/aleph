@@ -32,6 +32,8 @@ interface CurvePoint {
   /** per-target-token NLL + decoded tokens (precomputed only) */
   toknll?: number[]
   toktext?: string[]
+  /** evaluation receipt digest when the point is receipt-linked (measured archive) */
+  receiptDigest?: string
 }
 
 interface Target {
@@ -842,6 +844,7 @@ const STRINGS = {
     modelTheta: 'model θ',
     runSource: 'run source',
     sourceFixture: 'fixture / precomputed',
+    sourceMeasured: 'measured archive · receipts',
     sourceLocalMlx: 'local MLX / white-box',
     sourceCustomApi: 'custom API / black-box',
     sourceMock: 'mock / fallback',
@@ -870,7 +873,7 @@ const STRINGS = {
     modeMlx: 'local mlx',
     modeCustom: 'custom api',
     modeHelpFixture:
-      'demo mode: precomputed runs for reviewing the interface, not fresh model evidence',
+      'precomputed archive for reviewing the interface; receipt-linked points are measured captures from a recorded run, not a live search',
     modeHelpMlx:
       'local MLX can expose token evidence when its search server is reachable',
     modeHelpCustom:
@@ -989,6 +992,7 @@ const STRINGS = {
     modelTheta: '模型 θ',
     runSource: '结果来源',
     sourceFixture: 'fixture / 预计算',
+    sourceMeasured: '实测归档 · 附回执',
     sourceLocalMlx: 'local MLX / 白盒',
     sourceCustomApi: 'custom API / 黑盒',
     sourceMock: 'mock / fallback',
@@ -1017,7 +1021,7 @@ const STRINGS = {
     modeMlx: 'local mlx',
     modeCustom: 'custom api',
     modeHelpFixture:
-      '演示模式: 使用预先生成的 runs 来检查界面，不是新的模型证据',
+      '预计算归档，用于审视界面；关联回执的点是记录运行的实测捕获，不是实时搜索',
     modeHelpMlx:
       'local MLX 可用时，可以显示真实本地 θ 的 token 证据',
     modeHelpCustom:
@@ -1938,17 +1942,22 @@ export function AlephExplorer() {
   const rank = reveal
     ? Math.min(N, Math.max(1, Math.ceil(clamp01(pos) * N)))
     : Math.round(clamp01(pos) * (N - 1)) + 1
-  const resultSource = pt.source ?? (pt.evalModel ? 'fixture' : searchMode === 'local_mlx' ? 'local_mlx' : 'fixture')
+  const receiptLinked = pt.points.some((point) => typeof point.receiptDigest === 'string')
+  const resultSource =
+    pt.source ??
+    (receiptLinked ? 'measured' : pt.evalModel ? 'fixture' : searchMode === 'local_mlx' ? 'local_mlx' : 'fixture')
   const resultSourceLabel =
     resultSource === 'imported'
       ? tr.sourceImported
-      : resultSource === 'custom_api'
-        ? tr.sourceCustomApi
-        : resultSource === 'local_mlx'
-          ? tr.sourceLocalMlx
-          : resultSource === 'mock'
-            ? tr.sourceMock
-            : tr.sourceFixture
+      : resultSource === 'measured'
+        ? tr.sourceMeasured
+        : resultSource === 'custom_api'
+          ? tr.sourceCustomApi
+          : resultSource === 'local_mlx'
+            ? tr.sourceLocalMlx
+            : resultSource === 'mock'
+              ? tr.sourceMock
+              : tr.sourceFixture
   const surfaceWidth = isNarrow ? 'min(100%, 34rem)' : 'min(52rem, 90vw)'
   const chromeFadeDelay = isNarrow ? MOBILE_CHROME_FADE_DELAY_MS : CHROME_FADE_DELAY_MS
 
@@ -3124,7 +3133,7 @@ export function AlephExplorer() {
               const span = Math.max(...ns) - lo || 1
               return (
                 <section
-                  aria-label={tr.tokenNllEvidence}
+                  aria-label={`${tr.tokenNllEvidence} · ${pt.evalModel ?? tr.localQwen}`}
                   style={{
                     marginTop: '1.1rem',
                     borderTop: '1px solid var(--site-hr)',
@@ -3141,7 +3150,7 @@ export function AlephExplorer() {
                       textTransform: 'uppercase',
                     }}
                   >
-                    {tr.tokenNllEvidence}
+                    {tr.tokenNllEvidence} · {pt.evalModel ?? tr.localQwen}
                   </div>
                   <p
                     style={{
