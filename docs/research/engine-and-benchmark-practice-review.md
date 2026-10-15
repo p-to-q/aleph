@@ -94,6 +94,10 @@ Subject artifacts are matched **purely by digest** (`name` is optional disambigu
 2. `kbench` interop design slice (§5).
 3. Statistical-significance reporting for Aleph-Bench scores (which tests, sample sizes, aggregation).
 4. Cross-language digest verification (TS/third parties) → JCS-compat decision.
+   *Update (2026-10-15, same day): implemented — `scripts/aleph-canonical.mjs`
+   recomputes the canonical bytes and digests in JavaScript and
+   `scripts/check-canonical-parity.mjs` (wired into `npm test`) differentials
+   against the Python engine; see the ADR 0006 follow-up.*
 5. Hosted-canary practice (#107): Kaggle model-proxy quotas/pricing — before the canary unfreezes.
 
 ## Sources (fetched 2026-10-15)

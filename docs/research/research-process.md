@@ -222,8 +222,10 @@ These gaps belong in roadmap or issues, not in hidden assumptions.
 - `kbench` (Kaggle Benchmarks) interop is not designed; the Aleph-Bench release checklist is not
   yet written.
 - Canonical-profile conformance vectors are in the test suite and the JCS decision is recorded
-  (ADR 0006, `aleph-canonical/0.2.0`); still open: an independent non-Python recomputation of the
-  canonical digests, now feasible with native JS primitives (JSON.stringify / sort / normalize).
+  (ADR 0006, `aleph-canonical/0.2.0`); resolved 2026-10-15: `scripts/aleph-canonical.mjs` and
+  `scripts/check-canonical-parity.mjs` recompute the canonical digests in JavaScript
+  and differential against the Python engine (wired into `npm test`; see the ADR 0006
+  follow-up).
 - Statistical-significance reporting policy for Aleph-Bench scores is not defined.
 - The review's own follow-ups (engine doc vocabulary, v1 scheduler options) are tracked in
   `engine-and-benchmark-practice-review.md`; none block current PRs.
