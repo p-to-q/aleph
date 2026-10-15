@@ -17,6 +17,11 @@ from bench.engine.frozen_ladder import (  # noqa: E402
 )
 from bench.engine.audit import format_audit_report  # noqa: E402
 from bench.engine.bundle import build_m0_bundle, compare_bundle  # noqa: E402
+from bench.engine.croissant_v0_2 import (  # noqa: E402
+    check_croissant_v0_2,
+    format_croissant_v0_2_check,
+    write_croissant_v0_2,
+)
 from bench.engine.manifest import build_manifest  # noqa: E402
 from bench.engine.kaggle_receipt import (  # noqa: E402
     DEFAULT_SATURATION_MARGIN_TOKENS,
@@ -112,6 +117,13 @@ def build_parser() -> argparse.ArgumentParser:
     package_v0_2.add_argument("--out-dir", default=None)
     package_v0_2.add_argument("--check", default=None)
     package_v0_2.add_argument("--json", action="store_true")
+    croissant_v0_2 = subparsers.add_parser(
+        "croissant-v0.2",
+        help="Build or check the v0.2 dataset Croissant 1.1 metadata",
+    )
+    croissant_v0_2.add_argument("--out", default=None)
+    croissant_v0_2.add_argument("--check", default=None)
+    croissant_v0_2.add_argument("--json", action="store_true")
     kaggle_replay = subparsers.add_parser(
         "kaggle-replay",
         help="Replay a completed legacy Kaggle run into a canonical detailed receipt",
@@ -321,6 +333,27 @@ def main(argv: list[str] | None = None) -> int:
             print(json.dumps(manifest, indent=2, sort_keys=True))
         else:
             print(f"wrote {out_dir / 'package-manifest.json'}")
+        return 0
+    if args.command == "croissant-v0.2":
+        if bool(args.out) == bool(args.check):
+            raise SystemExit("croissant-v0.2 requires exactly one of --out or --check")
+        if args.check:
+            report = check_croissant_v0_2(Path(args.check))
+            if args.json:
+                print(json.dumps(report, indent=2, sort_keys=True))
+            else:
+                print(format_croissant_v0_2_check(report))
+            return 0 if report["status"] == "ok" else 2
+        out = Path(args.out)
+        digest = write_croissant_v0_2(out)
+        if args.json:
+            print(json.dumps(
+                {"status": "ok", "path": str(out), "sha256": digest},
+                indent=2,
+                sort_keys=True,
+            ))
+        else:
+            print(f"wrote {out}")
         return 0
     if args.command == "kaggle-replay":
         run_json_path = Path(args.run_json)
