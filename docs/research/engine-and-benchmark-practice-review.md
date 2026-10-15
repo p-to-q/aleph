@@ -37,6 +37,8 @@ Subject artifacts are matched **purely by digest** (`name` is optional disambigu
 
 **Recommendations.** (1) Write the profile down (proposed decision record): name (`aleph-canonical/0.1.0`), rules, and the intentional divergence list above. (2) Add **conformance vectors** (fixed fixtures with expected canonical bytes/digests) so the profile cannot drift silently — cheapest high-value item. (3) Keep JCS interoperability as an explicit open question (U): adopt JCS in TS, add a Python `jcs` mode, or declare internal-only — decide when a cross-language consumer exists.
 
+**Update (2026-10-15, ADR 0006).** This recommendation was recorded before the follow-up differential audit quantified the divergence (1710 of 100,000 sampled doubles, 1.71 %, in three mundane classes, plus the key-order and integer-precision cases). The engine then adopted the JCS text form as `aleph-canonical/0.2.0` (`docs/decisions/0006-canonical-json-jcs-alignment.md`): recommendations (1) and (2) are fulfilled — decision record plus fixed conformance vectors in `search/engine/tests/test_canonical_vectors.py` — and (3) is resolved for already-NFC text; NFC pre-normalization remains the single documented extension. See the ADR section "Relation to the practice review".
+
 ## 3. Search and racing practice (NSGA-II, Hyperband/ASHA, prompt optimizers)
 
 **F.** Multi-objective selection practice keeps an explicit non-dominated archive; scalarized scores (weighted sums) are known to miss concave regions, so selection scores *drive* search while the reported front stays Pareto-defined (NSGA-II lineage: non-dominated sorting + crowding distance for diversity; Deb et al., IEEE TEC 2002). Racing practice: Hyperband / ASHA promote candidates through resource rungs (successive halving with factor η), asynchronously under parallel budgets (Li et al. 2017/2018).
@@ -78,10 +80,12 @@ Subject artifacts are matched **purely by digest** (`name` is optional disambigu
 | Bench packaging | ad-hoc | lm-eval / kbench / BetterBench conventions | QA checklist + results+samples release + Croissant; kbench interop design | **high** |
 | Process | research notes exist | no gate tied to structural changes | add structural-decision gate to research-process.md | **now** |
 
+**Update (2026-10-15, ADR 0006).** The canonical-profile row is superseded: the engine adopted the JCS-aligned text form; see the update note in section 2.
+
 ## 7. What does not change
 
 - No re-architecture of PR A/B modules; no new dependencies (in-toto/SLSA/JCS are references, not imports).
-- No JCS switch now; our profile stays, but becomes documented and pinned by vectors.
+- No JCS switch now; our profile stays, but becomes documented and pinned by vectors. *(Update, same day: superseded — the engine adopted the JCS text form; see the update note in section 2.)*
 - **I** — PR B export slice: reviewed against these practices; the subject/predicate split, complete per-leaf source map, and fail-closed derivation match what the ecosystem expects in spirit. **No blocking changes**; optional vocabulary follow-up only.
 
 ## 8. Remaining backfill backlog (U)

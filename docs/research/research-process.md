@@ -86,7 +86,7 @@ backfill items are listed there and mirrored in "Current gaps".
 
 | in-toto Statement v1.0 | https://github.com/in-toto/attestation/blob/9294e52190339981e15ff4a8196c44b24dd95fbc/spec/v1.0/statement.md | Attestation middle layer: subject (digest-matched) + predicateType + predicate; SLSA provenance builds on it. | Map bundle=subject, projection=predicate in engine docs; keep digest-only matching; optional vocabulary follow-up. |
 | SLSA v1.0 Provenance | https://slsa.dev/spec/v1.0/provenance | Build definition (external parameters, resolved dependencies) + run details (builder, invocation metadata, byproducts). | Vocabulary reference for separating frozen plan vs run evidence; no dependency. |
-| RFC 8785 (JCS) | https://www.rfc-editor.org/rfc/rfc8785.txt | Canonical JSON for signing/hashing: UTF-16 property order, ECMAScript primitives, no Unicode normalization; big numbers as strings (App. D). | Document `aleph-canonical/0.1.0` divergences (NFC, code-point order, Python number formatting); add conformance vectors; JCS interop is an open question. |
+| RFC 8785 (JCS) | https://www.rfc-editor.org/rfc/rfc8785.txt | Canonical JSON for signing/hashing: UTF-16 property order, ECMAScript primitives, no Unicode normalization; big numbers as strings (App. D). | Document `aleph-canonical/0.1.0` divergences (NFC, code-point order, Python number formatting); add conformance vectors; JCS interop is an open question. (Update 2026-10-15: superseded — ADR 0006 adopted the JCS text form; vectors added.) |
 | lm-evaluation-harness | https://github.com/EleutherAI/lm-evaluation-harness | Results via `--output_path` + `--log_samples`; sample caches by (model, task); results+samples as Hub/W&B artifacts. | Aleph-Bench releases must ship config+versions+seeds+digests+samples in a conventional shape. |
 | Kaggle Benchmarks | https://github.com/Kaggle/kaggle-benchmarks ; https://github.com/Kaggle/kaggle-cli/blob/main/docs/benchmarks.md | `@kbench.task` + assertions; CLI push/run/status/log/download/publish; model proxy credentials; downloadable results. | `kbench` interop is the concrete Kaggle surface for Aleph-Bench; design slice needed. |
 | BetterBench | https://arxiv.org/abs/2411.12990 ; https://betterbench.stanford.edu | Design/implementation/documentation/maintenance criteria; minimum-QA checklist; significance reporting and replication gaps; contamination mitigations. | Adopt a minimum-QA checklist for Aleph-Bench releases; report uncertainty. |
@@ -149,6 +149,11 @@ backfill items are listed there and mirrored in "Current gaps".
   Python number formatting, exact integers); acceptable while only the Python verifier computes
   digests, but it must be documented and pinned by conformance vectors; JCS interoperability is an
   explicit open question.
+  Update (2026-10-15, ADR 0006): the follow-up differential audit quantified the divergence
+  (1710/100,000 sampled doubles, 1.71 %); the engine then adopted the JCS-aligned text form as
+  `aleph-canonical/0.2.0`, with NFC pre-normalization as the single documented extension, pinned
+  by conformance vectors (`search/engine/tests/test_canonical_vectors.py`); JCS interop is
+  resolved for already-NFC text.
 - The hybrid scheduler's frontier-first split (declared acquisition schedules; declared metric
   defines the front) matches multi-objective/racing practice in spirit and is more auditable; v1 may
   borrow crowding-distance parent selection, staged racing, and surrogate proposals without changing v0.
@@ -216,8 +221,9 @@ backfill items are listed there and mirrored in "Current gaps".
 These gaps belong in roadmap or issues, not in hidden assumptions.
 - `kbench` (Kaggle Benchmarks) interop is not designed; the Aleph-Bench release checklist is not
   yet written.
-- Canonical-profile conformance vectors are not yet in the test suite; the JCS interoperability
-  decision is pending a real cross-language consumer.
+- Canonical-profile conformance vectors are in the test suite and the JCS decision is recorded
+  (ADR 0006, `aleph-canonical/0.2.0`); still open: an independent non-Python recomputation of the
+  canonical digests, now feasible with native JS primitives (JSON.stringify / sort / normalize).
 - Statistical-significance reporting policy for Aleph-Bench scores is not defined.
 - The review's own follow-ups (engine doc vocabulary, v1 scheduler options) are tracked in
   `engine-and-benchmark-practice-review.md`; none block current PRs.
