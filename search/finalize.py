@@ -13,7 +13,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent))
 from aleph_search import observed_length_distortion_frontier  # noqa: E402
 
-SITE = "/Users/simonsun/Desktop/Repositories/aleph/web/public/aleph-frontier.json"
+SITE = str(Path(__file__).resolve().parent.parent / "web" / "public" / "aleph-frontier.json")
 
 
 def main():
