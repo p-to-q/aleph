@@ -7,8 +7,8 @@ search module — and performs no network access and no MLX import.
 
 Checks, all fail-closed:
 
-- layout: unknown top-level files, export files PR A cannot attest, a missing
-  or malformed ``manifest.json``;
+- layout: unknown top-level files or unknown files under ``exports/``, a
+  missing or malformed ``manifest.json``;
 - stream: unparseable lines, truncated final writes, altered event content
   digests, reordered or duplicate sequences, duplicate event ids, orphan or
   cyclic parent references, phase-boundary violations (discovery after freeze,
@@ -32,7 +32,10 @@ Checks, all fail-closed:
   discovery context digest, and confirmation may only evaluate the frozen
   shortlist;
 - materialization: all four derived files must exist and equal the replayed
-  bytes; ``verify.json`` must equal the recomputed report.
+  bytes; ``verify.json`` must equal the recomputed report;
+- exports (PR B): when ``exports/`` is present, exactly the two projection
+  files must exist and equal the replayed projection byte-for-byte; export
+  files in an open run, or a projection the bundle cannot support, fail.
 
 ``verify.json`` carries no timestamps: verification is deterministic and
 re-runnable byte-identically.
@@ -46,6 +49,7 @@ from pathlib import Path
 from typing import Any, Mapping
 
 from .archive import (
+    EXPORT_NAMES,
     MATERIALIZED_DIR,
     MATERIALIZED_VIEWS,
     TOP_LEVEL_NAMES,
@@ -65,6 +69,7 @@ from .canonical import (
     normalize_text,
 )
 from .events import check_stream_structure, stream_digest
+from .export_aleph_run import ExportError, load_target_blob, project_bundle
 
 VERIFIER_SCHEMA_VERSION = "aleph-verify/0.1.0"
 
@@ -169,6 +174,60 @@ def _verify_unreferenced_blobs(root: Path, events: tuple[Any, ...], manifest: An
             errors.append(f"unreferenced blob in a closed run: {blob_file.name}")
 
 
+def _verify_exports(
+    root: Path,
+    manifest: Any,
+    events: tuple[Any, ...],
+    blobs: Mapping[str, bytes],
+    derived: Any,
+    errors: list[str],
+) -> None:
+    """Attest export files by replaying the same projection the exporter used."""
+    exports_dir = root / "exports"
+    names = (
+        sorted(path.name for path in exports_dir.iterdir() if not path.name.startswith("."))
+        if exports_dir.is_dir()
+        else []
+    )
+    if not names:
+        return
+    allowed = {f"{name}.json" for name in EXPORT_NAMES}
+    unknown = sorted(set(names) - allowed)
+    missing = sorted(allowed - set(names))
+    if unknown:
+        errors.append(f"unknown file in exports/: {unknown}")
+    if missing:
+        errors.append(f"export set is incomplete: missing {missing}")
+    if manifest is None:
+        errors.append("export files are present but the manifest is invalid")
+        return
+    if not manifest.closed:
+        errors.append("export files are present but the run is not completed (manifest is open)")
+        return
+    if not events or derived is None:
+        errors.append("export files are present but the run cannot be replayed for attestation")
+        return
+    if unknown or missing:
+        return
+    try:
+        record = project_bundle(manifest, events, load_target_blob(root, manifest, blobs))
+    except (ExportError, ValueError) as error:
+        errors.append(f"cannot attest export files: {error}")
+        return
+    expected = {
+        "aleph-run.json": canonical_bytes(record.projection) + b"\n",
+        "aleph-run-projection.json": canonical_bytes(record.projection_record) + b"\n",
+    }
+    for name, payload in expected.items():
+        try:
+            on_disk = (exports_dir / name).read_bytes()
+        except OSError as error:
+            errors.append(f"cannot read export file {name}: {error}")
+            continue
+        if on_disk != payload:
+            errors.append(f"export file {name} differs from the replayed derivation (tampered or stale)")
+
+
 def verify_bundle(
     root: Path,
     *,
@@ -209,14 +268,6 @@ def verify_bundle(
     for path in sorted(root.iterdir()):
         if path.name not in TOP_LEVEL_NAMES:
             errors.append(f"unknown entry in bundle root: {path.name}")
-    exports_dir = root / "exports"
-    if exports_dir.is_dir():
-        exports = sorted(
-            path.name for path in exports_dir.iterdir() if not path.name.startswith(".")
-        )
-        if exports:
-            errors.append(f"export files are present but PR A cannot attest them: {exports}")
-
     try:
         manifest = read_manifest(root)
         run_id = manifest.run_id
@@ -234,8 +285,8 @@ def verify_bundle(
     events, parse_errors = read_events_with_errors(root)
     errors.extend(parse_errors)
 
+    blobs: dict[str, bytes] = {}
     if events and not parse_errors:
-        blobs: dict[str, bytes] = {}
         try:
             blobs = load_blobs(root, events)
         except ValueError as error:
@@ -264,6 +315,8 @@ def verify_bundle(
                     _verify_target_copy(root, manifest, derived, errors)
 
     _verify_materialized(root, derived, errors)
+    if manifest is not None:
+        _verify_exports(root, manifest, events if not parse_errors else (), blobs, derived, errors)
 
     result = report()
     if write_verify_json:

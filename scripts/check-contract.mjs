@@ -48,4 +48,22 @@ assert.deepEqual(
 );
 assert.equal(schema.additionalProperties, false, "AlephRun schema should reject hidden top-level fields");
 
+// PR B: the optional artifactRef must stay in lockstep with ResearchArtifactRef.
+const artifactRef = schema.properties.artifactRef;
+assert.ok(artifactRef, "schema should declare the optional artifactRef property");
+assert.equal(artifactRef.type, "object");
+assert.equal(artifactRef.additionalProperties, false);
+const refTypeMatch = types.match(/export type ResearchArtifactRef = \{([\s\S]*?)\n\};/);
+assert.ok(refTypeMatch, "missing exported ResearchArtifactRef type");
+const refFields = [...refTypeMatch[1].matchAll(/(\w+)\??:/g)].map((match) => match[1]).sort();
+assert.deepEqual(
+  [...artifactRef.required].sort(),
+  refFields,
+  "artifactRef schema required fields should match ResearchArtifactRef"
+);
+assert.ok(
+  /artifactRef\?: ResearchArtifactRef;/.test(types),
+  "AlephRun should carry artifactRef as an optional field"
+);
+
 console.log("check-contract: ok");

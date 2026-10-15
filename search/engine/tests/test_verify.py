@@ -183,12 +183,21 @@ class TestStreamCorruption(unittest.TestCase):
         errors = errors_for(root)
         assert_has_error(self, errors, "unknown entry in bundle root")
 
-    def test_export_files_fail_in_pr_a(self) -> None:
+    def test_bogus_export_file_fails(self) -> None:
         tmp = fresh_tmpdir()
         root = make_demo_bundle(tmp)
         (root / "exports" / "aleph-run.json").write_text("{}", encoding="utf-8")
+        (root / "exports" / "aleph-run-projection.json").write_text("{}", encoding="utf-8")
         errors = errors_for(root)
-        assert_has_error(self, errors, "PR A cannot attest")
+        assert_has_error(self, errors, "cannot attest export files")
+
+    def test_exported_scheduled_demo_verifies(self) -> None:
+        from search.engine.fixtures.demo import build_scheduled_demo_bundle
+
+        tmp = fresh_tmpdir()
+        root = build_scheduled_demo_bundle(tmp / "scheduled")
+        report = verify_bundle(root)
+        self.assertTrue(report.ok, report.errors)
 
 
 class TestBlobCorruption(unittest.TestCase):

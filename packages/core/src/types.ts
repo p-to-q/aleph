@@ -88,6 +88,13 @@ export type ObservationSet = {
   evalSuite?: EvalResult[];
 };
 
+export type ResearchArtifactRef = {
+  schemaVersion: string;
+  runId: string;
+  bundleDigest: string;
+  projectionDigest: string;
+};
+
 export type AlephRun = {
   id: string;
   createdAt: string;
@@ -96,4 +103,5 @@ export type AlephRun = {
   candidates: CandidatePoint[];
   selectedCandidateId: string;
   observations: ObservationSet;
+  artifactRef?: ResearchArtifactRef;
 };

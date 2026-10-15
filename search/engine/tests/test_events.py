@@ -357,3 +357,19 @@ class TestAdapterCallIteration(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestRunStartedDeclaredFields(unittest.TestCase):
+    def test_run_started_created_at_must_be_non_empty_str(self) -> None:
+        with self.assertRaises(EventError):
+            make_event(payload={"runId": "run-1", "createdAt": 42})
+
+    def test_run_started_created_at_empty_string_rejected(self) -> None:
+        with self.assertRaises(EventError):
+            make_event(payload={"runId": "run-1", "createdAt": ""})
+
+    def test_run_started_declared_created_at_accepted(self) -> None:
+        event = make_event(
+            payload={"runId": "run-1", "createdAt": "2026-10-15T00:00:00Z"}
+        )
+        self.assertEqual(event.payload["createdAt"], "2026-10-15T00:00:00Z")
