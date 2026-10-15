@@ -110,6 +110,8 @@ listed in the surveys and mirrored in "Current gaps".
 
 *Update (2026-10-15): added the search/racing lineage rows (NSGA-II, Hyperband, ASHA) and DOI/arXiv/PMID identifiers for the MIPROv2 and reusable-holdout rows; identifiers checked against Crossref/arXiv/PubMed the same day.*
 
+*Update (2026-10-15, second): the C7 case cards (related-work-cards.md) were re-verified against their pinned primary routes — OpenAI release pages (sharing / Ten advances / Navier–Stokes / GPT-f / science acceleration) and Anthropic pages plus the community Jacobian verification cluster (X announcement, Tao exposition, Isabelle/AFP entry, Zenodo records); see the pass note in the cards file.*
+
 ## Settled conclusions from research
 
 - Aleph is technically plausible as a staged system.
