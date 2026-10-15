@@ -144,6 +144,13 @@ canonical bytes, the strict schema, and the artifact-ref digest, but is labeled
 `replay_verified=false` unless anchored to a verified bundle. The database triggers above are
 unchanged.
 
+Update (2026-10-15, product side): the product open-file flow is implemented —
+`web/app/lib/run-file.ts` plus open/save controls in `web/app/components/aleph-explorer.tsx` open
+and save projection files with the selected candidate preserved. The browser path stays structural
+(schema plus static invariants); digest and replay verification remain engine-side
+([product-run-file-import-note.md](research/product-run-file-import-note.md)). The database
+triggers above are still unchanged.
+
 ### 9. Computer-science paper identity
 
 Options:

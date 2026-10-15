@@ -81,11 +81,14 @@ Acceptance gate:
 
 ## P1: File-First Run Import/Export
 
-Status: the engine-side import is implemented — `search/engine/import_aleph_run.py` (read-only,
+Status: implemented on both sides. Engine: `search/engine/import_aleph_run.py` (read-only,
 fail-closed; bundle replay and re-derivation; standalone files labeled `replay_verified=false`
 unless anchored) with fixture round trips in `search/engine/tests/test_import_aleph_run.py`.
-Still open: wiring export/import into the product open-file flow, so the acceptance gate below is
-not met yet.
+Product: `web/app/lib/run-file.ts` validates saved run files in the app (same schema, static
+exporter invariants, candidate identity and selected-candidate preservation) with open/save
+controls and clear invalid-file errors; `scripts/check-run-file.mjs` pins the fixture round trip.
+The browser path stays structural — digest recomputation, replay, and duplicate-key strictness
+remain engine-side ([product-run-file-import-note.md](research/product-run-file-import-note.md)).
 
 Goal: make the product match the repository thesis.
 
@@ -98,7 +101,10 @@ Tasks:
 
 Acceptance gate:
 
-- A saved run can leave the app, return to the app, and preserve selected candidate semantics.
+- Met at the product layer: a saved run can leave the app, return, and preserve selected candidate
+  semantics (opening a file places the slider on the run's selected candidate and keeps candidate
+  ids/roles; opening from a file saves back byte-for-byte). Strict verification remains the engine
+  importer's job.
 
 ## P2: Adapter Evidence Contract
 
