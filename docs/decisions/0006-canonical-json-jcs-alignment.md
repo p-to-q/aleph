@@ -55,6 +55,23 @@ expected bytes and digests (``test_canonical_vectors.py``), including the
 RFC 8785 worked example and Appendix B number table, pin the profile where
 node is absent.
 
+Cross-language recomputation is now implemented on this tree (2026-10-15
+follow-up): ``scripts/aleph-canonical.mjs`` rebuilds the same canonical
+bytes and digests from native JavaScript primitives alone
+(``JSON.stringify``, the default ``Array.prototype.sort`` for the UTF-16
+key order, ``String.prototype.normalize("NFC")`` for the extension), and
+``scripts/check-canonical-parity.mjs`` (wired into ``npm test``) re-pins the
+conformance vectors and differentials the implementation against the
+Python engine on a deterministic corpus — fixed-seed doubles, a full-BMP
+string sweep, key-order permutations, nested structures, and fail-closed
+cases (lone surrogates, NFC key collisions, raw bytes). One structural
+asymmetry is documented rather than hidden: a JavaScript number is always
+an IEEE-754 double, so the I-JSON integer bound is enforceable only where
+exact integers exist (Python); the JS reader accepts any finite double and
+renders it exactly as the Python writer would. This closes the
+"cross-language digest verification" item of the practice review
+(section 8).
+
 ## Consequences
 
 - Digests of any structure containing integral-valued floats (for example a
