@@ -199,3 +199,21 @@ Tasks:
 Acceptance gate:
 
 - A new user can tell what is real, what is simulated, and what to do next within one minute.
+
+## P3: Toolchain Honesty — Node Floor vs Script Checks
+
+Goal: make the declared runtime match what the repository actually requires.
+
+Context: the script checks import TypeScript modules directly (`scripts/check-core.mjs`,
+`scripts/check-fixtures.mjs`, `scripts/check-run-file.mjs`), so `npm run lint` and `npm test`
+need Node with default type stripping (>= 22.18). The declared `engines.node` floor
+(`>=20.19`, from the initial commit) predates those scripts; surfaced in PR #125 review.
+
+Tasks:
+
+- Decide between raising `engines.node` to `>=22.18` (check both Vercel projects' Node settings first) and restructuring checks to plain JS.
+- Record the decision in docs before changing any manifest.
+
+Acceptance gate:
+
+- `npm run lint` and `npm test` either run on the declared minimum, or the declared minimum states the true requirement.

@@ -7,6 +7,10 @@ import { downloadTextFor, parseRunFile, RUN_FILE_LIMITS } from "../web/app/lib/r
 // and save back byte-for-byte. Crafted files must fail closed with clear
 // issues. Digest/replay verification is the engine importer's job and is
 // explicitly not asserted here.
+//
+// Runtime: Node >= 22.18 (default TypeScript type stripping — same requirement
+// as scripts/check-core.mjs / scripts/check-fixtures.mjs); the engines.node
+// floor mismatch is tracked in docs/next-backlog.md (P3).
 
 const fixtures = [
   "packages/fixtures/src/sample-run.json",
