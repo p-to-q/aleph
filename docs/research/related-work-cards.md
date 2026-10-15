@@ -118,31 +118,77 @@ recovering one prompt.
 
 These come from the 2026-09 internal research pass in the main thread. They
 are evidence *regime* references for our own measurement design, not claims
-about what any lab achieved. **Not yet re-verified against primary sources;
-do not cite in the paper before that pass.**
+about what any lab achieved. **Re-verified against primary sources
+2026-10-15 (see "Primary-source pass" below); citable with the recorded
+caveats.**
 
 - **DeepMind / Lean regime**: generator (RL-trained prover) → search
   (best-first / RL rollout) → verifier (Lean kernel) → human consumption
   (formal library). Clear separation of short witness from discovery compute.
   Sources: AlphaProof/AlphaGeometry2 papers (C6). Confidence: high.
-- **OpenAI regime (four distinct evidence standards)**: (1) verified formal
-  proofs, (2) verified computation, (3) novel theorems with human review,
-  (4) expert-checked counterexamples to open problems — treated as separate
-  standards, never merged into "AI solved math". Primary route for
-  re-verification: OpenAI, "Sharing AI progress in mathematics"
-  (openai.com/index/sharing-ai-progress-in-mathematics/).
-  Confidence: medium-high (regime structure matches the public page;
-  item-level mapping pending).
-- **Anthropic regime (three strong-case types)**: open-problem
-  counterexamples, new theorems, formalized/computational advances —
-  separated by verification strength. Primary routes for re-verification:
-  the Jacobian-conjecture counterexample announcement (July 2026) and the
-  independent Lean 4 verification records on Zenodo (e.g. "An Independent
-  Lean 4 Verification of the Alpöge–Fable Counterexample").
-  Confidence: medium (primary-source pass pending).
+- **OpenAI regime (four release regimes; item-level mapping verified
+  2026-10-15)**: the public pages separate regimes rather than one
+  "AI solved math" claim — (1) known-theorem proof search (GPT-f, 2020;
+  shorter proofs of known theorems accepted into Metamath); (2) expert-led
+  collaborations ("Early experiments in accelerating science with GPT-5",
+  2025; curated cases combining model proposals and human validation);
+  (3) informal open-problem attempts carried with per-problem review states
+  (First Proof, 2026); (4) autonomous open-problem results, split between
+  informal expert review (Erdős unit-distance disproof, 2026; companion
+  remarks and follow-on literature) and public formal certificates
+  ("Ten advances", 2026-08-01: ten results, human-prepared manuscripts, one
+  Lean certificate each; a Navier–Stokes writeup plus Lean formalization,
+  2026-09-08; "Sharing AI progress in mathematics", 2026-10-06:
+  GitHub-released results with Lean formalizations of many proofs, reasoning
+  summaries, compute accounting, and release protocols informed by the IAS
+  advisory group). Item-level reading: `math-computation-ai-systems.md`
+  ("OpenAI: four regimes"). Correction from this pass: the earlier wording
+  ("four evidence standards: verified formal proofs / verified computation /
+  novel theorems with human review / expert-checked counterexamples") was
+  our synthesis, not a public taxonomy; the unanchored "verified
+  computation" item is dropped. Confidence: high.
+- **Anthropic regime (four claim objects; verified 2026-10-15)**: (a) an
+  open-problem counterexample — the Jacobian counterexample announced by
+  Levent Alpöge in a personal X post (2026-07-20; explicit degree-7 formula,
+  crediting Akhil Mathew for the question and Claude Fable 5 for the
+  construction), with an independent exposition by Tao (2026-07-21; checked
+  by direct calculation); its formal verifications are a *community* cluster
+  separate from Anthropic — Isabelle/AFP entry (Ramos–Hulak–Queiroz,
+  2026-07-20), Lean 4/Mathlib repository `alerad/alpoge-lean` (2026-07-20)
+  with two independent Zenodo records (2026-07-23; the Nogueira Grossi note
+  states "not a discovery claim"), mathlib4 PR #42116 (closed unmerged
+  2026-10-07). (b) a new-theorem-type result — the Riemann-zeta lower bound
+  improvement (41.6% → 67.2%; anthropic.com research page, 2026-08-10; "two
+  mathematicians at Anthropic studied and validated" Claude's paper).
+  (c) a known-proof formalization — the FLT artifact in Lean (2026-09-04;
+  proof engineering, not discovery). (d) computational advances — the
+  cryptography page (2026-07-28: HAWK and round-reduced AES; "do not
+  currently affect any production systems"). Item-level reading:
+  `math-computation-ai-systems.md` ("Anthropic: counterexample, theorem,
+  formalization, and computation are distinct"). The two-dimensional
+  Jacobian conjecture remains open; never attribute the community
+  verification artifacts to Anthropic. (This item-level split supersedes the
+  earlier "three strong-case types" summary.) Confidence: high.
 
 Rule: keep these regimes separated; no "AI solved math" conflation
 (`docs/research/math-computation-ai-systems.md`).
+
+**Primary-source pass (2026-10-15).** Fetches archived to `/tmp/c7-sources/`
+(sha256 manifest; hashes also recorded in the PR). OpenAI: "Sharing AI progress in mathematics" (page dated
+2026-10-06; archived 2026-10-12 snapshot), "Ten advances" (2026-08-01),
+"On the Navier–Stokes Millennium Prize Problem" (2026-09-08), GPT-f
+(2020-09-07), and "Early experiments in accelerating science with GPT-5"
+(archival snapshots; openai.com blocks direct fetches), plus the
+`openai/math` (2026-10-06) and `openai/ten-proofs` (2026-08-05)
+repositories. Anthropic: the X announcement (archived copy; 2026-07-20),
+the Tao exposition (2026-07-21), Zenodo `10.5281/zenodo.21514514` and
+`10.5281/zenodo.21507801` (2026-07-23), the Isabelle/AFP entry (2026-07-20),
+`alerad/alpoge-lean`, mathlib4 #42116, and the anthropic.com zeta
+(2026-08-10), cryptography (2026-07-28), and FLT (2026-09-04) pages.
+Recorded but not re-fetched this pass: the First Proof page and the
+unit-distance page itself (the Wayback snapshot returned 403; its content is
+quoted on the "Ten advances" page); the openconjectures tracker was
+unavailable (503).
 
 ## C8. Benchmark science and reproducibility
 
@@ -191,5 +237,7 @@ Done this session: (1) MiniPrompt reconciled — the repo's citation is
 Schwarzschild et al. 2404.15146; the ACL 2024 MinPrompt 2310.05007 is a
 different paper and is not cited; (2) Prompting Complexity (2607.06145) fully
 read and folded into `description-length-formalism.md` §3 with an explicit
-positioning paragraph. Remaining before the paper cites C7: re-verify the
-OpenAI/Anthropic case cards against the primary routes pinned in C7.
+positioning paragraph. C7 case cards re-verified 2026-10-15 against the
+pinned primary routes (see the pass note in C7); the paper may cite C7,
+keeping the X-post announcement route and the community/Anthropic
+separation.
