@@ -209,10 +209,34 @@ Context: the script checks import TypeScript modules directly (`scripts/check-co
 need Node with default type stripping (>= 22.18). The declared `engines.node` floor
 (`>=20.19`, from the initial commit) predates those scripts; surfaced in PR #125 review.
 
-Tasks:
+**Decision (2026-10-15): raise `engines.node` to `>=22.18` and keep the TypeScript-importing
+checks.** Recorded here before the manifest change, as the task required; the manifest change
+follows in the same PR.
 
-- Decide between raising `engines.node` to `>=22.18` (check both Vercel projects' Node settings first) and restructuring checks to plain JS.
-- Record the decision in docs before changing any manifest.
+Why raising over restructuring: the checks deliberately import the shipping TypeScript modules
+(`packages/core/src/*.ts`, `web/app/lib/run-file.ts`), so lint/test exercise the same code the
+product runs. Restructuring to plain JS would either duplicate that logic (drift risk) or add a
+compile step (toolchain weight); PR #125 already declined a `.mjs` rewrite for losing the product
+type surface. The floor bump is the minimal honest change.
+
+Evidence (all accessed 2026-10-15):
+
+- Node.js v22.18.0 "Jod" (LTS, 2025-07-31) notable change: "Type stripping is enabled by
+  default" (`nodejs.org/en/blog/release/v22.18.0`); the Node TypeScript docs list
+  "v23.6.0, v22.18.0 — Type stripping is enabled by default" (`nodejs.org/api/typescript.html`).
+- Vercel "Supported Node.js versions"
+  (`vercel.com/docs/functions/runtimes/node-js/node-js-versions`, last updated 2026-02-27):
+  available majors are 24.x (default) and 22.x; a valid semver range in `engines.node` overrides
+  the Project Settings version and resolves to the highest satisfying available major
+  (`>=22.0.0` → latest 24.x). The repo-linked project (`aleph`, `.vercel/project.json`) is set to
+  24.x; the `aleph-web` project is not linked from this checkout and its dashboard setting was not
+  inspectable without dashboard access — but this change touches only the root manifest, and
+  `web/package.json` declares no engines, so every engines-read path still resolves to a
+  version ≥ 22.18. Vercel deprecates Node 20 for Builds/Functions on 2026-10-01
+  (`vercel.com/changelog/node-js-20-is-being-deprecated`), so the floor moves with the platform.
+- CI already runs `node-version: 22` (setup-node; latest 22.x ≥ 22.18); the local pinned
+  toolchain is node@22 (v22.20.0). Nothing enables npm `engine-strict`; the field stays
+  advisory — now honest.
 
 Acceptance gate:
 
