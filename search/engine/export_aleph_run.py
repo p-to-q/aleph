@@ -49,6 +49,15 @@ Replay never calls adapters and the verifier imports no scheduler: this module
 reads receipts through the strict typed parsers and reads the frozen config
 as raw pinned JSON, so it imports only the artifact kernel.
 
+Prior practice. The export pair follows the attestation shape standardized
+by in-toto and SLSA: the bundle is the subject (matched purely by digest),
+the projection record (projection + per-leaf source map + omitted candidates
++ policy) is the predicate, and ``artifactRef`` binds the two; SLSA v1.0
+``buildDefinition`` / ``runDetails`` are the vocabulary reference. The
+``sha256:`` prefix is our spelling of a digest set (``{ALGORITHM: HEX}``).
+Structural mapping only: no dependency on either tool. See
+``docs/research/engine-and-benchmark-practice-review.md`` (§1).
+
 Pure standard library. No MLX, no network, no clock, no randomness.
 """
 

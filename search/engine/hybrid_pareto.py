@@ -20,6 +20,16 @@ label draw, applicable-spec draw; retries repeat the label and spec draws
 with a fresh parent draw. Two runs with the same config, adapters, and
 ``run_id`` produce byte-identical bundles.
 
+Prior practice. The split between scheduling and reporting follows the
+multi-objective lineage (non-dominated archive; NSGA-II, Deb et al., IEEE
+TEC 2002): acquisition scores decide the search, while what is reported is
+defined by the declared metric, never by a scalarized score. The declared
+racing rules belong to the racing family's budget-rationed promotion
+(Hyperband / ASHA; Li et al.); staged successive-halving promotion is a v1
+candidate, not part of v0. Proposal operators plus the acquisition schedule
+correspond to the prompting-optimizer family (DSPy MIPROv2, GEPA). See
+``docs/research/engine-and-benchmark-practice-review.md`` (§3).
+
 Pure standard library. No adapter is called during replay; adapters are
 reached only through the typed kernel boundary.
 """
