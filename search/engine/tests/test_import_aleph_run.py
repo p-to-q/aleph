@@ -191,6 +191,20 @@ class TestBundleRefusals(unittest.TestCase):
             import_aleph_run(root)
         self.assertIn("materialized view is missing", str(caught.exception))
 
+    def test_stale_verification_report_refused(self) -> None:
+        tmp = fresh_tmpdir()
+        root = scheduled(tmp)
+        verify_bundle(root)  # writes the verify.json attestation
+        path = root / "verify.json"
+        self.assertTrue(path.exists())
+        path.write_bytes(path.read_bytes() + b" ")
+        # Read-only verification no longer checks the attestation...
+        self.assertTrue(verify_bundle(root, write_verify_json=False).ok)
+        # ...but import does, without rewriting it.
+        with self.assertRaises(AlephRunImportError) as caught:
+            import_aleph_run(root)
+        self.assertIn("verify.json", str(caught.exception))
+
     def test_unknown_bundle_entry_refused(self) -> None:
         tmp = fresh_tmpdir()
         root = scheduled(tmp)

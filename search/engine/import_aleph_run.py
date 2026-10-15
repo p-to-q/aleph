@@ -13,9 +13,11 @@ Two modes, chosen by the shape of ``source``:
   bytes; export files checked when present), then re-derive the ``AlephRun``
   projection from the replayed stream. ``exports/*`` bytes are never trusted
   as data: the value is derived, and any on-disk export that disagrees with
-  the replay fails the bundle. Verification alone accepts kernel-legal runs
-  that closed as ``aborted``; the projection step refuses anything that is
-  not a completed run, because only completed runs are exportable.
+  the replay fails the bundle; a present ``verify.json`` attestation must
+  match the recomputed report (it is checked, never rewritten).
+  Verification alone accepts kernel-legal runs that closed as ``aborted``;
+  the projection step refuses anything that is not a completed run, because
+  only completed runs are exportable.
 - **file mode** (``source`` is a file): load one ``aleph-run.json`` export
   file. The file must be ``aleph-canonical/0.2.0`` bytes plus a trailing
   newline; duplicate object keys and non-finite number literals fail closed;
@@ -48,6 +50,7 @@ from typing import Any, Mapping, Sequence
 
 from .archive import (
     ArchiveError,
+    VERIFY_NAME,
     BundleSnapshot,
     read_bundle,
 )
@@ -61,7 +64,7 @@ from .export_aleph_run import (
     project_bundle,
     validate_against_schema,
 )
-from .verify import verify_bundle
+from .verify import VerificationReport, verify_bundle
 
 _MAX_REPORTED_ERRORS = 25
 _UTF8_BOM = b"\xef\xbb\xbf"
@@ -292,6 +295,24 @@ def _load_export_value(
 # ---------------------------------------------------------------------------
 
 
+def _check_existing_verification_report(root: Path, report: VerificationReport) -> None:
+    """A present ``verify.json`` must equal the recomputed report (mirrors the
+    verifier's own rule, without writing anything)."""
+    path = root / VERIFY_NAME
+    if not path.exists():
+        return
+    expected = canonical_bytes(report.payload()) + b"\n"
+    try:
+        existing = path.read_bytes()
+    except OSError as error:
+        raise AlephRunImportError(f"cannot read {path}: {error}") from error
+    if existing != expected:
+        raise AlephRunImportError(
+            f"{path} does not match the recomputed verification report (tampered or "
+            "stale); re-run the verifier to refresh the attestation"
+        )
+
+
 def _verified_replay(
     root: Path, *, schema_path: Path | None
 ) -> tuple[BundleSnapshot, ProjectionRecord, str]:
@@ -301,6 +322,7 @@ def _verified_replay(
         raise AlephRunImportError(
             _summarize_errors(f"bundle {root} failed verification", report.errors)
         )
+    _check_existing_verification_report(root, report)
     try:
         snapshot = read_bundle(root)
         record = project_bundle(
