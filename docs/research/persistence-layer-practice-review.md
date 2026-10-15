@@ -123,7 +123,10 @@ reproduce that data".
 JSON Lines shape (one record per line, UTF-8, append-friendly). SQLite matters to Aleph only as a
 candidate future index/query layer or whole-library file: single-file, atomic, long-lived — but
 single-writer, and its documentation repeatedly warns not to choose it for shared-repository or
-high-concurrency needs. Our constraints are one user, one machine, one writer at a time.
+high-concurrency needs. Our constraints are one user, one machine, and one writer per bundle at
+a time — an operational assumption, not an enforced guarantee: the bundle writer has no
+cross-process serialization, so concurrent writers are themselves a trigger to revisit this
+choice (§6).
 
 **U.** If a whole-library file is ever wanted, "SQLite as the application file format" is the
 practice-backed candidate, with the bundle remaining the import/export interchange. No trigger
@@ -149,9 +152,10 @@ does not automatically remove its metadata or artifacts (an explicit `gc` comman
 
 **I.** Harness practice converges on the triangle Aleph already has: per-run evidence files as the
 durable primary artifact; a derived layer for reading and browsing; metadata indexes kept separate
-from bulk artifacts. Inspect's header-only reads are a direct precedent for verifying a bundle
-without loading everything, and its per-task log file is the analogue of our per-run bundle as the
-unit of exchange. MLflow's history is the cautionary precedent for the file-vs-database fork: a
+from bulk artifacts. Inspect's header-only reads are a precedent for reading run metadata
+without loading everything — they do not establish the integrity of the omitted content (our
+verifier still replays the full stream) — and its per-task log file remains the analogue of our
+per-run bundle as the unit of exchange. MLflow's history is the cautionary precedent for the file-vs-database fork: a
 file store works until saved-run workflows want cross-run queries; the ecosystem answer then is a
 migration story plus an explicit exchange format. For Aleph, the exchange format (export, plus the
 planned import) should land before any such pressure arrives — matching the maintainer leaning.
