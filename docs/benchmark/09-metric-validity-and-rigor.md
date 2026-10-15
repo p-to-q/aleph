@@ -165,6 +165,51 @@ If the §6 correlation holds, ALEPH-Bench is simultaneously a valid scientific i
 procurement tool — academic meaning and production usability in one number. That dual validity is the
 target the rest of the dossier builds toward.
 
+## 7. Statistical significance and uncertainty policy (2026-10-15)
+
+This section turns the "uncertainty on every number" promise into an executable policy, defined
+from primary sources — BetterBench's significance criterion (item 8/17), Miller's eval-statistics
+framework (CLT and clustered standard errors; paired differences; power analysis), Dodge et al. on
+budget-dependent reporting, and the lm-evaluation-harness bootstrap convention. The full survey,
+rationale, and source hashes live in the practice review on `main`
+(`docs/research/benchmark-significance-practice-review.md`).
+
+**Units and intervals.** The resampling unit is the **item** (stratified by stratum when strata
+exist); per-item scores average over reruns first. Every reported number carries a 95% CI from a
+**stratified item-level bootstrap**; release runs pin the resample count (B = 100,000, matching the
+lm-eval default) and the RNG seed. A `results.json` cell carries the value plus `ci_low`,
+`ci_high`, `ci_method` (`bootstrap-percentile`), `resamples`, `seed`, `n_items`, `n_clusters`, and
+`label`. Plain item-mean cells additionally report the CLT standard error as a closed-form
+cross-check.
+
+**Comparisons.** All models run the same frozen item set, so cross-model claims use **paired
+item-level differences** (bootstrap the mean of `s_A,i - s_B,i`); a difference is claimed only when
+the 95% CI excludes 0, reported with Δ, SE, CI, and the item-level correlation. Overlapping
+marginal CIs are never used as a test. Comparisons across non-identical item subsets fall back to
+the unpaired standard error and are labeled as such.
+
+**Sample sizes.** Every cell reports `n_items` (and `n_clusters`). A cell — or a stratum — with
+**n < 30 items** is labeled `preliminary` and excluded from significance claims; the v0.2 public S2
+split carries an exact 30-item count, so it meets the threshold. Release notes publish the
+**minimum detectable effect** at the released n (power analysis); future strata are power-sized
+before carrying claims (`03-architecture-and-launch.md`).
+
+**Multiplicity.** The **primary family** is pre-declared (headline `AURC` per track); within it,
+pairwise claims carry a Holm correction. The rest of the dashboard (`ECL@τ`, `CF`, `Elicit@k`,
+per-stratum views, transfer/contamination gaps) stays `exploratory` unless separately pre-declared;
+the ranking-sensitivity disclosure (§3) shows how ranks shift.
+
+**Aggregation.** Per-stratum numbers are first-class and always shown; the headline is the
+macro-average over strata with stratified bootstrap, and S1 never folds into it. Cells whose
+aggregation statistic is still open (`ECL@τ` treatment of unreachable items — issue #35) stay
+`exploratory`. Coverage is reported per cell; cells with coverage gaps beyond the declared set
+cannot carry `primary` labels.
+
+**Determinism.** Stochastic decoding needs k ≥ 2 recorded reruns for a cell to carry interval
+claims; a fully deterministic track states that explicitly instead of reporting empty uncertainty.
+A CI that includes 0 is reported as "indistinguishable from noise at this n" — never as "no
+difference" — with the minimum detectable effect quantifying what would have been detectable.
+
 ---
 
 ## Sources
