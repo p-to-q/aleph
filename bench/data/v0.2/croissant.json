@@ -1,0 +1,335 @@
+{
+  "@context": {
+    "@language": "en",
+    "@vocab": "https://schema.org/",
+    "citeAs": "cr:citeAs",
+    "column": "cr:column",
+    "conformsTo": "dct:conformsTo",
+    "cr": "http://mlcommons.org/croissant/",
+    "data": {
+      "@id": "cr:data",
+      "@type": "@json"
+    },
+    "dataType": {
+      "@id": "cr:dataType",
+      "@type": "@vocab"
+    },
+    "dct": "http://purl.org/dc/terms/",
+    "examples": {
+      "@id": "cr:examples",
+      "@type": "@json"
+    },
+    "extract": "cr:extract",
+    "field": "cr:field",
+    "fileObject": "cr:fileObject",
+    "fileProperty": "cr:fileProperty",
+    "fileSet": "cr:fileSet",
+    "format": "cr:format",
+    "includes": "cr:includes",
+    "isLiveDataset": "cr:isLiveDataset",
+    "jsonPath": "cr:jsonPath",
+    "key": "cr:key",
+    "md5": "cr:md5",
+    "parentField": "cr:parentField",
+    "path": "cr:path",
+    "rai": "http://mlcommons.org/croissant/RAI/",
+    "recordSet": "cr:recordSet",
+    "references": "cr:references",
+    "regex": "cr:regex",
+    "repeated": "cr:repeated",
+    "replace": "cr:replace",
+    "sc": "https://schema.org/",
+    "separator": "cr:separator",
+    "source": "cr:source",
+    "subField": "cr:subField",
+    "transform": "cr:transform"
+  },
+  "@type": "sc:Dataset",
+  "citeAs": "Aleph-Bench Maintainers (2026). Aleph-Bench v0.2 public S2 dataset.",
+  "conformsTo": "http://mlcommons.org/croissant/1.1",
+  "creator": {
+    "@type": "sc:Organization",
+    "name": "p-to-q"
+  },
+  "dateCreated": "2026-09-17",
+  "datePublished": "2026-09-17",
+  "description": "Thirty public S2 compositional targets with frozen-ladder prompts for the Aleph-Bench v0.2 protocol.",
+  "distribution": [
+    {
+      "@id": "s2-items-files",
+      "@type": "cr:FileSet",
+      "encodingFormat": "application/json",
+      "includes": "public/s2/s2-*.json",
+      "name": "s2-items-files"
+    },
+    {
+      "@id": "s2-prompts-files",
+      "@type": "cr:FileSet",
+      "encodingFormat": "application/json",
+      "includes": "public/s2/s2-*.json",
+      "name": "s2-prompts-files"
+    }
+  ],
+  "inLanguage": [
+    "en"
+  ],
+  "isLiveDataset": false,
+  "keywords": [
+    "benchmark",
+    "prompt compression",
+    "reverse prompt search",
+    "synthetic data",
+    "LLM evaluation"
+  ],
+  "license": "https://spdx.org/licenses/CC0-1.0.html",
+  "name": "Aleph-Bench v0.2 public S2",
+  "publisher": {
+    "@type": "sc:Organization",
+    "name": "p-to-q"
+  },
+  "recordSet": [
+    {
+      "@id": "public_s2_items",
+      "@type": "cr:RecordSet",
+      "description": "Thirty public S2 compositional BenchItems.",
+      "field": [
+        {
+          "@id": "public_s2_items/item_id",
+          "@type": "cr:Field",
+          "dataType": "sc:Text",
+          "description": "Bench item id.",
+          "name": "item_id",
+          "source": {
+            "extract": {
+              "jsonPath": "$.id"
+            },
+            "fileSet": {
+              "@id": "s2-items-files"
+            }
+          }
+        },
+        {
+          "@id": "public_s2_items/stratum",
+          "@type": "cr:Field",
+          "dataType": "sc:Text",
+          "description": "Benchmark stratum (S2).",
+          "name": "stratum",
+          "source": {
+            "extract": {
+              "jsonPath": "$.stratum"
+            },
+            "fileSet": {
+              "@id": "s2-items-files"
+            }
+          }
+        },
+        {
+          "@id": "public_s2_items/language",
+          "@type": "cr:Field",
+          "dataType": "sc:Text",
+          "description": "ISO 639-1 language code.",
+          "name": "language",
+          "source": {
+            "extract": {
+              "jsonPath": "$.language"
+            },
+            "fileSet": {
+              "@id": "s2-items-files"
+            }
+          }
+        },
+        {
+          "@id": "public_s2_items/metric_class",
+          "@type": "cr:Field",
+          "dataType": "sc:Text",
+          "description": "Primary fidelity metric class.",
+          "name": "metric_class",
+          "source": {
+            "extract": {
+              "jsonPath": "$.metricClass"
+            },
+            "fileSet": {
+              "@id": "s2-items-files"
+            }
+          }
+        },
+        {
+          "@id": "public_s2_items/target_label",
+          "@type": "cr:Field",
+          "dataType": "sc:Text",
+          "description": "Short target label for cold reading.",
+          "name": "target_label",
+          "source": {
+            "extract": {
+              "jsonPath": "$.target.label"
+            },
+            "fileSet": {
+              "@id": "s2-items-files"
+            }
+          }
+        },
+        {
+          "@id": "public_s2_items/target_text",
+          "@type": "cr:Field",
+          "dataType": "sc:Text",
+          "description": "Target output text.",
+          "name": "target_text",
+          "source": {
+            "extract": {
+              "jsonPath": "$.target.text"
+            },
+            "fileSet": {
+              "@id": "s2-items-files"
+            }
+          }
+        },
+        {
+          "@id": "public_s2_items/family",
+          "@type": "cr:Field",
+          "dataType": "sc:Text",
+          "description": "Synthetic family (arithmetic/route/letter-lattice).",
+          "name": "family",
+          "source": {
+            "extract": {
+              "jsonPath": "$.provenance.parameters.family"
+            },
+            "fileSet": {
+              "@id": "s2-items-files"
+            }
+          }
+        },
+        {
+          "@id": "public_s2_items/canary_guid",
+          "@type": "cr:Field",
+          "dataType": "sc:Text",
+          "description": "Dataset-level contamination canary GUID.",
+          "name": "canary_guid",
+          "source": {
+            "extract": {
+              "jsonPath": "$.canaryGuid"
+            },
+            "fileSet": {
+              "@id": "s2-items-files"
+            }
+          }
+        },
+        {
+          "@id": "public_s2_items/license",
+          "@type": "cr:Field",
+          "dataType": "sc:Text",
+          "description": "Item license.",
+          "name": "license",
+          "source": {
+            "extract": {
+              "jsonPath": "$.license"
+            },
+            "fileSet": {
+              "@id": "s2-items-files"
+            }
+          }
+        }
+      ],
+      "name": "public_s2_items"
+    },
+    {
+      "@id": "public_s2_prompts",
+      "@type": "cr:RecordSet",
+      "description": "Frozen-ladder prompt rows (eight per item); join to public_s2_items by the item-id prefix of prompt_id.",
+      "field": [
+        {
+          "@id": "public_s2_prompts/prompt_id",
+          "@type": "cr:Field",
+          "dataType": "sc:Text",
+          "description": "Frozen ladder prompt id (<item-id>-r<rung>-p<paraphrase>).",
+          "name": "prompt_id",
+          "source": {
+            "extract": {
+              "jsonPath": "$.frozenLadder[*].id"
+            },
+            "fileSet": {
+              "@id": "s2-prompts-files"
+            }
+          }
+        },
+        {
+          "@id": "public_s2_prompts/rung",
+          "@type": "cr:Field",
+          "dataType": "sc:Integer",
+          "description": "Frozen ladder rung (0..3).",
+          "name": "rung",
+          "source": {
+            "extract": {
+              "jsonPath": "$.frozenLadder[*].rung"
+            },
+            "fileSet": {
+              "@id": "s2-prompts-files"
+            }
+          }
+        },
+        {
+          "@id": "public_s2_prompts/paraphrase",
+          "@type": "cr:Field",
+          "dataType": "sc:Integer",
+          "description": "Paraphrase index within rung.",
+          "name": "paraphrase",
+          "source": {
+            "extract": {
+              "jsonPath": "$.frozenLadder[*].paraphrase"
+            },
+            "fileSet": {
+              "@id": "s2-prompts-files"
+            }
+          }
+        },
+        {
+          "@id": "public_s2_prompts/label",
+          "@type": "cr:Field",
+          "dataType": "sc:Text",
+          "description": "Human-readable rung label.",
+          "name": "label",
+          "source": {
+            "extract": {
+              "jsonPath": "$.frozenLadder[*].label"
+            },
+            "fileSet": {
+              "@id": "s2-prompts-files"
+            }
+          }
+        },
+        {
+          "@id": "public_s2_prompts/expected_leakage",
+          "@type": "cr:Field",
+          "dataType": "sc:Text",
+          "description": "Declared leakage class of the prompt.",
+          "name": "expected_leakage",
+          "source": {
+            "extract": {
+              "jsonPath": "$.frozenLadder[*].expectedLeakage"
+            },
+            "fileSet": {
+              "@id": "s2-prompts-files"
+            }
+          }
+        },
+        {
+          "@id": "public_s2_prompts/prompt",
+          "@type": "cr:Field",
+          "dataType": "sc:Text",
+          "description": "Prompt text.",
+          "name": "prompt",
+          "source": {
+            "extract": {
+              "jsonPath": "$.frozenLadder[*].prompt"
+            },
+            "fileSet": {
+              "@id": "s2-prompts-files"
+            }
+          }
+        }
+      ],
+      "name": "public_s2_prompts"
+    }
+  ],
+  "sdLicense": "https://spdx.org/licenses/CC0-1.0.html",
+  "version": "0.2.0"
+}
