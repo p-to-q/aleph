@@ -16,6 +16,14 @@ closed:
 Outcomes are exactly the kernel's ``CONFIRMATION_OUTCOMES``: ``confirmed``,
 ``rejected``, ``indeterminate``, ``no_confirmed_candidate``.
 
+Prior practice. The single-use, pre-registered shape follows the holdout-reuse
+line (Dwork et al., Science 2015; reusable-holdout follow-ups): a holdout
+reused for repeated selection inflates overfitting, so each confirmation
+context is evaluated exactly once, thresholds are declared before any
+confirmation event, and ``indeterminate`` is a first-class outcome rather than
+a forced binary verdict. See ``docs/research/engine-and-benchmark-practice-review.md``
+(§4).
+
 Pure standard library. No MLX, no network, no adapter calls.
 """
 
