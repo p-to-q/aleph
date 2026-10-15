@@ -135,6 +135,7 @@ def test_token_loss_contract_fails_closed_to_black_box() -> None:
         {"toktext": ["A"], "toknll": [-0.1]},
         {"toktext": ["A"], "toknll": [float("inf")]},
         {"toktext": ["A"], "toknll": [float("nan")]},
+        {"toktext": ["A"], "toknll": [10**400]},
         {"toktext": [7], "toknll": [0.1]},
         {"toktext": ["A"], "toknll": ["0.1"]},
         {"toktext": "A", "toknll": 0.1},

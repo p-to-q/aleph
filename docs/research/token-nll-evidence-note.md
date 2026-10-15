@@ -52,8 +52,9 @@ above.
    rules.
 2. **Adapter rule.** `apps/api/aleph_api/services/local_mlx_search.py` (`_token_loss`) admits a
    trace only when it is a non-empty list whose `toktext`/`toknll` lists match in length, every
-   token is a string, and every loss is a finite real number ≥ 0 (bools, NaN, infinities, negative
-   values, or any mismatch make the whole trace inadmissible). An inadmissible trace drops the
+   token is a string, and every loss is a finite, non-negative number that converts to a float
+   (bools, NaN, infinities, integers beyond float range, negative values, or any mismatch make the
+   whole trace inadmissible). An inadmissible trace drops the
    field and the response is labeled `black_box` — fail closed, never partial evidence. Negative
    zero from float32 saturation normalizes to `0.0`, mirroring `search/frontier_receipts.py`.
 3. **Product separation.** `check-run-file.mjs` pins the product loader at the same boundary
@@ -89,7 +90,7 @@ above.
 - `scripts/check-run-file.mjs`: the product loader accepts the loss-0 boundary and rejects
   negative losses and non-1-based ranks.
 - `apps/api` tests: `_token_loss` admits the valid boundary, normalizes `-0.0` to `0.0`, and fails
-  closed on ten malformed cases; an invalid newer point does not shadow an older valid trace; the
+  closed on eleven malformed cases; an invalid newer point does not shadow an older valid trace; the
   observation mapping omits `tokenLoss` unless the trace is valid (25 tests in the suite).
 - Live receipt: [2026-10-15-token-nll-receipt.md](2026-10-15-token-nll-receipt.md).
 - Full suites on the slice are re-run before the PR: `npm run lint`, `npm test`, the `apps/api`

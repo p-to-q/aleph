@@ -346,7 +346,13 @@ def _token_loss(points: list[dict[str, Any]]) -> list[dict[str, object]] | None:
             ):
                 valid = False
                 break
-            value = float(loss)
+            try:
+                value = float(loss)
+            except OverflowError:
+                # Integers beyond float range (e.g. 10**400) are malformed
+                # traces, not adapter crashes (review #132).
+                valid = False
+                break
             if not isfinite(value) or value < 0:
                 valid = False
                 break
