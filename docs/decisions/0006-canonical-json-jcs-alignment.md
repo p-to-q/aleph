@@ -46,9 +46,13 @@ Adopt the RFC 8785 (JCS) serialization profile in ``canonical.py``:
   engine-created bundle records it as ``canonicalSchemaVersion``.
 
 Verification: a differential test (``test_jcs_differential.py``) renders 2000
-fixed-seed doubles plus boundary vectors through the new formatter and through
-``node -e 'JSON.stringify'`` and requires byte equality; a one-off 100,000
-vector fuzz of the same comparison finished with zero mismatches.
+fixed-seed doubles, a full-BMP string sweep (plus astral and combining
+samples), and key-order cases through the new formatter and through ``node``
+(``JSON.stringify``, ``String.prototype.normalize``, default sort) and
+requires byte equality; a one-off 100,000 vector fuzz of the number
+comparison finished with zero mismatches. Fixed conformance vectors with
+expected bytes and digests (``test_canonical_vectors.py``) pin the profile
+where node is absent.
 
 ## Consequences
 
@@ -62,6 +66,39 @@ vector fuzz of the same comparison finished with zero mismatches.
   libraries operating on already-NFC text agree with us byte-for-byte.
 - The integer bound turns a silent JavaScript precision loss into a typed
   fail-closed error at write time.
+
+## Relation to the practice review
+
+The engine and benchmark practice review
+(``docs/research/engine-and-benchmark-practice-review.md``, sections 2 and 7)
+surveyed the same divergence and recorded the opposite *timing*: keep
+``aleph-canonical/0.1.0``, write the profile down, add conformance vectors,
+and leave JCS interoperability open until a cross-language consumer exists.
+This ADR supersedes that recommendation for the text form; the review's own
+items are fulfilled, and the records stay reconciled in writing:
+
+1. The deferral premise ("only the Python verifier computes digests") is
+   already half-invalid on this tree: the projection this canonical form
+   underwrites has a TypeScript contract (``packages/core``) and a web
+   consumer, and digest recomputation is the stated verification story. The
+   cost of changing the form is at its minimum now — the engine is
+   pre-release and no bundle has left the repository — while after the first
+   external bundle the versioned form would have to break instead.
+2. Under 0.1.0, byte-equality in any other language meant reimplementing
+   Python's float formatting; the audit found 1.71 % of sampled doubles
+   diverging across three mundane classes, so such a port would drift
+   silently. Under the JCS-aligned form a JavaScript consumer recomputes
+   digests from native primitives alone: ``JSON.stringify`` for numbers and
+   strings, ``Array.prototype.sort()`` for UTF-16 key order, and
+   ``String.prototype.normalize("NFC")`` for the extension.
+3. Interoperability is therefore resolved for the text form: for input that
+   is already NFC, the canonical bytes equal strict-JCS bytes; the NFC
+   pre-normalization remains the single documented extension, pinned by a
+   conformance vector.
+
+The review document and ``docs/research/research-process.md`` carry dated
+update notes pointing here so the two records cannot be read as
+contradictory.
 
 ## References
 
