@@ -151,6 +151,26 @@ Synthesizing the above, a benchmark is "real" — not a blog post — when it ha
 Items 1–5 are the difference between "publishable" and "ignored." Items 6–8 are the difference between
 "a paper" and "a standard the community maintains with you."
 
+**BetterBench minimum-QA addendum (2026-10-15).** The bar above was cross-checked against the
+BetterBench minimum quality-assurance checklist (Appendix I of arXiv:2411.12990, NeurIPS 2024
+Datasets & Benchmarks); items 1–8 cover most of it (the significance-or-uncertainty row is already
+satisfied by item 5's bootstrap CIs). These deltas complete the rest and should carry with every
+release:
+
+- **Metric floors and ceilings** — state each headline metric's floor/ceiling and saturation
+  behavior (for example, the minimum/maximum attainable under the frozen procedure).
+- **Reference levels** — report a random/naive performance level, and a human performance level
+  for any stratum where the construct makes one meaningful.
+- **Input sensitivity** — report stability of rankings under reasonable ladder/paraphrase
+  perturbations.
+- **Normative assumptions** — state what the construct assumes about "good" outputs (what
+  fidelity is owed, whose judgment the rubric encodes), next to the limitations.
+- **Contamination identifiers** — the canary GUID covers the globally-unique-identifier
+  requirement; keep the accidental-exposure audit (training-data contamination check) part of the
+  contamination strategy.
+- **Sensitive-content warnings** — assess whether any stratum needs one, and record the
+  assessment even when the answer is "none."
+
 ## 6. The trust surface — what makes the community comfortable
 
 Beyond correctness, adoption is a trust phenomenon. The recurring signals across HELM, lm-eval, Arena,

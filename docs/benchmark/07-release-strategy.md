@@ -83,7 +83,8 @@ come from a clever metric alone. Our metric is the novelty; these six are the co
 ## 3. Raising to academic + engineering release level — the checklist
 
 Concrete artifacts the canonical repo must carry at launch (these are also exactly what NeurIPS
-Datasets & Benchmarks now requires):
+Datasets & Benchmarks now requires; cross-checked against the BetterBench minimum-QA checklist,
+arXiv:2411.12990):
 
 - `README` with the construct, the leaderboard, and a 60-second "what a high score means / does not
   mean."
@@ -91,11 +92,16 @@ Datasets & Benchmarks now requires):
   per-stratum **license** statement.
 - A **versioned, seeded harness** that reproduces any leaderboard row; pinned model/decoding/metric
   versions; a `CITATION.cff` and a Zenodo **DOI** for the dataset release.
+- A **replicate-results script** — one explicit command per release that regenerates the released
+  tables/figures from raw results plus pinned versions.
 - **Public + Verified + private/fresh splits**, a published **contamination audit**, and CIs on every
   number.
 - A `CONTRIBUTING` describing **task submission by PR** (BIG-bench-style) and **model submission** with
   automated held-out eval.
-- A **maintenance plan**: version policy, fresh-split cadence, who runs the private split.
+- A named **contact person** and a **maintained feedback channel** (issues/discussions or
+  equivalent) for benchmark users.
+- A **maintenance plan**: version policy, fresh-split cadence, who runs the private split, and a
+  quick-start usability re-check each release cycle (at least yearly).
 - A `LIMITATIONS` section and a claims ledger entry — upper bound, procedure-relative, metric-class
   dependence.
 
