@@ -106,13 +106,15 @@ Subject artifacts are matched **purely by digest** (`name` is optional disambigu
 
 ## Sources (fetched 2026-10-15)
 
+*Update (2026-10-15): added DOI/arXiv/PMID identifiers to the search-lineage, optimizer, and reusable-holdout entries; identifiers checked against Crossref/arXiv/PubMed the same day.*
+
 - in-toto Statement v1.0 — https://github.com/in-toto/attestation/blob/9294e52190339981e15ff4a8196c44b24dd95fbc/spec/v1.0/statement.md
 - SLSA v1.0 Provenance — https://slsa.dev/spec/v1.0/provenance
 - RFC 8785 JCS — https://www.rfc-editor.org/rfc/rfc8785.txt ; W3C VC Data Integrity (JCS usage) — https://www.w3.org/TR/vc-data-integrity/ ; A2A agent cards (JCS + JWS) — https://github.com/a2aproject/A2A
-- NSGA-II — Deb, Pratap, Agarwal, Meyarivan, IEEE TEC 6(2), 2002
-- Hyperband — Li et al., JMLR 18(153), 2018; ASHA — Li et al., MLSys 2020
-- DSPy MIPROv2 — https://dspy.ai/api/optimizers/MIPROv2/
-- Dwork et al., "The reusable holdout", Science 349(6248), 2015; "Generalization in Adaptive Data Analysis and Holdout Reuse", NeurIPS 2015
+- NSGA-II — Deb, Pratap, Agarwal, Meyarivan, IEEE TEC 6(2), 2002; DOI 10.1109/4235.996017
+- Hyperband — Li et al., JMLR 18(153), 2018, arXiv:1603.06560; ASHA — Li et al., MLSys 2020, arXiv:1810.05934
+- DSPy MIPROv2 — https://dspy.ai/api/optimizers/MIPROv2/ ; paper: arXiv:2406.11695
+- Dwork et al., "The reusable holdout", Science 349(6248), 2015; DOI 10.1126/science.aaa9375; PMID 26250683; "Generalization in Adaptive Data Analysis and Holdout Reuse", NeurIPS 2015
 - "Pre-registration for Predictive Modeling" — arXiv:2311.18807
 - lm-evaluation-harness — https://github.com/EleutherAI/lm-evaluation-harness (README, fetched 2026-10-15)
 - Kaggle Benchmarks — https://github.com/Kaggle/kaggle-benchmarks (user guide); CLI: https://github.com/Kaggle/kaggle-cli/blob/main/docs/benchmarks.md ; announcement: https://www.kaggle.com/discussions/product-announcements/667898
