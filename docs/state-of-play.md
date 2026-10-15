@@ -1,8 +1,8 @@
 # State of Play
 
 This is the current confidence map for Aleph after the Hackathon, PR0 research contract, frontier
-repair, and bounded-coordinate bootstrap. Use it when asking: what is true, what is implemented, what
-is only researched, and what should happen next?
+repair, bounded-coordinate bootstrap, and the engine/research wave (#109–#114). Use it when asking:
+what is true, what is implemented, what is only researched, and what should happen next?
 
 ## Core hypothesis
 
@@ -42,6 +42,9 @@ This is a product/research hypothesis with enough evidence to build around, but 
 | Local live search spike | MLX/Qwen route can produce AlephRun-compatible adapter output when a local MLX setup is running; Apple Silicon is the known maintainer path and Linux CUDA is now an upstream MLX backend path. | `search/`, `docs/verification.md` |
 | Frontier correctness repair | PR #100 preserves real observed candidates instead of fabricated repeated-length coordinates; the historical public MLX export remains invalid until regenerated from receipts. | `packages/core/src/frontier.ts`, `search/aleph_search.py` |
 | Exact finite bootstrap | PR #103 adds exhaustive bounded-coordinate ground truth, independent Python replay, receipts, and scoped Lean checks. It is the first BCS R1 tranche, not full BCS or a real-model result. | `search/bounded/` |
+| Engine artifact kernel | PR #109 (PR A): canonical serialization, typed proposal/evaluation contracts, append-only run bundle with materialized views, a pure replay adapter, and an independent fail-closed verifier; fixture-driven, no model calls. | `search/engine/` |
+| Hybrid-Pareto search slice | PR #113/#114 (PR B): protected single-use confirmation, deterministic operators, a budget-reserved hybrid scheduler under a frozen declared config, and a measurement-lossless `AlephRun` projection with verifier attestation; end-to-end runs are deterministic fixtures; the pinned MLX canary is still open (PR C). | `search/engine/` |
+| Research formalization and practice review | PR #110–#112: leakage-channel and description-length formalizations, related-work cards, the engine/benchmark practice review, and the structural-decision research gate. | `docs/research/` |
 | Repo checks | Lightweight lint/check suite protects claims, fixtures, links, language, and schema. | `npm run lint` |
 
 ## Research Converted Into Product Shape
@@ -91,8 +94,10 @@ What should I try next?
 The next phase should start from executable research contracts rather than more surface area:
 
 1. Extend the merged finite bootstrap with the threshold/compiler statement map and independent checks.
-2. Implement one PR0-conformant real-model search archive with separate proposal/evaluation roles,
-   exact tokenizer accounting, fresh confirmation, a six-account ledger, and independent replay.
+2. Real-model evidence for the search line: the archive, separated proposal/evaluation roles, fresh
+   confirmation, the six-account ledger, and independent replay are merged as the fixture-driven
+   PR B slice (#109/#113); next comes one pinned open-weight MLX canary (PR C), then regenerated
+   public evidence from receipts.
 3. Reproduce MiniPrompt/ACR behind the same archive and evaluator boundary.
 4. Add JSON import for `AlephRun` so the product remains file-first without confusing the projection
    with the scientific archive.
@@ -101,6 +106,6 @@ The next phase should start from executable research contracts rather than more 
 ## One-Sentence Status
 
 Aleph has a stable thesis, repaired observed-frontier semantics, an exact finite/Lean bootstrap, product
-model adapters, and a clear evidence boundary; the main unresolved work is a PR0-conformant real-model
-archive/search algorithm, typed recoverability evidence, mandatory baselines, persistence, and
-cross-platform replay.
+model adapters, and a clear evidence boundary; the main unresolved work is real-model engine evidence
+(the pinned MLX canary) under the merged search archive, typed recoverability evidence, mandatory
+baselines, persistence, and cross-platform replay.
