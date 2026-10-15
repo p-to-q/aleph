@@ -94,6 +94,8 @@ listed in the surveys and mirrored in "Current gaps".
 | lm-evaluation-harness | https://github.com/EleutherAI/lm-evaluation-harness | Results via `--output_path` + `--log_samples`; sample caches by (model, task); results+samples as Hub/W&B artifacts. | Aleph-Bench releases must ship config+versions+seeds+digests+samples in a conventional shape. |
 | Kaggle Benchmarks | https://github.com/Kaggle/kaggle-benchmarks ; https://github.com/Kaggle/kaggle-cli/blob/main/docs/benchmarks.md | `@kbench.task` + assertions; CLI push/run/status/log/download/publish; model proxy credentials; downloadable results. | `kbench` interop is the concrete Kaggle surface for Aleph-Bench; design slice needed. |
 | BetterBench | https://arxiv.org/abs/2411.12990 ; https://betterbench.stanford.edu | Design/implementation/documentation/maintenance criteria; minimum-QA checklist; significance reporting and replication gaps; contamination mitigations. | Adopt a minimum-QA checklist for Aleph-Bench releases; report uncertainty. |
+| Adding Error Bars to Evals (Miller) | https://arxiv.org/abs/2411.00640 | Eval-statistics framework: CLT standard errors; clustered standard errors for grouped items (observed over 3x naive in their Table 4); paired item-level differences for model comparisons; power analysis; bootstrapping "unnecessary unless a complicated sampling scheme or estimator is being used". | Statistical framework for the Aleph-Bench significance policy — stratified item-level bootstrap intervals; paired by-item comparisons; report n and SE. |
+| Show Your Work (Dodge et al.) | https://arxiv.org/abs/1909.03004 | Test-set point comparisons are budget-dependent; performance should be reported as a function of search budget; bootstrap is less accurate than the proposed estimator for max-over-budget statistics. | Fixed-budget declared statistics keep bootstrap intervals; best-of-search diagnostics are reported as budget curves, never as bootstrapped maxima. |
 | Croissant (MLCommons) | https://mlcommons.org/working-groups/data/croissant/ | Dataset metadata format adopted by Kaggle and Hugging Face. | Publish Croissant metadata with Aleph-Bench dataset releases. |
 | NSGA-II | https://doi.org/10.1109/4235.996017 | Multi-objective selection keeps an explicit non-dominated archive; scalarized scores only drive the search, and crowding distance maintains diversity (IEEE TEC 2002). | Cite the lineage in scheduler docs; acquisition scores stay schedule-only while the reported frontier stays archive-defined (backfilled in #114). |
 | Hyperband | https://arxiv.org/abs/1603.06560 | Racing promotes candidates through resource rungs via successive halving with factor eta; bracket schedules trade exploration against exploitation (JMLR 2018). | Keep racing rules declared, deterministic, and receipted; staged successive-halving promotion stays a recorded backlog option. |
@@ -172,7 +174,9 @@ listed in the surveys and mirrored in "Current gaps".
   `indeterminate` outcome — stronger than common practice; cite the lineage.
 - Aleph-Bench releases should follow harness conventions: results+samples+versions+digests as
   first-class artifacts, a minimum-QA checklist (BetterBench-derived), Croissant metadata, and an
-  explicit plan for the Kaggle Benchmarks (`kbench`) surface.
+  explicit plan for the Kaggle Benchmarks (`kbench`) surface. A statistical-significance policy now
+  sits on top of that checklist
+  ([`benchmark-significance-practice-review.md`](benchmark-significance-practice-review.md)).
 
 ## Implementation implications
 
@@ -240,6 +244,9 @@ These gaps belong in roadmap or issues, not in hidden assumptions.
   `scripts/check-canonical-parity.mjs` recompute the canonical digests in JavaScript
   and differential against the Python engine (wired into `npm test`; see the ADR 0006
   follow-up).
-- Statistical-significance reporting policy for Aleph-Bench scores is not defined.
+- Statistical-significance reporting policy for Aleph-Bench scores: defined 2026-10-15 —
+  [`benchmark-significance-practice-review.md`](benchmark-significance-practice-review.md)
+  (intervals, comparisons, sample sizes, multiplicity); folding it into the bench docs is the
+  companion structural step recorded there.
 - The review's own follow-ups (engine doc vocabulary, v1 scheduler options) are tracked in
   `engine-and-benchmark-practice-review.md`; none block current PRs.

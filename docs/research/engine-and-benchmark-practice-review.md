@@ -97,6 +97,13 @@ Subject artifacts are matched **purely by digest** (`name` is optional disambigu
    a database stays deferred with recorded triggers; no new dependency.*
 2. `kbench` interop design slice (§5).
 3. Statistical-significance reporting for Aleph-Bench scores (which tests, sample sizes, aggregation).
+   *Update (2026-10-15, same day): surveyed and defined — see
+   [`benchmark-significance-practice-review.md`](benchmark-significance-practice-review.md).
+   Disposition: stratified item-level bootstrap intervals with pinned parameters; paired by-item
+   inference for model comparisons; n ≥ 30 per claimed cell with `preliminary` labels below; Holm
+   correction within a pre-declared primary family. Structural step: fold into
+   `docs/benchmark/09-metric-validity-and-rigor.md` with pointers from 02 §7 / 07 §3 (companion
+   slice on `benchmark/source-v0.2`); no engine change, no new dependency.*
 4. Cross-language digest verification (TS/third parties) → JCS-compat decision.
    *Update (2026-10-15, same day): implemented — `scripts/aleph-canonical.mjs`
    recomputes the canonical bytes and digests in JavaScript and
