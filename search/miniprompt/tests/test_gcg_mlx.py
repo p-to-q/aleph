@@ -12,7 +12,9 @@ digest and fails closed on any pin mismatch.
 
 from __future__ import annotations
 
+import json
 import sys
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -29,7 +31,7 @@ except Exception:  # pragma: no cover - exercised on MLX-free machines
     HAS_MLX = False
 
 if HAS_MLX:
-    from search.miniprompt import fixtures, gcg, sampling  # noqa: E402
+    from search.miniprompt import fixtures, gcg, runner, sampling  # noqa: E402
     from search.miniprompt.config import config_from_canonical  # noqa: E402
 
 
@@ -103,6 +105,61 @@ class GcgMlxTests(unittest.TestCase):
         self.assertTrue(paused["paused"])
         self.assertEqual(paused["resume"]["step"], 0)
         self.assertEqual(paused["resume"]["trajectory"], [])
+
+    def test_topk_guard_in_run_attempt(self):
+        huge = config_from_canonical({**self.config.to_canonical(), "topk": 200000})
+        with self.assertRaises(ValueError):
+            gcg.run_attempt(
+                self.model, huge, n_free=2, steps_budget=1,
+                target_ids=[19, 17], initial_free_ids=[1, 2],
+            )
+
+    def test_resume_from_terminal_acquisition_checkpoint(self):
+        target_ids, _ = gcg.target_token_ids(self.tokenizer, "42")
+        free_ids = [113822, 115719, 118027, 104922, 97102]
+        resume = {
+            "step": 3, "freeIds": list(free_ids), "bestLoss": 0.5, "bestIds": list(free_ids),
+            "solutionSource": "acquired", "solutionLoss": 0.25,
+            "trajectory": [
+                {"step": 0, "loss": 3.0, "matchTokens": 0, "seconds": 0.5},
+                {"step": 1, "loss": 1.0, "matchTokens": 1, "seconds": 0.5},
+                {"step": 2, "loss": 0.25, "matchTokens": 2, "seconds": 0.5},
+            ],
+            "lastMatchTokens": 2, "lastLoss": 0.25, "acquiredAtStep": 2,
+        }
+        outcome = gcg.run_attempt(
+            self.model, self.config, n_free=5, steps_budget=200,
+            target_ids=target_ids, initial_free_ids=free_ids, resume=resume,
+        )
+        self.assertFalse(outcome["paused"])
+        self.assertTrue(outcome["acquired"])
+        self.assertEqual(outcome["acquiredAtStep"], 2)
+        self.assertEqual(outcome["stepsRun"], 3)          # no new steps were run
+        self.assertEqual(outcome["trajectory"], resume["trajectory"])
+        self.assertEqual(outcome["solutionFreeIds"], free_ids)
+
+    def test_run_scan_receipt_reuse_guard(self):
+        tiny = config_from_canonical({
+            **self.config.to_canonical(), "label": "smoke-reuse",
+            "stepsInitial": 1, "stepsHardCap": 4, "maxAttempts": 1,
+            "batch": 8, "miniBatch": 8, "topk": 16,
+        })
+        quiet = lambda *args, **kwargs: None  # noqa: E731
+        with tempfile.TemporaryDirectory() as tmp:
+            self.assertEqual(runner.run_scan(tiny, tmp, max_seconds=None, log=quiet), 0)
+            # the same declaration reports complete without reloading or re-running
+            self.assertEqual(runner.run_scan(tiny, tmp, max_seconds=None, log=quiet), 0)
+            # a different declaration in the same run directory is refused
+            other = config_from_canonical({**tiny.to_canonical(), "target": "42"})
+            with self.assertRaises(runner.RunStateError):
+                runner.run_scan(other, tmp, max_seconds=None, log=quiet)
+            # a tampered receipt is refused
+            receipt_path = Path(tmp) / "receipt.json"
+            bad = json.loads(receipt_path.read_text(encoding="utf-8"))
+            bad["result"]["attempts"] = 99
+            receipt_path.write_text(json.dumps(bad), encoding="utf-8")
+            with self.assertRaises(runner.RunStateError):
+                runner.run_scan(tiny, tmp, max_seconds=None, log=quiet)
 
 
 if __name__ == "__main__":

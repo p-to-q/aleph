@@ -161,6 +161,11 @@ def run_attempt(
     fired, otherwise the completed outcome (``stepsRun``, ``acquired``,
     ``acquiredAtStep``, solution fields, ``wholePromptTokens``, trajectory).
     """
+    vocab_size = int(model.args.vocab_size)
+    if config.topk > vocab_size:
+        raise ValueError(
+            f"config.topk ({config.topk}) exceeds the model vocabulary ({vocab_size})"
+        )
     if steps_budget < 1:
         raise ValueError("steps_budget must be >= 1")
     target_list = list(target_ids)
@@ -177,6 +182,7 @@ def run_attempt(
         trajectory: List[dict] = []
         last_match_tokens = 0
         last_loss: Optional[float] = None
+        acquired_at: Optional[int] = None
     else:
         step = int(resume["step"])
         free_ids = list(resume["freeIds"])
@@ -187,11 +193,15 @@ def run_attempt(
         trajectory = list(resume["trajectory"])
         last_match_tokens = int(resume["lastMatchTokens"])
         last_loss = resume["lastLoss"]
+        # a checkpoint may already carry the terminal acquisition; restore it so
+        # resuming an acquired attempt never re-runs the acquiring step
+        acquired_at = resume.get("acquiredAtStep")
+        if acquired_at is not None and not isinstance(acquired_at, int):
+            raise ValueError("resume.acquiredAtStep must be an integer or null")
 
-    acquired = False
-    acquired_at: Optional[int] = None
+    acquired = acquired_at is not None
     paused = False
-    while step < steps_budget:
+    while not acquired and step < steps_budget:
         if should_pause is not None and should_pause():
             paused = True
             break
@@ -215,6 +225,21 @@ def run_attempt(
             acquired = True
             acquired_at = step
             step += 1
+            if on_step is not None:
+                on_step(
+                    {
+                        "step": step,
+                        "freeIds": free_ids,
+                        "bestLoss": best_loss,
+                        "bestIds": best_ids,
+                        "solutionSource": solution_source,
+                        "solutionLoss": solution_loss,
+                        "trajectory": trajectory,
+                        "lastMatchTokens": last_match_tokens,
+                        "lastLoss": last_loss,
+                        "acquiredAtStep": acquired_at,
+                    }
+                )
             break
         if best_loss is None or record["loss"] < best_loss:
             best_loss = record["loss"]
@@ -234,6 +259,7 @@ def run_attempt(
                     "trajectory": trajectory,
                     "lastMatchTokens": last_match_tokens,
                     "lastLoss": last_loss,
+                    "acquiredAtStep": None,
                 }
             )
 
@@ -250,6 +276,7 @@ def run_attempt(
                 "trajectory": trajectory,
                 "lastMatchTokens": last_match_tokens,
                 "lastLoss": last_loss,
+                "acquiredAtStep": acquired_at,
             },
         }
 

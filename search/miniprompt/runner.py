@@ -127,6 +127,14 @@ def run_scan(config: MiniPromptConfig, run_dir, *, max_seconds=None, log=print) 
 
     if receipt_path.exists():
         receipt = read_json(receipt_path)
+        errors = receipts.verify_receipt(receipt)
+        if errors:
+            raise RunStateError(f"existing receipt fails verification: {errors[:3]}")
+        if receipt.get("configDigest") != config.digest:
+            raise RunStateError(
+                "refusing to report completion: the existing receipt belongs to a different "
+                "declared config"
+            )
         result = receipt.get("result") or {}
         log(f"run already complete: {receipt_path} (success={result.get('success')})")
         return 0
@@ -199,6 +207,7 @@ def run_scan(config: MiniPromptConfig, run_dir, *, max_seconds=None, log=print) 
                 "trajectory": [],
                 "lastMatchTokens": 0,
                 "lastLoss": None,
+                "acquiredAtStep": None,
             }
             current["freeIds"] = list(current["initialFreeIds"])
             state["current"] = current
@@ -242,6 +251,7 @@ def run_scan(config: MiniPromptConfig, run_dir, *, max_seconds=None, log=print) 
                 "trajectory": current["trajectory"],
                 "lastMatchTokens": current["lastMatchTokens"],
                 "lastLoss": current["lastLoss"],
+                "acquiredAtStep": current.get("acquiredAtStep"),
             }
 
         outcome = gcg.run_attempt(
