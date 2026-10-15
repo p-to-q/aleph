@@ -91,6 +91,10 @@ Subject artifacts are matched **purely by digest** (`name` is optional disambigu
 ## 8. Remaining backfill backlog (U)
 
 1. Persistence-layer choice (open since the engine plan): survey event-store/JSONL/SQLite practice when picked.
+   *Update (2026-10-15, same day): surveyed — see
+   [`persistence-layer-practice-review.md`](persistence-layer-practice-review.md). Disposition: run
+   bundles stay the system of record; a strict, fail-closed import surface is the next step;
+   a database stays deferred with recorded triggers; no new dependency.*
 2. `kbench` interop design slice (§5).
 3. Statistical-significance reporting for Aleph-Bench scores (which tests, sample sizes, aggregation).
 4. Cross-language digest verification (TS/third parties) → JCS-compat decision.

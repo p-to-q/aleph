@@ -131,6 +131,12 @@ Options:
 
 Maintainer leaning: JSON export/import before database.
 
+Status (2026-10-15): surveyed — `docs/research/persistence-layer-practice-review.md`. Practice
+supports keeping the append-only run bundle as the system of record; the next structural step is a
+strict, fail-closed JSON import surface (`docs/state-of-play.md`, Next Correct Move #4); a database
+stays deferred with explicit re-evaluation triggers (saved-run workflow with cross-run queries;
+concurrent writers; bundle scans outgrowing the UI).
+
 ### 9. Computer-science paper identity
 
 Options:
