@@ -46,8 +46,12 @@ changes in our structure. Structural work that skips the gate does not merge.
 
 Backfill status: the engine and benchmark-packaging survey (artifact kernel, canonical
 serialization, scheduler, confirmation, harness and packaging surfaces) is recorded in
-[engine-and-benchmark-practice-review.md](engine-and-benchmark-practice-review.md). Remaining
-backfill items are listed there and mirrored in "Current gaps".
+[engine-and-benchmark-practice-review.md](engine-and-benchmark-practice-review.md); the
+persistence-layer survey is recorded in
+[persistence-layer-practice-review.md](persistence-layer-practice-review.md); the product
+run-file import note (product open/save surface) is recorded in
+[product-run-file-import-note.md](product-run-file-import-note.md). Remaining backfill items are
+listed in the surveys and mirrored in "Current gaps".
 
 ## Sources inspected
 
@@ -94,6 +98,8 @@ backfill items are listed there and mirrored in "Current gaps".
 | Dwork et al. reusable holdout | https://www.science.org/doi/10.1126/science.aaa9375 | Holdout reuse inflates selection overfitting; controlled reuse has a cost. | Cite lineage for protected confirmation; keep one-shot rule. |
 | Pre-registration for Predictive Modeling | https://arxiv.org/abs/2311.18807 | Register the analysis plan before confirmation; report inconclusive outcomes. | Supports `ConfirmationSpec` + `indeterminate` design; cite in docs. |
 | DSPy MIPROv2 | https://dspy.ai/api/optimizers/MIPROv2/ | Surrogate-guided search over grounded proposals; budget presets; minibatch evaluation. | Scheduler docs paragraph; backlog: surrogate/crowding/racing options. |
+| Jupyter nbformat | https://raw.githubusercontent.com/jupyter/nbformat/main/nbformat/validator.py | Versioned notebook format; `validate()`/`read()` check a notebook against the format schema and raise `ValidationError`; explicit version conversion. | Product run-file open validates against the repository schema at the consumer layer with explicit, fail-closed errors (see product-run-file-import-note.md). |
+| JSON Schema 2020-12 validation | https://json-schema.org/draft/2020-12/json-schema-validation | The dialect `schemas/aleph-run.schema.json` declares; defined semantics for type/enum/required/additionalProperties/min/max. | The product walker implements the used subset against the same schema file; no third-party dependency. |
 
 ## Settled conclusions from research
 

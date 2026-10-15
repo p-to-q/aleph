@@ -17,6 +17,7 @@ scripts/check-language.mjs
 scripts/check-core.mjs
 scripts/check-contract.mjs
 scripts/check-fixtures.mjs
+scripts/check-run-file.mjs
 scripts/check-repo.mjs
 ```
 
@@ -33,6 +34,10 @@ scripts/check-repo.mjs
   surface-copy-proxy behavior; this is wire/helper regression coverage, not PR0 evidence validation.
 - Core enum contracts stay aligned with `schemas/aleph-run.schema.json`.
 - AlephRun fixture JSON files validate against `schemas/aleph-run.schema.json`.
+- Run files round trip through the product loader (`web/app/lib/run-file.ts`): every packed fixture
+  opens, keeps candidate identity and the selected candidate, saves back byte-for-byte when it was
+  opened from a file, and crafted invalid files fail closed with clear issues. Digest
+  recomputation, replay, and duplicate-key strictness are engine-side and are not asserted here.
 - Fixture runs preserve enough candidate points, the explicit reconstruction baseline, shortest-found
   endpoint, selected candidate, observation mode, and the legacy `non-leaking` fixture threshold.
   Passing that fixture check does not establish channel-qualified tested noncopy.
@@ -43,7 +48,10 @@ scripts/check-repo.mjs
 
 ## What these checks do not prove
 
-- The React app builds; that requires `npm install` and `npm run build`.
+- The React app builds or its open/save controls behave in a browser; that requires `npm install`
+  and `npm run build`, and the controls are covered by review plus the wiring build.
+- That an accepted run file is authentic: digests are not recomputed (the engine importer does
+  that) and duplicate object keys are not detected.
 - Hosted model credentials are present, external providers are reachable, or a live model returns good candidates.
 - Token loss, attribution, or waveform values are real model internals.
 - External URLs are still live.

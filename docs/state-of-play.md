@@ -44,7 +44,7 @@ This is a product/research hypothesis with enough evidence to build around, but 
 | Exact finite bootstrap | PR #103 adds exhaustive bounded-coordinate ground truth, independent Python replay, receipts, and scoped Lean checks. It is the first BCS R1 tranche, not full BCS or a real-model result. | `search/bounded/` |
 | Engine artifact kernel | PR #109 (PR A): canonical serialization, typed proposal/evaluation contracts, append-only run bundle with materialized views, a pure replay adapter, and an independent fail-closed verifier; fixture-driven, no model calls. | `search/engine/` |
 | Hybrid-Pareto search slice | PR #113/#114 (PR B): protected single-use confirmation, deterministic operators, a budget-reserved hybrid scheduler under a frozen declared config, and a measurement-lossless `AlephRun` projection with verifier attestation; end-to-end runs are deterministic fixtures; the pinned MLX canary is still open (PR C). | `search/engine/` |
-| Strict run import | The file-first round trip has its import half: `search/engine/import_aleph_run.py` loads a run bundle (full replay verification, then the projection is re-derived from the stream) or a single `aleph-run.json` file (canonical bytes, strict schema, artifact-ref digests, exporter invariants). Read-only and fail-closed; a standalone file import is labeled `replay_verified=false` unless it is anchored to a verified bundle. | `search/engine/import_aleph_run.py` |
+| Strict run import | The file-first round trip has both halves: `search/engine/import_aleph_run.py` loads a run bundle (full replay verification, then the projection is re-derived from the stream) or a single `aleph-run.json` file (canonical bytes, strict schema, artifact-ref digests, exporter invariants). Read-only and fail-closed; a standalone file import is labeled `replay_verified=false` unless it is anchored to a verified bundle. The product open-file flow (`web/app/lib/run-file.ts` plus open/save controls) opens the same projection files in the app — schema plus static invariants, candidate identity and selected candidate preserved, projection labeling — while digest and replay verification stay engine-side. | `search/engine/import_aleph_run.py`; `web/app/lib/run-file.ts` |
 | Research formalization and practice review | PR #110–#112: leakage-channel and description-length formalizations, related-work cards, the engine/benchmark practice review, and the structural-decision research gate. | `docs/research/` |
 | Repo checks | Lightweight lint/check suite protects claims, fixtures, links, language, and schema. | `npm run lint` |
 
@@ -68,7 +68,7 @@ This is a product/research hypothesis with enough evidence to build around, but 
 | Hosted black-box adapter | Implemented through the Next.js `/api/search` route with server-side OpenAI-compatible credentials and fallback configuration. | Keep returned candidates as `AlephRun` and mark observations `black_box`. |
 | Stable model-internal evidence contract | Partially evidenced by local NLL, not product-stable. | Expose token NLL and related fields through a documented `ObservationSet` migration. |
 | Deletion ablation / prompt-token attribution | UI-shaped, not real. | Compute from model internals or repeated behavioral probes and label source mode. |
-| Persistence | File-first chosen: per-run bundles stay the system of record and the strict import/export pair is implemented; a database stays deferred with recorded triggers. | A saved run can leave the product, return, and keep its selected-candidate semantics without a database; revisit only under the recorded triggers. |
+| Persistence (database layer) | File-first round trip shipped: per-run bundles stay the system of record (strict engine import/export), and the product open-file flow now opens/saves projection files with the selected candidate preserved; a database remains deferred. | No gate pending at the file layer (met by the product open/save wiring); revisit the database only under the recorded triggers. |
 | Permanent frontend path | settled | `web/` is the active launch path; `apps/web/` is archived reference material. |
 
 ## Interface Cleanliness
@@ -100,9 +100,9 @@ The next phase should start from executable research contracts rather than more 
    PR B slice (#109/#113); next comes one pinned open-weight MLX canary (PR C), then regenerated
    public evidence from receipts.
 3. Reproduce MiniPrompt/ACR behind the same archive and evaluator boundary.
-4. Wire the strict import surface (`search/engine/import_aleph_run.py`) into the product's
-   open-file flow so a saved run can return to the app without confusing the projection with the
-   scientific archive.
+4. Done: the product open-file flow (`web/app/lib/run-file.ts` plus open/save controls) returns a
+   saved run to the app with its selected candidate intact and labels it a projection; the strict
+   engine importer (`search/engine/import_aleph_run.py`) remains the verification surface.
 5. Promote hosted/Kaggle/Hugging Face evidence only after pinned artifact readback and offline replay.
 
 ## One-Sentence Status
@@ -110,4 +110,4 @@ The next phase should start from executable research contracts rather than more 
 Aleph has a stable thesis, repaired observed-frontier semantics, an exact finite/Lean bootstrap, product
 model adapters, and a clear evidence boundary; the main unresolved work is real-model engine evidence
 (the pinned MLX canary) under the merged search archive, typed recoverability evidence, mandatory
-baselines, product wiring of the file-first run import, and cross-platform replay.
+baselines, and cross-platform replay.

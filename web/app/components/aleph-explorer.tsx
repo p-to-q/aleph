@@ -9,12 +9,24 @@ import {
   useState,
 } from 'react'
 
+import {
+  downloadTextFor,
+  parseRunFile,
+  RUN_FILE_LIMITS,
+  type ParsedRunFile,
+  type RunFilePoint,
+} from '../lib/run-file'
+
 interface CurvePoint {
   epsilon: number
   prompt: string
   length: number
   similarity: number
   stability: number
+  /** stable candidate id when the point comes from a run (imported or live) */
+  id?: string
+  /** candidate role declared by the source run */
+  role?: 'candidate' | 'explicit_reconstruction'
   /** θ(p) — the model's actual output (absent on stale JSON / reveal) */
   output?: string
   /** per-target-token NLL + decoded tokens (precomputed only) */
@@ -27,7 +39,7 @@ interface Target {
   label: string
   targetTokens: number
   evalModel?: string
-  source?: 'fixture' | 'local_mlx' | 'custom_api' | 'mock'
+  source?: 'fixture' | 'local_mlx' | 'custom_api' | 'mock' | 'imported'
   mode?: string
   script?: string
   points: CurvePoint[]
@@ -76,6 +88,8 @@ type ModeNotice =
 function alephRunToTarget(run: Record<string, unknown>, text: string): Target {
   const candidates = (run.candidates as Record<string, unknown>[]) ?? []
   const points: CurvePoint[] = candidates.map((c) => ({
+    id: c.id as string,
+    role: c.role as CurvePoint['role'],
     epsilon: Math.round((1 - (c.fit as number)) * 10000) / 10000,
     prompt: c.prompt as string,
     length: c.tokens as number,
@@ -95,6 +109,145 @@ function alephRunToTarget(run: Record<string, unknown>, text: string): Target {
     source: observationMode === 'mock' ? 'mock' : 'custom_api',
     points,
   }
+}
+
+type LoadedRun = {
+  run: ParsedRunFile
+  /** file name when the run came from an opened file, null for live runs */
+  fileName: string | null
+  /** exact file text when the run came from an opened file */
+  rawText: string | null
+  /** index of the run's selected candidate in the sorted point list */
+  selectedIndex: number
+}
+
+function curvePointsFromRunFile(points: RunFilePoint[]): CurvePoint[] {
+  return points.map((point) => ({
+    id: point.id,
+    role: point.role,
+    epsilon: point.epsilon,
+    prompt: point.prompt,
+    length: point.length,
+    similarity: point.similarity,
+    stability: point.stability,
+    output: point.output,
+  }))
+}
+
+function formatRunFileIssues(
+  issues: { path: string; message: string }[],
+  moreTemplate: string,
+): string[] {
+  const shown = issues.slice(0, 8)
+  const lines = shown.map((issue) =>
+    issue.path && issue.path !== '$' ? `${issue.path}: ${issue.message}` : issue.message,
+  )
+  if (issues.length > shown.length) {
+    lines.push(moreTemplate.replace('{n}', String(issues.length - shown.length)))
+  }
+  return lines
+}
+
+function RunFileControls({
+  openLabel,
+  saveLabel,
+  saveHint,
+  busy,
+  saveDisabled,
+  status,
+  issues,
+  rejectedLabel,
+  onOpenFile,
+  onSave,
+}: {
+  openLabel: string
+  saveLabel: string
+  saveHint: string
+  busy: boolean
+  saveDisabled: boolean
+  status: string | null
+  issues: string[] | null
+  rejectedLabel: string
+  onOpenFile: (file: File) => void
+  onSave: () => void
+}) {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem', alignItems: 'flex-start' }}>
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: '0.55rem',
+          flexWrap: 'wrap',
+          fontSize: '0.74rem',
+          lineHeight: 1.25,
+        }}
+      >
+        <label
+          title={openLabel}
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            cursor: busy ? 'default' : 'pointer',
+            color: 'var(--site-text)',
+            opacity: busy ? 0.45 : 0.85,
+          }}
+        >
+          <input
+            type="file"
+            accept="application/json,.json"
+            disabled={busy}
+            style={{ display: 'none' }}
+            onChange={(event) => {
+              const file = event.currentTarget.files?.[0]
+              event.currentTarget.value = ''
+              if (file) onOpenFile(file)
+            }}
+          />
+          <span style={{ textDecoration: 'underline', textUnderlineOffset: '3px' }}>{openLabel}</span>
+        </label>
+        <button
+          type="button"
+          onClick={onSave}
+          disabled={saveDisabled}
+          title={saveDisabled ? saveHint : saveLabel}
+          style={{
+            background: 'none',
+            border: 'none',
+            padding: 0,
+            font: 'inherit',
+            cursor: saveDisabled ? 'default' : 'pointer',
+            color: saveDisabled ? 'rgba(255,255,255,0.38)' : 'var(--site-text)',
+            opacity: saveDisabled ? 0.6 : 0.85,
+          }}
+        >
+          <span style={{ textDecoration: saveDisabled ? 'none' : 'underline', textUnderlineOffset: '3px' }}>
+            {saveLabel}
+          </span>
+        </button>
+        {status && <span style={{ opacity: 0.55 }}>{status}</span>}
+      </div>
+      {issues && issues.length > 0 && (
+        <div
+          role="alert"
+          style={{
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '0.15rem',
+            fontSize: '0.68rem',
+            lineHeight: 1.35,
+            color: 'rgba(255,92,92,0.9)',
+            textAlign: 'left',
+          }}
+        >
+          <span>{rejectedLabel}</span>
+          {issues.map((issue, line) => (
+            <span key={line}>{issue}</span>
+          ))}
+        </div>
+      )}
+    </div>
+  )
 }
 
 const PITCH_SCRIPT = [
@@ -802,6 +955,18 @@ const STRINGS = {
     langSwitch: 'switch language · 切换语言',
     oob: 'out of bound',
     outputUnavailable: 'candidate output unavailable · only prompt is available',
+    runFile: 'run file',
+    openRunFile: 'open run json',
+    saveRunFile: 'save run json',
+    runFileSaveHint: 'available after a run file is open or a live search returns a run',
+    runFileLoaded: 'run {id}',
+    runFileRejected: 'run file rejected:',
+    runFileMoreIssues: '+{n} more issues',
+    runFileReadError: 'could not read the selected file',
+    sourceImported: 'imported run file / projection',
+    tokenTraceImportedUnavailable: 'imported projection: candidate-level metrics only',
+    tokenTraceImportedUnavailableNote:
+      'the projection file carries candidate-level scores; token NLL traces stay in the research archive. replay and digest checks run in the engine importer, not in the browser.',
   },
   zh: {
     backAria: 'aleph —— 返回输入',
@@ -936,6 +1101,18 @@ const STRINGS = {
     langSwitch: 'switch language · 切换语言',
     oob: '越界',
     outputUnavailable: '候选输出不可用 · 仅有提示词可用',
+    runFile: 'run 文件',
+    openRunFile: '打开 run json',
+    saveRunFile: '保存 run json',
+    runFileSaveHint: '打开 run 文件或完成一次 live 搜索后可保存',
+    runFileLoaded: 'run {id}',
+    runFileRejected: 'run 文件被拒绝:',
+    runFileMoreIssues: '另有 {n} 项问题',
+    runFileReadError: '无法读取所选文件',
+    sourceImported: '导入的 run 文件 / 投影',
+    tokenTraceImportedUnavailable: '导入投影: 仅候选级指标',
+    tokenTraceImportedUnavailableNote:
+      '投影文件只带候选级评分；token NLL trace 留在研究档案。replay 与摘要校验由引擎 importer 负责，不在浏览器里做。',
   },
 } as const
 
@@ -1519,6 +1696,8 @@ export function AlephExplorer() {
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState('')
   const [view, setView] = useState<'input' | 'result'>('input')
+  const [runFile, setRunFile] = useState<LoadedRun | null>(null)
+  const [fileIssues, setFileIssues] = useState<string[] | null>(null)
   const [lang, setLang] = useState<Lang>('en')
   const [searchMode, setSearchMode] = useState<SearchMode>('fixture')
   const [modeNotice, setModeNotice] = useState<ModeNotice>(null)
@@ -1711,7 +1890,12 @@ export function AlephExplorer() {
     current.key === 'pitch' && oob ? PITCH_OOB.en[oob] : current.key === 'pitch' ? null : oobView
   const chartV = chartOobView ? ({ ...chartBase, ...chartOobView } as typeof chartBase) : chartBase
   const tokenTraceCopy =
-    searchMode === 'fixture'
+    pt.source === 'imported'
+      ? {
+          label: tr.tokenTraceImportedUnavailable,
+          note: tr.tokenTraceImportedUnavailableNote,
+        }
+      : searchMode === 'fixture'
       ? {
           label: tr.tokenTraceFixtureUnavailable,
           note: tr.tokenTraceFixtureUnavailableNote,
@@ -1756,13 +1940,15 @@ export function AlephExplorer() {
     : Math.round(clamp01(pos) * (N - 1)) + 1
   const resultSource = pt.source ?? (pt.evalModel ? 'fixture' : searchMode === 'local_mlx' ? 'local_mlx' : 'fixture')
   const resultSourceLabel =
-    resultSource === 'custom_api'
-      ? tr.sourceCustomApi
-      : resultSource === 'local_mlx'
-        ? tr.sourceLocalMlx
-        : resultSource === 'mock'
-          ? tr.sourceMock
-          : tr.sourceFixture
+    resultSource === 'imported'
+      ? tr.sourceImported
+      : resultSource === 'custom_api'
+        ? tr.sourceCustomApi
+        : resultSource === 'local_mlx'
+          ? tr.sourceLocalMlx
+          : resultSource === 'mock'
+            ? tr.sourceMock
+            : tr.sourceFixture
   const surfaceWidth = isNarrow ? 'min(100%, 34rem)' : 'min(52rem, 90vw)'
   const chromeFadeDelay = isNarrow ? MOBILE_CHROME_FADE_DELAY_MS : CHROME_FADE_DELAY_MS
 
@@ -1773,7 +1959,81 @@ export function AlephExplorer() {
     setCurrent(t)
     setPos(0)
     setOob(null)
+    setRunFile(null)
+    setFileIssues(null)
     setView('result')
+  }
+
+  const handleOpenFile = async (file: File) => {
+    setFileIssues(null)
+    if (file.size > RUN_FILE_LIMITS.maxTextLength) {
+      setFileIssues([
+        `${file.name}: file is too large for the browser demo (${file.size} bytes; limit ${RUN_FILE_LIMITS.maxTextLength})`,
+      ])
+      return
+    }
+    let text: string
+    try {
+      text = await file.text()
+    } catch {
+      setFileIssues([`${file.name}: ${tr.runFileReadError}`])
+      return
+    }
+    const result = parseRunFile(text)
+    if (!result.ok) {
+      setFileIssues([file.name, ...formatRunFileIssues(result.issues, tr.runFileMoreIssues)])
+      return
+    }
+    const runTarget = result.run.value.target as { text?: string; label?: string }
+    const runConfig = result.run.value.config as { model?: string }
+    const target: Target = {
+      key: `imported-${result.run.id}`,
+      label: runTarget.label ?? (runTarget.text ?? '').slice(0, 50),
+      targetTokens: 0,
+      evalModel: runConfig.model ?? tr.localQwen,
+      source: 'imported',
+      points: curvePointsFromRunFile(result.points),
+    }
+    setErr('')
+    setModeNotice(null)
+    setFrontierHelpOpen(false)
+    setOob(null)
+    setCurrent(target)
+    setPos(result.points.length > 1 ? result.selectedIndex / (result.points.length - 1) : 0)
+    setRunFile({
+      run: result.run,
+      fileName: file.name,
+      rawText: text,
+      selectedIndex: result.selectedIndex,
+    })
+    setView('result')
+  }
+
+  const handleSaveRunFile = () => {
+    if (!runFile) return
+    const text = downloadTextFor(runFile.run, runFile.rawText)
+    if (!runFile.rawText) {
+      // A run that never existed as a file (live search) must validate before
+      // it can leave the app, so a save never produces a file this flow would
+      // refuse to open again.
+      const result = parseRunFile(text)
+      if (!result.ok) {
+        setFileIssues([
+          `${runFile.run.id || 'run'}: cannot save — the run does not pass run-file validation`,
+          ...formatRunFileIssues(result.issues, tr.runFileMoreIssues),
+        ])
+        return
+      }
+    }
+    const blob = new Blob([text], { type: 'application/json' })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = `${(runFile.run.id || 'aleph-run').replace(/[^a-zA-Z0-9._-]+/g, '_')}.json`
+    document.body.appendChild(link)
+    link.click()
+    link.remove()
+    window.setTimeout(() => URL.revokeObjectURL(url), 1000)
   }
 
   const showModeNotice = (notice: Exclude<ModeNotice, null>) => {
@@ -1856,7 +2116,7 @@ export function AlephExplorer() {
       }
 
       // ── Selected live search backend ───────────────────────────
-      const runMLX = (): Promise<Target> =>
+      const runMLX = (): Promise<{ target: Target; run: Record<string, unknown> | null }> =>
         fetch(SEARCH_API_MLX, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -1867,10 +2127,10 @@ export function AlephExplorer() {
           const j = await r.json() as Record<string, unknown>
           if (!Array.isArray(j.points) || !(j.points as unknown[]).length)
             throw new Error('mlx:empty')
-          return { ...(j as unknown as Target), source: 'local_mlx' }
+          return { target: { ...(j as unknown as Target), source: 'local_mlx' }, run: null }
         })
 
-      const runCustom = (): Promise<Target> =>
+      const runCustom = (): Promise<{ target: Target; run: Record<string, unknown> }> =>
         fetch(SEARCH_API_CLAUDE, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -1881,14 +2141,30 @@ export function AlephExplorer() {
           const j = await r.json() as Record<string, unknown>
           if (!Array.isArray(j.candidates) || !(j.candidates as unknown[]).length)
             throw new Error('custom:empty')
-          return alephRunToTarget(j, q)
+          return { target: alephRunToTarget(j, q), run: j }
         })
 
-      const target = await (searchMode === 'local_mlx' ? runMLX() : runCustom())
+      const outcome = await (searchMode === 'local_mlx' ? runMLX() : runCustom())
 
-      setCurrent(target)
+      setCurrent(outcome.target)
       setPos(0)
       setOob(null)
+      setFileIssues(null)
+      if (outcome.run) {
+        const selectedCandidateId = String(outcome.run.selectedCandidateId ?? '')
+        const selectedIndex = Math.max(
+          0,
+          outcome.target.points.findIndex((point) => point.id === selectedCandidateId),
+        )
+        setRunFile({
+          run: { value: outcome.run, id: String(outcome.run.id ?? ''), selectedCandidateId },
+          fileName: null,
+          rawText: null,
+          selectedIndex,
+        })
+      } else {
+        setRunFile(null)
+      }
       setView('result')
     } catch (e) {
       // AbortError = we cancelled ourselves (new search fired), ignore silently
@@ -2251,6 +2527,7 @@ export function AlephExplorer() {
                 {rank} / {N}
               </Row>
               <Row label={tr.runSource}>{resultSourceLabel}</Row>
+              <Row label={tr.runFile}>{runFile ? runFile.run.id : '—'}</Row>
               <Row label={tr.modelTheta}>{pt.evalModel ?? tr.localQwen}</Row>
               <FrontierBasin
                 ariaLabel={tr.basinWireframe}
@@ -2556,6 +2833,20 @@ export function AlephExplorer() {
               ))}
               {err && <span style={{ opacity: 0.8 }}>&nbsp;— {err}</span>}
             </div>
+            <div style={{ gridColumn: '1 / 3', paddingTop: '0.1rem' }}>
+              <RunFileControls
+                openLabel={tr.openRunFile}
+                saveLabel={tr.saveRunFile}
+                saveHint={tr.runFileSaveHint}
+                busy={busy}
+                saveDisabled={!runFile || busy}
+                status={runFile ? tr.runFileLoaded.replace('{id}', runFile.run.id) : null}
+                issues={fileIssues}
+                rejectedLabel={tr.runFileRejected}
+                onOpenFile={(file) => void handleOpenFile(file)}
+                onSave={handleSaveRunFile}
+              />
+            </div>
             <button
               type="button"
               onClick={runSearch}
@@ -2587,10 +2878,24 @@ export function AlephExplorer() {
             style={{
               width: surfaceWidth,
               display: 'flex',
-              justifyContent: 'flex-end',
+              justifyContent: 'space-between',
+              alignItems: 'flex-start',
+              gap: '0.75rem',
               flexShrink: 0,
             }}
           >
+            <RunFileControls
+              openLabel={tr.openRunFile}
+              saveLabel={tr.saveRunFile}
+              saveHint={tr.runFileSaveHint}
+              busy={busy}
+              saveDisabled={!runFile || busy}
+              status={null}
+              issues={fileIssues}
+              rejectedLabel={tr.runFileRejected}
+              onOpenFile={(file) => void handleOpenFile(file)}
+              onSave={handleSaveRunFile}
+            />
             <button
               type="button"
               className="aleph-new-search"
@@ -2959,27 +3264,31 @@ export function AlephExplorer() {
           >
             ////////////////
           </span>
-          {Array.from({ length: N }).map((_, i) => (
-            <div
-              key={i}
-              aria-hidden
-              style={{
-                position: 'absolute',
-                top: '50%',
-                left: `${
-                  (SLIDER_PAD +
-                    (i / Math.max(1, N - 1)) * (1 - 2 * SLIDER_PAD)) *
-                  100
-                }%`,
-                width: 4,
-                height: 4,
-                borderRadius: '50%',
-                background: 'var(--site-bg)',
-                border: `1px solid ${ruleColor}`,
-                transform: 'translate(-50%, -50%)',
-              }}
-            />
-          ))}
+          {Array.from({ length: N }).map((_, i) => {
+            const runSelected = runFile !== null && i === runFile.selectedIndex
+            return (
+              <div
+                key={i}
+                aria-hidden
+                style={{
+                  position: 'absolute',
+                  top: '50%',
+                  left: `${
+                    (SLIDER_PAD +
+                      (i / Math.max(1, N - 1)) * (1 - 2 * SLIDER_PAD)) *
+                    100
+                  }%`,
+                  width: runSelected ? 6 : 4,
+                  height: runSelected ? 6 : 4,
+                  borderRadius: '50%',
+                  background: runSelected ? 'var(--site-text)' : 'var(--site-bg)',
+                  border: `1px solid ${ruleColor}`,
+                  boxShadow: runSelected ? '0 0 8px rgba(255,255,255,0.25)' : undefined,
+                  transform: 'translate(-50%, -50%)',
+                }}
+              />
+            )
+          })}
           <div
             aria-hidden
             style={{
