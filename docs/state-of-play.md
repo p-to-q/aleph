@@ -59,6 +59,7 @@ This is a product/research hypothesis with enough evidence to build around, but 
 | vec2text / embedding inversion | Recorded as adjacent inversion work, explicitly not Aleph's core task. |
 | Aquin-style instrumentation | Inspired token loss, attribution, exposure, eval, and observation panels, with mode labels. |
 | Local MLX spike | Wrapped behind `apps/api` as experimental adapter evidence rather than exposed as product architecture; hardware scope follows MLX rather than a product-only Apple Silicon assumption. |
+| P2 adapter evidence contract | Typed token NLL channel: schema-pinned entry shape, fail-closed local adapter (`black_box` on malformed traces), measured-vs-fixture labels, and a live local MLX receipt. |
 
 ## Researched But Not Yet Converted
 
@@ -67,7 +68,7 @@ This is a product/research hypothesis with enough evidence to build around, but 
 | Metric contract | PR0 settles the vector/missingness boundary; target-family metrics and calibration remain open. | Implement versioned metric manifests and named projections without replacing raw observations. |
 | Typed copy/recoverability evidence | PR0 rejects one universal leakage scalar; implementation is not yet stable. | Freeze a finite versioned probe suite, nulls, power targets, channel thresholds, and trace-integrity checks. |
 | Hosted black-box adapter | Implemented through the Next.js `/api/search` route with server-side OpenAI-compatible credentials and fallback configuration. | Keep returned candidates as `AlephRun` and mark observations `black_box`. |
-| Stable model-internal evidence contract | Partially evidenced by local NLL, not product-stable. | Expose token NLL and related fields through a documented `ObservationSet` migration. |
+| Stable model-internal evidence contract | Token NLL now has a recorded contract: schema-pinned entry shape, fail-closed adapter, measured-vs-fixture labels, and a live receipt (`docs/research/token-nll-evidence-note.md`). The hosted path cannot carry the channel; broader panel wiring and attribution stay open. | Extend the same typed-channel pattern to further model-internal fields only under explicit white-box requirements. |
 | Deletion ablation / prompt-token attribution | UI-shaped, not real. | Compute from model internals or repeated behavioral probes and label source mode. |
 | Persistence (database layer) | File-first round trip shipped: per-run bundles stay the system of record (strict engine import/export), and the product open-file flow now opens/saves projection files with the selected candidate preserved; a database remains deferred. | No gate pending at the file layer (met by the product open/save wiring); revisit the database only under the recorded triggers. |
 | Permanent frontend path | settled | `web/` is the active launch path; `apps/web/` is archived reference material. |
