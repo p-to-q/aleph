@@ -483,3 +483,202 @@ def resume_demo_bundle(root: Path, *, run_id: str = DEMO_RUN_ID) -> Path:
     bundle.close(status="completed")
     materialize(root)
     return root
+
+
+# ---------------------------------------------------------------------------
+# PR B: deterministic scheduled demo (scheduler-built, exporter-exportable)
+# ---------------------------------------------------------------------------
+
+DEMO_SCHEDULED_RUN_ID = "aleph-demo-scheduled-001"
+"""Fixed run id of the scheduled demo, used by export tests."""
+
+DEMO_SCHEDULED_CREATED_AT = "2026-10-15T00:00:00Z"
+"""Declared fixture timestamp, never a wall-clock read: the kernel forbids
+timestamps, but the strict ``AlephRun`` schema requires ``createdAt``, so the
+scheduled demo declares a fixed one (fail-closed export policy)."""
+
+DEMO_SCHEDULED_METRICS = ("fit", "stability", "compression", "leakage")
+"""Declared metrics of the scheduled demo; the exporter copies them."""
+
+DEMO_OBSERVATION_MODE = "fixture"
+DEMO_RUN_MODE = "unrestricted"
+
+
+def scheduled_demo_seeds() -> tuple[Candidate, Candidate]:
+    """One ordinary two-message seed and one explicit-reconstruction control."""
+    good = _demo_candidate(
+        (
+            Message(role="user", content="GOOD alpha compress 你好"),
+            Message(role="user", content="beta"),
+        ),
+        mode="seed",
+    )
+    control = Candidate(
+        messages=(Message(role="user", content=DEMO_TARGET_DECOMPOSED),),
+        placement=demo_scaffold(),
+        proposal_mode="reference",
+        role="explicit_reconstruction",
+    )
+    return good, control
+
+
+class ScheduledDemoProposalAdapter(ProposalAdapter):
+    """Fixture proposer: echoes the candidates declared in the request context."""
+
+    def __init__(self, identity: AdapterIdentity) -> None:
+        self._identity = identity
+
+    @property
+    def identity(self) -> AdapterIdentity:
+        return self._identity
+
+    def propose(self, request: ProposalRequest) -> ProposalReceipt:
+        from ..contracts import candidate_from_canonical
+        from ..hybrid_pareto import unfreeze_projection
+
+        context = dict(request.context)
+        raw = context.get("operatorProducts", context.get("seeds", ()))
+        candidates = tuple(
+            candidate_from_canonical(unfreeze_projection(item)) for item in raw
+        )
+        return proposal_receipt(
+            request_id=request.request_id,
+            adapter=self._identity,
+            candidates=candidates,
+            resource_use={"fixture": True},
+        )
+
+
+class ScheduledDemoEvaluationAdapter(EvaluationAdapter):
+    """Fixture evaluator: content-keyed deterministic metrics and outputs."""
+
+    def __init__(self, identity: AdapterIdentity) -> None:
+        self._identity = identity
+
+    @property
+    def identity(self) -> AdapterIdentity:
+        return self._identity
+
+    def evaluate(self, request: EvaluationRequest) -> EvaluationReceipt:
+        candidate = request.candidate
+        joined = " ".join(message.content for message in candidate.messages)
+        good = "good" in joined.lower()
+        fit, stability = (0.9, 0.85) if good else (0.4, 0.5)
+        compression = 0.55 if good else 0.1
+        leakage = 0.05 if good else 0.4
+        return evaluation_receipt(
+            request_id=request.request_id,
+            adapter=self._identity,
+            candidate_id=candidate.candidate_id,
+            metrics={
+                "fit": fit,
+                "stability": stability,
+                "compression": compression,
+                "leakage": leakage,
+            },
+            resource_use={"inputTokens": 8, "outputTokens": 4, "samples": 2},
+            outputs={
+                "text": f"simulated continuation for {'good' if good else 'weak'} coordinate",
+                "fixture": True,
+                "simulated": True,
+            },
+        )
+
+
+def scheduled_demo_config() -> Any:
+    """The frozen hybrid search plan of the scheduled demo."""
+    from ..hybrid_pareto import FrozenConfig
+    from ..operators import DeleteSpec, ReferenceSpec, RewriteSpec
+
+    return FrozenConfig(
+        seeds=tuple(scheduled_demo_seeds()),
+        operator_specs=(
+            RewriteSpec(index=0, transform="lowercase"),
+            DeleteSpec(index=1),
+            ReferenceSpec(
+                source_messages=(Message(role="system", content="good reference"),),
+                at="append",
+            ),
+        ),
+        operator_weights=(("rewrite", 1.0), ("delete", 1.0), ("reference", 1.0)),
+        exploration_share=0.5,
+        exploit_top_k=1,
+        parent_rule="uniform_promoted",
+        metric="fit",
+        promote_threshold=0.5,
+        max_proposal_rounds=2,
+        max_promoted=3,
+        stop_rule="rounds",
+        racing_rule="evaluate_all",
+        retries=1,
+        rng_seed=0,
+        control_arm=True,
+        confirmation_checks=(("replays", 1), ("tests", 1)),
+    )
+
+
+def scheduled_demo_confirmation() -> Any:
+    """The frozen protected-confirmation plan of the scheduled demo."""
+    from ..confirmation import ConfirmationSpec
+
+    return ConfirmationSpec(
+        discovery_context_digest=digest({"fixture": "scheduled-demo-discovery-context"}),
+        confirmation_context_digest=digest({"fixture": "scheduled-demo-confirmation-context"}),
+        seed="scheduled-demo-seed-42",
+        metric="fit",
+        threshold=0.5,
+        samples=2,
+        confirm_fraction=1.0,
+        reject_fraction=0.5,
+    )
+
+
+def scheduled_demo_manifest() -> dict[str, Any]:
+    """The declared model manifest of the scheduled demo (export-complete)."""
+    manifest = demo_model_manifest()
+    manifest["observationMode"] = DEMO_OBSERVATION_MODE
+    manifest["mode"] = DEMO_RUN_MODE
+    return manifest
+
+
+def build_scheduled_demo_bundle(
+    root: Path,
+    *,
+    run_id: str = DEMO_SCHEDULED_RUN_ID,
+    export: bool = True,
+    created_at: str | None = DEMO_SCHEDULED_CREATED_AT,
+    evaluation: EvaluationAdapter | None = None,
+    manifest: Mapping[str, Any] | None = None,
+) -> Path:
+    """Build one complete PR B run through the scheduler and export it.
+
+    The evaluator and manifest can be overridden to build fail-closed export
+    variants. With the defaults the build is fully deterministic.
+    """
+    from ..export_aleph_run import export_aleph_run
+    from ..hybrid_pareto import run_hybrid_search
+
+    actors = demo_actors()
+    if evaluation is None:
+        evaluation = ScheduledDemoEvaluationAdapter(actors.evaluation)
+    elif isinstance(evaluation, type):
+        evaluation = evaluation(actors.evaluation)
+    run_hybrid_search(
+        root,
+        run_id,
+        scheduled_demo_config(),
+        scheduled_demo_confirmation(),
+        ScheduledDemoProposalAdapter(actors.proposal),
+        evaluation,
+        target_digest=demo_target_digest(),
+        target_content=DEMO_TARGET,
+        known_metrics=DEMO_SCHEDULED_METRICS,
+        nesting_rule=DEMO_NESTING_RULE,
+        scheduler_model="hybrid-pareto-v0",
+        model_manifest=manifest or scheduled_demo_manifest(),
+        coordinate_cost=demo_coordinate_cost,
+        run_created_at=created_at,
+    )
+    if export:
+        export_aleph_run(root)
+    return root
