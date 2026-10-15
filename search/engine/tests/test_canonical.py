@@ -101,6 +101,59 @@ class TestCanonicalize(unittest.TestCase):
         self.assertEqual(canonical_json(None), "null")
 
 
+class TestJcsProfile(unittest.TestCase):
+    def test_number_rendering_matches_jcs_vectors(self) -> None:
+        vectors = (
+            (1.0, "1"),
+            (-1.0, "-1"),
+            (100.0, "100"),
+            (0.5, "0.5"),
+            (-2.5, "-2.5"),
+            (123.456, "123.456"),
+            (0.30000000000000004, "0.30000000000000004"),
+            (1e15, "1000000000000000"),
+            (1e16, "10000000000000000"),
+            (1e20, "100000000000000000000"),
+            (1e21, "1e+21"),
+            (1e22, "1e+22"),
+            (1e-5, "0.00001"),
+            (1e-6, "0.000001"),
+            (1e-7, "1e-7"),
+            (5e-324, "5e-324"),
+            (1.7976931348623157e308, "1.7976931348623157e+308"),
+            (-0.0, "0"),
+        )
+        for value, expected in vectors:
+            self.assertEqual(canonical_json(value), expected, repr(value))
+
+    def test_nested_integral_floats_lose_the_python_suffix(self) -> None:
+        value = {"weight": 1.0, "ratios": [1.0, 0.5, 100.0]}
+        self.assertEqual(canonical_json(value), '{"ratios":[1,0.5,100],"weight":1}')
+
+    def test_key_order_is_utf16_code_units(self) -> None:
+        # Non-BMP keys sort by UTF-16 code units, so the emoji key comes
+        # first although its code point is larger.
+        value = {"\uFFFD": 2, "\U0001F600": 1}
+        self.assertEqual(canonical_json(value), '{"\U0001F600":1,"\uFFFD":2}')
+        self.assertEqual(
+            digest({"\uFFFD": 2, "\U0001F600": 1}),
+            digest({"\U0001F600": 1, "\uFFFD": 2}),
+        )
+
+    def test_lone_surrogates_rejected(self) -> None:
+        for bad in ("\ud800", "x\udfff", {"k": "\ud800"}, {"\ud800": 1}):
+            with self.assertRaises(CanonicalFormError):
+                canonicalize(bad)
+
+    def test_integers_must_be_exact_in_doubles(self) -> None:
+        limit = 2**53 - 1
+        self.assertEqual(canonical_json(limit), str(limit))
+        self.assertEqual(canonical_json(-limit), str(-limit))
+        for bad in (2**53, -(2**53), 2**53 + 1):
+            with self.assertRaises(CanonicalFormError):
+                canonicalize(bad)
+
+
 class TestDigest(unittest.TestCase):
     def test_prefixed_sha256(self) -> None:
         value = digest("payload")

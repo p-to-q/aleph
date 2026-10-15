@@ -41,6 +41,7 @@ from pathlib import Path
 from typing import Any, Mapping, Sequence
 
 from .canonical import (
+    CANONICAL_FORM_VERSION,
     canonical_bytes,
     canonical_json,
     canonicalize,
@@ -133,7 +134,7 @@ class RunManifest:
     bundle_schema_version: str = BUNDLE_SCHEMA_VERSION
     engine_version: str = ENGINE_VERSION
     event_schema_version: str = EVENT_SCHEMA_VERSION
-    canonical_schema_version: str = "aleph-canonical/0.1.0"
+    canonical_schema_version: str = CANONICAL_FORM_VERSION
     contracts_schema_version: str = "aleph-engine-contracts/0.1.0"
     ledger_schema_version: str = "ResourceLedger/0.1.0"
 
@@ -259,7 +260,7 @@ def manifest_from_canonical(payload: Mapping[str, Any]) -> RunManifest:
         bundle_schema_version=payload.get("bundleSchemaVersion", BUNDLE_SCHEMA_VERSION),
         engine_version=payload.get("engineVersion", ENGINE_VERSION),
         event_schema_version=payload.get("eventSchemaVersion", EVENT_SCHEMA_VERSION),
-        canonical_schema_version=payload.get("canonicalSchemaVersion", "aleph-canonical/0.1.0"),
+        canonical_schema_version=payload.get("canonicalSchemaVersion", CANONICAL_FORM_VERSION),
         contracts_schema_version=payload.get(
             "contractsSchemaVersion", "aleph-engine-contracts/0.1.0"
         ),
