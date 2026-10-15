@@ -51,8 +51,9 @@ samples), and key-order cases through the new formatter and through ``node``
 (``JSON.stringify``, ``String.prototype.normalize``, default sort) and
 requires byte equality; a one-off 100,000 vector fuzz of the number
 comparison finished with zero mismatches. Fixed conformance vectors with
-expected bytes and digests (``test_canonical_vectors.py``) pin the profile
-where node is absent.
+expected bytes and digests (``test_canonical_vectors.py``), including the
+RFC 8785 worked example and Appendix B number table, pin the profile where
+node is absent.
 
 ## Consequences
 
@@ -78,9 +79,10 @@ This ADR supersedes that recommendation for the text form; the review's own
 items are fulfilled, and the records stay reconciled in writing:
 
 1. The deferral premise ("only the Python verifier computes digests") is
-   already half-invalid on this tree: the projection this canonical form
-   underwrites has a TypeScript contract (``packages/core``) and a web
-   consumer, and digest recomputation is the stated verification story. The
+   already half-invalid on this tree: the projection is mirrored by a
+   TypeScript contract (``packages/core/src/types.ts``, kept in lockstep
+   with the schema by ``scripts/check-contract.mjs``) and rendered by the
+   web app, and digest recomputation is the stated verification story. The
    cost of changing the form is at its minimum now — the engine is
    pre-release and no bundle has left the repository — while after the first
    external bundle the versioned form would have to break instead.
