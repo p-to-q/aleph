@@ -119,6 +119,12 @@ def test_token_loss_contract_accepts_only_shape_valid_traces() -> None:
     boundary = {"toktext": ["A", " b"], "toknll": [0, 1]}
     assert _token_loss([boundary]) == [{"token": "A", "loss": 0.0}, {"token": " b", "loss": 1.0}]
 
+    # negative zero (float32 saturation) normalizes to positive zero
+    saturated = {"toktext": ["A"], "toknll": [-0.0]}
+    entries = _token_loss([saturated])
+    assert entries == [{"token": "A", "loss": 0.0}]
+    assert entries is not None and __import__("math").copysign(1.0, entries[0]["loss"]) == 1.0
+
 
 def test_token_loss_contract_fails_closed_to_black_box() -> None:
     cases = [

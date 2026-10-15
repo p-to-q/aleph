@@ -350,6 +350,10 @@ def _token_loss(points: list[dict[str, Any]]) -> list[dict[str, object]] | None:
             if not isfinite(value) or value < 0:
                 valid = False
                 break
+            if value == 0:
+                # Normalize negative zero (float32 saturation on verbatim
+                # prompts) to 0.0, matching search/frontier_receipts.py.
+                value = 0.0
             entries.append({"token": token, "loss": value})
         if valid:
             return entries
