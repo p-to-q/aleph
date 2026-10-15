@@ -104,9 +104,39 @@ arXiv:2411.12990):
   quick-start usability re-check each release cycle (at least yearly).
 - A `LIMITATIONS` section and a claims ledger entry — upper bound, procedure-relative, metric-class
   dependence.
+- A **released-result artifact set** — results table, per-sample records, identity chain, and a
+  one-command replication path (shape below).
 
 If the repo has all of these on launch day, it is simultaneously a credible open-source benchmark and
 a submittable Datasets & Benchmarks paper. That dual-readiness is the target.
+
+### Released-result artifact set — harness-conventional shape (2026-10-15)
+
+A release is not just a row on a leaderboard; it is a set of files a third party can audit and
+re-score without talking to us. Following harness conventions (lm-evaluation-harness writes a
+`results.json` via `--output_path` and per-sample logs via `--log_samples`; Kaggle and Hugging Face
+keep run outputs and dataset revisions downloadable), every released result publishes — at stable
+relative paths in both the release repository and its mirrors — the following set. It applies
+prospectively from the v0.2 protocol line onward; the checked-in v0.1 M0 delivery package remains
+immutable and check-only.
+
+| Publishes | What it is | Convention it follows |
+|---|---|---|
+| `results.json` | The released table: one record per model × track × stratum — scalar (`AURC`) and duals (`ECL@τ`, `Elicit@k`), bootstrap CIs, coverage (`missing / failed / unverified ≠ 0`), and the identity block (release id, protocol/scorer/dataset digests, decoding, seeds). Aggregates only. | lm-eval `results.json` |
+| `samples.jsonl` | The per-sample view: one record per item × model × ladder point (rung, paraphrase, prompt digest, measured length, raw decoded output, fidelity summary, leakage-gate decision) — the public face of the run's sample ledger, sufficient to re-derive the table without model calls. | lm-eval sample logs (`--log_samples`) |
+| `release-manifest.json`, `run-receipt.json`, `manifest.sha256` | The identity chain: frozen release manifest, run receipt(s) with source/output/sample-ledger/envelope digests, and checksums. Exact platform locators (GitHub tag, Kaggle Task/version/run, HF revision) live in the publication envelope, not inside verified records. | Our record classes ([records plan](../plans/benchmark-release-records-and-kaggle-harness.md)) |
+| `REPRODUCE.md` (+ script) | One explicit command per released table, pinned toolchain versions, expected digests. If the published set alone cannot regenerate the released table, the result is not out of draft. | The replicate-results requirement above |
+
+Rules: no release-local re-specification of record fields — the execution-side bundle layout (for
+example `responses.jsonl`, `failures.jsonl`, `environment.json`) remains the archival source in the
+records plan, and result field constraints live in
+[`03-architecture-and-launch.md`](03-architecture-and-launch.md) §2 plus `schemas/v0.2`; raw model
+outputs are published only where the stratum license permits (public-safe evidence otherwise); the
+set is append-only (later knowledge creates a superseding receipt or a new result, never an edit of a
+published artifact). Survey basis: lm-evaluation-harness README and Kaggle Benchmarks documentation,
+fetched 2026-10-15 (recorded in the practice review §5); the v0.1 platform package under
+[`../../bench/results/platform/m0-mock`](../../bench/results/platform/m0-mock) is the layout
+precedent.
 
 ## 4. Naming, org, and license
 
