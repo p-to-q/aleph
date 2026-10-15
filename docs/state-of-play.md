@@ -46,6 +46,7 @@ This is a product/research hypothesis with enough evidence to build around, but 
 | Engine artifact kernel | PR #109 (PR A): canonical serialization, typed proposal/evaluation contracts, append-only run bundle with materialized views, a pure replay adapter, and an independent fail-closed verifier; fixture-driven, no model calls. | `search/engine/` |
 | Hybrid-Pareto search slice | PR #113/#114 (PR B): protected single-use confirmation, deterministic operators, a budget-reserved hybrid scheduler under a frozen declared config, and a measurement-lossless `AlephRun` projection with verifier attestation; end-to-end runs are deterministic fixtures; the pinned MLX canary is still open (PR C). | `search/engine/` |
 | Strict run import | The file-first round trip has both halves: `search/engine/import_aleph_run.py` loads a run bundle (full replay verification, then the projection is re-derived from the stream) or a single `aleph-run.json` file (canonical bytes, strict schema, artifact-ref digests, exporter invariants). Read-only and fail-closed; a standalone file import is labeled `replay_verified=false` unless it is anchored to a verified bundle. The product open-file flow (`web/app/lib/run-file.ts` plus open/save controls) opens the same projection files in the app — schema plus static invariants, candidate identity and selected candidate preserved, projection labeling — while digest and replay verification stay engine-side. | `search/engine/import_aleph_run.py`; `web/app/lib/run-file.ts` |
+| MiniPrompt/ACR reproduction (raw-coordinate baseline) | Method-level reproduction of the pinned upstream scan and GCG loop on MLX under a frozen declared config (`search/miniprompt/`): resumable receipted runs, an MLX-free fail-closed receipt verifier, and raw-coordinate labeling; the archived canary acquired `hello world` at 3 free tokens (n=5/4/3 acquired, n=2 failed in 200 steps) and a negative/partial control is archived alongside. | `search/miniprompt/`, `search/miniprompt/receipts/` |
 | Research formalization and practice review | PR #110–#112: leakage-channel and description-length formalizations, related-work cards, the engine/benchmark practice review, and the structural-decision research gate. | `docs/research/` |
 | Repo checks | Lightweight lint/check suite protects claims, fixtures, links, language, and schema. | `npm run lint` |
 
@@ -54,7 +55,7 @@ This is a product/research hypothesis with enough evidence to build around, but 
 | Research input | Converted into |
 |---|---|
 | p-to-q file-first repository discipline | Artifact-first repo, small docs map, lightweight checks, sparse decisions. |
-| ACR/MiniPrompt and Prompting Complexity | Closest empirical baseline and formal neighbor; they prevent novelty claims for bare target-first shortest-prompt search. |
+| ACR/MiniPrompt and Prompting Complexity | Closest empirical baseline and formal neighbor; they prevent novelty claims for bare target-first shortest-prompt search. The MiniPrompt baseline is now reproduced method-level on MLX (`search/miniprompt/`) with archived canary and control receipts. |
 | ARCA / GCG direction | Lower-level raw-coordinate comparators or proposal components, not the closest baseline or product identity. |
 | vec2text / embedding inversion | Recorded as adjacent inversion work, explicitly not Aleph's core task. |
 | Aquin-style instrumentation | Inspired token loss, attribution, exposure, eval, and observation panels, with mode labels. |
@@ -103,11 +104,10 @@ The next phase should start from executable research contracts rather than more 
    PR B slice (#109/#113); the pinned open-weight MLX canary (PR C) is implemented with its PR open
    (#118), and the public MLX frontier has been regenerated from actual evaluations with per-point
    receipts (`search/frontier_receipts.py`).
-3. Reproduce MiniPrompt/ACR behind the same archive and evaluator boundary — scoped by the
-   recorded gate note and feasibility receipt
-   (`docs/research/miniprompt-reproduction-note.md`,
-   `docs/research/2026-10-15-miniprompt-feasibility-receipt.md`); implementation is the next
-   slice.
+3. Done (first tranche): MiniPrompt/ACR is reproduced method-level behind the same boundary
+   (`search/miniprompt/`, archived receipts under `search/miniprompt/receipts/`, gate note
+   `docs/research/miniprompt-reproduction-note.md`); matched-budget comparisons against
+   Aleph's readable search remain the follow-up.
 4. Done: the product open-file flow (`web/app/lib/run-file.ts` plus open/save controls) returns a
    saved run to the app with its selected candidate intact and labels it a projection; the strict
    engine importer (`search/engine/import_aleph_run.py`) remains the verification surface.
@@ -117,5 +117,6 @@ The next phase should start from executable research contracts rather than more 
 
 Aleph has a stable thesis, repaired observed-frontier semantics, an exact finite/Lean bootstrap, product
 model adapters, and a clear evidence boundary; the main unresolved work is real-model engine evidence
-(the pinned MLX canary) under the merged search archive, typed recoverability evidence, mandatory
-baselines, and cross-platform replay.
+(the pinned MLX canary) under the merged search archive, typed recoverability evidence,
+matched-budget baseline comparisons (the MiniPrompt raw-coordinate baseline is now reproduced and
+receipted), and cross-platform replay.

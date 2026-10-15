@@ -139,6 +139,13 @@ and a feasibility receipt ([miniprompt-reproduction-note.md](research/miniprompt
 [2026-10-15-miniprompt-feasibility-receipt.md](research/2026-10-15-miniprompt-feasibility-receipt.md));
 implementation follows in its own PR.
 
+Status update (2026-10-16): the implementation landed in `search/miniprompt/` — frozen declared
+configs with strict parsing, the upstream scan policy pinned by tests, the MLX GCG core, resumable
+receipted runs, an MLX-free fail-closed receipt verifier, and an opt-in MLX test module (skipped
+without MLX). The canary and negative/partial-control receipts are archived under
+`search/miniprompt/receipts/`; matched-budget comparisons against Aleph's readable search remain
+open.
+
 Goal: turn only accepted routes into separately audited adapters.
 
 Tasks:

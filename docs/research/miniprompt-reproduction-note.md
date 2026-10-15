@@ -140,3 +140,29 @@ lands; details, commands, hashes, and raw numbers are in the receipt
   6. A small declared target set (including at least one negative/partial control) is archived so
      the paper tranche can compare MiniPrompt-found raw prompts against Aleph readable search at
      matched declared budgets.
+
+## Implementation landing (2026-10-16)
+
+The follow-up PR landed the planned shape: `search/miniprompt/` carries the frozen declared
+configuration with strict fail-closed parsing (`config.py`), the upstream scan policy as a tested
+state machine (`scan.py`), seeded sampling derivations (`sampling.py`), receipt construction plus an
+MLX-free fail-closed verifier (`receipts.py`), the MLX GCG core with the pinned-snapshot loader
+(`gcg.py`), the resumable scan runner (`runner.py`), and an opt-in CLI (`cli.py`).
+
+Acceptance gates from the list above, discharged:
+
+1. The scan mechanics are pinned by tests (start/grow/step-down bounds, `int(x * 1.2)` budget
+   growth, the `max_tokens=-1` auto cap, and the declared hard caps) in
+   `search/tests/test_miniprompt.py`.
+2. Runs are resumable and receipted; every acquisition carries the all-match check plus a matched
+   true-greedy continuation from raw IDs, and the receipt verifier replays the policy over the
+   recorded outcomes.
+3. The end-to-end canary is archived: `search/miniprompt/receipts/canary-hello-001` (target
+   `hello world`; acquired at n=5/4/3 free tokens — steps 34/50/21 — and failed at n=2 within the
+   declared 200-step budget, so `numFreeTokens=3`).
+4. `npm run lint` and `npm test` stay green with MLX out of the default path (the MLX smoke tests
+   skip without MLX and run under `search/.venv`); no new dependencies.
+5. Raw-coordinate labeling is carried by every receipt and enforced by the verifier.
+6. A small declared set is archived: the canary plus the negative/partial control
+   `search/miniprompt/receipts/control-jumps-001` (two attempts under declared budgets, not
+   acquired, stopped at the declared attempt bound).
