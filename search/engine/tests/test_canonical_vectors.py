@@ -10,9 +10,11 @@ without node.
 
 Every expectation was cross-checked against a real ECMAScript engine
 (``JSON.stringify``, plus ``String.prototype.normalize`` for the NFC
-extension) and, for the digests, against ``shasum -a 256``. The node-gated
-differential in ``test_jcs_differential.py`` re-runs the comparison live when
-a ``node`` binary is present.
+extension) and, for the digests, against ``shasum -a 256``; the RFC 8785
+worked example and the Appendix B number table are copied from the RFC text
+and verified byte for byte. The node-gated differential in
+``test_jcs_differential.py`` re-runs the comparison live when a ``node``
+binary is present.
 """
 
 from __future__ import annotations
@@ -71,6 +73,36 @@ class TestNumberVectors(unittest.TestCase):
     )
 
     def test_number_rendering(self) -> None:
+        for value, expected in self.VECTORS:
+            self.assertEqual(canonical_json(value), expected, repr(value))
+
+
+class TestRfcNumberTable(unittest.TestCase):
+    """RFC 8785 Appendix B, Table 1 ("ECMAScript-Compatible JSON Number Serialization Samples")."""
+
+    VECTORS = (
+        (5e-324, "5e-324"),
+        (-5e-324, "-5e-324"),
+        (1.7976931348623157e308, "1.7976931348623157e+308"),
+        (-1.7976931348623157e308, "-1.7976931348623157e+308"),
+        (9007199254740992.0, "9007199254740992"),
+        (295147905179352830000.0, "295147905179352830000"),
+        (9.999999999999997e22, "9.999999999999997e+22"),
+        (1e23, "1e+23"),
+        (1.0000000000000001e23, "1.0000000000000001e+23"),
+        (999999999999999700000.0, "999999999999999700000"),
+        (999999999999999900000.0, "999999999999999900000"),
+        (9.999999999999997e-7, "9.999999999999997e-7"),
+        (333333333.3333332, "333333333.3333332"),
+        (333333333.33333325, "333333333.33333325"),
+        (333333333.3333333, "333333333.3333333"),
+        (333333333.3333334, "333333333.3333334"),
+        (333333333.33333343, "333333333.33333343"),
+        (-0.0000033333333333333333, "-0.0000033333333333333333"),
+        (1424953923781206.2, "1424953923781206.2"),
+    )
+
+    def test_rfc_number_table(self) -> None:
         for value, expected in self.VECTORS:
             self.assertEqual(canonical_json(value), expected, repr(value))
 
@@ -155,6 +187,49 @@ class TestStructureVectors(unittest.TestCase):
 
     def test_ascii_object_bytes(self) -> None:
         self.assertEqual(canonical_bytes({"b": 1, "a": 2}), b'{"a":2,"b":1}')
+
+
+class TestRfcWorkedExample(unittest.TestCase):
+    """RFC 8785 sections 3.2.2/3.2.3 worked example, byte-identical to the RFC text.
+
+    The expected canonical text is built from its pieces so the escape sequence
+    stays reviewable; it equals the RFC's displayed output with the display-only
+    line wrap removed.
+    """
+
+    BS = chr(92)
+
+    INPUT = {
+        "numbers": [333333333.33333329, 1e30, 4.50, 2e-3, 1e-27],
+        "string": "€$" + chr(0x0F) + chr(10) + "A'B" + chr(34) + BS + BS + chr(34) + "/",
+        "literals": [None, True, False],
+    }
+
+    EXPECTED = (
+        '{"literals":[null,true,false],"numbers":[333333333.3333333,1e+30,4.5,0.002,1e-27],'
+        '"string":"'
+        + "€$"
+        + BS
+        + "u000f"
+        + BS
+        + "n"
+        + "A'B"
+        + BS
+        + chr(34)
+        + BS
+        + BS
+        + BS
+        + BS
+        + BS
+        + chr(34)
+        + chr(47)
+        + chr(34)
+        + "}"
+    )
+
+    def test_rfc_worked_example(self) -> None:
+        self.assertEqual(canonical_json(self.INPUT), self.EXPECTED)
+        self.assertEqual(digest(self.INPUT), digest_bytes(self.EXPECTED.encode("utf-8")))
 
 
 class TestPinnedDigests(unittest.TestCase):

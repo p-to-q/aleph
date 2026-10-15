@@ -71,6 +71,7 @@ class TestJcsNumberDifferential(unittest.TestCase):
             input="".join(repr(value) + "\n" for value in vectors),
             capture_output=True,
             text=True,
+            encoding="utf-8",
             check=True,
         )
         expected = completed.stdout.splitlines()
@@ -111,6 +112,7 @@ class TestJcsStringDifferential(unittest.TestCase):
             input=json.dumps(vectors, ensure_ascii=True),
             capture_output=True,
             text=True,
+            encoding="utf-8",
             check=True,
         )
         expected = json.loads(completed.stdout)
@@ -180,6 +182,7 @@ class TestJcsKeyOrderDifferential(unittest.TestCase):
             input=json.dumps(cases, ensure_ascii=True),
             capture_output=True,
             text=True,
+            encoding="utf-8",
             check=True,
         )
         expected = json.loads(completed.stdout)
