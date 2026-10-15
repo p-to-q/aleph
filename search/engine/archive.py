@@ -24,9 +24,10 @@ than a conflict. ``manifest.json`` is written at creation and rewritten exactly
 once at ``close()`` (atomic replace) to record the final stream digest;
 ``events.jsonl`` itself is never rewritten.
 
-PR A materializes the archive, views, confirmation, and ledger. ``exports/`` is
-PR B's measurement-lossless projection and is intentionally not written here;
-the verifier rejects any run that contains export files it cannot attest.
+The bundle materializes the archive, views, confirmation, and ledger.
+``exports/`` is the measurement-lossless ``AlephRun`` projection written by
+``export_aleph_run.py`` (PR B); the verifier attests whatever is there by
+replaying the same projection.
 
 Pure standard library.
 """

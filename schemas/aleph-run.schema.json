@@ -7,6 +7,17 @@
   "properties": {
     "id": { "type": "string" },
     "createdAt": { "type": "string" },
+    "artifactRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schemaVersion", "runId", "bundleDigest", "projectionDigest"],
+      "properties": {
+        "schemaVersion": { "type": "string" },
+        "runId": { "type": "string" },
+        "bundleDigest": { "type": "string" },
+        "projectionDigest": { "type": "string" }
+      }
+    },
     "target": {
       "type": "object",
       "additionalProperties": false,
