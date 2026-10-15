@@ -427,11 +427,15 @@ if (receiptsDoc !== null && isObject(receiptsDoc) && Array.isArray(receiptsDoc.r
     const outputsIdentical = receiptEntries.filter(
       (receipt) => isObject(receipt.supersedes) && receipt.supersedes.outputIdentical === true
     ).length;
+    const epsilonIdentical = receiptEntries.filter(
+      (receipt) => isObject(receipt.supersedes) && deepEqual(receipt.epsilon, receipt.supersedes.epsilon)
+    ).length;
     const expectations = {
       evaluated: receiptEntries.length,
       displayed,
       filtered: receiptEntries.length - displayed,
       outputsIdentical,
+      epsilonIdentical,
     };
     for (const [field, expected] of Object.entries(expectations)) {
       if (counts[field] !== expected) errors.push(`receipts.run.counts.${field}: expected ${expected}`);

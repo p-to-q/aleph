@@ -49,8 +49,10 @@ prior art should that shape follow instead of inventing new vocabulary?
    model repo, and every measured field must match), orphaned displayed receipts fail closed, and
    the receipt counts are re-derived.
 3. `search/frontier_receipts.py run` re-derives each target's token count and prompt length and
-   refuses mismatches; checkpoints make the run resumable. `verify` re-checks the checked-in
-   artifact against the checked-in receipts with no MLX import.
+   refuses mismatches; checkpoints make the run resumable, and a checkpointed receipt is refused
+   for reuse when its recorded model snapshot or declared procedure differs from the current
+   environment. `verify` re-checks the checked-in artifact against the checked-in receipts with no
+   MLX import.
 4. No new dependency, no new service, no new process. The Node checker remains the verification
    surface; there is still no browser digest path.
 5. Disposition of the historical export: it stays retrievable from git history (the branch base
@@ -97,10 +99,11 @@ node scripts/check-public-frontier.mjs     # artifact <-> receipt linkage
   refusal paths, resumability, selection status, fail-closed verify).
 - `npm test` green after regeneration: `search/tests` 62 tests, engine 444 tests (skipped=3),
   canonical parity 126 pinned assertions / 2448 differentials.
-- Nine crafted tamper cases all fail closed and a restore re-passes: mutated receipt digest; raw
+- Ten crafted tamper cases all fail closed and a restore re-passes: mutated receipt digest; raw
   prompt mutation; prompt mutation with recomputed receipt digest (caught by `promptDigest`);
   missing point linkage; referenced receipt marked `filtered`; deleted receipt; duplicate receipt
-  digest; inflated counts; drifted artifact `epsilon`.
+  digest; inflated `displayed` count; inflated `epsilonIdentical` count; drifted artifact
+  `epsilon`.
 
 ## Cross-links
 

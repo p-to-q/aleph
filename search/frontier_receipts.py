@@ -222,7 +222,7 @@ def measure_point(theta, metric_fit, metric_embed, target_text, old_point, runs=
     prompt = old_point["prompt"]
     y_tokens = theta.ntokens(target_text)
     is_explicit = old_point.get("role") == "explicit_reconstruction"
-    max_tokens = int(y_tokens * 1.4) + 32 if is_explicit else int(y_tokens * 1.6) + 32
+    max_tokens = expected_max_tokens(y_tokens, is_explicit)
     started = time.time()
     output = theta.gen(prompt, max_tokens)
     similarity = metric_fit.sim(output, target_text)
@@ -254,6 +254,44 @@ def measure_point(theta, metric_fit, metric_embed, target_text, old_point, runs=
     return observation, measurement
 
 
+def procedure_block(max_tokens: int) -> dict:
+    """Declared procedure constants shared by fresh measurements and reuse checks."""
+    return {
+        "entrypoint": "search/frontier_receipts.py run",
+        "toolVersion": TOOL_VERSION,
+        "generation": {
+            "temperature": 0.0,
+            "maxTokens": max_tokens,
+            "template": "Qwen chat template, user role, enable_thinking=false, add_generation_prompt",
+        },
+        "stability": {
+            "runs": STABILITY_RUNS,
+            "temperature": STABILITY_TEMPERATURE,
+            "statistic": "1 - min(1, 4*pstdev(similarities)), rounded to 3 decimals",
+        },
+        "trace": "teacher-forced per-token NLL of the target under the prompt",
+    }
+
+
+def expected_max_tokens(y_tokens: int, explicit: bool) -> int:
+    return int(y_tokens * 1.4) + 32 if explicit else int(y_tokens * 1.6) + 32
+
+
+def reuse_conflict(receipt: dict, model_meta: dict, procedure_meta: dict):
+    """Explain why a checkpointed receipt cannot be reused, or return None.
+
+    Resumable runs must never mix receipts measured under a different model
+    snapshot or declared procedure into a published file: the run-level
+    ``models``/procedure metadata would then describe an environment that did
+    not measure every point.
+    """
+    if receipt.get("model") != model_meta:
+        return "was measured under a different model snapshot"
+    if receipt.get("procedure") != procedure_meta:
+        return "was measured under a different declared procedure"
+    return None
+
+
 def build_receipt(target_key, target_digest, repo_meta, metric_meta, observation, measurement, old_point):
     receipt = {
         "target": target_key,
@@ -261,21 +299,7 @@ def build_receipt(target_key, target_digest, repo_meta, metric_meta, observation
         "promptDigest": digest(observation["prompt"]),
         "model": repo_meta,
         "metric": metric_meta,
-        "procedure": {
-            "entrypoint": "search/frontier_receipts.py run",
-            "toolVersion": TOOL_VERSION,
-            "generation": {
-                "temperature": 0.0,
-                "maxTokens": measurement["maxTokens"],
-                "template": "Qwen chat template, user role, enable_thinking=false, add_generation_prompt",
-            },
-            "stability": {
-                "runs": measurement["stabilityRuns"],
-                "temperature": measurement["stabilityTemperature"],
-                "statistic": "1 - min(1, 4*pstdev(similarities)), rounded to 3 decimals",
-            },
-            "trace": "teacher-forced per-token NLL of the target under the prompt",
-        },
+        "procedure": procedure_block(measurement["maxTokens"]),
         "measuredAt": _utc_now(),
         "supersedes": {
             "epsilon": old_point["epsilon"],
@@ -616,6 +640,17 @@ def run_main(args) -> int:
             prompt_digest = digest(old_point["prompt"])
             existing = index.get((key, prompt_digest))
             if existing is not None and not args.force:
+                explicit = old_point.get("role") == "explicit_reconstruction"
+                conflict = reuse_conflict(
+                    receipts[existing],
+                    run["models"][repo],
+                    procedure_block(expected_max_tokens(y_tokens, explicit)),
+                )
+                if conflict is not None:
+                    raise SystemExit(
+                        f"target {key!r}: checkpointed receipt for prompt length {old_point['length']} "
+                        f"{conflict}; re-run with --force after investigating"
+                    )
                 continue
             if budget and produced >= budget:
                 stopped = True

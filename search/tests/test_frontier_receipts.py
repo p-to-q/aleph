@@ -17,7 +17,10 @@ from search.frontier_receipts import (  # noqa: E402
     SCHEMA_VERSION,
     annotate_consistency,
     compute_counts,
+    expected_max_tokens,
     observation_fields,
+    procedure_block,
+    reuse_conflict,
     selection_status,
     stability_scalar,
     target_texts,
@@ -265,6 +268,39 @@ class TargetTextTests(unittest.TestCase):
         artifact = [{"key": "borges", "points": [{"role": "explicit_reconstruction", "prompt": "no wrapper"}]}]
         with self.assertRaises(SystemExit):
             target_texts(artifact)
+
+
+class ReuseGuardTests(unittest.TestCase):
+    def test_identical_checkpoint_can_be_reused(self) -> None:
+        model = {"repo": "test/repo", "revision": "abc123", "weightsDigest": digest("weights")}
+        procedure = procedure_block(64)
+        receipt = {"model": model, "procedure": procedure}
+        self.assertIsNone(reuse_conflict(receipt, model, procedure))
+
+    def test_model_drift_is_refused(self) -> None:
+        procedure = procedure_block(64)
+        receipt = {
+            "model": {"repo": "test/repo", "revision": "old-rev", "weightsDigest": digest("weights")},
+            "procedure": procedure,
+        }
+        current = {"repo": "test/repo", "revision": "new-rev", "weightsDigest": digest("weights")}
+        conflict = reuse_conflict(receipt, current, procedure)
+        self.assertIsNotNone(conflict)
+        self.assertIn("model", conflict)
+
+    def test_procedure_drift_is_refused(self) -> None:
+        model = {"repo": "test/repo", "revision": "abc123", "weightsDigest": digest("weights")}
+        stale = procedure_block(64)
+        stale["toolVersion"] = "0.0.1"
+        conflict = reuse_conflict({"model": model, "procedure": stale}, model, procedure_block(64))
+        self.assertIsNotNone(conflict)
+        self.assertIn("procedure", conflict)
+
+    def test_expected_max_tokens_rule(self) -> None:
+        self.assertEqual(expected_max_tokens(49, False), 110)
+        self.assertEqual(expected_max_tokens(83, False), 164)
+        self.assertEqual(expected_max_tokens(10, True), 46)
+        self.assertEqual(expected_max_tokens(0, False), 32)
 
 
 if __name__ == "__main__":
