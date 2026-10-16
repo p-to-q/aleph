@@ -74,6 +74,9 @@ python3 -m search.compare.cli verify search/compare/receipts/canary-1p7b
 - Declared instances: `canary-1p7b` (`hello world`, `jumps over the lazy dog`
   on the pinned 1.7B snapshot) and `canary-4b` (`hello world` on the pinned 4B
   snapshot).
+- Tranche-2 additions (declared 2026-10-16, before any run): `canary-1p7b-set2`
+  (`42`, `to be, or not to be`) and `canary-4b-set2` (`jumps over the lazy dog`),
+  with the same declared settings, envelope, and tau as the tranche-1 instances.
 
 ## Receipts
 

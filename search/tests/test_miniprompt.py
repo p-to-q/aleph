@@ -152,6 +152,18 @@ class ConfigTests(unittest.TestCase):
             fixtures.preset("control-jumps-partial").digest,
             "sha256:2d54ba27610d46fc096cbe3622ad317085c5791684850f0426d4c569a503d055",
         )
+        self.assertEqual(
+            fixtures.preset("canary-42").digest,
+            "sha256:4fbad590bcf3dc1ce608d51f9ddd4cef0dfb89ddcf9da40e75d390d6a552bada",
+        )
+        self.assertEqual(
+            fixtures.preset("canary-hamlet-line").digest,
+            "sha256:f5cf6a9aa26d784d9446d8bc3373ec09355599d395635fa92eaedcfeedd4e259",
+        )
+        self.assertEqual(
+            fixtures.preset("pin4b-jumps-smoke").digest,
+            "sha256:ba53fb17196143348f494c7b1779641608f87834fecde8360ddf2263a174f881",
+        )
 
     def test_unknown_and_missing_fields_rejected(self):
         mapping = fixtures.preset("canary-hello").to_canonical()

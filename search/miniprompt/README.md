@@ -34,7 +34,8 @@ python3 -m search.miniprompt.cli verify /tmp/miniprompt-canary
 ```
 
 Declared presets live in `fixtures.py` (`canary-hello`,
-`control-jumps-partial`); a run directory holds `state.json` (resumable
+`control-jumps-partial`, `pin4b-hello-smoke`, `canary-42`, `canary-hamlet-line`,
+`pin4b-jumps-smoke`); a run directory holds `state.json` (resumable
 checkpoint, written atomically after every step) and `receipt.json` (the
 archived record). Receipts are self-verified before they are written.
 

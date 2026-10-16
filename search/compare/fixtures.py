@@ -13,6 +13,10 @@ declarations, not suggestions — records embed the exact mapping and its
   did not acquire under its declared budget).
 - ``canary-4b``: the second-pin instance on the pinned 4B snapshot — the same
   canary target under a bounded declared raw preset.
+- ``canary-1p7b-set2`` / ``canary-4b-set2``: the declared tranche-2 extended set —
+  the numeric (``42``) and natural-short (``to be, or not to be``) strata on the
+  1.7B snapshot, and the negative/partial control mirrored on the 4B snapshot;
+  same readable settings, envelope, and tau as the tranche-1 instances.
 """
 
 from __future__ import annotations
@@ -94,9 +98,30 @@ def canary_4b() -> ComparisonConfig:
     )
 
 
+def canary_1p7b_set2() -> ComparisonConfig:
+    return _instance(
+        "canary-1p7b-set2",
+        "mlx-community/Qwen3-1.7B-4bit",
+        [
+            _target("forty-two", "42", "canary-42"),
+            _target("hamlet-line", "to be, or not to be", "canary-hamlet-line"),
+        ],
+    )
+
+
+def canary_4b_set2() -> ComparisonConfig:
+    return _instance(
+        "canary-4b-set2",
+        "mlx-community/Qwen3-4B-4bit",
+        [_target("lazy-dog", "jumps over the lazy dog", "pin4b-jumps-smoke")],
+    )
+
+
 INSTANCES = {
     "canary-1p7b": canary_1p7b,
     "canary-4b": canary_4b,
+    "canary-1p7b-set2": canary_1p7b_set2,
+    "canary-4b-set2": canary_4b_set2,
 }
 
 

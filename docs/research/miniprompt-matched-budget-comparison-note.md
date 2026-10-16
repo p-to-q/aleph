@@ -65,6 +65,34 @@ with the pairing archived as a digest-bound record?
   pinned `mlx-community/Qwen3-1.7B-4bit` snapshot) and `canary-4b` (`hello world` on the pinned
   `mlx-community/Qwen3-4B-4bit` snapshot, using the new bounded `pin4b-hello-smoke` preset).
 
+## Tranche 2 — extended declared target set (declared 2026-10-16 UTC, before any run)
+
+Same module, same conventions, same schemas: this tranche extends the declared target set with three
+new frozen raw-side presets and two new comparison instances. It is a declaration extension, not a
+structural change (the structural gate note is the tranche-1 section above), and no existing
+instance, preset, or archived receipt is modified.
+
+- `canary-42` (1.7B, target `42`): the numeric/minimal stratum under the upstream-default scan
+  surface (`stepsInitial=200`, `maxAttempts=8`, `stepsHardCap=4000`; the feasibility receipt
+  acquired this target at step 87/240 of a single 5-free-token run).
+- `canary-hamlet-line` (1.7B, target `to be, or not to be`): the natural-short stratum under a
+  declared tighter cap (`maxAttempts=6`, `stepsHardCap=2000`); acquired or partial, the scan
+  result is archived as-is.
+- `pin4b-jumps-smoke` (4B, target `jumps over the lazy dog`): mirrors the 1.7B control's declared
+  bounds (`stepsInitial=60`, `maxAttempts=2`, `stepsHardCap=1000`) so the negative/partial control
+  exists at both pinned scales.
+
+Instances: `canary-1p7b-set2` (targets `forty-two`, `hamlet-line`) and `canary-4b-set2` (target
+`lazy-dog`), each with the same declared readable settings, envelope (`1800` s plus the declared
+`60` s slack), and `tau=0.05` as the tranche-1 instances. Freeze order: this section, the presets,
+the instances, and their digest pins land before any tranche-2 run; runs use the pinned venv with
+`HF_HUB_OFFLINE=1` and the single-writer driver discipline, and only completed artifacts
+(`stoppedBy=complete`) are archived.
+
+Non-claims carry over unchanged: no ranking, no leakage verdict, no memorization-causality, no
+transfer claim; copy proxies stay ratios-only on the readable side, and the raw side carries no
+leakage field. No new external sources were needed for this declaration-only extension.
+
 ## Sources inspected
 
 | Source (accessed 2026-10-16) | Location | F — what was observed | I — interpretation | U — use here |

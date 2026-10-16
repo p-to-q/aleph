@@ -15,6 +15,10 @@ a declaration, not a suggestion — receipts embed the exact mapping and its
 - ``pin4b-hello-smoke``: bounded second-pin evidence on the pinned
   ``Qwen3-4B-4bit`` snapshot (same canary target, two-rung-scale declared
   budgets), used by the matched-budget comparison's 4B instance.
+- ``canary-42`` / ``canary-hamlet-line`` / ``pin4b-jumps-smoke``: the declared
+  tranche-2 extension presets (numeric-minimal target; natural-short target under a
+  declared tighter cap; the control target mirrored at the 4B pin), added by the
+  matched-budget comparison's tranche 2 without changing any existing preset.
 """
 
 from __future__ import annotations
@@ -101,10 +105,55 @@ def pin4b_hello_smoke() -> MiniPromptConfig:
     )
 
 
+def canary_42() -> MiniPromptConfig:
+    """Numeric stratum: target ``42`` under the upstream-default scan surface.
+
+    The feasibility receipt acquired this target at step 87/240 of a single
+    5-free-token run; this preset re-runs it under the frozen module policy so
+    the comparison's numeric stratum has a declared raw counterpart.
+    """
+    return _declared("canary-42", "42")
+
+
+def canary_hamlet_line() -> MiniPromptConfig:
+    """Natural-short stratum: ``to be, or not to be`` under a declared tighter cap.
+
+    Declared below the canary defaults (``maxAttempts=6``, ``stepsHardCap=2000``)
+    so the second natural-target stratum stays bounded; acquired or partial, the
+    scan result is archived as-is.
+    """
+    return _declared(
+        "canary-hamlet-line",
+        "to be, or not to be",
+        maxAttempts=6,
+        stepsHardCap=2000,
+    )
+
+
+def pin4b_jumps_smoke() -> MiniPromptConfig:
+    """Second-pin control mirror: the six-token control target on the 4B snapshot.
+
+    Mirrors ``control-jumps-partial``'s declared bounds (two attempts,
+    ``stepsInitial=60``) so the negative/partial control exists at both pinned
+    scales.
+    """
+    return _declared(
+        "pin4b-jumps-smoke",
+        "jumps over the lazy dog",
+        repo="mlx-community/Qwen3-4B-4bit",
+        stepsInitial=60,
+        stepsHardCap=1000,
+        maxAttempts=2,
+    )
+
+
 PRESETS = {
     "canary-hello": canary_hello,
     "control-jumps-partial": control_jumps_partial,
     "pin4b-hello-smoke": pin4b_hello_smoke,
+    "canary-42": canary_42,
+    "canary-hamlet-line": canary_hamlet_line,
+    "pin4b-jumps-smoke": pin4b_jumps_smoke,
 }
 
 

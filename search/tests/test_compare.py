@@ -47,6 +47,11 @@ CONTROL_DIGEST = "sha256:2d54ba27610d46fc096cbe3622ad317085c5791684850f0426d4c56
 PIN4B_DIGEST = "sha256:40de569ad0e4798fa20289ffdb8cd219f22d2cd3a0cbc6550213495a62ac351f"
 INSTANCE_1P7B_DIGEST = "sha256:6b0500eed3dd950e5c1e9b4ef5ccf73dd316ea2d43788ed59619dc8dae85a63f"
 INSTANCE_4B_DIGEST = "sha256:fd4b450f7074842107722f3cc55308da3a50f100af948f203c9f31a811d9f72f"
+CANARY_42_DIGEST = "sha256:4fbad590bcf3dc1ce608d51f9ddd4cef0dfb89ddcf9da40e75d390d6a552bada"
+CANARY_HAMLET_DIGEST = "sha256:f5cf6a9aa26d784d9446d8bc3373ec09355599d395635fa92eaedcfeedd4e259"
+PIN4B_JUMPS_DIGEST = "sha256:ba53fb17196143348f494c7b1779641608f87834fecde8360ddf2263a174f881"
+INSTANCE_1P7B_SET2_DIGEST = "sha256:106426fb7015da86ab45d6ad77b6f3de34845ea2eeed459b860173476e5394c1"
+INSTANCE_4B_SET2_DIGEST = "sha256:ca61354fa03cc886309ca299fef914ecfa5056666091a95748654de15ed2128e"
 
 TIMESTAMP = "2026-10-16T00:00:00Z"
 PIN_1P7B = miniprompt_fixtures.PINNED_MODELS["mlx-community/Qwen3-1.7B-4bit"]
@@ -344,6 +349,9 @@ class FixtureTests(unittest.TestCase):
         self.assertEqual(miniprompt_fixtures.preset("canary-hello").digest, CANARY_HELLO_DIGEST)
         self.assertEqual(miniprompt_fixtures.preset("control-jumps-partial").digest, CONTROL_DIGEST)
         self.assertEqual(miniprompt_fixtures.preset("pin4b-hello-smoke").digest, PIN4B_DIGEST)
+        self.assertEqual(miniprompt_fixtures.preset("canary-42").digest, CANARY_42_DIGEST)
+        self.assertEqual(miniprompt_fixtures.preset("canary-hamlet-line").digest, CANARY_HAMLET_DIGEST)
+        self.assertEqual(miniprompt_fixtures.preset("pin4b-jumps-smoke").digest, PIN4B_JUMPS_DIGEST)
 
     def test_instance_digests_and_shape(self):
         canary = compare_fixtures.instance("canary-1p7b")
@@ -354,6 +362,17 @@ class FixtureTests(unittest.TestCase):
         four_b = compare_fixtures.instance("canary-4b")
         self.assertEqual(four_b.digest, INSTANCE_4B_DIGEST)
         self.assertEqual(four_b.targets[0].raw_config_digest, PIN4B_DIGEST)
+        set2 = compare_fixtures.instance("canary-1p7b-set2")
+        self.assertEqual(set2.digest, INSTANCE_1P7B_SET2_DIGEST)
+        self.assertEqual([target.key for target in set2.targets], ["forty-two", "hamlet-line"])
+        self.assertEqual(set2.targets[0].raw_config_digest, CANARY_42_DIGEST)
+        self.assertEqual(set2.targets[1].raw_config_digest, CANARY_HAMLET_DIGEST)
+        self.assertEqual(set2.readable, canary.readable)
+        self.assertEqual(set2.envelope_seconds, canary.envelope_seconds)
+        four_b_set2 = compare_fixtures.instance("canary-4b-set2")
+        self.assertEqual(four_b_set2.digest, INSTANCE_4B_SET2_DIGEST)
+        self.assertEqual(four_b_set2.targets[0].raw_config_digest, PIN4B_JUMPS_DIGEST)
+        self.assertEqual(four_b_set2.readable, four_b.readable)
 
     def test_archived_receipt_matches_declared_preset(self):
         receipt = archived_receipt()
