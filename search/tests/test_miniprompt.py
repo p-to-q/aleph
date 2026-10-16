@@ -42,7 +42,7 @@ def variant(**overrides):
     return config_from_canonical(base)
 
 
-def attempt_from_spec(spec, acquired, target_ids=TARGET_IDS):
+def attempt_from_spec(spec, acquired, target_ids=TARGET_IDS, *, prefix_count=0, mid_count=0):
     n_free = spec.n_free
     if acquired:
         trajectory = [
@@ -68,7 +68,7 @@ def attempt_from_spec(spec, acquired, target_ids=TARGET_IDS):
             "solutionFreeIds": [2000 + i for i in range(n_free)],
             "solutionLoss": 0.5,
             "solutionSource": "acquired",
-            "wholePromptTokens": n_free + len(target_ids),
+            "wholePromptTokens": prefix_count + n_free + len(target_ids) + mid_count,
             "trajectory": trajectory,
             "greedy": greedy,
         }
@@ -87,19 +87,25 @@ def attempt_from_spec(spec, acquired, target_ids=TARGET_IDS):
         "solutionFreeIds": [1000 + i for i in range(n_free)],
         "solutionLoss": 8.0,
         "solutionSource": "best_by_loss",
-        "wholePromptTokens": n_free + len(target_ids),
+        "wholePromptTokens": prefix_count + n_free + len(target_ids) + mid_count,
         "trajectory": trajectory,
         "greedy": None,
     }
 
 
-def build_fixture_receipt(config, outcomes, target_ids=TARGET_IDS):
+def build_fixture_receipt(config, outcomes, target_ids=TARGET_IDS, scaffold=None):
+    prefix_count = len(scaffold["prefixIds"]) if scaffold is not None else 0
+    mid_count = len(scaffold["midIds"]) if scaffold is not None else 0
     policy = ScanPolicy(config, len(target_ids))
     attempts = []
     for outcome in outcomes:
         spec = policy.next_spec()
         assert spec is not None, "fixture outcomes exceed the policy bound"
-        attempts.append(attempt_from_spec(spec, outcome, target_ids))
+        attempts.append(
+            attempt_from_spec(
+                spec, outcome, target_ids, prefix_count=prefix_count, mid_count=mid_count
+            )
+        )
         policy.record(outcome)
     assert policy.next_spec() is None, "fixture outcomes leave the scan unfinished"
     result = receipts.result_from_policy(policy.state, attempts)
@@ -121,6 +127,7 @@ def build_fixture_receipt(config, outcomes, target_ids=TARGET_IDS):
         attempts=attempts,
         result=result,
         created_at="2026-10-16T00:00:00Z",
+        scaffold=scaffold,
     )
 
 
@@ -177,6 +184,35 @@ class ConfigTests(unittest.TestCase):
             config_from_canonical({**mapping, "schema": "aleph-miniprompt-config/9.9.9"})
         with self.assertRaises(ConfigError):
             config_from_canonical({**mapping, "model": {**mapping["model"], "extra": 1}})
+
+    def test_scaffold_grammar(self):
+        declared = {
+            "chatTemplate": ["<|im_start|>user\n", "<|im_end|>\n"],
+            "systemPrompt": "You are helpful.",
+            "inputStr": "Say:",
+        }
+        config = variant(scaffold=declared)
+        self.assertEqual(config.scaffold.to_canonical(), declared)
+        self.assertEqual(config_from_canonical(config.to_canonical()).digest, config.digest)
+        self.assertNotEqual(config.digest, variant().digest)
+        self.assertEqual(variant().scaffold.to_canonical(), "empty")
+        in_declared = {"chatTemplate": ["<a>", ""], "systemPrompt": "", "inputStr": ""}
+        self.assertEqual(variant(scaffold=in_declared).scaffold.to_canonical(), in_declared)
+        for bad_scaffold in (
+            {"chatTemplate": ["", ""], "systemPrompt": "", "inputStr": ""},
+            {"chatTemplate": ["<a>"], "systemPrompt": "", "inputStr": ""},
+            {"chatTemplate": ["<a>", "<b>", "<c>"], "systemPrompt": "", "inputStr": ""},
+            {"chatTemplate": ["<a>", "<b>"], "systemPrompt": ""},
+            {"chatTemplate": ["<a>", "<b>"], "systemPrompt": "", "inputStr": "", "extra": 1},
+            {"chatTemplate": ["<a>", "<b>"], "systemPrompt": 1, "inputStr": ""},
+            {"chatTemplate": ["<a>", 2], "systemPrompt": "", "inputStr": ""},
+            {"chatTemplate": "<a><b>", "systemPrompt": "", "inputStr": ""},
+        ):
+            with self.assertRaises(ConfigError, msg=repr(bad_scaffold)):
+                variant(scaffold=bad_scaffold)
+        for bad_scaffold in (5, None, ["<a>", "<b>"], True):
+            with self.assertRaises(ConfigError, msg=repr(bad_scaffold)):
+                variant(scaffold=bad_scaffold)
 
     def test_declared_value_guards(self):
         for key, value in (
@@ -398,6 +434,42 @@ class ReceiptTests(unittest.TestCase):
                 any("claimed acquisitions require" in error for error in errors),
                 (value, errors),
             )
+
+    def test_scaffolded_receipt_round_trip_and_tampers(self):
+        config = variant(scaffold={"chatTemplate": ["<a>", "<b>"], "systemPrompt": "", "inputStr": ""})
+        scaffold = {"prefixIds": [7], "midIds": [8]}
+        receipt = build_fixture_receipt(config, [True] * 5, scaffold=scaffold)
+        self.assertEqual(receipts.verify_receipt(receipt), [])
+        self.assertEqual(receipt["scaffold"], scaffold)
+        # a new empty-scaffold receipt carries the derived (empty) block
+        fresh = build_fixture_receipt(
+            fixtures.preset("canary-hello"), [True] * 5,
+            scaffold={"prefixIds": [], "midIds": []},
+        )
+        self.assertEqual(receipts.verify_receipt(fresh), [])
+        # receipts without a block (created before the extension) still verify
+        legacy = build_fixture_receipt(fixtures.preset("canary-hello"), [True] * 5)
+        self.assertNotIn("scaffold", legacy)
+        self.assertEqual(receipts.verify_receipt(legacy), [])
+        # tampers
+        bad = copy.deepcopy(receipt); bad["scaffold"]["prefixIds"] = "x"; refix(bad)
+        errors = receipts.verify_receipt(bad)
+        self.assertTrue(any("scaffold.prefixIds" in error for error in errors), errors)
+        bad = copy.deepcopy(receipt); bad["scaffold"]["extra"] = 1; refix(bad)
+        errors = receipts.verify_receipt(bad)
+        self.assertTrue(any("scaffold: unknown field" in error for error in errors), errors)
+        bad = copy.deepcopy(receipt); del bad["scaffold"]; refix(bad)
+        errors = receipts.verify_receipt(bad)
+        self.assertTrue(any("requires the derived scaffold block" in error for error in errors), errors)
+        bad = copy.deepcopy(receipt); bad["scaffold"]["midIds"] = [9, 10]; refix(bad)
+        errors = receipts.verify_receipt(bad)
+        self.assertTrue(any("wholePromptTokens" in error for error in errors), errors)
+        bad = build_fixture_receipt(
+            fixtures.preset("canary-hello"), [True] * 5,
+            scaffold={"prefixIds": [1], "midIds": []},
+        )
+        errors = receipts.verify_receipt(bad)
+        self.assertTrue(any("empty scaffold" in error for error in errors), errors)
 
     def test_tamper_probes_fail_closed(self):
         base_receipt = build_fixture_receipt(fixtures.preset("canary-hello"), [True] * 5)

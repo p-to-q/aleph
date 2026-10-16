@@ -11,9 +11,9 @@ digest field).
 Every receipt labels found prompts as raw coordinates: free-token IDs are the
 ground truth and decoded text is a declared rendering, never a readable
 prompt. ``verify_receipt`` re-checks a receipt without MLX or network: the
-canonical digest, the strict configuration parse, the scan-policy replay
-across recorded outcomes, and the acquisition evidence chain (all-match plus
-the greedy-continuation check).
+canonical digest, the strict configuration parse, the derived scaffold block
+(when present), the scan-policy replay across recorded outcomes, and the
+acquisition evidence chain (all-match plus the greedy-continuation check).
 
 Run state (``state.json``) checkpoints an in-progress scan so runs are
 resumable; it is written atomically after every GCG step.
@@ -66,8 +66,11 @@ DECLARED_DIFFERENCES = (
     "so attempts are deterministic and resumable.",
     "Declared Aleph-side bounds: stepsHardCap caps the step budget after growth; "
     "maxAttempts limits the number of GCG attempts.",
-    "Only the upstream empty scaffold is declared; scaffolded layouts are a "
-    "future declared extension.",
+    "The upstream scaffolded layout ([chatTemplate[0], systemPrompt, inputStr, "
+    "free tokens, chatTemplate[1], target], every text part encoded with "
+    "add_special_tokens=False) is supported as an explicitly declared "
+    "per-config extension; the empty scaffold remains the declared default and "
+    "reproduces the upstream default [free tokens, target tokens].",
 )
 
 _CREATED_AT = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$")
@@ -108,8 +111,20 @@ def build_receipt(
     attempts: List[dict],
     result: dict,
     created_at: str,
+    scaffold: Optional[dict] = None,
 ) -> dict:
-    """Assemble a receipt and attach its canonical ``receiptDigest``."""
+    """Assemble a receipt and attach its canonical ``receiptDigest``.
+
+    ``scaffold`` is the derived scaffold block (``{prefixIds, midIds}``) the
+    runner records for every new run; receipts built without it (empty-scaffold
+    runs created before the scaffold extension) verify under the legacy path.
+    """
+    scaffold_block = None
+    if scaffold is not None:
+        scaffold_block = {
+            "prefixIds": list(scaffold["prefixIds"]),
+            "midIds": list(scaffold["midIds"]),
+        }
     body = {
         "schema": RECEIPT_SCHEMA,
         "tool": dict(TOOL),
@@ -127,6 +142,8 @@ def build_receipt(
         "attempts": attempts,
         "result": result,
     }
+    if scaffold_block is not None:
+        body["scaffold"] = scaffold_block
     receipt = dict(body)
     receipt["receiptDigest"] = digest(body)
     return receipt
@@ -175,7 +192,15 @@ def load_receipt(path) -> dict:
     return read_json(path)
 
 
-def _verify_attempt(attempt, position: int, target_ids: Optional[list], errors: List[str]) -> Optional[bool]:
+def _verify_attempt(
+    attempt,
+    position: int,
+    target_ids: Optional[list],
+    errors: List[str],
+    *,
+    prefix_count: int = 0,
+    mid_count: int = 0,
+) -> Optional[bool]:
     """Validate one attempt record; returns its ``acquired`` flag when valid."""
     where = f"attempts[{position}]"
     if not isinstance(attempt, dict):
@@ -263,8 +288,12 @@ def _verify_attempt(attempt, position: int, target_ids: Optional[list], errors: 
     whole = attempt.get("wholePromptTokens")
     if not _is_int(whole) or whole < 1:
         err(f"{where}.wholePromptTokens: expected an integer >= 1")
-    elif n_free is not None and target_ids is not None and whole != n_free + len(target_ids):
-        err(f"{where}.wholePromptTokens: expected nFree + target token count")
+    elif (
+        n_free is not None
+        and target_ids is not None
+        and whole != prefix_count + n_free + mid_count + len(target_ids)
+    ):
+        err(f"{where}.wholePromptTokens: expected scaffold + nFree + target token counts")
 
     trajectory = attempt.get("trajectory")
     if not isinstance(trajectory, list) or not trajectory:
@@ -313,7 +342,10 @@ def verify_receipt(receipt) -> List[str]:
         "schema", "tool", "createdAt", "config", "configDigest", "target", "model",
         "environment", "procedure", "rawView", "attempts", "result", "receiptDigest",
     )
-    unknown = sorted(key for key in receipt if key not in required_fields)
+    optional_fields = ("scaffold",)
+    unknown = sorted(
+        key for key in receipt if key not in required_fields and key not in optional_fields
+    )
     missing = sorted(key for key in required_fields if key not in receipt)
     for key in unknown:
         err(f"receipt: unknown field {key!r}")
@@ -431,13 +463,51 @@ def verify_receipt(receipt) -> List[str]:
         elif isinstance(token_ids, list) and len(rendering) != len(token_ids):
             err("target.rendering: length does not match tokenIds")
 
+    prefix_ids: Optional[list] = None
+    mid_ids: Optional[list] = None
+    scaffold_block = receipt.get("scaffold")
+    if scaffold_block is not None:
+        if not isinstance(scaffold_block, dict):
+            err("scaffold: expected a mapping")
+        else:
+            for key in sorted(set(scaffold_block) - {"prefixIds", "midIds"}):
+                err(f"scaffold: unknown field {key!r}")
+            captured = {}
+            for key in ("prefixIds", "midIds"):
+                ids = scaffold_block.get(key)
+                if not isinstance(ids, list) or any(
+                    isinstance(token, bool) or not isinstance(token, int) or token < 0
+                    for token in ids
+                ):
+                    err(f"scaffold.{key}: expected a list of non-negative integers")
+                else:
+                    captured[key] = list(ids)
+            if set(captured) == {"prefixIds", "midIds"}:
+                prefix_ids = captured["prefixIds"]
+                mid_ids = captured["midIds"]
+    if config is not None:
+        if config.scaffold.is_empty:
+            if prefix_ids or mid_ids:
+                err("scaffold: derived tokens recorded for the declared empty scaffold")
+        elif scaffold_block is None:
+            err("scaffold: a scaffolded declared config requires the derived scaffold block")
+
     attempts = receipt["attempts"]
     flags: List[Optional[bool]] = []
     if not isinstance(attempts, list) or not attempts:
         err("attempts: expected a non-empty list")
     else:
         for position, attempt in enumerate(attempts):
-            flags.append(_verify_attempt(attempt, position, target_ids, errors))
+            flags.append(
+                _verify_attempt(
+                    attempt,
+                    position,
+                    target_ids,
+                    errors,
+                    prefix_count=len(prefix_ids or []),
+                    mid_count=len(mid_ids or []),
+                )
+            )
 
     if isinstance(attempts, list) and attempts and config is not None and target_ids is not None:
         if all(isinstance(flag, bool) for flag in flags):

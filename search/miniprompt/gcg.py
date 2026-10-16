@@ -3,9 +3,12 @@
 Reimplements the loop in the pinned upstream ``prompt_optimization/gcg.py``
 (``locuslab/acr-memorization`` @ ``bf3ba2e7``) on MLX:
 
-- teacher-forced mean cross-entropy over the target tokens; with the empty
-  scaffold the sequence is exactly ``[free tokens, target tokens]`` and the
-  loss positions are the last free position plus the target prefix positions;
+- teacher-forced mean cross-entropy over the target tokens; the sequence is
+  the declared scaffold layout ``[prefix, free tokens, mid, target tokens]``
+  (``prefix`` = chat-template-before + system prompt + input string, ``mid`` =
+  chat-template-after; all empty for the declared empty scaffold, which
+  reduces exactly to ``[free tokens, target tokens]``) and the loss positions
+  are the free window's end minus one plus the target prefix positions;
 - gradient of the loss with respect to the input embeddings (weights frozen);
 - ``topk`` descent-direction candidate tokens per free position, computed as
   ``embed_tokens.as_linear`` of the embedding gradient (the MLX equivalent of
@@ -26,7 +29,8 @@ Reimplements the loop in the pinned upstream ``prompt_optimization/gcg.py``
   single-sequence criterion), so that a restored checkpoint cannot claim an
   acquisition the current evaluation denies, and claimed acquisitions are
   additionally verified by the true greedy continuation from the raw IDs (no
-  retokenization).
+  retokenization), generated from the scaffold context ``prefix + free + mid``
+  — the teacher-forced context minus the target.
 
 Declared differences from upstream are listed in
 ``receipts.DECLARED_DIFFERENCES``; the ones that live in this module are the
@@ -108,8 +112,31 @@ def target_token_ids(tokenizer, text: str):
     return ids, rendering
 
 
-def gcg_step(model, config: MiniPromptConfig, ids, n_free: int, loss_pos: slice, target_mx, step: int) -> dict:
-    """One GCG step; returns the selected candidate (selected by batched loss)."""
+def scaffold_token_ids(tokenizer, scaffold) -> dict:
+    """Derive the scaffold token IDs for a declared scaffold (upstream encoding).
+
+    Mirrors the pinned upstream ``prep_text``: every scaffold text part is
+    encoded with ``add_special_tokens=False``; ``prefixIds`` is
+    ``chatTemplate[0] + systemPrompt + inputStr`` and ``midIds`` is
+    ``chatTemplate[1]``. The empty scaffold derives empty lists.
+    """
+    if scaffold.is_empty:
+        return {"prefixIds": [], "midIds": []}
+    before, after = scaffold.chat_template
+    prefix: List[int] = []
+    for part in (before, scaffold.system_prompt, scaffold.input_str):
+        prefix.extend(tokenizer.encode(part, add_special_tokens=False))
+    mid = list(tokenizer.encode(after, add_special_tokens=False))
+    return {"prefixIds": prefix, "midIds": mid}
+
+
+def gcg_step(model, config: MiniPromptConfig, ids, n_free: int, loss_pos: slice, target_mx, step: int, *, free_start: int = 0) -> dict:
+    """One GCG step; returns the selected candidate (selected by batched loss).
+
+    The free window is ``[free_start, free_start + n_free)`` in ``ids``; the
+    gradient and the candidate mutations act on exactly that window (0 for
+    the empty scaffold, i.e. every ``ids`` position before the target).
+    """
     started = time.time()
     vocab_size = int(model.args.vocab_size)
 
@@ -122,12 +149,12 @@ def gcg_step(model, config: MiniPromptConfig, ids, n_free: int, loss_pos: slice,
     embeddings = model.model.embed_tokens(ids)
     gradient = mx.grad(loss_fn)(embeddings)
     mx.eval(gradient)
-    descent = model.model.embed_tokens.as_linear(gradient[0, :n_free])
+    descent = model.model.embed_tokens.as_linear(gradient[0, free_start:free_start + n_free])
     ordered = mx.argpartition(-descent, kth=vocab_size - config.topk, axis=-1)
     candidate_rows = ordered[:, -config.topk:].tolist()
 
     mutations = sampling.step_mutations(config.seed, n_free, config.topk, step, config.batch)
-    rows = sampling.apply_mutations(ids[0].tolist(), candidate_rows, mutations)
+    rows = sampling.apply_mutations(ids[0].tolist(), candidate_rows, mutations, offset=free_start)
 
     losses: List[float] = []
     for start in range(0, config.batch, config.mini_batch):
@@ -149,7 +176,7 @@ def gcg_step(model, config: MiniPromptConfig, ids, n_free: int, loss_pos: slice,
     }
 
 
-def solution_check(model, free_ids: List[int], target_list: List[int]) -> dict:
+def solution_check(model, free_ids: List[int], target_list: List[int], *, prefix_ids=(), mid_ids=()) -> dict:
     """The single-sequence solution check (the acquisition criterion).
 
     Upstream ``check_output_with_hard_tokens``: every target token is the
@@ -159,9 +186,10 @@ def solution_check(model, free_ids: List[int], target_list: List[int]) -> dict:
     declared difference); the batched candidate forward supplies candidate
     losses only. Returns ``{"matchAll": bool, "matchTokens": int}``.
     """
-    loss_pos = slice(len(free_ids) - 1, len(free_ids) - 1 + len(target_list))
+    before_free = len(list(prefix_ids))
+    loss_pos = slice(before_free + len(free_ids) - 1, before_free + len(free_ids) - 1 + len(target_list))
     target_mx = mx.array(list(target_list), dtype=mx.int32)
-    ids = mx.array([list(free_ids) + list(target_list)], dtype=mx.int32)
+    ids = mx.array([list(prefix_ids) + list(free_ids) + list(mid_ids) + list(target_list)], dtype=mx.int32)
     logits = model(ids)
     matched = [bool(flag) for flag in (logits[0, loss_pos].argmax(-1) == target_mx).tolist()]
     return {"matchAll": all(matched), "matchTokens": sum(matched)}
@@ -178,6 +206,8 @@ def run_attempt(
     resume: Optional[dict] = None,
     on_step: Optional[Callable[[dict], None]] = None,
     should_pause: Optional[Callable[[], bool]] = None,
+    prefix_ids=(),
+    mid_ids=(),
 ) -> dict:
     """Run or resume one GCG attempt under the upstream loop semantics.
 
@@ -193,8 +223,10 @@ def run_attempt(
     if steps_budget < 1:
         raise ValueError("steps_budget must be >= 1")
     target_list = list(target_ids)
+    prefix_ids = list(prefix_ids)
+    mid_ids = list(mid_ids)
     target_mx = mx.array(target_list, dtype=mx.int32)
-    loss_pos = slice(n_free - 1, n_free - 1 + len(target_list))
+    loss_pos = slice(len(prefix_ids) + n_free - 1, len(prefix_ids) + n_free - 1 + len(target_list))
 
     if resume is None:
         step = 0
@@ -229,11 +261,11 @@ def run_attempt(
         if should_pause is not None and should_pause():
             paused = True
             break
-        ids = mx.array([free_ids + target_list], dtype=mx.int32)
-        record = gcg_step(model, config, ids, n_free, loss_pos, target_mx, step)
+        ids = mx.array([prefix_ids + free_ids + mid_ids + target_list], dtype=mx.int32)
+        record = gcg_step(model, config, ids, n_free, loss_pos, target_mx, step, free_start=len(prefix_ids))
         free_ids = list(record["best_free_ids"])
         last_loss = record["loss"]
-        check = solution_check(model, free_ids, target_list)
+        check = solution_check(model, free_ids, target_list, prefix_ids=prefix_ids, mid_ids=mid_ids)
         last_match_tokens = check["matchTokens"]
         trajectory.append(
             {
@@ -244,7 +276,7 @@ def run_attempt(
             }
         )
         if check["matchAll"]:
-            emitted = greedy_continuation_ids(model, free_ids, target_list)
+            emitted = greedy_continuation_ids(model, free_ids, target_list, prefix_ids=prefix_ids, mid_ids=mid_ids)
             if emitted == list(target_list):
                 best_ids = list(free_ids)
                 solution_source = "acquired"
@@ -318,7 +350,7 @@ def run_attempt(
         # must survive a re-run of the single-sequence teacher-forced check
         # here; the runner separately re-verifies the greedy continuation on
         # the same shapes, so no claim can rest on a disagreeing evaluation.
-        check = solution_check(model, best_ids, target_list)
+        check = solution_check(model, best_ids, target_list, prefix_ids=prefix_ids, mid_ids=mid_ids)
         if not check["matchAll"]:
             raise AttemptInconsistency(
                 "acquisition claim (fresh or restored) disagrees with the "
@@ -337,19 +369,21 @@ def run_attempt(
         "solutionFreeIds": list(best_ids),
         "solutionLoss": round(float(solution_loss), 6),
         "solutionSource": solution_source or "best_by_loss",
-        "wholePromptTokens": n_free + len(target_list),
+        "wholePromptTokens": len(prefix_ids) + n_free + len(mid_ids) + len(target_list),
         "trajectory": trajectory,
     }
 
 
-def greedy_continuation_ids(model, free_ids: List[int], target_list: List[int]) -> List[int]:
+def greedy_continuation_ids(model, free_ids: List[int], target_list: List[int], *, prefix_ids=(), mid_ids=()) -> List[int]:
     """Greedy continuation from the raw IDs (no retokenization).
 
-    Generates up to ``len(target_list)`` tokens by repeatedly forwarding the
-    prefix and taking the argmax at the last position, stopping at the first
-    divergence; the emitted IDs are the observable.
+    Generates up to ``len(target_list)`` tokens from the scaffold context
+    ``prefix + free + mid`` (the teacher-forced context minus the target) by
+    repeatedly forwarding the growing sequence and taking the argmax at the
+    last position, stopping at the first divergence; the emitted IDs are the
+    observable.
     """
-    sequence = list(free_ids)
+    sequence = list(prefix_ids) + list(free_ids) + list(mid_ids)
     emitted: List[int] = []
     for target_token in target_list:
         logits = model(mx.array([sequence], dtype=mx.int32))
@@ -361,9 +395,9 @@ def greedy_continuation_ids(model, free_ids: List[int], target_list: List[int]) 
     return emitted
 
 
-def greedy_continuation_check(model, tokenizer, free_ids: List[int], target_ids: List[int]) -> dict:
+def greedy_continuation_check(model, tokenizer, free_ids: List[int], target_ids: List[int], *, prefix_ids=(), mid_ids=()) -> dict:
     """True greedy continuation from the raw IDs (no retokenization)."""
-    emitted = greedy_continuation_ids(model, free_ids, target_ids)
+    emitted = greedy_continuation_ids(model, free_ids, target_ids, prefix_ids=prefix_ids, mid_ids=mid_ids)
     return {
         "ran": True,
         "matched": emitted == list(target_ids),
