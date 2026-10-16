@@ -12,13 +12,17 @@ Reimplements the loop in the pinned upstream ``prompt_optimization/gcg.py``
   the upstream one-hot gradient);
 - ``batch`` candidates, each mutating one seeded-random free position to a
   seeded-random entry of that position's top-k list;
-- best-by-loss selection, early stop when every target token is the argmax of
-  the teacher-forced logits (all-match), and a best-by-loss iterate kept as
-  the fallback solution exactly as upstream: the solution is the all-match
-  iterate when the attempt acquires, otherwise the best-by-loss iterate;
-- the attempt's success flag is re-checked on the solution (the upstream
-  ``check_output_with_hard_tokens`` criterion), and claimed acquisitions are
-  additionally verified by a true greedy continuation from the raw IDs (no
+- best-by-loss selection, early stop when the selected candidate passes the
+  single-sequence solution check (every target token is the argmax of the
+  teacher-forced logits — the same fixed evaluation shape as the receipt
+  re-check and as upstream's ``check_output_with_hard_tokens``; the batched
+  candidate forward supplies candidate losses only), and a best-by-loss
+  iterate kept as the fallback solution exactly as upstream: the solution is
+  the all-match iterate when the attempt acquires, otherwise the best-by-loss
+  iterate;
+- the attempt's success flag is re-checked on the solution (the same
+  single-sequence criterion), and claimed acquisitions are additionally
+  verified by a true greedy continuation from the raw IDs (no
   retokenization).
 
 Declared differences from upstream are listed in
@@ -102,7 +106,7 @@ def target_token_ids(tokenizer, text: str):
 
 
 def gcg_step(model, config: MiniPromptConfig, ids, n_free: int, loss_pos: slice, target_mx, step: int) -> dict:
-    """One GCG step; returns the selected candidate's record."""
+    """One GCG step; returns the selected candidate (selected by batched loss)."""
     started = time.time()
     vocab_size = int(model.args.vocab_size)
 
@@ -123,7 +127,6 @@ def gcg_step(model, config: MiniPromptConfig, ids, n_free: int, loss_pos: slice,
     rows = sampling.apply_mutations(ids[0].tolist(), candidate_rows, mutations)
 
     losses: List[float] = []
-    matches: List[list] = []
     for start in range(0, config.batch, config.mini_batch):
         chunk = mx.array(rows[start : start + config.mini_batch], dtype=mx.int32)
         logits = model(chunk)
@@ -131,21 +134,34 @@ def gcg_step(model, config: MiniPromptConfig, ids, n_free: int, loss_pos: slice,
         targets = mx.broadcast_to(target_mx, (chunk.shape[0], target_mx.shape[0]))
         target_log_probs = mx.take_along_axis(log_probs, targets[..., None], axis=-1).squeeze(-1)
         chunk_losses = -mx.mean(target_log_probs, axis=-1)
-        chunk_match = logits[:, loss_pos].argmax(-1) == targets
-        mx.eval(chunk_losses, chunk_match)
+        mx.eval(chunk_losses)
         losses.extend(chunk_losses.tolist())
-        matches.extend(chunk_match.tolist())
 
     best = min(range(len(losses)), key=lambda index: losses[index])
-    best_match = matches[best]
     return {
         "best_free_ids": rows[best][:n_free],
         "loss": float(losses[best]),
-        "match_tokens": int(sum(best_match)),
-        "match_all": bool(all(best_match)),
         "candidates": len(rows),
         "seconds": time.time() - started,
     }
+
+
+def solution_check(model, free_ids: List[int], target_list: List[int]) -> dict:
+    """The single-sequence solution check (the acquisition criterion).
+
+    Upstream ``check_output_with_hard_tokens``: every target token is the
+    argmax of the teacher-forced logits at the target positions. Evaluated on
+    one single-sequence forward — the same fixed shape as the receipt
+    re-check — because 4-bit quantized logits are batch-shape dependent (a
+    declared difference); the batched candidate forward supplies candidate
+    losses only. Returns ``{"matchAll": bool, "matchTokens": int}``.
+    """
+    loss_pos = slice(len(free_ids) - 1, len(free_ids) - 1 + len(target_list))
+    target_mx = mx.array(list(target_list), dtype=mx.int32)
+    ids = mx.array([list(free_ids) + list(target_list)], dtype=mx.int32)
+    logits = model(ids)
+    matched = [bool(flag) for flag in (logits[0, loss_pos].argmax(-1) == target_mx).tolist()]
+    return {"matchAll": all(matched), "matchTokens": sum(matched)}
 
 
 def run_attempt(
@@ -214,16 +230,17 @@ def run_attempt(
         record = gcg_step(model, config, ids, n_free, loss_pos, target_mx, step)
         free_ids = list(record["best_free_ids"])
         last_loss = record["loss"]
-        last_match_tokens = record["match_tokens"]
+        check = solution_check(model, free_ids, target_list)
+        last_match_tokens = check["matchTokens"]
         trajectory.append(
             {
                 "step": step,
                 "loss": round(record["loss"], 6),
-                "matchTokens": record["match_tokens"],
+                "matchTokens": last_match_tokens,
                 "seconds": round(record["seconds"], 3),
             }
         )
-        if record["match_all"]:
+        if check["matchAll"]:
             best_ids = list(free_ids)
             solution_source = "acquired"
             solution_loss = record["loss"]
@@ -290,14 +307,11 @@ def run_attempt(
 
     # Authoritative scan-level success criterion (upstream
     # check_output_with_hard_tokens): all-match teacher-forced argmax of the
-    # solution. It must agree with the in-loop all-match signal; if it does
-    # not, the evidence chain is inconsistent and the attempt must not be
-    # recorded as a receipt.
-    solution_ids = mx.array([best_ids + target_list], dtype=mx.int32)
-    logits = model(solution_ids)
-    match = logits[0, loss_pos].argmax(-1) == target_mx
-    mx.eval(match)
-    acquired = bool(match.all().item())
+    # solution, the same single-sequence evaluation the loop stops on. If a
+    # restored checkpoint disagrees, the evidence chain is inconsistent and
+    # the attempt must not be recorded as a receipt.
+    check = solution_check(model, best_ids, target_list)
+    acquired = check["matchAll"]
     if acquired != (acquired_at is not None):
         raise AttemptInconsistency(
             f"solution re-check (acquired={acquired}) disagrees with the in-loop "

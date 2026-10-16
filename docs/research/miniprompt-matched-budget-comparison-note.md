@@ -93,6 +93,13 @@ Non-claims carry over unchanged: no ranking, no leakage verdict, no memorization
 transfer claim; copy proxies stay ratios-only on the readable side, and the raw side carries no
 leakage field. No new external sources were needed for this declaration-only extension.
 
+Post-declaration note (2026-10-16 UTC): the first tranche-2 run exposed a raw-arm
+criterion-evaluation bug (the batched candidate forward can report an all-match where the
+single-sequence forward disagrees; 4-bit logits are batch-shape dependent). It was fixed before
+any receipt was written — see the post-canary fix section of
+[miniprompt-reproduction-note.md](miniprompt-reproduction-note.md) — the declarations above are
+unchanged, and all tranche-2 receipts are generated under the fixed single-sequence criterion.
+
 ## Sources inspected
 
 | Source (accessed 2026-10-16) | Location | F — what was observed | I — interpretation | U — use here |

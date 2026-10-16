@@ -169,3 +169,31 @@ Acceptance gates from the list above, discharged:
    anticipated landed as its own slice
    ([miniprompt-matched-budget-comparison-note.md](miniprompt-matched-budget-comparison-note.md),
    `search/compare/`, archived instances `canary-1p7b`/`canary-4b`).
+
+## Post-canary criterion fix (2026-10-16 UTC, found by the first tranche-2 run)
+
+The first tranche-2 comparison run hit the raw arm's fail-closed guard and wrote no receipt:
+scanning the declared `canary-42` preset (1.7B, target `42`) stopped at step 26 of the first
+attempt because the in-loop batched all-match signal (`matchTokens = 2`) disagreed with the
+single-sequence re-check. A focused probe on the recorded solution showed the disagreement is an
+evaluation-shape effect, not a loop-logic error: with the pinned 4-bit snapshot the same solution
+measured single-sequence misses the second target token (token `17`/"2" logit 22.0 under the
+argmax token `2865` at 22.375 — a 0.375-logit gap), while the same solution inside a batch of 8 or
+more has the target token on 22.375 and as the argmax — a batched all-match. The true greedy
+continuation from the raw IDs is single-sequence by construction and emitted `2865` at that
+position. The batched signal was therefore never a valid acquisition criterion on this stack.
+
+Fix (recorded as a declared difference): the acquisition criterion — upstream's
+`check_output_with_hard_tokens` teacher-forced all-match — is now evaluated in-loop by
+`gcg.solution_check` on the same single-sequence forward as the receipt re-check, on the selected
+candidate; the batched candidate forward supplies candidate losses only (selection, step budgets,
+scan policy, and the declared configurations are unchanged). The post-loop re-check remains the
+fail-closed guard for restored checkpoints. The failed run was discarded unarchived and re-run
+from scratch under the fixed path; regression tests `AcquisitionCriterionTests` in
+`search/miniprompt/tests/test_gcg_mlx.py` pin both directions (a batched-only all-match must not
+claim an acquisition — this case errored with `AttemptInconsistency` on the pre-fix code — and a
+genuine single-sequence all-match still acquires), using faked model objects only.
+
+Archived receipts are unaffected: tranche-1 receipts predate the fix but remain fully verifiable
+(their acquisitions passed both the single-sequence re-check and the true greedy continuation),
+and the receipt schema, tool identity, and every declared configuration digest are unchanged.

@@ -7,7 +7,8 @@ Run with the pinned environment:
 These tests are skipped when MLX is not importable, so the default test path
 stays MLX-free. They load the pinned 1.7B snapshot, which must be present in
 the local Hugging Face cache; ``load_pinned_model`` re-checks the weights
-digest and fails closed on any pin mismatch.
+digest and fails closed on any pin mismatch. The acquisition-criterion
+regression tests below use faked model objects only (no snapshot needed).
 """
 
 from __future__ import annotations
@@ -15,6 +16,7 @@ from __future__ import annotations
 import json
 import sys
 import tempfile
+import types
 import unittest
 from pathlib import Path
 
@@ -31,6 +33,8 @@ except Exception:  # pragma: no cover - exercised on MLX-free machines
     HAS_MLX = False
 
 if HAS_MLX:
+    import mlx.core as mx  # noqa: E402
+
     from search.miniprompt import fixtures, gcg, runner, sampling  # noqa: E402
     from search.miniprompt.config import config_from_canonical  # noqa: E402
 
@@ -160,6 +164,92 @@ class GcgMlxTests(unittest.TestCase):
             receipt_path.write_text(json.dumps(bad), encoding="utf-8")
             with self.assertRaises(runner.RunStateError):
                 runner.run_scan(tiny, tmp, max_seconds=None, log=quiet)
+
+
+def _criterion_probe_model(*, single_sequence_miss: bool):
+    """A fake model whose batched forward reports an all-match while its
+    single-sequence forward misses the second target position (or matches,
+    per the flag).
+
+    This mirrors the observed batch-shape dependence of 4-bit quantized
+    logits that first fired the ``AttemptInconsistency`` guard on the
+    canary-42 scan (2026-10-16 UTC): the acquisition decision must never come
+    from the batched forward.
+    """
+
+    def _bias(second_token):
+        rows = mx.zeros((4, 16))
+        rows = rows.at[1, 3].add(10.0)
+        rows = rows.at[2, second_token].add(10.0)
+        return rows
+
+    class _Embedding:
+        def __init__(self, table):
+            self._table = table
+
+        def __call__(self, ids):
+            return self._table[ids]
+
+        def as_linear(self, x):
+            return x @ self._table.T
+
+    class _Model:
+        def __init__(self):
+            self._weight = mx.zeros((8, 16))
+            self._batched_bias = _bias(4)
+            self._single_bias = _bias(15 if single_sequence_miss else 4)
+            self.args = types.SimpleNamespace(vocab_size=16)
+            self.model = types.SimpleNamespace(embed_tokens=_Embedding(mx.zeros((16, 8))))
+
+        def __call__(self, ids, cache=None, input_embeddings=None):
+            embeddings = (
+                input_embeddings if input_embeddings is not None else self.model.embed_tokens(ids)
+            )
+            bias = self._single_bias if int(embeddings.shape[0]) == 1 else self._batched_bias
+            return embeddings @ self._weight + bias
+
+    return _Model()
+
+
+@unittest.skipUnless(HAS_MLX, "MLX is not available")
+class AcquisitionCriterionTests(unittest.TestCase):
+    """The acquisition decision is grounded in the single-sequence criterion.
+
+    Regression for the canary-42 fail-closed stop (2026-10-16 UTC): a batched
+    all-match signal must not be able to claim an acquisition, and a genuine
+    single-sequence all-match must still acquire. Uses faked model objects —
+    no pinned snapshot or cache is needed.
+    """
+
+    def _config(self):
+        base = fixtures.preset("canary-42").to_canonical()
+        base.update({"label": "fake-criterion", "topk": 4, "batch": 3, "miniBatch": 3})
+        return config_from_canonical(base)
+
+    def test_batched_only_match_never_claims_acquisition(self):
+        config = self._config()
+        model = _criterion_probe_model(single_sequence_miss=True)
+        outcome = gcg.run_attempt(
+            model, config, n_free=2, steps_budget=3, target_ids=[3, 4],
+            initial_free_ids=[1, 2],
+        )
+        self.assertFalse(outcome["acquired"])
+        self.assertIsNone(outcome["acquiredAtStep"])
+        self.assertEqual(outcome["solutionSource"], "best_by_loss")
+        self.assertEqual(outcome["stepsRun"], 3)
+        self.assertEqual(outcome["trajectory"][-1]["matchTokens"], 1)
+
+    def test_single_sequence_match_still_acquires(self):
+        config = self._config()
+        model = _criterion_probe_model(single_sequence_miss=False)
+        outcome = gcg.run_attempt(
+            model, config, n_free=2, steps_budget=3, target_ids=[3, 4],
+            initial_free_ids=[1, 2],
+        )
+        self.assertTrue(outcome["acquired"])
+        self.assertEqual(outcome["acquiredAtStep"], 0)
+        self.assertEqual(outcome["stepsRun"], 1)
+        self.assertEqual(outcome["trajectory"][-1]["matchTokens"], 2)
 
 
 if __name__ == "__main__":
