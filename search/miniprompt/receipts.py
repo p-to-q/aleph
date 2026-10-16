@@ -51,11 +51,12 @@ DECLARED_DIFFERENCES = (
     "gradients are taken with respect to input embeddings only (weights frozen).",
     "Candidate top-k uses mx.argpartition (unordered tail) with a uniform pick "
     "over the same top-k set as torch.topk.",
-    "The all-match acquisition criterion is evaluated on the single-sequence "
-    "teacher-forced forward of the selected candidate (the same fixed shape as "
-    "the receipt re-check and as upstream's check_output_with_hard_tokens "
-    "verification); 4-bit quantized logits are batch-shape dependent, so the "
-    "batched candidate forward supplies losses only.",
+    "The acquisition criterion is the conjunction of the single-sequence "
+    "teacher-forced all-match (upstream check_output_with_hard_tokens, on the "
+    "fixed single-sequence shape of the receipt re-check) and the true greedy "
+    "continuation from the raw IDs, both checked in-loop at the claiming step; "
+    "4-bit quantized logits are evaluation-shape dependent (batch and sequence "
+    "length), so batched forwards supply candidate losses only.",
     "Free-token initialization and per-step mutation draws use explicit Python "
     "random.Random derivations (sampling.py) instead of the process-global RNG, "
     "so attempts are deterministic and resumable.",

@@ -12,17 +12,20 @@ Reimplements the loop in the pinned upstream ``prompt_optimization/gcg.py``
   the upstream one-hot gradient);
 - ``batch`` candidates, each mutating one seeded-random free position to a
   seeded-random entry of that position's top-k list;
-- best-by-loss selection, early stop when the selected candidate passes the
-  single-sequence solution check (every target token is the argmax of the
+- best-by-loss selection, early stop when the selected candidate passes both
+  the single-sequence solution check (every target token is the argmax of the
   teacher-forced logits — the same fixed evaluation shape as the receipt
-  re-check and as upstream's ``check_output_with_hard_tokens``; the batched
-  candidate forward supplies candidate losses only), and a best-by-loss
-  iterate kept as the fallback solution exactly as upstream: the solution is
-  the all-match iterate when the attempt acquires, otherwise the best-by-loss
-  iterate;
+  re-check and as upstream's ``check_output_with_hard_tokens``) and the true
+  greedy continuation from the raw IDs; a step that passes only the
+  teacher-forced check does not stop the scan (4-bit quantized logits are
+  evaluation-shape dependent, and the batched candidate forward supplies
+  candidate losses only); a best-by-loss iterate is kept as the fallback
+  solution exactly as upstream: the solution is the all-match iterate when
+  the attempt acquires, otherwise the best-by-loss iterate;
 - the attempt's success flag is re-checked on the solution (the same
-  single-sequence criterion), and claimed acquisitions are additionally
-  verified by a true greedy continuation from the raw IDs (no
+  single-sequence criterion), so that a restored checkpoint cannot claim an
+  acquisition the current evaluation denies, and claimed acquisitions are
+  additionally verified by the true greedy continuation from the raw IDs (no
   retokenization).
 
 Declared differences from upstream are listed in
@@ -53,7 +56,7 @@ class ModelPinError(RuntimeError):
 
 
 class AttemptInconsistency(RuntimeError):
-    """The in-loop all-match signal and the solution re-check disagree."""
+    """An acquisition claim and its solution re-check disagree."""
 
 
 def sha256_file(path) -> str:
@@ -241,28 +244,32 @@ def run_attempt(
             }
         )
         if check["matchAll"]:
-            best_ids = list(free_ids)
-            solution_source = "acquired"
-            solution_loss = record["loss"]
-            acquired = True
-            acquired_at = step
-            step += 1
-            if on_step is not None:
-                on_step(
-                    {
-                        "step": step,
-                        "freeIds": free_ids,
-                        "bestLoss": best_loss,
-                        "bestIds": best_ids,
-                        "solutionSource": solution_source,
-                        "solutionLoss": solution_loss,
-                        "trajectory": trajectory,
-                        "lastMatchTokens": last_match_tokens,
-                        "lastLoss": last_loss,
-                        "acquiredAtStep": acquired_at,
-                    }
-                )
-            break
+            emitted = greedy_continuation_ids(model, free_ids, target_list)
+            if emitted == list(target_list):
+                best_ids = list(free_ids)
+                solution_source = "acquired"
+                solution_loss = record["loss"]
+                acquired = True
+                acquired_at = step
+                step += 1
+                if on_step is not None:
+                    on_step(
+                        {
+                            "step": step,
+                            "freeIds": free_ids,
+                            "bestLoss": best_loss,
+                            "bestIds": best_ids,
+                            "solutionSource": solution_source,
+                            "solutionLoss": solution_loss,
+                            "trajectory": trajectory,
+                            "lastMatchTokens": last_match_tokens,
+                            "lastLoss": last_loss,
+                            "acquiredAtStep": acquired_at,
+                        }
+                    )
+                break
+            # Teacher-forced all-match without a reproducing greedy
+            # continuation: fall through as a regular step and keep scanning.
         if best_loss is None or record["loss"] < best_loss:
             best_loss = record["loss"]
             best_ids = list(free_ids)
@@ -305,18 +312,18 @@ def run_attempt(
     if best_ids is None:
         best_ids = list(free_ids)
 
-    # Authoritative scan-level success criterion (upstream
-    # check_output_with_hard_tokens): all-match teacher-forced argmax of the
-    # solution, the same single-sequence evaluation the loop stops on. If a
-    # restored checkpoint disagrees, the evidence chain is inconsistent and
-    # the attempt must not be recorded as a receipt.
-    check = solution_check(model, best_ids, target_list)
-    acquired = check["matchAll"]
-    if acquired != (acquired_at is not None):
-        raise AttemptInconsistency(
-            f"solution re-check (acquired={acquired}) disagrees with the in-loop "
-            f"all-match signal (observed={acquired_at is not None})"
-        )
+    acquired = acquired_at is not None
+    if acquired:
+        # The acquisition claim (fresh in-loop, or restored from a checkpoint)
+        # must survive a re-run of the single-sequence teacher-forced check
+        # here; the runner separately re-verifies the greedy continuation on
+        # the same shapes, so no claim can rest on a disagreeing evaluation.
+        check = solution_check(model, best_ids, target_list)
+        if not check["matchAll"]:
+            raise AttemptInconsistency(
+                "restored checkpoint claims an acquisition but the "
+                "single-sequence solution re-check disagrees"
+            )
 
     if solution_loss is None:
         solution_loss = last_loss if last_loss is not None else 0.0
@@ -335,17 +342,28 @@ def run_attempt(
     }
 
 
-def greedy_continuation_check(model, tokenizer, free_ids: List[int], target_ids: List[int]) -> dict:
-    """True greedy continuation from the raw IDs (no retokenization)."""
+def greedy_continuation_ids(model, free_ids: List[int], target_list: List[int]) -> List[int]:
+    """Greedy continuation from the raw IDs (no retokenization).
+
+    Generates up to ``len(target_list)`` tokens by repeatedly forwarding the
+    prefix and taking the argmax at the last position, stopping at the first
+    divergence; the emitted IDs are the observable.
+    """
     sequence = list(free_ids)
     emitted: List[int] = []
-    for target_token in target_ids:
+    for target_token in target_list:
         logits = model(mx.array([sequence], dtype=mx.int32))
         next_token = int(mx.argmax(logits[0, -1]).item())
         emitted.append(next_token)
         if next_token != target_token:
             break
         sequence.append(next_token)
+    return emitted
+
+
+def greedy_continuation_check(model, tokenizer, free_ids: List[int], target_ids: List[int]) -> dict:
+    """True greedy continuation from the raw IDs (no retokenization)."""
+    emitted = greedy_continuation_ids(model, free_ids, target_ids)
     return {
         "ran": True,
         "matched": emitted == list(target_ids),
