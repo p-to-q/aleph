@@ -101,6 +101,27 @@ It replays the declared scan policy across recorded outcomes and checks each acq
 evidence chain (all-match plus greedy continuation) canonically; it does not re-run the model,
 and running a scan itself needs the pinned MLX environment.
 
+## Matched-budget comparison checks
+
+`npm test` also runs `search/tests/test_compare.py` (pure standard library, no MLX): the declared
+comparison fixtures and their pinned digests, the strict config parser, the readable-artifact
+verifier with tamper probes (evaluation sequence and budget structure, per-budget selection,
+staircase `kept` flags, stability runs, copy ratios, digest linkage, negative-zero
+normalization), the digest-bound record builder/verifier against the real archived raw receipt
+(build, tamper, on-disk tamper, kept-derivation mirror of the shipped selector, fail-closed
+refusals), the pure runner helpers, and a faked-model dry run of the readable runner's state
+machine (pause/resume, idempotent completion, tampered-artifact refusal). The verifier is also
+the no-MLX command:
+
+```bash
+python3 -m search.compare.cli verify search/compare/receipts/canary-1p7b
+```
+
+It re-derives both side artifacts with their own fail-closed verifiers, re-checks the cross-side
+identity assertions and the declared findings, and recomputes every digest; it does not re-run
+the model (running an instance needs the pinned MLX environment) and it never expresses a
+comparison verdict.
+
 ## Release gate
 
 Before a formal release, run:

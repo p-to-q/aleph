@@ -12,6 +12,9 @@ a declaration, not a suggestion — receipts embed the exact mapping and its
   under deliberately small declared budgets, archived as the negative/partial
   control (expected non-acquisition; higher-budget probe evidence for this
   target is in ``docs/research/2026-10-15-miniprompt-feasibility-receipt.md``).
+- ``pin4b-hello-smoke``: bounded second-pin evidence on the pinned
+  ``Qwen3-4B-4bit`` snapshot (same canary target, two-rung-scale declared
+  budgets), used by the matched-budget comparison's 4B instance.
 """
 
 from __future__ import annotations
@@ -23,11 +26,19 @@ PINNED_MODELS = {
         "revision": "3b1b1768f8f8cf8351c712464f906e86c2b8269e",
         "weightsDigest": "sha256:0e86d9677e519323849eac1bc272caae88567a481ff188c431f70be543d9995f",
     },
+    "mlx-community/Qwen3-4B-4bit": {
+        "revision": "4dcb3d101c2a062e5c1d4bb173588c54ea6c4d25",
+        "weightsDigest": "sha256:e240c0bdc0ebb0681bf0da0f98d9719fd6ebe269a3633f81542c13e81345651d",
+    },
 }
 
 
-def _declared(label: str, target: str, **overrides) -> MiniPromptConfig:
-    repo = "mlx-community/Qwen3-1.7B-4bit"
+def _declared(
+    label: str,
+    target: str,
+    repo: str = "mlx-community/Qwen3-1.7B-4bit",
+    **overrides,
+) -> MiniPromptConfig:
     pin = PINNED_MODELS[repo]
     mapping = {
         "schema": CONFIG_SCHEMA,
@@ -71,9 +82,29 @@ def control_jumps_partial() -> MiniPromptConfig:
     )
 
 
+def pin4b_hello_smoke() -> MiniPromptConfig:
+    """Bounded second-pin run: the canary target on the pinned 4B snapshot.
+
+    A deliberately small declared scan (three attempts, ``stepsInitial=60``)
+    so the run stays bounded on the larger model; whatever the scan finds is
+    archived as-is. The 4B pin identity is the one recorded by the frontier
+    receipts (``4dcb3d10…``); the weights digest is re-checked fail-closed at
+    load time.
+    """
+    return _declared(
+        "pin4b-hello-smoke",
+        "hello world",
+        repo="mlx-community/Qwen3-4B-4bit",
+        stepsInitial=60,
+        stepsHardCap=1200,
+        maxAttempts=3,
+    )
+
+
 PRESETS = {
     "canary-hello": canary_hello,
     "control-jumps-partial": control_jumps_partial,
+    "pin4b-hello-smoke": pin4b_hello_smoke,
 }
 
 

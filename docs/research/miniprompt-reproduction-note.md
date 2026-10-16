@@ -165,4 +165,7 @@ Acceptance gates from the list above, discharged:
 5. Raw-coordinate labeling is carried by every receipt and enforced by the verifier.
 6. A small declared set is archived: the canary plus the negative/partial control
    `search/miniprompt/receipts/control-jumps-001` (two attempts under declared budgets, not
-   acquired, stopped at the declared attempt bound).
+   acquired, stopped at the declared attempt bound). The matched-budget comparison this gate
+   anticipated landed as its own slice
+   ([miniprompt-matched-budget-comparison-note.md](miniprompt-matched-budget-comparison-note.md),
+   `search/compare/`, archived instances `canary-1p7b`/`canary-4b`).

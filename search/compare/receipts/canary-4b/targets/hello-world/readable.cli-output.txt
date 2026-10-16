@@ -1,0 +1,18 @@
+
+$ /Users/dujiayi/code/aleph/search/.venv/bin/python -m search.compare.readable --instance canary-4b --target-key hello-world --run-dir /private/tmp/aleph-compare-live-v4/canary-4b/targets/hello-world --max-seconds 93
+[driver] head=--instance rc=0 timedOut=False slice=67.3s
+loading pinned model mlx-community/Qwen3-4B-4bit@4dcb3d101c2a…
+target 'hello world' -> 2 token(s): [14990, 1879]
+[readable] budget 50: 3 proposal(s) parsed
+[readable] point K~50: |p|=22 sim=0.4505 eps=0.5495 prompt='Generate a radio broadcast script titled "Hello World," featuring a ho'
+[readable] budget 25: 3 proposal(s) parsed
+[readable] point K~25: |p|=18 sim=0.4505 eps=0.5495 prompt='Generate a radio broadcast script titled "Hello World," featuring a ho'
+[readable] budget 12: 3 proposal(s) parsed
+[readable] point K~12: |p|=17 sim=0.4239 eps=0.5761 prompt='Generate a radio script titled "Hello World," with the host saying "he'
+[readable] budget 6: 3 proposal(s) parsed
+[readable] point K~6: |p|=6 sim=0.4945 eps=0.5055 prompt='hello world - classic programming example'
+[readable] explicit baseline: |p|=20 sim=1.0000
+readable.json written: /private/tmp/aleph-compare-live-v4/canary-4b/targets/hello-world/readable.json (32 evaluations)
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 103/103 [00:00<00:00, 6137.51it/s]

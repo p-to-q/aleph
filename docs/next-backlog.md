@@ -143,8 +143,15 @@ Status update (2026-10-16): the implementation landed in `search/miniprompt/` â€
 configs with strict parsing, the upstream scan policy pinned by tests, the MLX GCG core, resumable
 receipted runs, an MLX-free fail-closed receipt verifier, and an opt-in MLX test module (skipped
 without MLX). The canary and negative/partial-control receipts are archived under
-`search/miniprompt/receipts/`; matched-budget comparisons against Aleph's readable search remain
-open.
+`search/miniprompt/receipts/`.
+
+Status update (2026-10-16): the matched-budget comparison landed (`search/compare/`): declared
+comparison configs with strict parsing, a seeded readable-side re-run of the shipped procedure,
+an instance driver spawning bounded resumable slices, a pure digest-bound record builder and
+fail-closed verifier (no MLX, no network), and archived instances pairing the raw scan and the
+readable search under one shared wall-clock envelope (`search/compare/receipts/canary-1p7b`,
+`â€¦/canary-4b`; gate note
+[miniprompt-matched-budget-comparison-note.md](research/miniprompt-matched-budget-comparison-note.md)).
 
 Goal: turn only accepted routes into separately audited adapters.
 

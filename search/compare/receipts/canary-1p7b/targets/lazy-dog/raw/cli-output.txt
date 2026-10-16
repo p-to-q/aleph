@@ -1,0 +1,15 @@
+
+$ /Users/dujiayi/code/aleph/search/.venv/bin/python -m search.miniprompt.cli run --preset control-jumps-partial --run-dir /private/tmp/aleph-compare-live-v4/canary-1p7b/targets/lazy-dog/raw --max-seconds 150
+[driver] head=run rc=3 timedOut=False slice=174.3s
+loading pinned model mlx-community/Qwen3-1.7B-4bit@3b1b1768f8f8…
+target 'jumps over the lazy dog' -> 6 token(s): [73, 11793, 916, 279, 15678, 5562]
+attempt 0: n_free=5 steps_budget=60
+attempt 0: acquired=False steps=60 solutionLoss=2.241045
+attempt 1: n_free=10 steps_budget=72
+time budget reached; attempt 1 paused at step 69 — re-run the same command to resume
+
+$ /Users/dujiayi/code/aleph/search/.venv/bin/python -m search.miniprompt.cli run --preset control-jumps-partial --run-dir /private/tmp/aleph-compare-live-v4/canary-1p7b/targets/lazy-dog/raw --max-seconds 150
+[driver] head=run rc=0 timedOut=False slice=19.4s
+loading pinned model mlx-community/Qwen3-1.7B-4bit@3b1b1768f8f8…
+attempt 1: acquired=False steps=72 solutionLoss=1.565769
+receipt written: /private/tmp/aleph-compare-live-v4/canary-1p7b/targets/lazy-dog/raw/receipt.json (success=False numFreeTokens=30 attempts=2 stopReason=max_attempts)

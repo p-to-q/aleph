@@ -60,33 +60,38 @@ def sha256_file(path) -> str:
     return "sha256:" + digest.hexdigest()
 
 
-def load_pinned_model(config: MiniPromptConfig):
-    """Load the pinned model strictly (fail-closed on any pin mismatch)."""
+def load_pinned(repo: str, revision: str, weights_digest: str):
+    """Load a pinned model snapshot strictly (fail-closed on any pin mismatch)."""
     try:
-        snapshot = snapshot_download(config.repo, revision=config.revision, local_files_only=True)
+        snapshot = snapshot_download(repo, revision=revision, local_files_only=True)
     except Exception as exc:  # noqa: BLE001 - fail closed with operator guidance
         raise ModelPinError(
-            f"pinned snapshot {config.repo}@{config.revision} is not available in the local "
-            f"cache ({exc}); fetch it with `huggingface-cli download {config.repo} "
-            f"--revision {config.revision}` and retry"
+            f"pinned snapshot {repo}@{revision} is not available in the local "
+            f"cache ({exc}); fetch it with `huggingface-cli download {repo} "
+            f"--revision {revision}` and retry"
         ) from exc
     weights = os.path.join(snapshot, "model.safetensors")
     if not os.path.exists(weights):
         raise ModelPinError(f"pinned snapshot has no model.safetensors: {weights}")
     actual = sha256_file(weights)
-    if actual != config.weights_digest:
+    if actual != weights_digest:
         raise ModelPinError(
-            f"weights digest mismatch for {config.repo}@{config.revision}: "
-            f"expected {config.weights_digest}, found {actual}"
+            f"weights digest mismatch for {repo}@{revision}: "
+            f"expected {weights_digest}, found {actual}"
         )
     model, tokenizer = load(snapshot)
     model_meta = {
-        "repo": config.repo,
-        "revision": config.revision,
+        "repo": repo,
+        "revision": revision,
         "weightsDigest": actual,
         "vocabSize": int(model.args.vocab_size),
     }
     return model, tokenizer, model_meta
+
+
+def load_pinned_model(config: MiniPromptConfig):
+    """Load the model declared by ``config`` strictly (fail-closed on any pin mismatch)."""
+    return load_pinned(config.repo, config.revision, config.weights_digest)
 
 
 def target_token_ids(tokenizer, text: str):
