@@ -478,6 +478,15 @@ class ReadableArtifactTests(unittest.TestCase):
         def point_equals_flag(doc):
             doc["points"][2]["outputEqualsTarget"] = False
 
+        def similarity_not_a_number(doc):
+            doc["evaluations"][0]["similarity"] = "high"
+
+        def phase_unhashable(doc):
+            doc["evaluations"][0]["phase"] = ["propose"]
+
+        def budget_unhashable(doc):
+            doc["evaluations"][0]["budget"] = [50]
+
         def explicit_budget(doc):
             doc["evaluations"][-1]["budget"] = 6
 
@@ -517,6 +526,9 @@ class ReadableArtifactTests(unittest.TestCase):
             "unknown evaluation field": unknown_eval_field,
             "unknown point field": unknown_point_field,
             "point equals flag": point_equals_flag,
+            "similarity not a number": similarity_not_a_number,
+            "phase unhashable": phase_unhashable,
+            "budget unhashable": budget_unhashable,
             "explicit budget": explicit_budget,
             "role on budget point": role_on_budget_point,
             "negative zero epsilon": negative_zero_epsilon,
@@ -716,7 +728,8 @@ class ReadableDryRunTests(unittest.TestCase):
                 return [7 + i for i in range(max(1, len(text.split())))]
 
         class FakeMetric:
-            def __init__(self):
+            def __init__(self, model_name):
+                self.model_name = model_name
                 self.calls = 0
 
             def sim(self, a, b):
@@ -805,6 +818,10 @@ class ReadableHelperTests(unittest.TestCase):
         self.assertEqual(first, readable.proposal_seed(config, "hello-world", "propose", 0))
         self.assertNotEqual(first, readable.proposal_seed(config, "hello-world", "propose", 1))
         self.assertNotEqual(first, readable.proposal_seed(config, "lazy-dog", "propose", 0))
+        # the declared proposerSeed is part of the derivation: a config that
+        # differs only in that setting must sample differently
+        other_seed_config = unit_config(proposerSeed=7)
+        self.assertNotEqual(first, readable.proposal_seed(other_seed_config, "hello-world", "propose", 0))
 
 
 class CompareCliTests(unittest.TestCase):

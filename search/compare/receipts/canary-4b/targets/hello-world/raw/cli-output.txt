@@ -1,6 +1,6 @@
 
-$ /Users/dujiayi/code/aleph/search/.venv/bin/python -m search.miniprompt.cli run --preset pin4b-hello-smoke --run-dir /private/tmp/aleph-compare-live/canary-4b/targets/hello-world/raw --max-seconds 150
-[driver] head=run rc=0 timedOut=False slice=181.6s
+$ /Users/dujiayi/code/aleph/search/.venv/bin/python -m search.miniprompt.cli run --preset pin4b-hello-smoke --run-dir /private/tmp/aleph-compare-live-v4/canary-4b/targets/hello-world/raw --max-seconds 150
+[driver] head=run rc=0 timedOut=False slice=106.9s
 loading pinned model mlx-community/Qwen3-4B-4bit@4dcb3d101c2a…
 target 'hello world' -> 2 token(s): [14990, 1879]
 attempt 0: n_free=5 steps_budget=60
@@ -9,4 +9,4 @@ attempt 1: n_free=4 steps_budget=60
 attempt 1: acquired=True steps=17 solutionLoss=1.79072
 attempt 2: n_free=3 steps_budget=60
 attempt 2: acquired=True steps=30 solutionLoss=1.582271
-receipt written: /private/tmp/aleph-compare-live/canary-4b/targets/hello-world/raw/receipt.json (success=True numFreeTokens=3 attempts=3 stopReason=max_attempts)
+receipt written: /private/tmp/aleph-compare-live-v4/canary-4b/targets/hello-world/raw/receipt.json (success=True numFreeTokens=3 attempts=3 stopReason=max_attempts)

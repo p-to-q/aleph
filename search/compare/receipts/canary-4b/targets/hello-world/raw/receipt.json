@@ -4,7 +4,7 @@
     "name": "search/miniprompt",
     "version": "0.1.0"
   },
-  "createdAt": "2026-10-16T01:55:37Z",
+  "createdAt": "2026-10-16T03:07:38Z",
   "config": {
     "schema": "aleph-miniprompt-config/0.1.0",
     "label": "pin4b-hello-smoke",
@@ -102,127 +102,127 @@
           "step": 0,
           "loss": 6.156434,
           "matchTokens": 0,
-          "seconds": 2.533
+          "seconds": 2.017
         },
         {
           "step": 1,
           "loss": 5.048828,
           "matchTokens": 1,
-          "seconds": 2.223
+          "seconds": 1.433
         },
         {
           "step": 2,
           "loss": 4.742496,
           "matchTokens": 1,
-          "seconds": 2.147
+          "seconds": 1.45
         },
         {
           "step": 3,
           "loss": 4.621621,
           "matchTokens": 1,
-          "seconds": 2.236
+          "seconds": 1.501
         },
         {
           "step": 4,
           "loss": 4.526712,
           "matchTokens": 1,
-          "seconds": 2.261
+          "seconds": 1.419
         },
         {
           "step": 5,
           "loss": 4.422522,
           "matchTokens": 1,
-          "seconds": 2.448
+          "seconds": 1.448
         },
         {
           "step": 6,
           "loss": 4.152379,
           "matchTokens": 1,
-          "seconds": 2.147
+          "seconds": 1.437
         },
         {
           "step": 7,
           "loss": 3.777919,
           "matchTokens": 1,
-          "seconds": 2.267
+          "seconds": 1.531
         },
         {
           "step": 8,
           "loss": 3.959307,
           "matchTokens": 1,
-          "seconds": 2.025
+          "seconds": 1.411
         },
         {
           "step": 9,
           "loss": 3.787662,
           "matchTokens": 1,
-          "seconds": 2.209
+          "seconds": 1.433
         },
         {
           "step": 10,
           "loss": 3.973089,
           "matchTokens": 1,
-          "seconds": 2.155
+          "seconds": 1.436
         },
         {
           "step": 11,
           "loss": 3.609878,
           "matchTokens": 1,
-          "seconds": 2.124
+          "seconds": 1.459
         },
         {
           "step": 12,
           "loss": 2.879675,
           "matchTokens": 1,
-          "seconds": 2.024
+          "seconds": 1.429
         },
         {
           "step": 13,
           "loss": 2.338748,
           "matchTokens": 1,
-          "seconds": 2.233
+          "seconds": 1.456
         },
         {
           "step": 14,
           "loss": 2.09593,
           "matchTokens": 1,
-          "seconds": 2.182
+          "seconds": 1.486
         },
         {
           "step": 15,
           "loss": 1.83495,
           "matchTokens": 1,
-          "seconds": 2.352
+          "seconds": 1.456
         },
         {
           "step": 16,
           "loss": 2.085193,
           "matchTokens": 1,
-          "seconds": 2.21
+          "seconds": 1.503
         },
         {
           "step": 17,
           "loss": 1.505892,
           "matchTokens": 1,
-          "seconds": 1.886
+          "seconds": 1.425
         },
         {
           "step": 18,
           "loss": 1.431876,
           "matchTokens": 1,
-          "seconds": 2.42
+          "seconds": 1.58
         },
         {
           "step": 19,
           "loss": 0.986411,
           "matchTokens": 1,
-          "seconds": 1.914
+          "seconds": 1.414
         },
         {
           "step": 20,
           "loss": 0.391858,
           "matchTokens": 2,
-          "seconds": 2.339
+          "seconds": 1.643
         }
       ],
       "greedy": {
@@ -264,103 +264,103 @@
           "step": 0,
           "loss": 7.908504,
           "matchTokens": 0,
-          "seconds": 1.964
+          "seconds": 1.32
         },
         {
           "step": 1,
           "loss": 6.252586,
           "matchTokens": 1,
-          "seconds": 1.906
+          "seconds": 1.288
         },
         {
           "step": 2,
           "loss": 4.7609,
           "matchTokens": 1,
-          "seconds": 1.705
+          "seconds": 1.306
         },
         {
           "step": 3,
           "loss": 4.483421,
           "matchTokens": 1,
-          "seconds": 2.1
+          "seconds": 1.254
         },
         {
           "step": 4,
           "loss": 4.309415,
           "matchTokens": 1,
-          "seconds": 1.832
+          "seconds": 1.358
         },
         {
           "step": 5,
           "loss": 4.181288,
           "matchTokens": 1,
-          "seconds": 1.987
+          "seconds": 1.274
         },
         {
           "step": 6,
           "loss": 3.698599,
           "matchTokens": 1,
-          "seconds": 1.692
+          "seconds": 1.255
         },
         {
           "step": 7,
           "loss": 2.735977,
           "matchTokens": 1,
-          "seconds": 2.105
+          "seconds": 1.239
         },
         {
           "step": 8,
           "loss": 2.063896,
           "matchTokens": 1,
-          "seconds": 1.667
+          "seconds": 1.263
         },
         {
           "step": 9,
           "loss": 2.113051,
           "matchTokens": 1,
-          "seconds": 2.074
+          "seconds": 1.298
         },
         {
           "step": 10,
           "loss": 2.190485,
           "matchTokens": 1,
-          "seconds": 1.703
+          "seconds": 1.245
         },
         {
           "step": 11,
           "loss": 1.986124,
           "matchTokens": 1,
-          "seconds": 1.986
+          "seconds": 1.252
         },
         {
           "step": 12,
           "loss": 2.346842,
           "matchTokens": 1,
-          "seconds": 1.941
+          "seconds": 1.253
         },
         {
           "step": 13,
           "loss": 2.225868,
           "matchTokens": 1,
-          "seconds": 2.287
+          "seconds": 1.307
         },
         {
           "step": 14,
           "loss": 1.866424,
           "matchTokens": 1,
-          "seconds": 2.352
+          "seconds": 1.314
         },
         {
           "step": 15,
           "loss": 2.215454,
           "matchTokens": 1,
-          "seconds": 1.845
+          "seconds": 1.247
         },
         {
           "step": 16,
           "loss": 1.79072,
           "matchTokens": 2,
-          "seconds": 1.898
+          "seconds": 1.247
         }
       ],
       "greedy": {
@@ -400,181 +400,181 @@
           "step": 0,
           "loss": 5.667455,
           "matchTokens": 1,
-          "seconds": 1.662
+          "seconds": 1.21
         },
         {
           "step": 1,
           "loss": 4.212177,
           "matchTokens": 1,
-          "seconds": 1.785
+          "seconds": 1.065
         },
         {
           "step": 2,
           "loss": 4.057795,
           "matchTokens": 1,
-          "seconds": 1.596
+          "seconds": 1.071
         },
         {
           "step": 3,
           "loss": 3.906547,
           "matchTokens": 1,
-          "seconds": 1.757
+          "seconds": 1.055
         },
         {
           "step": 4,
           "loss": 3.392134,
           "matchTokens": 1,
-          "seconds": 1.722
+          "seconds": 1.113
         },
         {
           "step": 5,
           "loss": 2.736611,
           "matchTokens": 1,
-          "seconds": 2.2
+          "seconds": 1.141
         },
         {
           "step": 6,
           "loss": 3.610484,
           "matchTokens": 1,
-          "seconds": 1.533
+          "seconds": 1.067
         },
         {
           "step": 7,
           "loss": 3.66679,
           "matchTokens": 0,
-          "seconds": 1.689
+          "seconds": 1.075
         },
         {
           "step": 8,
           "loss": 3.726182,
           "matchTokens": 1,
-          "seconds": 1.802
+          "seconds": 1.053
         },
         {
           "step": 9,
           "loss": 3.397161,
           "matchTokens": 1,
-          "seconds": 1.592
+          "seconds": 1.101
         },
         {
           "step": 10,
           "loss": 3.698092,
           "matchTokens": 1,
-          "seconds": 1.731
+          "seconds": 1.13
         },
         {
           "step": 11,
           "loss": 3.73948,
           "matchTokens": 1,
-          "seconds": 1.576
+          "seconds": 1.064
         },
         {
           "step": 12,
           "loss": 2.934497,
           "matchTokens": 1,
-          "seconds": 1.739
+          "seconds": 1.093
         },
         {
           "step": 13,
           "loss": 2.950779,
           "matchTokens": 1,
-          "seconds": 1.663
+          "seconds": 1.071
         },
         {
           "step": 14,
           "loss": 3.241652,
           "matchTokens": 1,
-          "seconds": 1.533
+          "seconds": 1.149
         },
         {
           "step": 15,
           "loss": 3.122336,
           "matchTokens": 1,
-          "seconds": 1.929
+          "seconds": 1.358
         },
         {
           "step": 16,
           "loss": 3.58084,
           "matchTokens": 1,
-          "seconds": 1.463
+          "seconds": 1.075
         },
         {
           "step": 17,
           "loss": 3.118932,
           "matchTokens": 1,
-          "seconds": 1.495
+          "seconds": 1.069
         },
         {
           "step": 18,
           "loss": 3.193358,
           "matchTokens": 1,
-          "seconds": 1.695
+          "seconds": 1.079
         },
         {
           "step": 19,
           "loss": 2.215638,
           "matchTokens": 1,
-          "seconds": 1.535
+          "seconds": 1.063
         },
         {
           "step": 20,
           "loss": 2.602757,
           "matchTokens": 1,
-          "seconds": 1.617
+          "seconds": 1.116
         },
         {
           "step": 21,
           "loss": 3.520275,
           "matchTokens": 1,
-          "seconds": 1.82
+          "seconds": 1.067
         },
         {
           "step": 22,
           "loss": 3.331979,
           "matchTokens": 1,
-          "seconds": 1.795
+          "seconds": 1.071
         },
         {
           "step": 23,
           "loss": 2.932456,
           "matchTokens": 1,
-          "seconds": 1.512
+          "seconds": 1.06
         },
         {
           "step": 24,
           "loss": 3.42035,
           "matchTokens": 1,
-          "seconds": 1.762
+          "seconds": 1.129
         },
         {
           "step": 25,
           "loss": 3.327869,
           "matchTokens": 1,
-          "seconds": 1.477
+          "seconds": 1.367
         },
         {
           "step": 26,
           "loss": 3.024917,
           "matchTokens": 1,
-          "seconds": 1.489
+          "seconds": 1.17
         },
         {
           "step": 27,
           "loss": 2.894893,
           "matchTokens": 1,
-          "seconds": 1.538
+          "seconds": 1.087
         },
         {
           "step": 28,
           "loss": 2.784719,
           "matchTokens": 0,
-          "seconds": 1.396
+          "seconds": 1.129
         },
         {
           "step": 29,
           "loss": 1.582271,
           "matchTokens": 2,
-          "seconds": 1.72
+          "seconds": 1.376
         }
       ],
       "greedy": {
@@ -598,5 +598,5 @@
     "attempts": 3,
     "smallestAcquiredNFree": 3
   },
-  "receiptDigest": "sha256:a7da6e0d37db3ff38ec39b7d75047f745e342cfe388a9200c033f0e1967d0d52"
+  "receiptDigest": "sha256:08fbe5fb35fdeb237c98ada67df05eb1f1f289d9c6d287a59190192c25f6796a"
 }

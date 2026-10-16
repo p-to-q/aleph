@@ -661,12 +661,15 @@ def verify_readable(doc) -> List[str]:
         phase = evaluation.get("phase")
         if phase not in ("propose", "compress", "refine", "stability", "explicit"):
             err(f"{where}.phase: unexpected phase {phase!r}")
+            valid_evaluations = False
         budget = evaluation.get("budget")
         if phase == "explicit":
             if budget is not None:
                 err(f"{where}.budget: expected null for the explicit arm")
+                valid_evaluations = False
         elif not _is_int(budget) or budget < 1:
             err(f"{where}.budget: expected an integer >= 1")
+            valid_evaluations = False
         prompt = evaluation.get("prompt")
         if not isinstance(prompt, str) or not prompt:
             err(f"{where}.prompt: expected a non-empty string")
@@ -688,6 +691,7 @@ def verify_readable(doc) -> List[str]:
         similarity = evaluation.get("similarity")
         if not _is_finite_number(similarity) or not 0.0 <= float(similarity) <= 1.0:
             err(f"{where}.similarity: expected a finite number in [0, 1]")
+            valid_evaluations = False
         ngram = evaluation.get("similarityNgram3")
         if not _is_finite_number(ngram) or not 0.0 <= float(ngram) <= 1.0:
             err(f"{where}.similarityNgram3: expected a finite number in [0, 1]")

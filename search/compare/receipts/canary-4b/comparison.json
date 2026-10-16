@@ -4,7 +4,7 @@
     "name": "search/compare",
     "version": "0.1.0"
   },
-  "createdAt": "2026-10-16T01:58:50Z",
+  "createdAt": "2026-10-16T03:08:47Z",
   "config": {
     "schema": "aleph-comparison-config/0.1.0",
     "label": "canary-4b",
@@ -52,9 +52,9 @@
         "view": "raw",
         "receiptRef": "targets/hello-world/raw/receipt.json",
         "cliOutputRef": "targets/hello-world/raw/cli-output.txt",
-        "receiptDigest": "sha256:a7da6e0d37db3ff38ec39b7d75047f745e342cfe388a9200c033f0e1967d0d52",
+        "receiptDigest": "sha256:08fbe5fb35fdeb237c98ada67df05eb1f1f289d9c6d287a59190192c25f6796a",
         "configDigest": "sha256:40de569ad0e4798fa20289ffdb8cd219f22d2cd3a0cbc6550213495a62ac351f",
-        "wallClockSeconds": 129.2,
+        "wallClockSeconds": 86.8,
         "summary": {
           "success": true,
           "numFreeTokens": 3,
@@ -67,14 +67,14 @@
       "readable": {
         "view": "readable",
         "artifactRef": "targets/hello-world/readable.json",
-        "artifactDigest": "sha256:4f3738b43af2932c72306ebe339a4cdcc7f536f15f6413a91227a1faa431ffed",
+        "artifactDigest": "sha256:1000cca7c46574c88e4c253cebd3212b3e6f1e199877eb3c53697e9f19e29441",
         "configDigest": "sha256:fd4b450f7074842107722f3cc55308da3a50f100af948f203c9f31a811d9f72f",
-        "wallClockSeconds": 86.2,
+        "wallClockSeconds": 42.9,
         "summary": {
           "stoppedBy": "complete",
           "evaluations": 32,
           "points": 5,
-          "bestEpsilon": 0.4749,
+          "bestEpsilon": 0.5055,
           "foundLengthUnderTau": null
         }
       },
@@ -100,10 +100,10 @@
         },
         "readableFound": null,
         "readableBest": {
-          "pointIndex": 0,
-          "length": 27,
-          "epsilon": 0.4749,
-          "similarity": 0.5251
+          "pointIndex": 3,
+          "length": 6,
+          "epsilon": 0.5055,
+          "similarity": 0.4945
         },
         "readableExactMinLength": null,
         "explicitBaseline": {
@@ -119,5 +119,5 @@
     "rawAcquired": 1,
     "readableFoundUnderTau": 0
   },
-  "receiptDigest": "sha256:9a0192a368b3a6892a08558a0435d5454564b90bde0466745610fa4747bccc05"
+  "receiptDigest": "sha256:c78d7c4a7d0a6b9db95bead74ac5f0b81b9ff8d4cd4d8175407f7234dc855f6e"
 }

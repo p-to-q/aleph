@@ -16,9 +16,9 @@ a leakage verdict.
 
 | Instance | Model | Target | Raw outcome | Readable best |
 |---|---|---|---|---|
-| `canary-1p7b` | Qwen3-1.7B-4bit | `hello world` | acquired: `nFree=3` (n=5/4/3 in 34/50/21 steps; n=2 failed in 200), `wholePromptTokens=5` | min-ε point `|p|=8`, ε=0.4318; no point ≤ τ=0.05 |
-| `canary-1p7b` | Qwen3-1.7B-4bit | `jumps over the lazy dog` | not acquired under the declared control budgets (n=5/60, n=10/72; `max_attempts`) | min-ε point `|p|=5`, ε=0.1745 |
-| `canary-4b` | Qwen3-4B-4bit | `hello world` | acquired: `nFree=3` (n=5/4/3 in 21/17/30 steps), `wholePromptTokens=5` | min-ε point `|p|=27`, ε=0.4749; no point ≤ τ=0.05 |
+| `canary-1p7b` | Qwen3-1.7B-4bit | `hello world` | acquired: `nFree=3` (n=5/4/3 in 34/50/21 steps; n=2 failed in 200), `wholePromptTokens=5` | min-ε point `\|p\|=12`, ε=0.5793; no point ≤ τ=0.05 |
+| `canary-1p7b` | Qwen3-1.7B-4bit | `jumps over the lazy dog` | not acquired under the declared control budgets (n=5/60, n=10/72; `max_attempts`) | min-ε point `\|p\|=5`, ε=0.1940 |
+| `canary-4b` | Qwen3-4B-4bit | `hello world` | acquired: `nFree=3` (n=5/4/3 in 21/17/30 steps), `wholePromptTokens=5` | min-ε point `\|p\|=6`, ε=0.5055; no point ≤ τ=0.05 |
 
 Recorded totals: `canary-1p7b` `rawAcquired=1/2`, `readableFoundUnderTau=0/2`;
 `canary-4b` `rawAcquired=1/1`, `readableFoundUnderTau=0/1`.

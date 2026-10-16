@@ -289,8 +289,8 @@ Matched-budget comparison of the raw-coordinate scan and Aleph's readable search
 npm run lint: ok (10 checks)
 npm test: ok — search/tests 111 (66 + 24 MiniPrompt + 21 comparison), engine 444 (skipped=3), miniprompt MLX suite 8 skipped (no MLX), canonical parity 126/2448
 MLX suite (search/.venv): 8 tests ok (pinned identity, pin-mismatch fail-closed, greedy re-check, pause/resume)
-canary-1p7b: comparison.json + both sides archived — hello-world raw acquired nFree=3 (wholePromptTokens=5), readable best |p|=8 ε=0.4318 (no point ≤ τ=0.05); lazy-dog raw not acquired under the declared control budgets, readable best |p|=5 ε=0.1745
-canary-4b: hello-world raw acquired nFree=3, readable best |p|=27 ε=0.4749 (no point ≤ τ=0.05)
+canary-1p7b: comparison.json + both sides archived — hello-world raw acquired nFree=3 (wholePromptTokens=5), readable best |p|=12 ε=0.5793 (no point ≤ τ=0.05); lazy-dog raw not acquired under the declared control budgets, readable best |p|=5 ε=0.1940
+canary-4b: hello-world raw acquired nFree=3, readable best |p|=6 ε=0.5055 (no point ≤ τ=0.05)
 record verification (no MLX): both instances ok via `python3 -m search.compare.cli verify`
 ```
 

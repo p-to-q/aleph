@@ -113,8 +113,23 @@ def environment_metadata() -> dict:
 
 
 def proposal_seed(config, target_key: str, *parts: object) -> int:
-    """A derived per-call sampling seed from the declared proposer-seed tree."""
-    rng = random.Random("/".join([DERIVATION, config.label, target_key, *[str(part) for part in parts]]))
+    """A derived per-call sampling seed from the declared proposer-seed tree.
+
+    The declared ``proposerSeed`` is part of the derivation string, so configs
+    that differ only in that setting sample differently (and every sampled
+    call remains replayable from the declaration).
+    """
+    rng = random.Random(
+        "/".join(
+            [
+                DERIVATION,
+                config.label,
+                target_key,
+                str(config.readable.proposer_seed),
+                *[str(part) for part in parts],
+            ]
+        )
+    )
     return rng.randrange(2 ** 31)
 
 
@@ -260,12 +275,12 @@ class Theta:
 
 
 class Metric:
-    """The declared embedding_cosine metric (sentence-transformers MiniLM)."""
+    """The declared embedding_cosine metric, loaded from the declared model name."""
 
-    def __init__(self):
+    def __init__(self, model_name: str):
         from sentence_transformers import SentenceTransformer
 
-        self.encoder = SentenceTransformer("all-MiniLM-L6-v2")
+        self.encoder = SentenceTransformer(model_name)
 
     def sim(self, a: str, b: str) -> float:
         import numpy as np
@@ -687,7 +702,7 @@ def run_target(config, spec, run_dir, *, max_seconds=None, log=print) -> int:
 
     model, tokenizer, model_meta = gcg.load_pinned(config.repo, config.revision, config.weights_digest)
     theta = Theta(model, tokenizer, model_meta)
-    metric = Metric()
+    metric = Metric(config.readable.metric_model)
     environment = environment_metadata()
 
     if state is None:

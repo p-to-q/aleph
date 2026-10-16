@@ -93,28 +93,29 @@ Source snapshots and sha256 (all fetched 2026-10-16; full manifest at
 Both instances ran on the pinned snapshots and are archived under
 `search/compare/receipts/`; both records and all side artifacts verify with the no-MLX command
 (`python3 -m search.compare.cli verify …`). Recorded work seconds stayed far below the shared
-envelope on every side (raw 129.2–275.0 s; readable 22.4–86.2 s of 1800 s).
+envelope on every side (raw 86.8–161.1 s; readable 27.9–42.9 s of 1800 s).
 
 | Instance / target | Raw side | Readable side |
 |---|---|---|
-| `canary-1p7b` `hello world` | **acquired**: `nFree=3` (n=5/4/3 in 34/50/21 steps; n=2 failed in 200 steps), `wholePromptTokens=5`, greedy continuation matched | best ε=0.4318 at `|p|=8` (no point ≤ τ=0.05); the shortest kept point is the copy "hello world" itself (`|p|=2`, ratios recorded) |
-| `canary-1p7b` `jumps over the lazy dog` | **not acquired** under the declared control budgets (n=5/60, n=10/72; `max_attempts`) | best ε=0.1745 at `|p|=5` ("Jump over the lazy dog", a paraphrase; ratios recorded); no point ≤ τ=0.05 |
-| `canary-4b` `hello world` | **acquired**: `nFree=3` (n=5/4/3 in 21/17/30 steps), `wholePromptTokens=5` | best ε=0.4749 at `|p|=27`; no point ≤ τ=0.05 |
+| `canary-1p7b` `hello world` | **acquired**: `nFree=3` (n=5/4/3 in 34/50/21 steps; n=2 failed in 200 steps), `wholePromptTokens=5`, greedy continuation matched | best ε=0.5793 at `\|p\|=12` (no point ≤ τ=0.05); the shortest kept point is the copy-including "hello world by ernest hemingway" (`\|p\|=8`, ratios recorded) |
+| `canary-1p7b` `jumps over the lazy dog` | **not acquired** under the declared control budgets (n=5/60, n=10/72; `max_attempts`) | best ε=0.1940 at `\|p\|=5` ("dog jumping over lazy dog", a paraphrase; ratios recorded); no point ≤ τ=0.05 |
+| `canary-4b` `hello world` | **acquired**: `nFree=3` (n=5/4/3 in 21/17/30 steps), `wholePromptTokens=5` | best ε=0.5055 at `\|p\|=6` ("hello world - classic programming example"); no point ≤ τ=0.05 |
 
 Observed (recorded, not interpreted beyond the record): the 1.7B proposer returned a single
 parsable candidate on five of the eight declared budget calls (propose counts 1; the rest 3) — the
-evaluation ledger records exactly what happened; on `hello world` the 4B readable run ended worse
-(ε 0.4749) than the 1.7B run (ε 0.4318) under the same declared procedure; the raw side's
-re-produced canary trajectories match the archived 2026-10-15 receipt's step pattern and
-acquisition points exactly, while recorded work seconds differ modestly (188.0 s vs 185.6 s; the
-control 275.0 s vs 255.5 s) — machine-timing noise in the recorded per-step seconds, not in the
-deterministic content (steps, losses, token IDs).
+evaluation ledger records exactly what happened — while the 4B proposer returned all three on its
+four calls; on `hello world` the 4B readable run ended slightly better (ε 0.5055) than the 1.7B
+run (ε 0.5793) under the same declared procedure; the raw side's canary trajectories re-produce
+the archived 2026-10-15 receipt's step pattern and acquisition points exactly across runs, while
+recorded work seconds vary with machine load (161.1–196.1 s for the same 1.7B canary scan across
+the runs of 2026-10-16 vs 185.6 s in the archived receipt) — timing noise in the recorded per-step
+seconds, not in the deterministic content (steps, losses, token IDs).
 
 ## Interpretation and non-claims
 
 - At canary scale the two views are complementary in the expected extreme: the raw coordinate is
   **exact but opaque** (3 free-token IDs — a declared rendering, no readable semantics, no leakage
-  field), while the readable view is **legible but approximate** (ε 0.17–0.47 with prompts a human
+  field), while the readable view is **legible but approximate** (ε 0.19–0.58 with prompts a human
   can read), and the explicit baseline remains the τ=0 anchor of the front.
 - **No global or ranking claim.** This is a canary-scale slice (2 instances, 3 target pairs, one
   declared procedure, one pinned stack, one machine). It does not rank the methods, does not

@@ -1,6 +1,6 @@
 
-$ /Users/dujiayi/code/aleph/search/.venv/bin/python -m search.miniprompt.cli run --preset canary-hello --run-dir /private/tmp/aleph-compare-live/canary-1p7b/targets/hello-world/raw --max-seconds 150
-[driver] head=run rc=3 timedOut=False slice=176.6s
+$ /Users/dujiayi/code/aleph/search/.venv/bin/python -m search.miniprompt.cli run --preset canary-hello --run-dir /private/tmp/aleph-compare-live-v4/canary-1p7b/targets/hello-world/raw --max-seconds 150
+[driver] head=run rc=3 timedOut=False slice=174.2s
 loading pinned model mlx-community/Qwen3-1.7B-4bit@3b1b1768f8f8…
 target 'hello world' -> 2 token(s): [14990, 1879]
 attempt 0: n_free=5 steps_budget=200
@@ -10,10 +10,10 @@ attempt 1: acquired=True steps=50 solutionLoss=0.957071
 attempt 2: n_free=3 steps_budget=200
 attempt 2: acquired=True steps=21 solutionLoss=1.613968
 attempt 3: n_free=2 steps_budget=200
-time budget reached; attempt 3 paused at step 114 — re-run the same command to resume
+time budget reached; attempt 3 paused at step 169 — re-run the same command to resume
 
-$ /Users/dujiayi/code/aleph/search/.venv/bin/python -m search.miniprompt.cli run --preset canary-hello --run-dir /private/tmp/aleph-compare-live/canary-1p7b/targets/hello-world/raw --max-seconds 150
-[driver] head=run rc=0 timedOut=False slice=60.3s
+$ /Users/dujiayi/code/aleph/search/.venv/bin/python -m search.miniprompt.cli run --preset canary-hello --run-dir /private/tmp/aleph-compare-live-v4/canary-1p7b/targets/hello-world/raw --max-seconds 150
+[driver] head=run rc=0 timedOut=False slice=30.7s
 loading pinned model mlx-community/Qwen3-1.7B-4bit@3b1b1768f8f8…
 attempt 3: acquired=False steps=200 solutionLoss=1.719089
-receipt written: /private/tmp/aleph-compare-live/canary-1p7b/targets/hello-world/raw/receipt.json (success=True numFreeTokens=3 attempts=4 stopReason=collision)
+receipt written: /private/tmp/aleph-compare-live-v4/canary-1p7b/targets/hello-world/raw/receipt.json (success=True numFreeTokens=3 attempts=4 stopReason=collision)

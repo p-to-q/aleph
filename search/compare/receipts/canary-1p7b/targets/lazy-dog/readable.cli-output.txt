@@ -1,26 +1,18 @@
 
-$ /Users/dujiayi/code/aleph/search/.venv/bin/python -m search.compare.readable --instance canary-1p7b --target-key lazy-dog --run-dir /private/tmp/aleph-compare-live/canary-1p7b/targets/lazy-dog --max-seconds 74
-[driver] head=--instance rc=3 timedOut=False slice=122.9s
+$ /Users/dujiayi/code/aleph/search/.venv/bin/python -m search.compare.readable --instance canary-1p7b --target-key lazy-dog --run-dir /private/tmp/aleph-compare-live-v4/canary-1p7b/targets/lazy-dog --max-seconds 150
+[driver] head=--instance rc=0 timedOut=False slice=47.5s
 loading pinned model mlx-community/Qwen3-1.7B-4bit@3b1b1768f8f8…
 target 'jumps over the lazy dog' -> 6 token(s): [73, 11793, 916, 279, 15678, 5562]
-[readable] budget 50: 3 proposal(s) parsed
-[readable] point K~50: |p|=2 sim=0.5647 eps=0.4353 prompt='dog jump'
-[readable] budget 25: 1 proposal(s) parsed
-[readable] point K~25: |p|=5 sim=0.5810 eps=0.4190 prompt='dog jump form author unknown'
-[readable] budget 12: 3 proposal(s) parsed
-[readable] point K~12: |p|=5 sim=0.8255 eps=0.1745 prompt='Jump over the lazy dog'
+[readable] budget 50: 1 proposal(s) parsed
+[readable] point K~50: |p|=5 sim=0.8060 eps=0.1940 prompt='dog jumping over lazy dog'
+[readable] budget 25: 3 proposal(s) parsed
+[readable] point K~25: |p|=5 sim=0.8060 eps=0.1940 prompt='dog jumping over lazy dog'
+[readable] budget 12: 1 proposal(s) parsed
+[readable] point K~12: |p|=5 sim=0.8060 eps=0.1940 prompt='dog jumping over lazy dog'
 [readable] budget 6: 3 proposal(s) parsed
-readable time budget reached; re-run the same command to resume
-
-Loading weights:   0%|          | 0/103 [00:00<?, ?it/s]
-Loading weights: 100%|██████████| 103/103 [00:00<00:00, 13725.60it/s]
-
-$ /Users/dujiayi/code/aleph/search/.venv/bin/python -m search.compare.readable --instance canary-1p7b --target-key lazy-dog --run-dir /private/tmp/aleph-compare-live/canary-1p7b/targets/lazy-dog --max-seconds 150
-[driver] head=--instance rc=0 timedOut=False slice=61.2s
-loading pinned model mlx-community/Qwen3-1.7B-4bit@3b1b1768f8f8…
-[readable] point K~6: |p|=5 sim=0.8255 eps=0.1745 prompt='Jump over the lazy dog'
+[readable] point K~6: |p|=5 sim=0.8060 eps=0.1940 prompt='dog jumping over lazy dog'
 [readable] explicit baseline: |p|=24 sim=1.0000
-readable.json written: /private/tmp/aleph-compare-live/canary-1p7b/targets/lazy-dog/readable.json (30 evaluations)
+readable.json written: /private/tmp/aleph-compare-live-v4/canary-1p7b/targets/lazy-dog/readable.json (28 evaluations)
 
 Loading weights:   0%|          | 0/103 [00:00<?, ?it/s]
-Loading weights: 100%|██████████| 103/103 [00:00<00:00, 5262.61it/s]
+Loading weights: 100%|██████████| 103/103 [00:00<00:00, 2919.09it/s]
