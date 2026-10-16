@@ -377,6 +377,28 @@ class ReceiptTests(unittest.TestCase):
         self.assertIsNone(receipt["result"]["smallestAcquiredNFree"])
         self.assertTrue(all(attempt["greedy"] is None for attempt in receipt["attempts"]))
 
+    def test_lossy_rendering_roundtrip_is_recorded_not_required(self):
+        # canary-4b-set2 (2026-10-17 UTC): an acquired solution can have a
+        # rendering that does not re-encode to the same free-token IDs. The
+        # criterion is evaluated on the raw IDs (no retokenization), so the
+        # flag is a recorded fact, not a condition for the claim.
+        receipt = build_fixture_receipt(fixtures.preset("canary-hello"), [True] * 5)
+        receipt["attempts"][0]["greedy"]["roundtripEqual"] = False
+        refix(receipt)
+        self.assertEqual(receipts.verify_receipt(receipt), [])
+
+    def test_greedy_roundtrip_flag_must_be_a_boolean(self):
+        base_receipt = build_fixture_receipt(fixtures.preset("canary-hello"), [True] * 5)
+        for value in (None, 0, 1, "true", "false"):
+            bad = copy.deepcopy(base_receipt)
+            bad["attempts"][0]["greedy"]["roundtripEqual"] = value
+            refix(bad)
+            errors = receipts.verify_receipt(bad)
+            self.assertTrue(
+                any("claimed acquisitions require" in error for error in errors),
+                (value, errors),
+            )
+
     def test_tamper_probes_fail_closed(self):
         base_receipt = build_fixture_receipt(fixtures.preset("canary-hello"), [True] * 5)
         failure_receipt = build_fixture_receipt(variant(maxFreeTokens=30, maxAttempts=2), [False, False])

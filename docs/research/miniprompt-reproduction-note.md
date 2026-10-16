@@ -170,11 +170,11 @@ Acceptance gates from the list above, discharged:
    ([miniprompt-matched-budget-comparison-note.md](miniprompt-matched-budget-comparison-note.md),
    `search/compare/`, archived instances `canary-1p7b`/`canary-4b`).
 
-## Post-canary criterion fixes (2026-10-16 UTC, found by the first tranche-2 runs)
+## Post-canary fixes (2026-10-16 UTC, found by the first tranche-2 runs)
 
-The first tranche-2 runs hit both of the raw arm's fail-closed guards; each stop traced to an
-evaluation-shape effect of the pinned 4-bit stack (not to loop logic), and each was fixed before
-any tranche-2 receipt was archived.
+The first tranche-2 runs hit three fail-closed stops; none traced to loop logic — two were
+evaluation-shape effects of the pinned 4-bit stack and one was an over-strong receipt-evidence
+rule — and each was fixed before any tranche-2 receipt was archived.
 
 1. **Batched vs single-sequence.** Scanning `canary-42` (1.7B, target `42`) stopped at step 26 of
    the first attempt: the batched candidate forward (batch 100) reported an all-match
@@ -190,6 +190,13 @@ any tranche-2 receipt was archived.
    teacher-forced forward (`[1, 16]`) puts the target token at 18.1250 against 18.0000 for token
    `32` (a 0.125-logit win), while the greedy prefix forward (`[1, 9]`) ties both at 17.8750 —
    `argmax` resolves the tie to `32`.
+3. **Rendering roundtrip as evidence.** Scanning `canary-4b-set2` (4B, target `jumps over the
+   lazy dog`) acquired at `nFree = 10` — the greedy continuation reproduced the target IDs
+   exactly (`[73, 11793, 916, 279, 15678, 5562]`) — but the receipt could not be archived: the
+   verifier required the free-token rendering to round-trip (`encode(decode(freeIds)) ==
+   freeIds`), and this solution's rendering re-encodes differently. The criterion is evaluated on
+   the raw IDs (no retokenization) and the raw view declares decoded text a rendering, never the
+   ground truth, so rendering invertibility is a fact to record, not a condition for the claim.
 
 Fix (recorded as a declared difference): the acquisition criterion is now the conjunction of
 (a) the upstream `check_output_with_hard_tokens` teacher-forced all-match, evaluated by
@@ -200,6 +207,14 @@ step (the batched candidate forward supplies candidate losses only); a step that
 no longer stops the scan — it falls through as a regular best-by-loss step — and the post-loop
 guard now only fires for restored acquisition checkpoints. Selection, step budgets, scan policy,
 and the declared configurations are unchanged.
+
+A third fix, to the receipt evidence rule (also recorded as a declared difference): the verifier
+now requires the greedy check's rendering-roundtrip flag to be a recorded boolean rather than to
+be true (item 3), so an acquired solution whose rendering does not re-encode to the same free IDs
+still archives with the lossy rendering on the record; missing or non-boolean flags still fail
+closed. The 4B run's recorded scan state was re-finalized under the fixed rule — the acquisition
+was already produced under the final conjunction criterion, so nothing was re-selected and no
+extra scan was run.
 
 The failed runs — and the one live receipt written under the intermediate teacher-forced fix —
 were discarded unarchived and re-run from scratch under the final code path. Regression tests

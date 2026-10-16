@@ -96,10 +96,12 @@ leakage field. No new external sources were needed for this declaration-only ext
 Post-declaration note (2026-10-16 UTC): the first tranche-2 runs exposed raw-arm
 criterion-evaluation bugs (4-bit quantized logits are evaluation-shape dependent: a batched
 all-match that the single-sequence forward denies, and a teacher-forced all-match that the true
-greedy continuation does not reproduce). Both were fixed before any receipt was archived — see
-the post-canary criterion fixes section of
+greedy continuation does not reproduce) and one over-strong receipt-evidence rule (a rendering
+roundtrip requirement on a claim evaluated on raw IDs). All were fixed before any tranche-2
+receipt was archived — see the post-canary fixes section of
 [miniprompt-reproduction-note.md](miniprompt-reproduction-note.md) — the declarations above are
-unchanged, and all tranche-2 receipts are generated under the fixed conjunction criterion.
+unchanged, and all tranche-2 receipts are generated under the fixed conjunction criterion and
+evidence rule.
 
 ## Sources inspected
 
