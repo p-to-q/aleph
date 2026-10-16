@@ -41,11 +41,17 @@ def apply_mutations(
     base_ids: Sequence[int],
     candidate_rows: Sequence[Sequence[int]],
     mutations: Sequence[Tuple[int, int]],
+    *,
+    offset: int = 0,
 ) -> List[List[int]]:
-    """Apply ``(position, pick)`` mutations to a base token row."""
+    """Apply ``(position, pick)`` mutations to a base token row.
+
+    ``position`` indexes the free-token window; ``offset`` is the number of
+    fixed scaffold tokens before the window (0 for the empty scaffold).
+    """
     rows = []
     for position, pick in mutations:
         row = list(base_ids)
-        row[position] = candidate_rows[position][pick]
+        row[offset + position] = candidate_rows[position][pick]
         rows.append(row)
     return rows

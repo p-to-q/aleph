@@ -50,6 +50,36 @@ def _validate_state_envelope(state, config: MiniPromptConfig) -> None:
             raise RunStateError(f"run state is missing {key!r}")
 
 
+def _validated_scaffold(state, config: MiniPromptConfig) -> dict:
+    """Return the recorded derived scaffold; fail closed when missing/malformed.
+
+    Runs created before the scaffold extension carry no block (their declared
+    config is the empty scaffold, which derives empty lists); a scaffolded
+    declared config without a recorded block is refused.
+    """
+    block = state.get("scaffold")
+    if block is None:
+        if not config.scaffold.is_empty:
+            raise RunStateError(
+                "run state lacks the derived scaffold block required by a scaffolded declared config"
+            )
+        return {"prefixIds": [], "midIds": []}
+    if (
+        not isinstance(block, dict)
+        or set(block) != {"prefixIds", "midIds"}
+        or any(
+            not isinstance(block.get(key), list)
+            or any(
+                isinstance(token, bool) or not isinstance(token, int) or token < 0
+                for token in block[key]
+            )
+            for key in ("prefixIds", "midIds")
+        )
+    ):
+        raise RunStateError("run state scaffold block is malformed")
+    return {"prefixIds": list(block["prefixIds"]), "midIds": list(block["midIds"])}
+
+
 def _validated_policy(state, config: MiniPromptConfig, target_token_count: int) -> ScanPolicy:
     """Rebuild the policy from recorded outcomes and validate the snapshot."""
     try:
@@ -100,6 +130,7 @@ def _finalize(config: MiniPromptConfig, run_dir: Path, state: dict, log) -> None
         environment=state["environment"],
         target=state["target"],
         attempts=state["attempts"],
+        scaffold=state.get("scaffold"),
         result=result,
         created_at=utc_now(),
     )
@@ -152,6 +183,7 @@ def run_scan(config: MiniPromptConfig, run_dir, *, max_seconds=None, log=print) 
 
     if state is None:
         target_ids, target_rendering = gcg.target_token_ids(tokenizer, config.target)
+        scaffold_ids = gcg.scaffold_token_ids(tokenizer, config.scaffold)
         created_at = utc_now()
         policy = ScanPolicy(config, len(target_ids))
         state = {
@@ -168,6 +200,7 @@ def run_scan(config: MiniPromptConfig, run_dir, *, max_seconds=None, log=print) 
                 "tokenCount": len(target_ids),
                 "rendering": target_rendering,
             },
+            "scaffold": scaffold_ids,
             "scan": policy.to_snapshot(),
             "attempts": [],
             "current": None,
@@ -175,11 +208,16 @@ def run_scan(config: MiniPromptConfig, run_dir, *, max_seconds=None, log=print) 
         }
         write_json_atomic(state_path, state)
         log(f"target {config.target!r} -> {len(target_ids)} token(s): {target_ids}")
+        log(
+            f"scaffold {config.scaffold.to_canonical()!r}: prefix "
+            f"{len(scaffold_ids['prefixIds'])} + mid {len(scaffold_ids['midIds'])} token(s)"
+        )
     else:
         target_ids = list(state["target"]["tokenIds"])
         if state["model"] != model_meta:
             raise RunStateError("run state model identity differs from the freshly loaded pinned model")
         policy = _validated_policy(state, config, len(target_ids))
+        scaffold_ids = _validated_scaffold(state, config)
 
     deadline = None if max_seconds is None else time.monotonic() + float(max_seconds)
 
@@ -264,6 +302,8 @@ def run_scan(config: MiniPromptConfig, run_dir, *, max_seconds=None, log=print) 
             resume=resume,
             on_step=_on_step,
             should_pause=None if deadline is None else lambda: time.monotonic() > deadline,
+            prefix_ids=scaffold_ids["prefixIds"],
+            mid_ids=scaffold_ids["midIds"],
         )
 
         if outcome["paused"]:

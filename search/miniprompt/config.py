@@ -1,11 +1,13 @@
 """Frozen declared configuration for MiniPrompt reproduction runs.
 
 One ``MiniPromptConfig`` declares a single scan: the target text, the pinned
-model identity (repo + revision + weights digest), the empty-scaffold layout,
-and the frozen scan/GCG parameters. Parsing is strict and fail-closed —
-unknown fields, missing fields, wrong types, non-finite numbers, and
-non-declared scaffold/decoding/success values are all rejected — so receipts
-and run state carry the exact declaration they belong to, together with its
+model identity (repo + revision + weights digest), the declared scaffold
+layout (``"empty"`` — the upstream default — or an explicit
+``{chatTemplate, systemPrompt, inputStr}`` mapping), and the frozen scan/GCG
+parameters. Parsing is strict and fail-closed — unknown fields, missing
+fields, wrong types, non-finite numbers, and non-declared
+scaffold/decoding/success values are all rejected — so receipts and run state
+carry the exact declaration they belong to, together with its
 ``aleph-canonical/0.2.0`` digest.
 
 Parameter semantics follow the pinned upstream sources
@@ -27,6 +29,7 @@ from search.engine.canonical import digest, is_digest
 CONFIG_SCHEMA = "aleph-miniprompt-config/0.1.0"
 
 SCAFFOLD_EMPTY = "empty"
+SCAFFOLD_FIELDS = ("chatTemplate", "systemPrompt", "inputStr")
 DECODING_GREEDY = "greedy"
 SUCCESS_TEACHER_FORCED_ALL_MATCH = "teacher_forced_all_match"
 
@@ -97,13 +100,46 @@ def _multiplier(value: dict, key: str, where: str) -> float:
 
 
 @dataclass(frozen=True)
+class ScaffoldDeclaration:
+    """The declared scaffold: ``"empty"`` or explicit template/system/input text.
+
+    The upstream layout (pinned ``prompt_optimization/utils.py`` ``prep_text``)
+    is ``[chatTemplate[0], systemPrompt, inputStr, free tokens,
+    chatTemplate[1], target]``, with every text part encoded using
+    ``add_special_tokens=False``. The empty scaffold is the upstream default
+    used by the published runs; a non-empty declaration must differ from it.
+    """
+
+    chat_template: tuple
+    system_prompt: str = ""
+    input_str: str = ""
+
+    @property
+    def is_empty(self) -> bool:
+        return (
+            tuple(self.chat_template) == ("", "")
+            and self.system_prompt == ""
+            and self.input_str == ""
+        )
+
+    def to_canonical(self):
+        if self.is_empty:
+            return SCAFFOLD_EMPTY
+        return {
+            "chatTemplate": [self.chat_template[0], self.chat_template[1]],
+            "systemPrompt": self.system_prompt,
+            "inputStr": self.input_str,
+        }
+
+
+@dataclass(frozen=True)
 class MiniPromptConfig:
     label: str
     target: str
     repo: str
     revision: str
     weights_digest: str
-    scaffold: str
+    scaffold: ScaffoldDeclaration
     decoding: str
     success_criterion: str
     n_free_start: int
@@ -128,7 +164,7 @@ class MiniPromptConfig:
                 "revision": self.revision,
                 "weightsDigest": self.weights_digest,
             },
-            "scaffold": self.scaffold,
+            "scaffold": self.scaffold.to_canonical(),
             "decoding": self.decoding,
             "successCriterion": self.success_criterion,
             "nFreeStart": self.n_free_start,
@@ -150,6 +186,41 @@ class MiniPromptConfig:
         return digest(self.to_canonical())
 
 
+def _scaffold(value, where: str) -> ScaffoldDeclaration:
+    """Parse the declared scaffold value (strict and fail-closed)."""
+    if value == SCAFFOLD_EMPTY:
+        return ScaffoldDeclaration(chat_template=("", ""), system_prompt="", input_str="")
+    if not isinstance(value, dict):
+        raise ConfigError(
+            f"{where}: expected {SCAFFOLD_EMPTY!r} or a declared scaffold mapping "
+            "{chatTemplate, systemPrompt, inputStr}"
+        )
+    _reject_extras_and_missing(value, SCAFFOLD_FIELDS, where)
+    template = value["chatTemplate"]
+    if (
+        not isinstance(template, list)
+        or len(template) != 2
+        or any(not isinstance(part, str) for part in template)
+    ):
+        raise ConfigError(f"{where}.chatTemplate: expected two strings [before, after]")
+    system_prompt = value["systemPrompt"]
+    if not isinstance(system_prompt, str):
+        raise ConfigError(f"{where}.systemPrompt: expected a string")
+    input_str = value["inputStr"]
+    if not isinstance(input_str, str):
+        raise ConfigError(f"{where}.inputStr: expected a string")
+    declaration = ScaffoldDeclaration(
+        chat_template=(template[0], template[1]),
+        system_prompt=system_prompt,
+        input_str=input_str,
+    )
+    if declaration.is_empty:
+        raise ConfigError(
+            f"{where}: an all-empty scaffold mapping is not declared; use {SCAFFOLD_EMPTY!r}"
+        )
+    return declaration
+
+
 def config_from_canonical(value) -> MiniPromptConfig:
     """Strictly parse a declared configuration mapping (fail-closed)."""
     _reject_extras_and_missing(value, _REQUIRED_FIELDS, "config")
@@ -165,12 +236,7 @@ def config_from_canonical(value) -> MiniPromptConfig:
     if not is_digest(weights_digest):
         raise ConfigError("config.model.weightsDigest: expected a sha256:<64 hex> digest")
 
-    scaffold = _string(value, "scaffold", "config")
-    if scaffold != SCAFFOLD_EMPTY:
-        raise ConfigError(
-            "config.scaffold: only the upstream empty scaffold is declared; "
-            "scaffolded layouts are a future declared extension"
-        )
+    scaffold = _scaffold(value["scaffold"], "config.scaffold")
     decoding = _string(value, "decoding", "config")
     if decoding != DECODING_GREEDY:
         raise ConfigError("config.decoding: only 'greedy' is declared")
