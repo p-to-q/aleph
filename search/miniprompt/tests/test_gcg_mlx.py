@@ -7,7 +7,8 @@ Run with the pinned environment:
 These tests are skipped when MLX is not importable, so the default test path
 stays MLX-free. They load the pinned 1.7B snapshot, which must be present in
 the local Hugging Face cache; ``load_pinned_model`` re-checks the weights
-digest and fails closed on any pin mismatch.
+digest and fails closed on any pin mismatch. The acquisition-criterion
+regression tests below use faked model objects only (no snapshot needed).
 """
 
 from __future__ import annotations
@@ -15,6 +16,7 @@ from __future__ import annotations
 import json
 import sys
 import tempfile
+import types
 import unittest
 from pathlib import Path
 
@@ -31,6 +33,8 @@ except Exception:  # pragma: no cover - exercised on MLX-free machines
     HAS_MLX = False
 
 if HAS_MLX:
+    import mlx.core as mx  # noqa: E402
+
     from search.miniprompt import fixtures, gcg, runner, sampling  # noqa: E402
     from search.miniprompt.config import config_from_canonical  # noqa: E402
 
@@ -160,6 +164,129 @@ class GcgMlxTests(unittest.TestCase):
             receipt_path.write_text(json.dumps(bad), encoding="utf-8")
             with self.assertRaises(runner.RunStateError):
                 runner.run_scan(tiny, tmp, max_seconds=None, log=quiet)
+
+
+def _criterion_probe_model(*, single_sequence_miss: bool, greedy_miss: bool = False):
+    """A fake model whose evaluation-shape variants disagree.
+
+    - The batched candidate forward (the shape the pre-fix in-loop all-match
+      came from) reports an all-match.
+    - The full-length single-sequence forward (``n_free + len(target)``, the
+      teacher-forced solution check and receipt re-check shape) reports an
+      all-match unless ``single_sequence_miss`` is set, in which case the
+      second target position misses (the batch-axis case observed on
+      canary-42, 2026-10-16 UTC).
+    - The prefix-length forwards of the greedy continuation reproduce the
+      targets unless ``greedy_miss`` is set, in which case the first greedy
+      step emits a wrong token (the sequence-length-axis case observed on
+      canary-hamlet-line, 2026-10-16 UTC).
+    """
+
+    def _rows(length, first_token, second_token):
+        rows = mx.zeros((length, 16))
+        if length >= 2:
+            rows = rows.at[1, first_token].add(10.0)
+        if length >= 3:
+            rows = rows.at[2, second_token].add(10.0)
+        return rows
+
+    batched_bias = _rows(4, 3, 4)
+    full_bias = _rows(4, 3, 15 if single_sequence_miss else 4)
+    short2_bias = _rows(2, 7 if greedy_miss else 3, 0)
+    short3_bias = _rows(3, 3, 4)
+
+    class _Embedding:
+        def __init__(self, table):
+            self._table = table
+
+        def __call__(self, ids):
+            return self._table[ids]
+
+        def as_linear(self, x):
+            return x @ self._table.T
+
+    class _Model:
+        def __init__(self):
+            self._weight = mx.zeros((8, 16))
+            self.args = types.SimpleNamespace(vocab_size=16)
+            self.model = types.SimpleNamespace(embed_tokens=_Embedding(mx.zeros((16, 8))))
+
+        def __call__(self, ids, cache=None, input_embeddings=None):
+            embeddings = (
+                input_embeddings if input_embeddings is not None else self.model.embed_tokens(ids)
+            )
+            if int(embeddings.shape[0]) > 1:
+                bias = batched_bias
+            elif embeddings.shape[-2] == 2:
+                bias = short2_bias
+            elif embeddings.shape[-2] == 3:
+                bias = short3_bias
+            else:
+                bias = full_bias
+            return embeddings @ self._weight + bias
+
+    return _Model()
+
+
+@unittest.skipUnless(HAS_MLX, "MLX is not available")
+class AcquisitionCriterionTests(unittest.TestCase):
+    """Acquisition requires both declared evidences, evaluated in-loop.
+
+    Regression for the first tranche-2 fail-closed stops (2026-10-16 UTC):
+    a batched-only all-match must not claim an acquisition (canary-42), a
+    teacher-forced all-match without a reproducing greedy continuation must
+    not either (canary-hamlet-line), and a genuine all-match plus greedy
+    reproduction still acquires. Uses faked, evaluation-shape-dependent model
+    objects — no pinned snapshot or cache is needed.
+    """
+
+    def _config(self):
+        base = fixtures.preset("canary-42").to_canonical()
+        base.update({"label": "fake-criterion", "topk": 4, "batch": 3, "miniBatch": 3})
+        return config_from_canonical(base)
+
+    def test_batched_only_match_never_claims_acquisition(self):
+        # The batched forward reports an all-match the single-sequence
+        # teacher-forced check denies: nothing may be claimed.
+        config = self._config()
+        model = _criterion_probe_model(single_sequence_miss=True)
+        outcome = gcg.run_attempt(
+            model, config, n_free=2, steps_budget=3, target_ids=[3, 4],
+            initial_free_ids=[1, 2],
+        )
+        self.assertFalse(outcome["acquired"])
+        self.assertIsNone(outcome["acquiredAtStep"])
+        self.assertEqual(outcome["solutionSource"], "best_by_loss")
+        self.assertEqual(outcome["stepsRun"], 3)
+        self.assertEqual(outcome["trajectory"][-1]["matchTokens"], 1)
+
+    def test_single_sequence_match_still_acquires(self):
+        config = self._config()
+        model = _criterion_probe_model(single_sequence_miss=False)
+        outcome = gcg.run_attempt(
+            model, config, n_free=2, steps_budget=3, target_ids=[3, 4],
+            initial_free_ids=[1, 2],
+        )
+        self.assertTrue(outcome["acquired"])
+        self.assertEqual(outcome["acquiredAtStep"], 0)
+        self.assertEqual(outcome["stepsRun"], 1)
+        self.assertEqual(outcome["trajectory"][-1]["matchTokens"], 2)
+
+    def test_teacher_forced_match_without_greedy_reproduction_does_not_acquire(self):
+        # The single-sequence teacher-forced check reports a full match, but
+        # the true greedy continuation misses the first token: the scan must
+        # fall through and keep going, not claim an acquisition.
+        config = self._config()
+        model = _criterion_probe_model(single_sequence_miss=False, greedy_miss=True)
+        outcome = gcg.run_attempt(
+            model, config, n_free=2, steps_budget=3, target_ids=[3, 4],
+            initial_free_ids=[1, 2],
+        )
+        self.assertFalse(outcome["acquired"])
+        self.assertIsNone(outcome["acquiredAtStep"])
+        self.assertEqual(outcome["solutionSource"], "best_by_loss")
+        self.assertEqual(outcome["stepsRun"], 3)
+        self.assertEqual(outcome["trajectory"][-1]["matchTokens"], 2)
 
 
 if __name__ == "__main__":

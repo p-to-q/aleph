@@ -51,6 +51,16 @@ DECLARED_DIFFERENCES = (
     "gradients are taken with respect to input embeddings only (weights frozen).",
     "Candidate top-k uses mx.argpartition (unordered tail) with a uniform pick "
     "over the same top-k set as torch.topk.",
+    "The acquisition criterion is the conjunction of the single-sequence "
+    "teacher-forced all-match (upstream check_output_with_hard_tokens, on the "
+    "fixed single-sequence shape of the receipt re-check) and the true greedy "
+    "continuation from the raw IDs, both checked in-loop at the claiming step; "
+    "4-bit quantized logits are evaluation-shape dependent (batch and sequence "
+    "length), so batched forwards supply candidate losses only.",
+    "Acquisition evidence is evaluated on the raw free-token IDs (no "
+    "retokenization): the tokenizer roundtrip flag of the rendering is recorded "
+    "with the greedy-continuation check and is not required to hold — decoded "
+    "text is a declared rendering of a raw coordinate, never its ground truth.",
     "Free-token initialization and per-step mutation draws use explicit Python "
     "random.Random derivations (sampling.py) instead of the process-global RNG, "
     "so attempts are deterministic and resumable.",
@@ -218,9 +228,12 @@ def _verify_attempt(attempt, position: int, target_ids: Optional[list], errors: 
             not isinstance(greedy, dict)
             or greedy.get("ran") is not True
             or greedy.get("matched") is not True
-            or greedy.get("roundtripEqual") is not True
+            or not isinstance(greedy.get("roundtripEqual"), bool)
         ):
-            err(f"{where}.greedy: claimed acquisitions require a matched greedy-continuation check")
+            err(
+                f"{where}.greedy: claimed acquisitions require a matched "
+                "greedy-continuation check and a boolean rendering-roundtrip flag"
+            )
         else:
             for key in sorted(set(greedy) - {"ran", "matched", "roundtripEqual", "emittedIds", "freeRendering", "emittedRendering"}):
                 err(f"{where}.greedy: unknown field {key!r}")

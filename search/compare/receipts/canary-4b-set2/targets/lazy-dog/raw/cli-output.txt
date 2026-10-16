@@ -1,0 +1,37 @@
+
+$ /Users/dujiayi/code/aleph/search/.venv/bin/python -m search.miniprompt.cli run --preset pin4b-jumps-smoke --run-dir /private/tmp/aleph-compare2-live/canary-4b-set2/targets/lazy-dog/raw --max-seconds 150
+[driver] head=run rc=3 timedOut=False slice=173.9s
+loading pinned model mlx-community/Qwen3-4B-4bit@4dcb3d101c2a…
+target 'jumps over the lazy dog' -> 6 token(s): [73, 11793, 916, 279, 15678, 5562]
+attempt 0: n_free=5 steps_budget=60
+attempt 0: acquired=False steps=60 solutionLoss=0.556895
+attempt 1: n_free=10 steps_budget=72
+time budget reached; attempt 1 paused at step 17 — re-run the same command to resume
+
+$ /Users/dujiayi/code/aleph/search/.venv/bin/python -m search.miniprompt.cli run --preset pin4b-jumps-smoke --run-dir /private/tmp/aleph-compare2-live/canary-4b-set2/targets/lazy-dog/raw --max-seconds 150
+[driver] head=run rc=1 timedOut=False slice=98.1s
+loading pinned model mlx-community/Qwen3-4B-4bit@4dcb3d101c2a…
+attempt 1: acquired=True steps=48 solutionLoss=0.59351
+Traceback (most recent call last):
+  File "<frozen runpy>", line 198, in _run_module_as_main
+  File "<frozen runpy>", line 88, in _run_code
+  File "/private/tmp/aleph-compare2/search/miniprompt/cli.py", line 92, in <module>
+    sys.exit(main())
+             ~~~~^^
+  File "/private/tmp/aleph-compare2/search/miniprompt/cli.py", line 88, in main
+    return args.func(args)
+           ~~~~~~~~~^^^^^^
+  File "/private/tmp/aleph-compare2/search/miniprompt/cli.py", line 60, in cmd_run
+    return runner.run_scan(config, args.run_dir, max_seconds=args.max_seconds)
+           ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/private/tmp/aleph-compare2/search/miniprompt/runner.py", line 194, in run_scan
+    _finalize(config, run_dir, state, log)
+    ~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/private/tmp/aleph-compare2/search/miniprompt/runner.py", line 109, in _finalize
+    raise RunStateError(f"the built receipt failed self-verification: {errors[:3]}")
+search.miniprompt.runner.RunStateError: the built receipt failed self-verification: ['attempts[1].greedy: claimed acquisitions require a matched greedy-continuation check']
+
+$ /Users/dujiayi/code/aleph/search/.venv/bin/python -m search.miniprompt.cli run --preset pin4b-jumps-smoke --run-dir /private/tmp/aleph-compare2-live/canary-4b-set2/targets/lazy-dog/raw --max-seconds 150
+[driver] head=run rc=0 timedOut=False slice=19.6s
+loading pinned model mlx-community/Qwen3-4B-4bit@4dcb3d101c2a…
+receipt written: /private/tmp/aleph-compare2-live/canary-4b-set2/targets/lazy-dog/raw/receipt.json (success=True numFreeTokens=10 attempts=2 stopReason=max_attempts)
