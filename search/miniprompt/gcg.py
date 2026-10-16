@@ -321,8 +321,8 @@ def run_attempt(
         check = solution_check(model, best_ids, target_list)
         if not check["matchAll"]:
             raise AttemptInconsistency(
-                "restored checkpoint claims an acquisition but the "
-                "single-sequence solution re-check disagrees"
+                "acquisition claim (fresh or restored) disagrees with the "
+                "single-sequence solution re-check"
             )
 
     if solution_loss is None:

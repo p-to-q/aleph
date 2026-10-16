@@ -48,7 +48,12 @@ with the pairing archived as a digest-bound record?
   declared wrapper. Every sampled generation is seeded from an explicit `random.Random` tree
   rooted at the declared `proposerSeed` (replacing the shipped procedure's unseeded global RNG),
   and all selections compare the recorded 4-decimal similarities, so the archived selection and
-  the staircase `kept` flags are replayable from the archive alone without MLX.
+  the staircase `kept` flags are replayable from the archive alone without MLX. The budgets are
+  word-count targets for the propose/compress/refine instructions (as in the shipped procedure;
+  its per-budget loop applies no length filter — the word-count filter lives only in the separate
+  `propose_ladder` batch path, which this arm does not use), so retained points are selected by
+  recorded similarity and can exceed their target when the model does; every point records its
+  observed token length.
 - **Raw arm.** The declared presets run unchanged (`canary-hello`, `control-jumps-partial`,
   `pin4b-hello-smoke`), each receipt carrying the all-match plus greedy-continuation evidence
   chain; the record re-checks the preset digests against the frozen expectations.
@@ -151,7 +156,7 @@ recorded work seconds vary with machine load (161.1–196.1 s for the same 1.7B 
 the runs of 2026-10-16 vs 185.6 s in the archived receipt) — timing noise in the recorded per-step
 seconds, not in the deterministic content (steps, losses, token IDs).
 
-### Tranche 2 (2026-10-17 UTC)
+### Tranche 2 (2026-10-16 UTC)
 
 Both instances ran on the pinned snapshots under the same declared readable settings,
 envelope, and τ=0.05, and are archived under `search/compare/receipts/canary-1p7b-set2` and

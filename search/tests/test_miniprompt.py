@@ -378,7 +378,7 @@ class ReceiptTests(unittest.TestCase):
         self.assertTrue(all(attempt["greedy"] is None for attempt in receipt["attempts"]))
 
     def test_lossy_rendering_roundtrip_is_recorded_not_required(self):
-        # canary-4b-set2 (2026-10-17 UTC): an acquired solution can have a
+        # canary-4b-set2 (2026-10-16 UTC): an acquired solution can have a
         # rendering that does not re-encode to the same free-token IDs. The
         # criterion is evaluated on the raw IDs (no retokenization), so the
         # flag is a recorded fact, not a condition for the claim.
