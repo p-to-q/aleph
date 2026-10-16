@@ -1,0 +1,198 @@
+{
+  "schema": "aleph-comparison-record/0.1.0",
+  "tool": {
+    "name": "search/compare",
+    "version": "0.1.0"
+  },
+  "createdAt": "2026-10-16T20:09:04Z",
+  "config": {
+    "schema": "aleph-comparison-config/0.1.0",
+    "label": "canary-1p7b-set2",
+    "model": {
+      "repo": "mlx-community/Qwen3-1.7B-4bit",
+      "revision": "3b1b1768f8f8cf8351c712464f906e86c2b8269e",
+      "weightsDigest": "sha256:0e86d9677e519323849eac1bc272caae88567a481ff188c431f70be543d9995f"
+    },
+    "targets": [
+      {
+        "key": "forty-two",
+        "text": "42",
+        "rawPreset": "canary-42",
+        "rawConfigDigest": "sha256:4fbad590bcf3dc1ce608d51f9ddd4cef0dfb89ddcf9da40e75d390d6a552bada"
+      },
+      {
+        "key": "hamlet-line",
+        "text": "to be, or not to be",
+        "rawPreset": "canary-hamlet-line",
+        "rawConfigDigest": "sha256:f5cf6a9aa26d784d9446d8bc3373ec09355599d395635fa92eaedcfeedd4e259"
+      }
+    ],
+    "readable": {
+      "budgets": [
+        6,
+        12,
+        25,
+        50
+      ],
+      "candidatesPerBudget": 3,
+      "refineSteps": 1,
+      "stabilityRuns": 3,
+      "stabilityTemperature": 0.8,
+      "proposerSeed": 42,
+      "metric": {
+        "kind": "embedding_cosine",
+        "model": "sentence-transformers/all-MiniLM-L6-v2"
+      }
+    },
+    "envelopeSeconds": 1800,
+    "reproductionThresholdTau": 0.05,
+    "explicitWrapper": "Repeat the following text exactly, verbatim, with no preamble, quotes, or commentary:\n\n"
+  },
+  "configDigest": "sha256:106426fb7015da86ab45d6ad77b6f3de34845ea2eeed459b860173476e5394c1",
+  "targets": [
+    {
+      "key": "forty-two",
+      "text": "42",
+      "targetDigest": "sha256:8334c554c7276f59674810b92fff5197cd46bf6ccbe872742f9b04ca31dfe3d1",
+      "raw": {
+        "view": "raw",
+        "receiptRef": "targets/forty-two/raw/receipt.json",
+        "cliOutputRef": "targets/forty-two/raw/cli-output.txt",
+        "receiptDigest": "sha256:311d18324ac74acdde9a4b902ff0147e49dfe6020fa376f7bdfe60fbc188a965",
+        "configDigest": "sha256:4fbad590bcf3dc1ce608d51f9ddd4cef0dfb89ddcf9da40e75d390d6a552bada",
+        "wallClockSeconds": 103.2,
+        "summary": {
+          "success": true,
+          "numFreeTokens": 5,
+          "stopReason": "collision",
+          "attempts": 2,
+          "smallestAcquiredNFree": 5,
+          "wholePromptTokens": 7
+        }
+      },
+      "readable": {
+        "view": "readable",
+        "artifactRef": "targets/forty-two/readable.json",
+        "artifactDigest": "sha256:74bc84a388c2b367eaa66efe33ae972d2afcaf77313792fe1c111d3dd5d8e2dd",
+        "configDigest": "sha256:106426fb7015da86ab45d6ad77b6f3de34845ea2eeed459b860173476e5394c1",
+        "wallClockSeconds": 29.6,
+        "summary": {
+          "stoppedBy": "complete",
+          "evaluations": 26,
+          "points": 5,
+          "bestEpsilon": 0.3953,
+          "foundLengthUnderTau": null
+        }
+      },
+      "crossChecks": {
+        "modelIdentityEqual": true,
+        "targetTextEqual": true,
+        "targetKeyMatches": true,
+        "targetIdsEqual": true,
+        "rawConfigDigestFrozen": true,
+        "readableConfigDigestMatches": true,
+        "readableInstanceMatches": true,
+        "readableComplete": true,
+        "readableSettingsMatch": true,
+        "rawWallClockWithinEnvelope": true,
+        "readableWallClockWithinEnvelope": true
+      },
+      "findings": {
+        "rawFound": {
+          "acquired": true,
+          "nFree": 5,
+          "wholePromptTokens": 7,
+          "fidelity": "exact_all_match_greedy_verified"
+        },
+        "readableFound": null,
+        "readableBest": {
+          "pointIndex": 2,
+          "length": 15,
+          "epsilon": 0.3953,
+          "similarity": 0.6047
+        },
+        "readableExactMinLength": null,
+        "explicitBaseline": {
+          "pointIndex": 4,
+          "length": 20,
+          "epsilon": 0.0
+        }
+      }
+    },
+    {
+      "key": "hamlet-line",
+      "text": "to be, or not to be",
+      "targetDigest": "sha256:34e6499e47e15bad83970454e04e0063bea433ad50ec795e4787395439273fdc",
+      "raw": {
+        "view": "raw",
+        "receiptRef": "targets/hamlet-line/raw/receipt.json",
+        "cliOutputRef": "targets/hamlet-line/raw/cli-output.txt",
+        "receiptDigest": "sha256:6bee42f374f0e116c1cf2b7cc1bbe2d379c848f30bff0f5d11826ced3afe2834",
+        "configDigest": "sha256:f5cf6a9aa26d784d9446d8bc3373ec09355599d395635fa92eaedcfeedd4e259",
+        "wallClockSeconds": 659.0,
+        "summary": {
+          "success": true,
+          "numFreeTokens": 6,
+          "stopReason": "collision",
+          "attempts": 6,
+          "smallestAcquiredNFree": 6,
+          "wholePromptTokens": 13
+        }
+      },
+      "readable": {
+        "view": "readable",
+        "artifactRef": "targets/hamlet-line/readable.json",
+        "artifactDigest": "sha256:52ab024f096eb4477911f739d50c3c1a346b345dc5f7e7648ec0109ca1150819",
+        "configDigest": "sha256:106426fb7015da86ab45d6ad77b6f3de34845ea2eeed459b860173476e5394c1",
+        "wallClockSeconds": 27.9,
+        "summary": {
+          "stoppedBy": "complete",
+          "evaluations": 26,
+          "points": 5,
+          "bestEpsilon": 0.2351,
+          "foundLengthUnderTau": null
+        }
+      },
+      "crossChecks": {
+        "modelIdentityEqual": true,
+        "targetTextEqual": true,
+        "targetKeyMatches": true,
+        "targetIdsEqual": true,
+        "rawConfigDigestFrozen": true,
+        "readableConfigDigestMatches": true,
+        "readableInstanceMatches": true,
+        "readableComplete": true,
+        "readableSettingsMatch": true,
+        "rawWallClockWithinEnvelope": true,
+        "readableWallClockWithinEnvelope": true
+      },
+      "findings": {
+        "rawFound": {
+          "acquired": true,
+          "nFree": 6,
+          "wholePromptTokens": 13,
+          "fidelity": "exact_all_match_greedy_verified"
+        },
+        "readableFound": null,
+        "readableBest": {
+          "pointIndex": 2,
+          "length": 42,
+          "epsilon": 0.2351,
+          "similarity": 0.7649
+        },
+        "readableExactMinLength": null,
+        "explicitBaseline": {
+          "pointIndex": 4,
+          "length": 25,
+          "epsilon": 0.0
+        }
+      }
+    }
+  ],
+  "totals": {
+    "targets": 2,
+    "rawAcquired": 2,
+    "readableFoundUnderTau": 0
+  },
+  "receiptDigest": "sha256:288adcbfbfd75511b460950678d9d75755729607a1d5acb591024a0478b137b5"
+}

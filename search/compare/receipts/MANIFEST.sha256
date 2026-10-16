@@ -1,4 +1,13 @@
-2f97c62f78c7c66c47ad971a58d8c78d0082d922081ef9768fedb8bba6b59a6d  README.md
+a2c0c00ff697202d78511d90542d1d53e76ca5795d91b18c82a7758faeb186e8  README.md
+9c66767d4ab5d03005e43d32c3a4125be2dffde0d36a83b96534244b359c9b1d  canary-1p7b-set2/comparison.json
+1cf653364dc02b6db576adbe8f20fc528e08ca7358fd32f87ab604df0c99aca3  canary-1p7b-set2/targets/forty-two/raw/cli-output.txt
+21114e4e4116fe6abb8875983a67c0a8731d49d794fcd166bc0a0022aec85df0  canary-1p7b-set2/targets/forty-two/raw/receipt.json
+26ae45749a8d3e4790848be6469dc46f0dd6c34da1598986766accae7b4db402  canary-1p7b-set2/targets/forty-two/readable.cli-output.txt
+90b138b0b07a89eee962a1e3fefaba970d00d15aec203515fa147cb013b9d4f4  canary-1p7b-set2/targets/forty-two/readable.json
+57b7d7d67b0940d1261bc2e203c64cefbe5f7fd75cc6ac49c003181e172d7b7b  canary-1p7b-set2/targets/hamlet-line/raw/cli-output.txt
+23f9286540c94e2a4588bbc86d77d1a7dc5523cb06edf553d2d1404ebae89aae  canary-1p7b-set2/targets/hamlet-line/raw/receipt.json
+562cc4e1dbb7231ae717dd7cb02a2c5091135bcdd7d95908163146902789f228  canary-1p7b-set2/targets/hamlet-line/readable.cli-output.txt
+30ea33ff9f881fa7c0a9b6ee696d049085e6a21e98d13c60a7996b3e08450ab2  canary-1p7b-set2/targets/hamlet-line/readable.json
 147b39b51bed429cd34424977390907ea37c7de9b167aea1f5151cdecc06d096  canary-1p7b/comparison.json
 5ec9f599491882c56df973da1b898b1329d7ad97ce0636e7a1ae598ab054228a  canary-1p7b/targets/hello-world/raw/cli-output.txt
 72528d21b031fa4848cf0aa6a2cd79cf8d2f506d90977cc71de841d2263dd274  canary-1p7b/targets/hello-world/raw/receipt.json
@@ -8,6 +17,11 @@ c904e1939299b21caad724f9f9abbe6db3d5a20558f6e448f65816a0a5c9b599  canary-1p7b/ta
 71eac4530a8355cb6c8dc628ee9f9d8e96dd4bbe9ef8e9ef31ef809cee5d8fe5  canary-1p7b/targets/lazy-dog/raw/receipt.json
 69df1d750127bd2b186a869051d72544c283e5887a4f163b848fb6b9eb487e1d  canary-1p7b/targets/lazy-dog/readable.cli-output.txt
 fcfdaafa8bb1ef8f353e2b9f29665d6803f9ec020896df11a8ced8a1890c4fef  canary-1p7b/targets/lazy-dog/readable.json
+93e921d20b91952f5bc242b9f25ac29843a0ca2f8c3e2320fdf775139759e0ce  canary-4b-set2/comparison.json
+4c4c4cb11173b0127bc0234b4eb99bb71133d947185d5e2b0f306c25039027c4  canary-4b-set2/targets/lazy-dog/raw/cli-output.txt
+a6122585b4924516d9d89cc0d723b57b4892ec017282bde68b3ecc38a3b13921  canary-4b-set2/targets/lazy-dog/raw/receipt.json
+4eeb0f88946e1a419178970b181a3f0c7d46b24908c9403ef977b2b07a1225ba  canary-4b-set2/targets/lazy-dog/readable.cli-output.txt
+91c4424595dd581eeb96abbd641f2030eafb61dc20bfee131fe0ba9d60ecfce0  canary-4b-set2/targets/lazy-dog/readable.json
 1c33b1f387e53cd6665633fae1f063d3047018c63852d54851f8cc55dfb5049b  canary-4b/comparison.json
 721f66ce1d702e06ae31f17a1ece4257439bb285ba8a47ce15ca867654f53396  canary-4b/targets/hello-world/raw/cli-output.txt
 e7d918c786e9254ca82a16732edf68423b8dd819d6d6aefb11673caa4c906c95  canary-4b/targets/hello-world/raw/receipt.json

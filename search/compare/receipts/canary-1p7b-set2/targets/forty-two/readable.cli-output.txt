@@ -1,0 +1,18 @@
+
+$ /Users/dujiayi/code/aleph/search/.venv/bin/python -m search.compare.readable --instance canary-1p7b-set2 --target-key forty-two --run-dir /private/tmp/aleph-compare2-live/canary-1p7b-set2/targets/forty-two --max-seconds 69
+[driver] head=--instance rc=0 timedOut=False slice=53.7s
+loading pinned model mlx-community/Qwen3-1.7B-4bit@3b1b1768f8f8…
+target '42' -> 2 token(s): [19, 17]
+[readable] budget 50: 3 proposal(s) parsed
+[readable] point K~50: |p|=16 sim=0.2144 eps=0.7856 prompt='Create a poem about the atomic bomb, focusing on its historical impact'
+[readable] budget 25: 1 proposal(s) parsed
+[readable] point K~25: |p|=5 sim=0.5525 eps=0.4475 prompt='Text: 42'
+[readable] budget 12: 1 proposal(s) parsed
+[readable] point K~12: |p|=15 sim=0.6047 eps=0.3953 prompt='Identify the work/author/form related to the number 42.'
+[readable] budget 6: 1 proposal(s) parsed
+[readable] point K~6: |p|=7 sim=0.4149 eps=0.5851 prompt='42: work/author/form'
+[readable] explicit baseline: |p|=20 sim=1.0000
+readable.json written: /private/tmp/aleph-compare2-live/canary-1p7b-set2/targets/forty-two/readable.json (26 evaluations)
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 103/103 [00:00<00:00, 17104.70it/s]

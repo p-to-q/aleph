@@ -1,0 +1,26 @@
+
+$ /Users/dujiayi/code/aleph/search/.venv/bin/python -m search.compare.readable --instance canary-4b-set2 --target-key lazy-dog --run-dir /private/tmp/aleph-compare2-live/canary-4b-set2/targets/lazy-dog --max-seconds 30
+[driver] head=--instance rc=3 timedOut=False slice=56.2s
+loading pinned model mlx-community/Qwen3-4B-4bit@4dcb3d101c2a…
+target 'jumps over the lazy dog' -> 6 token(s): [73, 11793, 916, 279, 15678, 5562]
+[readable] budget 50: 3 proposal(s) parsed
+[readable] point K~50: |p|=23 sim=0.7066 eps=0.2934 prompt='Reproduce the famous phrase "jumps over the lazy dog" and specify its '
+[readable] budget 25: 3 proposal(s) parsed
+[readable] point K~25: |p|=24 sim=0.8099 eps=0.1901 prompt='jumps over the lazy dog - Write the classic pangram in a concise manne'
+[readable] budget 12: 3 proposal(s) parsed
+readable time budget reached; re-run the same command to resume
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 103/103 [00:00<00:00, 1676.79it/s]
+
+$ /Users/dujiayi/code/aleph/search/.venv/bin/python -m search.compare.readable --instance canary-4b-set2 --target-key lazy-dog --run-dir /private/tmp/aleph-compare2-live/canary-4b-set2/targets/lazy-dog --max-seconds 150
+[driver] head=--instance rc=0 timedOut=False slice=34.2s
+loading pinned model mlx-community/Qwen3-4B-4bit@4dcb3d101c2a…
+[readable] point K~12: |p|=12 sim=0.6831 eps=0.3169 prompt='jumps over the lazy dog - Write the pangram.'
+[readable] budget 6: 3 proposal(s) parsed
+[readable] point K~6: |p|=12 sim=0.6831 eps=0.3169 prompt='jumps over the lazy dog - Write the pangram.'
+[readable] explicit baseline: |p|=24 sim=1.0000
+readable.json written: /private/tmp/aleph-compare2-live/canary-4b-set2/targets/lazy-dog/readable.json (32 evaluations)
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 103/103 [00:00<00:00, 2117.04it/s]

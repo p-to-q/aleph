@@ -1,0 +1,123 @@
+{
+  "schema": "aleph-comparison-record/0.1.0",
+  "tool": {
+    "name": "search/compare",
+    "version": "0.1.0"
+  },
+  "createdAt": "2026-10-16T20:20:40Z",
+  "config": {
+    "schema": "aleph-comparison-config/0.1.0",
+    "label": "canary-4b-set2",
+    "model": {
+      "repo": "mlx-community/Qwen3-4B-4bit",
+      "revision": "4dcb3d101c2a062e5c1d4bb173588c54ea6c4d25",
+      "weightsDigest": "sha256:e240c0bdc0ebb0681bf0da0f98d9719fd6ebe269a3633f81542c13e81345651d"
+    },
+    "targets": [
+      {
+        "key": "lazy-dog",
+        "text": "jumps over the lazy dog",
+        "rawPreset": "pin4b-jumps-smoke",
+        "rawConfigDigest": "sha256:ba53fb17196143348f494c7b1779641608f87834fecde8360ddf2263a174f881"
+      }
+    ],
+    "readable": {
+      "budgets": [
+        6,
+        12,
+        25,
+        50
+      ],
+      "candidatesPerBudget": 3,
+      "refineSteps": 1,
+      "stabilityRuns": 3,
+      "stabilityTemperature": 0.8,
+      "proposerSeed": 42,
+      "metric": {
+        "kind": "embedding_cosine",
+        "model": "sentence-transformers/all-MiniLM-L6-v2"
+      }
+    },
+    "envelopeSeconds": 1800,
+    "reproductionThresholdTau": 0.05,
+    "explicitWrapper": "Repeat the following text exactly, verbatim, with no preamble, quotes, or commentary:\n\n"
+  },
+  "configDigest": "sha256:ca61354fa03cc886309ca299fef914ecfa5056666091a95748654de15ed2128e",
+  "targets": [
+    {
+      "key": "lazy-dog",
+      "text": "jumps over the lazy dog",
+      "targetDigest": "sha256:78196ceb489580b2ccec7a22a4c8a028e10d2ac0a96b054ea90d6d786b724b2a",
+      "raw": {
+        "view": "raw",
+        "receiptRef": "targets/lazy-dog/raw/receipt.json",
+        "cliOutputRef": "targets/lazy-dog/raw/cli-output.txt",
+        "receiptDigest": "sha256:47c8d4f5734e02688c86d99cfe99fbd77bb6129f4c9026aefb3fcd6a14570f6c",
+        "configDigest": "sha256:ba53fb17196143348f494c7b1779641608f87834fecde8360ddf2263a174f881",
+        "wallClockSeconds": 219.6,
+        "summary": {
+          "success": true,
+          "numFreeTokens": 10,
+          "stopReason": "max_attempts",
+          "attempts": 2,
+          "smallestAcquiredNFree": 10,
+          "wholePromptTokens": 16
+        }
+      },
+      "readable": {
+        "view": "readable",
+        "artifactRef": "targets/lazy-dog/readable.json",
+        "artifactDigest": "sha256:869bec2f7edb141463c533259acb6a1520a16185563985881a6b9aa372cba42c",
+        "configDigest": "sha256:ca61354fa03cc886309ca299fef914ecfa5056666091a95748654de15ed2128e",
+        "wallClockSeconds": 38.1,
+        "summary": {
+          "stoppedBy": "complete",
+          "evaluations": 32,
+          "points": 5,
+          "bestEpsilon": 0.1901,
+          "foundLengthUnderTau": null
+        }
+      },
+      "crossChecks": {
+        "modelIdentityEqual": true,
+        "targetTextEqual": true,
+        "targetKeyMatches": true,
+        "targetIdsEqual": true,
+        "rawConfigDigestFrozen": true,
+        "readableConfigDigestMatches": true,
+        "readableInstanceMatches": true,
+        "readableComplete": true,
+        "readableSettingsMatch": true,
+        "rawWallClockWithinEnvelope": true,
+        "readableWallClockWithinEnvelope": true
+      },
+      "findings": {
+        "rawFound": {
+          "acquired": true,
+          "nFree": 10,
+          "wholePromptTokens": 16,
+          "fidelity": "exact_all_match_greedy_verified"
+        },
+        "readableFound": null,
+        "readableBest": {
+          "pointIndex": 1,
+          "length": 24,
+          "epsilon": 0.1901,
+          "similarity": 0.8099
+        },
+        "readableExactMinLength": null,
+        "explicitBaseline": {
+          "pointIndex": 4,
+          "length": 24,
+          "epsilon": 0.0
+        }
+      }
+    }
+  ],
+  "totals": {
+    "targets": 1,
+    "rawAcquired": 1,
+    "readableFoundUnderTau": 0
+  },
+  "receiptDigest": "sha256:f03c6269efd001cf5069a1ba45c998414962384f959454c51623bb838f08dbcf"
+}

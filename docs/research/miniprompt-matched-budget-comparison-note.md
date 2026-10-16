@@ -126,7 +126,9 @@ Source snapshots and sha256 (all fetched 2026-10-16; full manifest at
 - `evil-twins-arxiv-2311.07064-abs.html` `2b0c6891e34ad08aa8f2022a620df6f44cf11d19d8075cfed60a7e612bd7fe72`
 - `budgetapo-arxiv-abs.html` `c95b1c81219b07dcb3a14b289793e9fa462d888cd0d5c23ad5be45ab03b9db34`
 
-## Comparison results (2026-10-16)
+## Comparison results
+
+### Tranche 1 (2026-10-16 UTC)
 
 Both instances ran on the pinned snapshots and are archived under
 `search/compare/receipts/`; both records and all side artifacts verify with the no-MLX command
@@ -148,6 +150,27 @@ the archived 2026-10-15 receipt's step pattern and acquisition points exactly ac
 recorded work seconds vary with machine load (161.1–196.1 s for the same 1.7B canary scan across
 the runs of 2026-10-16 vs 185.6 s in the archived receipt) — timing noise in the recorded per-step
 seconds, not in the deterministic content (steps, losses, token IDs).
+
+### Tranche 2 (2026-10-17 UTC)
+
+Both instances ran on the pinned snapshots under the same declared readable settings,
+envelope, and τ=0.05, and are archived under `search/compare/receipts/canary-1p7b-set2` and
+`search/compare/receipts/canary-4b-set2`; every record and side artifact verifies standalone
+with the no-MLX command, and all cross-side identity checks recomputed true. Recorded work
+seconds again stayed far below the shared envelope (raw 103.2–659.0 s; readable 27.9–38.1 s
+of 1800 s).
+
+| Instance / target | Raw side | Readable side |
+|---|---|---|
+| `canary-1p7b-set2` `42` | **acquired**: `nFree=5` (n=5 in 32 steps; n=4 failed in 200), `wholePromptTokens=7`, greedy continuation matched | best ε=0.3953 at `\|p\|=15`; no point ≤ τ=0.05 |
+| `canary-1p7b-set2` `to be, or not to be` | **acquired**: `nFree=6` (ladder n=10/9/8/7/6 acquired in 75/57/64/240/51 steps; n=5 failed in 200), `wholePromptTokens=13`, greedy continuation matched | best ε=0.2351 at `\|p\|=42`; no point ≤ τ=0.05 |
+| `canary-4b-set2` `jumps over the lazy dog` | **acquired**: `nFree=10` (n=5 failed in 60; n=10 in 48 steps), `wholePromptTokens=16`, greedy continuation matched; rendering roundtrip flag recorded `false` (a recorded fact, not a condition — see the post-canary fixes section of the reproduction note) | best ε=0.1901 at `\|p\|=24`; no point ≤ τ=0.05 |
+
+Observed (recorded): the hamlet-line scan needed six attempts (n=5 failed; the bound
+descended 10→6, with every acquisition satisfying the full conjunction criterion), and the
+4B acquisition is the recorded case behind the rendering-roundtrip evidence fix; the
+hamlet-line raw side's 659.0 s of recorded work reflects that six-attempt ladder, still well
+inside the envelope.
 
 ## Interpretation and non-claims
 
@@ -190,6 +213,12 @@ comparison declarations around the run.
   pin), so the second pinned model is loadable by anything that pins through that loader.
 - No new dependencies; MLX stays out of the default test path; no product surface, engine bundle
   format, or canonicalization change.
+- Tranche-2 extension (2026-10-16/17 UTC): the three new frozen raw-side presets and two declared
+  instances above, archived end to end under
+  `search/compare/receipts/{canary-1p7b-set2,canary-4b-set2}` with a refreshed `MANIFEST.sha256`,
+  plus the post-canary fixes in `search/miniprompt/` (single-sequence criterion, greedy-conjunction
+  acquisition, recorded rendering-roundtrip flag) with their regression tests — see the
+  reproduction note's post-canary fixes section.
 
 ## Acceptance gates
 
