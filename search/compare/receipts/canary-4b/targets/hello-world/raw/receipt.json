@@ -1,0 +1,602 @@
+{
+  "schema": "aleph-miniprompt-receipt/0.1.0",
+  "tool": {
+    "name": "search/miniprompt",
+    "version": "0.1.0"
+  },
+  "createdAt": "2026-10-16T01:55:37Z",
+  "config": {
+    "schema": "aleph-miniprompt-config/0.1.0",
+    "label": "pin4b-hello-smoke",
+    "target": "hello world",
+    "model": {
+      "repo": "mlx-community/Qwen3-4B-4bit",
+      "revision": "4dcb3d101c2a062e5c1d4bb173588c54ea6c4d25",
+      "weightsDigest": "sha256:e240c0bdc0ebb0681bf0da0f98d9719fd6ebe269a3633f81542c13e81345651d"
+    },
+    "scaffold": "empty",
+    "decoding": "greedy",
+    "successCriterion": "teacher_forced_all_match",
+    "nFreeStart": 5,
+    "nFreeIncrement": 5,
+    "stepMultiplier": 1.2,
+    "maxFreeTokens": -1,
+    "stepsInitial": 60,
+    "stepsHardCap": 1200,
+    "maxAttempts": 3,
+    "topk": 250,
+    "batch": 100,
+    "miniBatch": 100,
+    "seed": 42
+  },
+  "configDigest": "sha256:40de569ad0e4798fa20289ffdb8cd219f22d2cd3a0cbc6550213495a62ac351f",
+  "target": {
+    "text": "hello world",
+    "tokenIds": [
+      14990,
+      1879
+    ],
+    "tokenCount": 2,
+    "rendering": [
+      "hello",
+      " world"
+    ]
+  },
+  "model": {
+    "repo": "mlx-community/Qwen3-4B-4bit",
+    "revision": "4dcb3d101c2a062e5c1d4bb173588c54ea6c4d25",
+    "weightsDigest": "sha256:e240c0bdc0ebb0681bf0da0f98d9719fd6ebe269a3633f81542c13e81345651d",
+    "vocabSize": 151936
+  },
+  "environment": {
+    "python": "3.13.2",
+    "mlx": "0.31.2",
+    "mlxLm": "0.31.3",
+    "platform": "macOS-26.5-arm64-arm-64bit-Mach-O"
+  },
+  "procedure": {
+    "implementation": {
+      "name": "search/miniprompt",
+      "version": "0.1.0"
+    },
+    "declaredDifferences": [
+      "MLX with 4-bit quantized weights instead of the upstream torch bf16 stack; gradients are taken with respect to input embeddings only (weights frozen).",
+      "Candidate top-k uses mx.argpartition (unordered tail) with a uniform pick over the same top-k set as torch.topk.",
+      "Free-token initialization and per-step mutation draws use explicit Python random.Random derivations (sampling.py) instead of the process-global RNG, so attempts are deterministic and resumable.",
+      "Declared Aleph-side bounds: stepsHardCap caps the step budget after growth; maxAttempts limits the number of GCG attempts.",
+      "Only the upstream empty scaffold is declared; scaffolded layouts are a future declared extension."
+    ]
+  },
+  "rawView": {
+    "view": "raw",
+    "label": "raw coordinate: free-token IDs are the ground truth; decoded text is a declared rendering, not a readable prompt",
+    "note": "No readable-prompt or human-eligibility claim is made for found prompts."
+  },
+  "attempts": [
+    {
+      "index": 0,
+      "nFree": 5,
+      "stepsBudget": 60,
+      "stepsRun": 21,
+      "acquired": true,
+      "acquiredAtStep": 20,
+      "initialFreeIds": [
+        37469,
+        119044,
+        71704,
+        113411,
+        91203
+      ],
+      "solutionFreeIds": [
+        92739,
+        107221,
+        99486,
+        1350,
+        46944
+      ],
+      "solutionLoss": 0.391858,
+      "solutionSource": "acquired",
+      "wholePromptTokens": 7,
+      "trajectory": [
+        {
+          "step": 0,
+          "loss": 6.156434,
+          "matchTokens": 0,
+          "seconds": 2.533
+        },
+        {
+          "step": 1,
+          "loss": 5.048828,
+          "matchTokens": 1,
+          "seconds": 2.223
+        },
+        {
+          "step": 2,
+          "loss": 4.742496,
+          "matchTokens": 1,
+          "seconds": 2.147
+        },
+        {
+          "step": 3,
+          "loss": 4.621621,
+          "matchTokens": 1,
+          "seconds": 2.236
+        },
+        {
+          "step": 4,
+          "loss": 4.526712,
+          "matchTokens": 1,
+          "seconds": 2.261
+        },
+        {
+          "step": 5,
+          "loss": 4.422522,
+          "matchTokens": 1,
+          "seconds": 2.448
+        },
+        {
+          "step": 6,
+          "loss": 4.152379,
+          "matchTokens": 1,
+          "seconds": 2.147
+        },
+        {
+          "step": 7,
+          "loss": 3.777919,
+          "matchTokens": 1,
+          "seconds": 2.267
+        },
+        {
+          "step": 8,
+          "loss": 3.959307,
+          "matchTokens": 1,
+          "seconds": 2.025
+        },
+        {
+          "step": 9,
+          "loss": 3.787662,
+          "matchTokens": 1,
+          "seconds": 2.209
+        },
+        {
+          "step": 10,
+          "loss": 3.973089,
+          "matchTokens": 1,
+          "seconds": 2.155
+        },
+        {
+          "step": 11,
+          "loss": 3.609878,
+          "matchTokens": 1,
+          "seconds": 2.124
+        },
+        {
+          "step": 12,
+          "loss": 2.879675,
+          "matchTokens": 1,
+          "seconds": 2.024
+        },
+        {
+          "step": 13,
+          "loss": 2.338748,
+          "matchTokens": 1,
+          "seconds": 2.233
+        },
+        {
+          "step": 14,
+          "loss": 2.09593,
+          "matchTokens": 1,
+          "seconds": 2.182
+        },
+        {
+          "step": 15,
+          "loss": 1.83495,
+          "matchTokens": 1,
+          "seconds": 2.352
+        },
+        {
+          "step": 16,
+          "loss": 2.085193,
+          "matchTokens": 1,
+          "seconds": 2.21
+        },
+        {
+          "step": 17,
+          "loss": 1.505892,
+          "matchTokens": 1,
+          "seconds": 1.886
+        },
+        {
+          "step": 18,
+          "loss": 1.431876,
+          "matchTokens": 1,
+          "seconds": 2.42
+        },
+        {
+          "step": 19,
+          "loss": 0.986411,
+          "matchTokens": 1,
+          "seconds": 1.914
+        },
+        {
+          "step": 20,
+          "loss": 0.391858,
+          "matchTokens": 2,
+          "seconds": 2.339
+        }
+      ],
+      "greedy": {
+        "ran": true,
+        "matched": true,
+        "roundtripEqual": true,
+        "emittedIds": [
+          14990,
+          1879
+        ],
+        "freeRendering": " Sinatra首发就是print一个",
+        "emittedRendering": "hello world"
+      }
+    },
+    {
+      "index": 1,
+      "nFree": 4,
+      "stepsBudget": 60,
+      "stepsRun": 17,
+      "acquired": true,
+      "acquiredAtStep": 16,
+      "initialFreeIds": [
+        111312,
+        107850,
+        142254,
+        34272
+      ],
+      "solutionFreeIds": [
+        6658,
+        24169,
+        111811,
+        65101
+      ],
+      "solutionLoss": 1.79072,
+      "solutionSource": "acquired",
+      "wholePromptTokens": 6,
+      "trajectory": [
+        {
+          "step": 0,
+          "loss": 7.908504,
+          "matchTokens": 0,
+          "seconds": 1.964
+        },
+        {
+          "step": 1,
+          "loss": 6.252586,
+          "matchTokens": 1,
+          "seconds": 1.906
+        },
+        {
+          "step": 2,
+          "loss": 4.7609,
+          "matchTokens": 1,
+          "seconds": 1.705
+        },
+        {
+          "step": 3,
+          "loss": 4.483421,
+          "matchTokens": 1,
+          "seconds": 2.1
+        },
+        {
+          "step": 4,
+          "loss": 4.309415,
+          "matchTokens": 1,
+          "seconds": 1.832
+        },
+        {
+          "step": 5,
+          "loss": 4.181288,
+          "matchTokens": 1,
+          "seconds": 1.987
+        },
+        {
+          "step": 6,
+          "loss": 3.698599,
+          "matchTokens": 1,
+          "seconds": 1.692
+        },
+        {
+          "step": 7,
+          "loss": 2.735977,
+          "matchTokens": 1,
+          "seconds": 2.105
+        },
+        {
+          "step": 8,
+          "loss": 2.063896,
+          "matchTokens": 1,
+          "seconds": 1.667
+        },
+        {
+          "step": 9,
+          "loss": 2.113051,
+          "matchTokens": 1,
+          "seconds": 2.074
+        },
+        {
+          "step": 10,
+          "loss": 2.190485,
+          "matchTokens": 1,
+          "seconds": 1.703
+        },
+        {
+          "step": 11,
+          "loss": 1.986124,
+          "matchTokens": 1,
+          "seconds": 1.986
+        },
+        {
+          "step": 12,
+          "loss": 2.346842,
+          "matchTokens": 1,
+          "seconds": 1.941
+        },
+        {
+          "step": 13,
+          "loss": 2.225868,
+          "matchTokens": 1,
+          "seconds": 2.287
+        },
+        {
+          "step": 14,
+          "loss": 1.866424,
+          "matchTokens": 1,
+          "seconds": 2.352
+        },
+        {
+          "step": 15,
+          "loss": 2.215454,
+          "matchTokens": 1,
+          "seconds": 1.845
+        },
+        {
+          "step": 16,
+          "loss": 1.79072,
+          "matchTokens": 2,
+          "seconds": 1.898
+        }
+      ],
+      "greedy": {
+        "ran": true,
+        "matched": true,
+        "roundtripEqual": true,
+        "emittedIds": [
+          14990,
+          1879
+        ],
+        "freeRendering": "brief sockaddr再见像",
+        "emittedRendering": "hello world"
+      }
+    },
+    {
+      "index": 2,
+      "nFree": 3,
+      "stepsBudget": 60,
+      "stepsRun": 30,
+      "acquired": true,
+      "acquiredAtStep": 29,
+      "initialFreeIds": [
+        121216,
+        106762,
+        140864
+      ],
+      "solutionFreeIds": [
+        9205,
+        95292,
+        110743
+      ],
+      "solutionLoss": 1.582271,
+      "solutionSource": "acquired",
+      "wholePromptTokens": 5,
+      "trajectory": [
+        {
+          "step": 0,
+          "loss": 5.667455,
+          "matchTokens": 1,
+          "seconds": 1.662
+        },
+        {
+          "step": 1,
+          "loss": 4.212177,
+          "matchTokens": 1,
+          "seconds": 1.785
+        },
+        {
+          "step": 2,
+          "loss": 4.057795,
+          "matchTokens": 1,
+          "seconds": 1.596
+        },
+        {
+          "step": 3,
+          "loss": 3.906547,
+          "matchTokens": 1,
+          "seconds": 1.757
+        },
+        {
+          "step": 4,
+          "loss": 3.392134,
+          "matchTokens": 1,
+          "seconds": 1.722
+        },
+        {
+          "step": 5,
+          "loss": 2.736611,
+          "matchTokens": 1,
+          "seconds": 2.2
+        },
+        {
+          "step": 6,
+          "loss": 3.610484,
+          "matchTokens": 1,
+          "seconds": 1.533
+        },
+        {
+          "step": 7,
+          "loss": 3.66679,
+          "matchTokens": 0,
+          "seconds": 1.689
+        },
+        {
+          "step": 8,
+          "loss": 3.726182,
+          "matchTokens": 1,
+          "seconds": 1.802
+        },
+        {
+          "step": 9,
+          "loss": 3.397161,
+          "matchTokens": 1,
+          "seconds": 1.592
+        },
+        {
+          "step": 10,
+          "loss": 3.698092,
+          "matchTokens": 1,
+          "seconds": 1.731
+        },
+        {
+          "step": 11,
+          "loss": 3.73948,
+          "matchTokens": 1,
+          "seconds": 1.576
+        },
+        {
+          "step": 12,
+          "loss": 2.934497,
+          "matchTokens": 1,
+          "seconds": 1.739
+        },
+        {
+          "step": 13,
+          "loss": 2.950779,
+          "matchTokens": 1,
+          "seconds": 1.663
+        },
+        {
+          "step": 14,
+          "loss": 3.241652,
+          "matchTokens": 1,
+          "seconds": 1.533
+        },
+        {
+          "step": 15,
+          "loss": 3.122336,
+          "matchTokens": 1,
+          "seconds": 1.929
+        },
+        {
+          "step": 16,
+          "loss": 3.58084,
+          "matchTokens": 1,
+          "seconds": 1.463
+        },
+        {
+          "step": 17,
+          "loss": 3.118932,
+          "matchTokens": 1,
+          "seconds": 1.495
+        },
+        {
+          "step": 18,
+          "loss": 3.193358,
+          "matchTokens": 1,
+          "seconds": 1.695
+        },
+        {
+          "step": 19,
+          "loss": 2.215638,
+          "matchTokens": 1,
+          "seconds": 1.535
+        },
+        {
+          "step": 20,
+          "loss": 2.602757,
+          "matchTokens": 1,
+          "seconds": 1.617
+        },
+        {
+          "step": 21,
+          "loss": 3.520275,
+          "matchTokens": 1,
+          "seconds": 1.82
+        },
+        {
+          "step": 22,
+          "loss": 3.331979,
+          "matchTokens": 1,
+          "seconds": 1.795
+        },
+        {
+          "step": 23,
+          "loss": 2.932456,
+          "matchTokens": 1,
+          "seconds": 1.512
+        },
+        {
+          "step": 24,
+          "loss": 3.42035,
+          "matchTokens": 1,
+          "seconds": 1.762
+        },
+        {
+          "step": 25,
+          "loss": 3.327869,
+          "matchTokens": 1,
+          "seconds": 1.477
+        },
+        {
+          "step": 26,
+          "loss": 3.024917,
+          "matchTokens": 1,
+          "seconds": 1.489
+        },
+        {
+          "step": 27,
+          "loss": 2.894893,
+          "matchTokens": 1,
+          "seconds": 1.538
+        },
+        {
+          "step": 28,
+          "loss": 2.784719,
+          "matchTokens": 0,
+          "seconds": 1.396
+        },
+        {
+          "step": 29,
+          "loss": 1.582271,
+          "matchTokens": 2,
+          "seconds": 1.72
+        }
+      ],
+      "greedy": {
+        "ran": true,
+        "matched": true,
+        "roundtripEqual": true,
+        "emittedIds": [
+          14990,
+          1879
+        ],
+        "freeRendering": " Commitelloworld先是",
+        "emittedRendering": "hello world"
+      }
+    }
+  ],
+  "result": {
+    "success": true,
+    "numFreeTokens": 3,
+    "stopReason": "max_attempts",
+    "scanTerminated": false,
+    "attempts": 3,
+    "smallestAcquiredNFree": 3
+  },
+  "receiptDigest": "sha256:a7da6e0d37db3ff38ec39b7d75047f745e342cfe388a9200c033f0e1967d0d52"
+}

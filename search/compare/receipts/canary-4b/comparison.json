@@ -1,0 +1,123 @@
+{
+  "schema": "aleph-comparison-record/0.1.0",
+  "tool": {
+    "name": "search/compare",
+    "version": "0.1.0"
+  },
+  "createdAt": "2026-10-16T01:58:50Z",
+  "config": {
+    "schema": "aleph-comparison-config/0.1.0",
+    "label": "canary-4b",
+    "model": {
+      "repo": "mlx-community/Qwen3-4B-4bit",
+      "revision": "4dcb3d101c2a062e5c1d4bb173588c54ea6c4d25",
+      "weightsDigest": "sha256:e240c0bdc0ebb0681bf0da0f98d9719fd6ebe269a3633f81542c13e81345651d"
+    },
+    "targets": [
+      {
+        "key": "hello-world",
+        "text": "hello world",
+        "rawPreset": "pin4b-hello-smoke",
+        "rawConfigDigest": "sha256:40de569ad0e4798fa20289ffdb8cd219f22d2cd3a0cbc6550213495a62ac351f"
+      }
+    ],
+    "readable": {
+      "budgets": [
+        6,
+        12,
+        25,
+        50
+      ],
+      "candidatesPerBudget": 3,
+      "refineSteps": 1,
+      "stabilityRuns": 3,
+      "stabilityTemperature": 0.8,
+      "proposerSeed": 42,
+      "metric": {
+        "kind": "embedding_cosine",
+        "model": "sentence-transformers/all-MiniLM-L6-v2"
+      }
+    },
+    "envelopeSeconds": 1800,
+    "reproductionThresholdTau": 0.05,
+    "explicitWrapper": "Repeat the following text exactly, verbatim, with no preamble, quotes, or commentary:\n\n"
+  },
+  "configDigest": "sha256:fd4b450f7074842107722f3cc55308da3a50f100af948f203c9f31a811d9f72f",
+  "targets": [
+    {
+      "key": "hello-world",
+      "text": "hello world",
+      "targetDigest": "sha256:9ddefe4435b21d901439e546d54a14a175a3493b9fd8fbf38d9ea6d3cbf70826",
+      "raw": {
+        "view": "raw",
+        "receiptRef": "targets/hello-world/raw/receipt.json",
+        "cliOutputRef": "targets/hello-world/raw/cli-output.txt",
+        "receiptDigest": "sha256:a7da6e0d37db3ff38ec39b7d75047f745e342cfe388a9200c033f0e1967d0d52",
+        "configDigest": "sha256:40de569ad0e4798fa20289ffdb8cd219f22d2cd3a0cbc6550213495a62ac351f",
+        "wallClockSeconds": 129.2,
+        "summary": {
+          "success": true,
+          "numFreeTokens": 3,
+          "stopReason": "max_attempts",
+          "attempts": 3,
+          "smallestAcquiredNFree": 3,
+          "wholePromptTokens": 5
+        }
+      },
+      "readable": {
+        "view": "readable",
+        "artifactRef": "targets/hello-world/readable.json",
+        "artifactDigest": "sha256:4f3738b43af2932c72306ebe339a4cdcc7f536f15f6413a91227a1faa431ffed",
+        "configDigest": "sha256:fd4b450f7074842107722f3cc55308da3a50f100af948f203c9f31a811d9f72f",
+        "wallClockSeconds": 86.2,
+        "summary": {
+          "stoppedBy": "complete",
+          "evaluations": 32,
+          "points": 5,
+          "bestEpsilon": 0.4749,
+          "foundLengthUnderTau": null
+        }
+      },
+      "crossChecks": {
+        "modelIdentityEqual": true,
+        "targetTextEqual": true,
+        "targetKeyMatches": true,
+        "targetIdsEqual": true,
+        "rawConfigDigestFrozen": true,
+        "readableConfigDigestMatches": true,
+        "readableInstanceMatches": true,
+        "readableComplete": true,
+        "readableSettingsMatch": true,
+        "rawWallClockWithinEnvelope": true,
+        "readableWallClockWithinEnvelope": true
+      },
+      "findings": {
+        "rawFound": {
+          "acquired": true,
+          "nFree": 3,
+          "wholePromptTokens": 5,
+          "fidelity": "exact_all_match_greedy_verified"
+        },
+        "readableFound": null,
+        "readableBest": {
+          "pointIndex": 0,
+          "length": 27,
+          "epsilon": 0.4749,
+          "similarity": 0.5251
+        },
+        "readableExactMinLength": null,
+        "explicitBaseline": {
+          "pointIndex": 4,
+          "length": 20,
+          "epsilon": 0.0
+        }
+      }
+    }
+  ],
+  "totals": {
+    "targets": 1,
+    "rawAcquired": 1,
+    "readableFoundUnderTau": 0
+  },
+  "receiptDigest": "sha256:9a0192a368b3a6892a08558a0435d5454564b90bde0466745610fa4747bccc05"
+}

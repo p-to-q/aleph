@@ -1,0 +1,18 @@
+
+$ /Users/dujiayi/code/aleph/search/.venv/bin/python -m search.compare.readable --instance canary-1p7b --target-key hello-world --run-dir /private/tmp/aleph-compare-live/canary-1p7b/targets/hello-world --max-seconds 63
+[driver] head=--instance rc=0 timedOut=False slice=47.1s
+loading pinned model mlx-community/Qwen3-1.7B-4bit@3b1b1768f8f8…
+target 'hello world' -> 2 token(s): [14990, 1879]
+[readable] budget 50: 1 proposal(s) parsed
+[readable] point K~50: |p|=2 sim=0.3317 eps=0.6683 prompt='hello world'
+[readable] budget 25: 1 proposal(s) parsed
+[readable] point K~25: |p|=15 sim=0.3972 eps=0.6028 prompt='Improve the prompt to focus on the target words: "hello world".'
+[readable] budget 12: 1 proposal(s) parsed
+[readable] point K~12: |p|=12 sim=0.5388 eps=0.4612 prompt='Name the work/author/form of the TARGET "hello world'
+[readable] budget 6: 1 proposal(s) parsed
+[readable] point K~6: |p|=8 sim=0.5682 eps=0.4318 prompt='Work/author/form of "hello world'
+[readable] explicit baseline: |p|=20 sim=1.0000
+readable.json written: /private/tmp/aleph-compare-live/canary-1p7b/targets/hello-world/readable.json (24 evaluations)
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 103/103 [00:00<00:00, 2828.27it/s]
