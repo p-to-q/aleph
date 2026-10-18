@@ -227,38 +227,49 @@ class FrozenConfig:
         return digest(self.to_canonical())
 
 
+# Every field ``FrozenConfig.to_canonical`` emits. The canonical form is the
+# whole plan, so a payload that lost a field is not a shorter plan: it is a
+# different or corrupted one. Rebuilding it with a default would silently
+# change what the run does (``rngSeed`` alone reshuffles every draw), and the
+# rebuilt object's ``config_digest`` would then disagree with the recorded
+# ``frozenConfigDigest`` without any reader comparing the two. Both directions
+# of the strictness therefore come from this one list: unknown fields are
+# rejected, and every listed field is required.
+FROZEN_CANONICAL_FIELDS = (
+    "schemaVersion",
+    "seeds",
+    "operatorSpecs",
+    "operatorWeights",
+    "explorationShare",
+    "exploitTopK",
+    "parentRule",
+    "metric",
+    "promoteThreshold",
+    "maxProposalRounds",
+    "maxPromoted",
+    "stopRule",
+    "racingRule",
+    "retries",
+    "rngSeed",
+    "controlArm",
+    "confirmationChecks",
+)
+
+
 def frozen_config_from_canonical(payload: Mapping[str, Any]) -> FrozenConfig:
-    """Rebuild a ``FrozenConfig`` from its canonical form, rejecting unknown fields."""
+    """Rebuild a ``FrozenConfig`` from its canonical form, rejecting unknown or missing fields."""
     if not isinstance(payload, Mapping):
         raise SchedulerError("frozen config payload must be a mapping")
-    allowed = {
-        "schemaVersion",
-        "seeds",
-        "operatorSpecs",
-        "operatorWeights",
-        "explorationShare",
-        "exploitTopK",
-        "parentRule",
-        "metric",
-        "promoteThreshold",
-        "maxProposalRounds",
-        "maxPromoted",
-        "stopRule",
-        "racingRule",
-        "retries",
-        "rngSeed",
-        "controlArm",
-        "confirmationChecks",
-    }
-    unknown = set(payload) - allowed
+    unknown = set(payload) - set(FROZEN_CANONICAL_FIELDS)
     if unknown:
         raise SchedulerError(f"frozen config has unknown fields: {sorted(unknown)}")
-    version = payload.get("schemaVersion")
-    if version is not None and version != HYBRID_SCHEMA_VERSION:
-        raise SchedulerError(f"unsupported frozen config schema version: {version!r}")
-    missing = {"metric", "maxProposalRounds", "maxPromoted"} - set(payload)
+    missing = set(FROZEN_CANONICAL_FIELDS) - set(payload)
     if missing:
         raise SchedulerError(f"frozen config is missing required fields: {sorted(missing)}")
+    if payload["schemaVersion"] != HYBRID_SCHEMA_VERSION:
+        raise SchedulerError(
+            f"unsupported frozen config schema version: {payload['schemaVersion']!r}"
+        )
     seeds = payload.get("seeds")
     if not isinstance(seeds, list) or not seeds:
         raise SchedulerError("frozen config seeds must be a non-empty list")
@@ -268,7 +279,7 @@ def frozen_config_from_canonical(payload: Mapping[str, Any]) -> FrozenConfig:
     weights = payload.get("operatorWeights")
     if not isinstance(weights, Mapping) or not weights:
         raise SchedulerError("frozen config operatorWeights must be a non-empty mapping")
-    checks = payload.get("confirmationChecks", {})
+    checks = payload["confirmationChecks"]
     if not isinstance(checks, Mapping):
         raise SchedulerError("frozen config confirmationChecks must be a mapping")
     from .contracts import candidate_from_canonical
@@ -295,18 +306,18 @@ def frozen_config_from_canonical(payload: Mapping[str, Any]) -> FrozenConfig:
         operator_weights=tuple(
             (str(label), float(weight)) for label, weight in sorted(weights.items())
         ),
-        exploration_share=payload.get("explorationShare", 0.5),
-        exploit_top_k=payload.get("exploitTopK", 1),
-        parent_rule=payload.get("parentRule", "uniform_promoted"),
+        exploration_share=payload["explorationShare"],
+        exploit_top_k=payload["exploitTopK"],
+        parent_rule=payload["parentRule"],
         metric=payload["metric"],
-        promote_threshold=payload.get("promoteThreshold", 0.5),
+        promote_threshold=payload["promoteThreshold"],
         max_proposal_rounds=payload["maxProposalRounds"],
         max_promoted=payload["maxPromoted"],
-        stop_rule=payload.get("stopRule", "rounds"),
-        racing_rule=payload.get("racingRule", "evaluate_all"),
-        retries=payload.get("retries", 0),
-        rng_seed=payload.get("rngSeed", 0),
-        control_arm=payload.get("controlArm", False),
+        stop_rule=payload["stopRule"],
+        racing_rule=payload["racingRule"],
+        retries=payload["retries"],
+        rng_seed=payload["rngSeed"],
+        control_arm=payload["controlArm"],
         confirmation_checks=tuple(
             (key, value) for key, value in sorted(checks.items())
         ),
