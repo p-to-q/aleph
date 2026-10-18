@@ -14,8 +14,9 @@ the declared selection rules.
 Declared findings (fixed by the schema version):
 
 - ``rawFound``: the raw receipt's own scan result (acquisition / free-token
-  count / whole-prompt tokens); an acquisition is exact teacher-forced
-  all-match with a matched greedy continuation recorded in the receipt.
+  count / the recorded whole-prompt token count, declared scaffold tokens
+  included); an acquisition is exact teacher-forced all-match with a matched
+  greedy continuation recorded in the receipt.
 - ``readableFound``: the minimum-length non-explicit point with
   ``epsilon <= tau`` (ties: lower epsilon, then earlier point), or null.
 - ``readableBest``: the minimum-epsilon non-explicit point regardless of tau.
@@ -230,10 +231,61 @@ def readable_findings(points: List[dict], tau: float) -> dict:
     }
 
 
+def _recorded_whole_prompt_tokens(receipt: dict, n_free: int) -> int:
+    """The acquisition's recorded whole-prompt count, cross-checked.
+
+    Every attempt records ``wholePromptTokens`` as
+    ``|prefix| + nFree + |mid| + |target|`` (the declared scaffold accounting),
+    so a scaffolded run counts its scaffold tokens as well. The summary adopts
+    that recorded count instead of re-deriving ``nFree + |target|`` — a
+    derivation that is only the empty-scaffold value — and re-derives the count
+    from the receipt's own scaffold block and target count so that a
+    disagreement fails closed instead of one side silently winning.
+    """
+    attempts = receipt.get("attempts")
+    if not isinstance(attempts, list) or not attempts:
+        raise ComparisonError("raw receipt records no attempts")
+    recorded = set()
+    for attempt in attempts:
+        if not isinstance(attempt, dict):
+            raise ComparisonError("raw receipt records a non-mapping attempt")
+        if attempt.get("acquired") is True and attempt.get("nFree") == n_free:
+            recorded.add(attempt.get("wholePromptTokens"))
+    if not recorded:
+        raise ComparisonError("raw receipt records no acquired attempt at the smallest count")
+    if len(recorded) != 1:
+        raise ComparisonError("raw receipt records conflicting whole-prompt counts")
+    whole = recorded.pop()
+    if not _is_int(whole) or whole < 1:
+        raise ComparisonError("raw receipt records a non-integer whole-prompt count")
+
+    prefix_count = mid_count = 0
+    scaffold = receipt.get("scaffold")
+    if scaffold is not None:
+        if not isinstance(scaffold, dict):
+            raise ComparisonError("raw receipt scaffold block is not a mapping")
+        prefix_ids = scaffold.get("prefixIds")
+        mid_ids = scaffold.get("midIds")
+        if not isinstance(prefix_ids, list) or not isinstance(mid_ids, list):
+            raise ComparisonError("raw receipt scaffold token IDs are not lists")
+        prefix_count, mid_count = len(prefix_ids), len(mid_ids)
+    expected = prefix_count + n_free + mid_count + receipt["target"]["tokenCount"]
+    if whole != expected:
+        raise ComparisonError(
+            "raw receipt whole-prompt count disagrees with its recorded scaffold and target"
+        )
+    return whole
+
+
 def raw_side_summary(receipt: dict) -> dict:
-    """Factual raw-side summary derived from a verified receipt."""
+    """Factual raw-side summary derived from a verified receipt.
+
+    ``wholePromptTokens`` is the acquisition's recorded count adopted through
+    ``_recorded_whole_prompt_tokens``; the empty-scaffold receipts in the
+    archive record ``nFree + |target|`` exactly, so their summaries are
+    unchanged, while a scaffolded receipt now reports its whole prompt.
+    """
     result = receipt["result"]
-    target = receipt["target"]
     acquired = bool(result["success"])
     n_free = result["smallestAcquiredNFree"]
     if acquired and not _is_int(n_free):
@@ -244,7 +296,7 @@ def raw_side_summary(receipt: dict) -> dict:
         "stopReason": result["stopReason"],
         "attempts": result["attempts"],
         "smallestAcquiredNFree": n_free,
-        "wholePromptTokens": (n_free + target["tokenCount"]) if acquired else None,
+        "wholePromptTokens": _recorded_whole_prompt_tokens(receipt, n_free) if acquired else None,
     }
 
 

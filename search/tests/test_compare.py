@@ -36,7 +36,10 @@ from search.compare.config import (  # noqa: E402
 )
 from search.engine.canonical import digest  # noqa: E402
 from search.miniprompt import fixtures as miniprompt_fixtures  # noqa: E402
+from search.miniprompt import receipts as miniprompt_receipts  # noqa: E402
+from search.miniprompt.config import config_from_canonical as miniprompt_config  # noqa: E402
 from search.miniprompt.receipts import verify_receipt  # noqa: E402
+from search.miniprompt.scan import ScanPolicy  # noqa: E402
 
 TARGET_IDS = [14990, 1879]
 TARGET_RENDERING = ["hello", " world"]
@@ -326,6 +329,87 @@ def write_instance_tree(base: Path, config, doc, receipt, *, with_cli_output=Tru
 
 def archived_receipt() -> dict:
     return record.load_json_strict(ARCHIVED_RECEIPT)
+
+
+def _acquired_attempt(spec, target_ids, prefix_count: int, mid_count: int) -> dict:
+    """One acquired attempt record in the shape the runner writes."""
+    n_free = spec.n_free
+    return {
+        "index": spec.index,
+        "nFree": n_free,
+        "stepsBudget": spec.steps_budget,
+        "stepsRun": 2,
+        "acquired": True,
+        "acquiredAtStep": 1,
+        "initialFreeIds": [1000 + i for i in range(n_free)],
+        "solutionFreeIds": [2000 + i for i in range(n_free)],
+        "solutionLoss": 0.5,
+        "solutionSource": "acquired",
+        "wholePromptTokens": prefix_count + n_free + mid_count + len(target_ids),
+        "trajectory": [
+            {"step": 0, "loss": 1.0, "matchTokens": len(target_ids) - 1, "seconds": 0.1},
+            {"step": 1, "loss": 0.5, "matchTokens": len(target_ids), "seconds": 0.1},
+        ],
+        "greedy": {
+            "ran": True,
+            "matched": True,
+            "roundtripEqual": True,
+            "emittedIds": list(target_ids),
+            "freeRendering": "free",
+            "emittedRendering": "target",
+        },
+    }
+
+
+def scaffolded_receipt(*, prefix_ids, mid_ids) -> dict:
+    """A verified raw receipt for a declared scaffold (#137 layout, all acquired).
+
+    No scaffolded preset is declared yet, so such a receipt cannot be bound into
+    a comparison record (that needs its own declaration-first preset); this
+    builder exercises the summary helpers on the receipt shape #137 records —
+    ``wholePromptTokens`` counting the scaffold tokens as well.
+    """
+    declared = miniprompt_fixtures.preset("canary-hello").to_canonical()
+    declared["scaffold"] = {
+        "chatTemplate": ["<|im_start|>", "<|im_end|>"],
+        "systemPrompt": "",
+        "inputStr": "",
+    }
+    config = miniprompt_config(declared)
+    policy = ScanPolicy(config, len(TARGET_IDS))
+    attempts = []
+    while len(attempts) <= 64:
+        spec = policy.next_spec()
+        if spec is None:
+            break
+        attempts.append(_acquired_attempt(spec, TARGET_IDS, len(prefix_ids), len(mid_ids)))
+        policy.record(True)
+    result = miniprompt_receipts.result_from_policy(policy.state, attempts)
+    return miniprompt_receipts.build_receipt(
+        config=config,
+        model={
+            "repo": config.repo,
+            "revision": config.revision,
+            "weightsDigest": config.weights_digest,
+            "vocabSize": 151936,
+        },
+        environment={
+            "python": "3.13",
+            "mlx": "0.31.2",
+            "mlxLm": "0.31.3",
+            "platform": "unit-test",
+        },
+        target={
+            "text": config.target,
+            "tokenIds": list(TARGET_IDS),
+            "tokenCount": len(TARGET_IDS),
+            "rendering": list(TARGET_RENDERING),
+        },
+        attempts=attempts,
+        result=result,
+        created_at=TIMESTAMP,
+        scaffold={"prefixIds": list(prefix_ids), "midIds": list(mid_ids)},
+    )
 
 
 def build_unit_record(base: Path):
@@ -687,6 +771,52 @@ class RecordTests(unittest.TestCase):
         self.assertFalse(record.prompt_contains_target_text("hello-world", "hello world"))
         self.assertEqual(record.target_trigram_containment("hello world", "hello world"), 1.0)
         self.assertEqual(record.char_trigram_similarity("abc", "abc"), 1.0)
+
+
+class RawSummaryTests(unittest.TestCase):
+    """The raw summary adopts the receipt's recorded whole-prompt count."""
+
+    def test_scaffolded_receipt_reports_the_recorded_whole_prompt_count(self):
+        receipt = scaffolded_receipt(prefix_ids=[11, 12], mid_ids=[13])
+        self.assertEqual(verify_receipt(receipt), [])
+        n_free = receipt["result"]["smallestAcquiredNFree"]
+        self.assertIsInstance(n_free, int)
+        summary = record.raw_side_summary(receipt)
+        # 2 prefix + nFree + 1 mid + 2 target tokens; the empty-scaffold
+        # derivation (nFree + target) would under-count by the 3 scaffold tokens.
+        self.assertEqual(summary["wholePromptTokens"], 3 + n_free + len(TARGET_IDS))
+        self.assertEqual(record.raw_found(receipt)["wholePromptTokens"], summary["wholePromptTokens"])
+
+    def test_archived_empty_scaffold_summaries_are_unchanged(self):
+        receipts = sorted((REPO_ROOT / "search/compare/receipts").rglob("receipt.json"))
+        self.assertTrue(receipts)
+        for path in receipts:
+            with self.subTest(receipt=str(path.relative_to(REPO_ROOT))):
+                receipt = record.load_json_strict(path)
+                summary = record.raw_side_summary(receipt)
+                n_free = summary["smallestAcquiredNFree"]
+                expected = (
+                    n_free + receipt["target"]["tokenCount"] if summary["success"] else None
+                )
+                self.assertEqual(summary["wholePromptTokens"], expected)
+
+    def test_recorded_count_disagreeing_with_the_scaffold_fails_closed(self):
+        receipt = scaffolded_receipt(prefix_ids=[11, 12], mid_ids=[13])
+        n_free = receipt["result"]["smallestAcquiredNFree"]
+        position = next(
+            index
+            for index, attempt in enumerate(receipt["attempts"])
+            if attempt["nFree"] == n_free
+        )
+        for delta in (-1, 1):
+            with self.subTest(delta=delta):
+                bad = copy.deepcopy(receipt)
+                bad["attempts"][position]["wholePromptTokens"] += delta
+                bad["receiptDigest"] = digest(miniprompt_receipts.receipt_body(bad))
+                errors = verify_receipt(bad)
+                self.assertTrue(any("wholePromptTokens" in error for error in errors), errors)
+                with self.assertRaises(record.ComparisonError):
+                    record.raw_side_summary(bad)
 
 
 class ReadableDryRunTests(unittest.TestCase):

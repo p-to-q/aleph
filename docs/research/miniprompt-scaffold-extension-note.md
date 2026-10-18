@@ -84,9 +84,14 @@ presets without silent behavior?
 
 - A declared scaffolded preset + comparison tranche (its own declaration-first step, like
   tranche 2) if scaffolded coordinates are to be compared.
-- Comparison summary adoption: `search/compare/record.py` derives `wholePromptTokens` as
-  `nFree + target count` today; scaffolded receipts must feed it the recorded whole-prompt
-  count before any scaffolded instance is archived.
+- Comparison summary adoption — discharged 2026-10-19 by
+  `search/compare/record.py::_recorded_whole_prompt_tokens`: the raw-side summary adopts the
+  acquisition's recorded `wholePromptTokens` (declared scaffold tokens included) and re-derives
+  it from the receipt's recorded scaffold block and target count, failing closed when the two
+  disagree. The empty-scaffold receipts in the archive record `nFree + target count` exactly,
+  so every archived comparison keeps its recorded values and still verifies unchanged; only a
+  scaffolded receipt reports a different number. What remains open is the declared scaffolded
+  preset and its comparison tranche (the bullet above).
 
 ## Acceptance gates (discharged in this slice)
 
