@@ -211,7 +211,14 @@ class Candidate:
 
 
 def candidate_from_canonical(payload: Mapping[str, Any]) -> Candidate:
-    """Rebuild a ``Candidate`` from its canonical form, verifying its identity."""
+    """Rebuild a ``Candidate`` from its canonical form, verifying its identity.
+
+    ``candidateRole`` keeps a default, unlike every other canonical field the
+    writers emit. That is deliberate and safe: the role is part of the identity
+    payload, so the derived ``candidateId`` below is compared against the
+    declared one. A stripped role therefore survives only when its true value
+    already equalled the default, and any other value fails as an id mismatch.
+    """
     if not isinstance(payload, Mapping):
         raise ContractViolation("candidate payload must be a mapping")
     _reject_unknown_fields(
@@ -309,12 +316,12 @@ def adapter_identity_from_canonical(payload: Mapping[str, Any]) -> AdapterIdenti
     _reject_unknown_fields(
         payload, {"adapterId", "revision", "role", "capabilities", "manifest"}, "adapter identity"
     )
-    capabilities = payload.get("capabilities", [])
+    capabilities = _require_key(payload, "capabilities", "adapter identity")
     if not isinstance(capabilities, list) or not all(
         isinstance(item, str) for item in capabilities
     ):
         raise ContractViolation("adapter capabilities must be a list of str")
-    manifest = payload.get("manifest", {})
+    manifest = _require_key(payload, "manifest", "adapter identity")
     if not isinstance(manifest, Mapping):
         raise ContractViolation("adapter manifest must be a mapping")
     return adapter_identity(
@@ -376,10 +383,10 @@ def proposal_request_from_canonical(payload: Mapping[str, Any]) -> ProposalReque
         {"requestId", "reservationId", "adapter", "proposalMode", "targetDigest", "context", "parentCandidateIds"},
         "proposal request",
     )
-    context = payload.get("context", {})
+    context = _require_key(payload, "context", "proposal request")
     if not isinstance(context, Mapping):
         raise ContractViolation("proposal request context must be a mapping")
-    parent_ids = payload.get("parentCandidateIds", [])
+    parent_ids = _require_key(payload, "parentCandidateIds", "proposal request")
     if not isinstance(parent_ids, list):
         raise ContractViolation("parentCandidateIds must be a list")
     return ProposalRequest(
@@ -454,7 +461,7 @@ def proposal_receipt_from_canonical(payload: Mapping[str, Any]) -> ProposalRecei
         if not isinstance(item, Mapping) or "candidateId" not in item:
             raise ContractViolation("proposal receipt candidate items must carry candidateId")
         parsed.append(candidate_from_canonical(item))
-    resource_use = payload.get("resourceUse", {})
+    resource_use = _require_key(payload, "resourceUse", "proposal receipt")
     if not isinstance(resource_use, Mapping):
         raise ContractViolation("proposal receipt resourceUse must be a mapping")
     return ProposalReceipt(
@@ -542,10 +549,10 @@ def evaluation_receipt_from_canonical(payload: Mapping[str, Any]) -> EvaluationR
     metrics = payload.get("metrics")
     if not isinstance(metrics, Mapping) or not metrics:
         raise ContractViolation("evaluation receipt metrics must be a non-empty mapping")
-    resource_use = payload.get("resourceUse", {})
+    resource_use = _require_key(payload, "resourceUse", "evaluation receipt")
     if not isinstance(resource_use, Mapping):
         raise ContractViolation("evaluation receipt resourceUse must be a mapping")
-    outputs = payload.get("outputs", {})
+    outputs = _require_key(payload, "outputs", "evaluation receipt")
     if not isinstance(outputs, Mapping):
         raise ContractViolation("evaluation receipt outputs must be a mapping")
     return EvaluationReceipt(

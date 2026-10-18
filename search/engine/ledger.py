@@ -425,9 +425,9 @@ def coordinate_cost_from_canonical(payload: Mapping[str, Any]) -> CoordinateCost
             coordinate_utf8_bytes=payload["coordinateUtf8Bytes"],
             full_rendered_tokens=payload["fullRenderedTokens"],
             full_rendered_utf8_bytes=payload["fullRenderedUtf8Bytes"],
-            target_tokens=payload.get("targetTokens", 0),
-            continuation_tokens=payload.get("continuationTokens", 0),
-            prefix_free_bits=payload.get("prefixFreeBits"),
+            target_tokens=payload["targetTokens"],
+            continuation_tokens=payload["continuationTokens"],
+            prefix_free_bits=payload["prefixFreeBits"],
         )
     except (KeyError, TypeError) as error:
         raise LedgerError(f"malformed C(p) payload: {error}") from error
