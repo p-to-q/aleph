@@ -33,6 +33,7 @@ from search.engine.hybrid_pareto import (
     FrozenConfig,
     HybridRunResult,
     SchedulerError,
+    FROZEN_CANONICAL_FIELDS,
     frozen_config_from_canonical,
     run_hybrid_search,
     unfreeze_projection,
@@ -359,6 +360,44 @@ class TestFrozenConfig(unittest.TestCase):
         del payload["seeds"]
         with self.assertRaises(SchedulerError):
             frozen_config_from_canonical(payload)
+
+    def test_declared_field_list_is_the_canonical_form(self) -> None:
+        # The strictness in both directions comes from FROZEN_CANONICAL_FIELDS,
+        # so it must stay exactly the set to_canonical() emits: a new plan field
+        # that is not listed would be accepted as unknown, and a listed field
+        # that is no longer emitted would be impossible to satisfy.
+        self.assertEqual(set(FROZEN_CANONICAL_FIELDS), set(make_config().to_canonical()))
+        self.assertEqual(len(FROZEN_CANONICAL_FIELDS), len(set(FROZEN_CANONICAL_FIELDS)))
+
+    def test_parser_requires_every_canonical_field(self) -> None:
+        # A payload that lost a field is a different plan, not a shorter one:
+        # rebuilding it with a default would silently drop rngSeed/retries/an
+        # operator weight and the rebuilt digest would no longer be the
+        # recorded `frozenConfigDigest`, with nothing comparing the two.
+        config = make_config(rng_seed=7, retries=2, exploration_share=0.9)
+        full = config.to_canonical()
+        for key in FROZEN_CANONICAL_FIELDS:
+            with self.subTest(missing=key):
+                payload = {name: value for name, value in full.items() if name != key}
+                with self.assertRaises(SchedulerError):
+                    frozen_config_from_canonical(payload)
+
+    def test_parser_requires_the_declared_schema_version(self) -> None:
+        config = make_config()
+        payload = config.to_canonical()
+        payload["schemaVersion"] = None
+        with self.assertRaises(SchedulerError):
+            frozen_config_from_canonical(payload)
+
+    def test_parser_round_trips_every_non_default_plan_field(self) -> None:
+        config = make_config(
+            rng_seed=7, retries=2, exploration_share=0.9, exploit_top_k=3,
+            promote_threshold=0.25, racing_rule="first_passing", stop_rule="either",
+        )
+        rebuilt = frozen_config_from_canonical(config.to_canonical())
+        self.assertEqual(rebuilt, config)
+        self.assertEqual(rebuilt.config_digest, config.config_digest)
+        self.assertNotEqual(rebuilt.config_digest, make_config().config_digest)
 
 
 class TestEndToEnd(unittest.TestCase):
