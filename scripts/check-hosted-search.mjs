@@ -7,6 +7,7 @@ let primaryCalls = 0
 let fallbackCallsSeen = 0
 let emitEmptyPrimary = false
 let emitOversizedPrimary = false
+let emitUnicodeBoundaryPrimary = false
 
 process.env.ALEPH_CUSTOM_API_BASE_URL = 'https://primary.test/v1'
 process.env.ALEPH_CUSTOM_API_KEY = 'primary-test-key'
@@ -27,6 +28,11 @@ globalThis.fetch = async (input, init = {}) => {
     if (emitOversizedPrimary) {
       return new Response(JSON.stringify({
         choices: [{ message: { content: 'x'.repeat(MAX_SEARCH_OUTPUT_CHARS + 1) } }],
+      }), { status: 200, headers: { 'content-type': 'application/json' } })
+    }
+    if (emitUnicodeBoundaryPrimary) {
+      return new Response(JSON.stringify({
+        choices: [{ message: { content: '😀'.repeat(MAX_SEARCH_OUTPUT_CHARS) } }],
       }), { status: 200, headers: { 'content-type': 'application/json' } })
     }
     if (emitEmptyPrimary && primaryCalls === 1) {
@@ -159,6 +165,21 @@ emitOversizedPrimary = false
 assert.equal(oversizedOutputResponse.status, 200)
 assert.equal((await oversizedOutputResponse.json()).config.model, 'fallback-test-model')
 assert.equal(fallbackCallsSeen, 10)
+
+// Output limits count Unicode code points, matching target limits.
+primaryCalls = 0
+fallbackCallsSeen = 0
+calls.length = 0
+emitUnicodeBoundaryPrimary = true
+const unicodeBoundaryResponse = await POST(new Request('http://localhost/api/search', {
+  method: 'POST', headers: { 'content-type': 'application/json' },
+  body: JSON.stringify({ target_text: target }),
+}))
+emitUnicodeBoundaryPrimary = false
+assert.equal(unicodeBoundaryResponse.status, 200)
+assert.equal((await unicodeBoundaryResponse.json()).config.model, 'primary-test-model')
+assert.equal(primaryCalls, 10)
+assert.equal(fallbackCallsSeen, 0)
 
 // A primary run that fits its allotted window should finish even when fallback
 // credentials are configured.

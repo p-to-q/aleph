@@ -515,7 +515,7 @@ async function generateHostedOutputWithConnection(
     if (!cleanedOutput) {
       throw new Error('Hosted model returned no output after cleanup.')
     }
-    if (cleanedOutput.length > MAX_SEARCH_OUTPUT_CHARS) {
+    if (countUnicodeCodePoints(cleanedOutput, MAX_SEARCH_OUTPUT_CHARS) > MAX_SEARCH_OUTPUT_CHARS) {
       throw new Error(`Hosted model output exceeds ${MAX_SEARCH_OUTPUT_CHARS} characters.`)
     }
     return cleanedOutput

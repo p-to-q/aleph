@@ -863,6 +863,7 @@ const STRINGS = {
       '⌘/Ctrl↵',
     placeholderLine1: 'paste any text here',
     placeholderLine2: 'long or short is fine',
+    searchTargetTooShort: 'target must contain at least 8 characters',
     hostedTargetTooLong: `custom API targets must be at most ${MAX_SEARCH_TARGET_CHARS.toLocaleString()} characters`,
     placeholderAction:
       'aleph will test for the shortest prompt it can currently find to regenerate it',
@@ -1012,6 +1013,7 @@ const STRINGS = {
       '⌘/Ctrl↵',
     placeholderLine1: '在这里粘贴任意文本',
     placeholderLine2: '长一点、短一点都没关系',
+    searchTargetTooShort: '目标文本至少需要 8 个字符',
     hostedTargetTooLong: `custom API 目标文本不能超过 ${MAX_SEARCH_TARGET_CHARS.toLocaleString()} 个字符`,
     placeholderAction:
       'aleph 会搜索目前能找到的最短 prompt，用来重新生成它',
@@ -2084,7 +2086,9 @@ export function AlephExplorer() {
   const handleTextChange = (nextText: string) => {
     const wasEmpty = text.trim().length === 0
     const isEmpty = nextText.trim().length === 0
+    const nextTargetLength = countUnicodeCodePoints(nextText.trim(), MAX_SEARCH_TARGET_CHARS)
     setText(nextText)
+    if (nextTargetLength >= 8 && err === STRINGS[lang].searchTargetTooShort) setErr('')
     if (isEmpty) {
       userSelectedModeRef.current = false
       setModeNotice(null)
@@ -2101,11 +2105,15 @@ export function AlephExplorer() {
     }
   }
 
+  const searchTargetLength = countUnicodeCodePoints(text.trim(), MAX_SEARCH_TARGET_CHARS)
   const runSearch = useCallback(async () => {
     const q = text.trim()
-    const targetLength = countUnicodeCodePoints(q, MAX_SEARCH_TARGET_CHARS)
-    if (targetLength < 8 || busy) return
-    if (searchMode === 'claude_api' && targetLength > MAX_SEARCH_TARGET_CHARS) {
+    if (busy) return
+    if (searchTargetLength < 8) {
+      setErr(STRINGS[lang].searchTargetTooShort)
+      return
+    }
+    if (searchMode === 'claude_api' && searchTargetLength > MAX_SEARCH_TARGET_CHARS) {
       setErr(STRINGS[lang].hostedTargetTooLong)
       return
     }
@@ -2196,7 +2204,7 @@ export function AlephExplorer() {
       setBusy(false)
       setBusySince(null)
     }
-  }, [text, busy, lang, searchMode, examples])
+  }, [text, busy, lang, searchMode, examples, searchTargetLength])
 
   const setFromClientX = useCallback((clientX: number) => {
     const el = trackRef.current
@@ -2871,7 +2879,7 @@ export function AlephExplorer() {
             <button
               type="button"
               onClick={runSearch}
-              disabled={busy || text.trim().length < 8}
+              disabled={busy || searchTargetLength < 8}
               style={{
                 gridColumn: isNarrow ? 1 : undefined,
                 background: 'transparent',
@@ -2882,9 +2890,9 @@ export function AlephExplorer() {
                 width: isNarrow ? '100%' : undefined,
                 justifySelf: isNarrow ? 'stretch' : undefined,
                 color:
-                  busy || text.trim().length < 8 ? muted : 'var(--site-text)',
+                  busy || searchTargetLength < 8 ? muted : 'var(--site-text)',
                 cursor:
-                  busy || text.trim().length < 8 ? 'default' : 'pointer',
+                  busy || searchTargetLength < 8 ? 'default' : 'pointer',
               }}
             >
               {busy ? tr.compressing : tr.compress}
