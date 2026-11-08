@@ -380,6 +380,40 @@ class ScoringRuleResumeTests(unittest.TestCase):
             with self.assertRaisesRegex(runner.RunStateError, "scoring rule differs"):
                 runner._validate_scoring_rule(old_state, {"prefixIds": [11], "midIds": []})
 
+    def test_run_scan_rejects_progressed_prefix_only_legacy_checkpoint(self):
+        config = variant(
+            scaffold={"chatTemplate": ["prefix", "middle"], "systemPrompt": "", "inputStr": ""},
+        )
+        model_meta = {
+            "repo": config.repo,
+            "revision": config.revision,
+            "weightsDigest": config.weights_digest,
+            "vocabSize": 151936,
+        }
+        policy = ScanPolicy(config, len(TARGET_IDS))
+        spec = policy.next_spec()
+        attempt = attempt_from_spec(spec, False, prefix_count=1)
+        policy.record(False)
+        state = {
+            "schema": receipts.STATE_SCHEMA,
+            "configDigest": config.digest,
+            "config": config.to_canonical(),
+            "model": model_meta,
+            "environment": {"python": "test"},
+            "target": {"tokenIds": list(TARGET_IDS)},
+            "scaffold": {"prefixIds": [11], "midIds": []},
+            "scan": policy.to_snapshot(),
+            "attempts": [attempt],
+            "current": None,
+        }
+        fake = types.ModuleType("search.miniprompt.gcg")
+        fake.load_pinned_model = lambda _declaration: (object(), object(), model_meta)
+
+        with execution_module("runner", fake) as (runner, _), tempfile.TemporaryDirectory() as tmp:
+            receipts.write_json_atomic(Path(tmp) / "state.json", state)
+            with self.assertRaisesRegex(runner.RunStateError, "scoring rule differs"):
+                runner.run_scan(config, tmp, log=lambda *_: None)
+
     def test_legacy_empty_scaffold_trajectory_remains_resumable(self):
         fake = types.ModuleType("search.miniprompt.gcg")
         with execution_module("runner", fake) as (runner, _):

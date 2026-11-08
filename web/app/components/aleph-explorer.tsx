@@ -16,7 +16,7 @@ import {
   type ParsedRunFile,
   type RunFilePoint,
 } from '../lib/run-file'
-import { MAX_SEARCH_TARGET_CHARS } from '../lib/search-limits.mjs'
+import { countUnicodeCodePoints, MAX_SEARCH_TARGET_CHARS } from '../lib/search-limits.mjs'
 
 interface CurvePoint {
   epsilon: number
@@ -2103,8 +2103,9 @@ export function AlephExplorer() {
 
   const runSearch = useCallback(async () => {
     const q = text.trim()
-    if (q.length < 8 || busy) return
-    if (searchMode === 'claude_api' && q.length > MAX_SEARCH_TARGET_CHARS) {
+    const targetLength = countUnicodeCodePoints(q, MAX_SEARCH_TARGET_CHARS)
+    if (targetLength < 8 || busy) return
+    if (searchMode === 'claude_api' && targetLength > MAX_SEARCH_TARGET_CHARS) {
       setErr(STRINGS[lang].hostedTargetTooLong)
       return
     }

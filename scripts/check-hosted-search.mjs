@@ -49,7 +49,11 @@ globalThis.fetch = async (input, init = {}) => {
 }
 
 const { POST } = await import('../web/app/api/search/route.ts')
-const { MAX_SEARCH_OUTPUT_CHARS, MAX_SEARCH_TARGET_CHARS } = await import('../web/app/lib/search-limits.mjs')
+const {
+  countUnicodeCodePoints,
+  MAX_SEARCH_OUTPUT_CHARS,
+  MAX_SEARCH_TARGET_CHARS,
+} = await import('../web/app/lib/search-limits.mjs')
 
 const malformedJsonResponse = await POST(new Request('http://localhost/api/search', {
   method: 'POST', headers: { 'content-type': 'application/json' }, body: '{',
@@ -59,10 +63,19 @@ const nonObjectBodyResponse = await POST(new Request('http://localhost/api/searc
   method: 'POST', headers: { 'content-type': 'application/json' }, body: 'null',
 }))
 assert.equal(nonObjectBodyResponse.status, 400)
+const arrayBodyResponse = await POST(new Request('http://localhost/api/search', {
+  method: 'POST', headers: { 'content-type': 'application/json' }, body: '[]',
+}))
+assert.equal(arrayBodyResponse.status, 400)
 const nonStringTargetResponse = await POST(new Request('http://localhost/api/search', {
   method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ target_text: 42 }),
 }))
 assert.equal(nonStringTargetResponse.status, 422)
+const nonStringLabelResponse = await POST(new Request('http://localhost/api/search', {
+  method: 'POST', headers: { 'content-type': 'application/json' },
+  body: JSON.stringify({ target_text: target, label: { unexpected: true } }),
+}))
+assert.equal(nonStringLabelResponse.status, 422)
 const oversizedTargetResponse = await POST(new Request('http://localhost/api/search', {
   method: 'POST', headers: { 'content-type': 'application/json' },
   body: JSON.stringify({ target_text: 'x'.repeat(MAX_SEARCH_TARGET_CHARS + 1) }),
@@ -76,9 +89,22 @@ const paddedTargetResponse = await POST(new Request('http://localhost/api/search
   body: JSON.stringify({ target_text: paddedTarget }),
 }))
 assert.equal(paddedTargetResponse.status, 200)
+assert.equal((await paddedTargetResponse.json()).target.text, paddedTarget.trim())
 assert.ok(calls.some((call) =>
   call.body.messages.at(-1).content.includes(`${'x'.repeat(MAX_SEARCH_TARGET_CHARS)}`),
 ))
+
+primaryCalls = 0
+fallbackCallsSeen = 0
+calls.length = 0
+const unicodeTarget = '😀'.repeat(2049)
+assert.equal(countUnicodeCodePoints(unicodeTarget, MAX_SEARCH_TARGET_CHARS), 2049)
+const unicodeTargetResponse = await POST(new Request('http://localhost/api/search', {
+  method: 'POST', headers: { 'content-type': 'application/json' },
+  body: JSON.stringify({ target_text: unicodeTarget }),
+}))
+assert.equal(unicodeTargetResponse.status, 200)
+assert.equal((await unicodeTargetResponse.json()).target.text, unicodeTarget)
 
 primaryCalls = 0
 fallbackCallsSeen = 0

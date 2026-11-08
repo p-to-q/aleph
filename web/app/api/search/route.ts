@@ -1,14 +1,18 @@
 import { NextResponse } from 'next/server'
 import { createHash } from 'node:crypto'
-import { MAX_SEARCH_OUTPUT_CHARS, MAX_SEARCH_TARGET_CHARS } from '../../lib/search-limits.mjs'
+import {
+  countUnicodeCodePoints,
+  MAX_SEARCH_OUTPUT_CHARS,
+  MAX_SEARCH_TARGET_CHARS,
+} from '../../lib/search-limits.mjs'
 
 export const runtime = 'nodejs'
 export const maxDuration = 60
 
 type SearchRequest = {
-  target_text?: string
+  target_text: string
   mode?: string
-  label?: string
+  label?: string | null
 }
 
 type ObservationMode = 'mock' | 'black_box'
@@ -78,18 +82,22 @@ export async function POST(request: Request) {
     return NextResponse.json({ detail: 'Request body must be a JSON object.' }, { status: 400 })
   }
   const body = parsedBody as SearchRequest
+  if (body.label != null && typeof body.label !== 'string') {
+    return NextResponse.json({ detail: 'label must be a string' }, { status: 422 })
+  }
   if (typeof body.target_text !== 'string') {
     return NextResponse.json({ detail: 'target_text must be a string' }, { status: 422 })
   }
   const targetText = body.target_text.trim()
+  const targetLength = countUnicodeCodePoints(targetText, MAX_SEARCH_TARGET_CHARS)
 
-  if (targetText.length < 8) {
+  if (targetLength < 8) {
     return NextResponse.json(
       { detail: 'target_text must contain at least 8 characters' },
       { status: 422 },
     )
   }
-  if (targetText.length > MAX_SEARCH_TARGET_CHARS) {
+  if (targetLength > MAX_SEARCH_TARGET_CHARS) {
     return NextResponse.json(
       { detail: `target_text must be at most ${MAX_SEARCH_TARGET_CHARS} characters` },
       { status: 413 },

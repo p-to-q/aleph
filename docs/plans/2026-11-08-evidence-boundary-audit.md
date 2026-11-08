@@ -108,10 +108,12 @@ evidence. The pinned real-model engine canary and typed-evidence migration remai
 - Required canonical `candidateRole` and `identityVersion` alongside `candidateId`; missing or null
   identity fields now fail closed for both ordinary candidates and Explicit Reconstruction. Candidate
   records now participate in the writer-derived required-field regression matrix.
-- Rejected malformed JSON and non-object API bodies with 400 responses, and non-string `target_text`
-  values with 422; retained the route's trimmed-text length limit. Rejected progressed prefix-only
-  legacy checkpoints, and verified the valid comparison receipt before the stale-receipt mutation.
-- Latest validation passed: `npm run lint`, `npm test` (131 search tests, 450 engine tests, 17
+- Rejected malformed JSON and non-object/array API bodies with 400 responses, and non-string
+  `target_text` or `label` values with 422. Applied the 4,096-character target limit to trimmed
+  Unicode code points in both the route and UI, with bounded counting for oversized inputs. Rejected
+  progressed prefix-only legacy checkpoints through `run_scan`, and verified the valid comparison
+  receipt before the stale-receipt mutation.
+- Latest validation passed: `npm run lint`, `npm test` (132 search tests, 450 engine tests, 17
   optional MLX tests skipped), `npm run build --workspace web`, `apps/api/.venv/bin/python -m pytest
   apps/api/tests` (43 passed), `npm run api:smoke`, `node scripts/check-hosted-search.mjs`, and
   `git diff --check`.
