@@ -19,7 +19,7 @@ from pathlib import Path
 
 from . import gcg, receipts, sampling
 from .config import MiniPromptConfig
-from .receipts import STATE_SCHEMA, read_json, write_json_atomic
+from .receipts import SCORING_RULE, STATE_SCHEMA, read_json, write_json_atomic
 from .scan import ScanPolicy, ScanPolicyError
 
 
@@ -78,6 +78,22 @@ def _validated_scaffold(state, config: MiniPromptConfig) -> dict:
     ):
         raise RunStateError("run state scaffold block is malformed")
     return {"prefixIds": list(block["prefixIds"]), "midIds": list(block["midIds"])}
+
+
+def _validate_scoring_rule(state: dict, scaffold_ids: dict) -> None:
+    """Reject progressed checkpoints whose losses used different positions."""
+    recorded_rule = state.get("scoringRule")
+    current = state.get("current")
+    has_progress = bool(state["attempts"]) or (
+        isinstance(current, dict)
+        and (current.get("step", 0) > 0 or bool(current.get("trajectory")))
+    )
+    if recorded_rule == SCORING_RULE:
+        return
+    if has_progress and (recorded_rule is not None or scaffold_ids["midIds"]):
+        raise RunStateError(
+            "refusing to resume: checkpoint scoring rule differs from the current target positions"
+        )
 
 
 def _validated_policy(state, config: MiniPromptConfig, target_token_count: int) -> ScanPolicy:
@@ -192,6 +208,7 @@ def run_scan(config: MiniPromptConfig, run_dir, *, max_seconds=None, log=print) 
             "updatedAt": created_at,
             "config": config.to_canonical(),
             "configDigest": config.digest,
+            "scoringRule": SCORING_RULE,
             "model": model_meta,
             "environment": environment_metadata(),
             "target": {
@@ -218,6 +235,10 @@ def run_scan(config: MiniPromptConfig, run_dir, *, max_seconds=None, log=print) 
             raise RunStateError("run state model identity differs from the freshly loaded pinned model")
         policy = _validated_policy(state, config, len(target_ids))
         scaffold_ids = _validated_scaffold(state, config)
+        _validate_scoring_rule(state, scaffold_ids)
+        if state.get("scoringRule") != SCORING_RULE:
+            state["scoringRule"] = SCORING_RULE
+            write_json_atomic(state_path, state)
 
     deadline = None if max_seconds is None else time.monotonic() + float(max_seconds)
 

@@ -199,6 +199,7 @@ def _candidate_from_point(
     target_text: str,
     adapter: str,
 ) -> SearchCandidatePoint:
+    """Map one adapter point into the shared candidate contract."""
     prompt = str(point.get("prompt") or "")
     output = str(point.get("output") or "")
     length = _point_length(point)
@@ -400,6 +401,7 @@ def _optional_string(value: object) -> str | None:
 
 
 def _average_nll(point: dict[str, Any]) -> float | None:
+    """Return a finite mean only when this point has a valid loss trace."""
     # Candidate evidence must meet the same trace contract as tokenLoss,
     # without borrowing a valid trace from another candidate.
     entries = _token_loss([point])

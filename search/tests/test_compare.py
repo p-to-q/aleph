@@ -844,6 +844,20 @@ class ReadableHelperTests(unittest.TestCase):
 
 
 class CompareCliTests(unittest.TestCase):
+    def test_run_instance_reports_duplicate_keys_as_unreadable(self):
+        from search.compare import run as compare_run
+
+        with tempfile.TemporaryDirectory() as tmp:
+            comparison_path = Path(tmp) / "comparison.json"
+            comparison_path.write_text(
+                '{"configDigest":"first","configDigest":"second"}', encoding="utf-8"
+            )
+            with self.assertRaises(compare_run.RunInstanceError) as raised:
+                compare_run.run_instance("canary-4b", tmp, log=lambda text: None)
+
+        self.assertIn("comparison record is unreadable", str(raised.exception))
+        self.assertIsInstance(raised.exception.__cause__, ValueError)
+
     def test_run_instance_does_not_reuse_a_verified_record_for_another_config(self):
         from search.compare import run as compare_run
 

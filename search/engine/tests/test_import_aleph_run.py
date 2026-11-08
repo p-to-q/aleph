@@ -411,6 +411,7 @@ class TestFileStrictness(unittest.TestCase):
         )
 
     def test_duplicate_candidate_ids_refused_even_with_a_fresh_digest(self) -> None:
+        """Reject ambiguous candidate references even after digest refresh."""
         for select_duplicate in (True, False):
             with self.subTest(select_duplicate=select_duplicate):
                 value = load_value(self.root)

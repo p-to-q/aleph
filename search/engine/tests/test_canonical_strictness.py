@@ -163,12 +163,14 @@ CONSTANT_FIELDS = {("coordinate cost", "costBasis")}
 
 class TestCanonicalParsersRequireEveryWrittenField(unittest.TestCase):
     def test_canonical_payloads_round_trip(self) -> None:
+        """Every canonical record family must survive a parse-and-write cycle."""
         for label, value, parser, _ in families():
             with self.subTest(record=label):
                 payload = value.to_canonical()  # type: ignore[attr-defined]
                 self.assertEqual(parser(payload).to_canonical(), payload)
 
     def test_no_written_field_may_be_deleted(self) -> None:
+        """Required fields emitted by writers cannot disappear on re-import."""
         for label, value, parser, error_type in families():
             payload = value.to_canonical()  # type: ignore[attr-defined]
             self.assertTrue(payload, label)
@@ -212,6 +214,7 @@ class TestDocumentedDefaults(unittest.TestCase):
             candidate_from_canonical(control)
 
     def test_event_defaults_are_settled_by_the_content_digest(self) -> None:
+        """Digest verification must distinguish omitted defaults from edits."""
         event = Event(
             event_id="event-1",
             sequence=1,

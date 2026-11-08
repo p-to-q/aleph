@@ -37,6 +37,7 @@ from .scan import STOP_COLLISION, ScanPolicyError, replay_outcomes
 RECEIPT_SCHEMA = "aleph-miniprompt-receipt/0.1.0"
 STATE_SCHEMA = "aleph-miniprompt-run-state/0.1.0"
 TOOL = {"name": "search/miniprompt", "version": "0.1.0"}
+SCORING_RULE = "causal-target-after-prefix-free-middle/1"
 
 RAW_VIEW_VIEW = "raw"
 RAW_VIEW_LABEL = (
@@ -66,6 +67,7 @@ DECLARED_DIFFERENCES = (
     "so attempts are deterministic and resumable.",
     "Declared Aleph-side bounds: stepsHardCap caps the step budget after growth; "
     "maxAttempts limits the number of GCG attempts.",
+    f"Target token losses use causal logits after the complete prefix, free-token, and middle-scaffold context ({SCORING_RULE}).",
     "The upstream scaffolded layout ([chatTemplate[0], systemPrompt, inputStr, "
     "free tokens, chatTemplate[1], target], every text part encoded with "
     "add_special_tokens=False) is supported as an explicitly declared "

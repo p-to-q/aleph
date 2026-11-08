@@ -85,3 +85,20 @@ evidence. The pinned real-model engine canary and typed-evidence migration remai
   passed) and `npm run api:smoke`. `npm run search:preflight` remains intentionally blocked on
   this machine because the search environment lacks `mlx_lm`, `sentence_transformers`, `fastapi`,
   `uvicorn`, and `numpy`; no real-model canary was attempted.
+
+## Review follow-up
+
+- Asserted the complete serialized token-loss trace for finite extreme NLL cases.
+- Added a MiniPrompt scoring-rule identity to checkpoints and receipts. Progressed legacy scaffold
+  runs with middle tokens are refused so old and corrected loss trajectories cannot be mixed;
+  legacy empty-scaffold checkpoints remain resumable.
+- Reserved 30 seconds for hosted fallback when configured, and routed cleaned empty samples through
+  the same full-run fallback path.
+- Resolved `next/server` from the importing route's workspace and report strict comparison-record
+  parse errors as contextual `RunInstanceError`s.
+- Strengthened regressions for pairwise stability, empty-output recovery, fallback budget recovery,
+  extreme token-loss serialization, checkpoint compatibility, and duplicate-key comparison files.
+- Added missing docstrings on changed complex functions to satisfy the review coverage gate.
+- Validation passed: `npm run lint`, `npm test` (123 search tests, 450 engine tests, 15 optional MLX
+  tests skipped), `npm --workspace web run build`, `apps/api/.venv/bin/python -m pytest
+  apps/api/tests -q` (41 passed), and `npm run api:smoke`.

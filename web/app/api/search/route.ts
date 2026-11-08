@@ -60,6 +60,7 @@ const HOSTED_FALLBACK_MODEL_CONFIG = (process.env.ALEPH_CUSTOM_API_FALLBACK_MODE
   HOSTED_FALLBACK_MODEL).trim()
 const HOSTED_TIMEOUT_MS = 45000
 const HOSTED_RUN_BUDGET_MS = 55000
+const HOSTED_FALLBACK_RESERVE_MS = 30000
 const HOSTED_TEMPERATURE = 0.2
 const HOSTED_REPEATED_SAMPLES = 2
 const HOSTED_RETRIES_PER_CONNECTION = 2
@@ -177,17 +178,25 @@ async function generateHostedCandidates(
         model: HOSTED_FALLBACK_MODEL_CONFIG,
       }
     : null
+  const primaryBudgetMs = fallback
+    ? HOSTED_RUN_BUDGET_MS - HOSTED_FALLBACK_RESERVE_MS
+    : HOSTED_RUN_BUDGET_MS
+  const primaryDeadline = Date.now() + primaryBudgetMs
 
   try {
-    return { model: primary.model, outputs: await generateAll(primary) }
+    return { model: primary.model, outputs: await generateAll(primary, primaryDeadline) }
   } catch (primaryError) {
     if (!fallback) throw primaryError
     // A run freezes one model identity. Discard every partial primary result
     // and regenerate the complete candidate set with the fallback connection.
-    return { model: fallback.model, outputs: await generateAll(fallback) }
+    const fallbackDeadline = Date.now() + HOSTED_FALLBACK_RESERVE_MS
+    return { model: fallback.model, outputs: await generateAll(fallback, fallbackDeadline) }
   }
 
-  async function generateAll(connection: { baseUrl: string; apiKey: string; model: string }) {
+  async function generateAll(
+    connection: { baseUrl: string; apiKey: string; model: string },
+    deadline: number,
+  ) {
     const outputs: string[][] = []
     for (const candidate of candidates) {
       const remainingMs = deadline - Date.now()
@@ -474,7 +483,11 @@ async function generateHostedOutputWithConnection(
       const reason = typeof message?.reasoning_content === 'string' ? ' with reasoning_content only' : ''
       throw new Error(`Hosted model returned an empty output${reason}.`)
     }
-    return cleanModelOutput(output)
+    const cleanedOutput = cleanModelOutput(output)
+    if (!cleanedOutput) {
+      throw new Error('Hosted model returned no output after cleanup.')
+    }
+    return cleanedOutput
   } catch (error) {
     if (error instanceof Error && error.name === 'AbortError') {
       throw new Error('Hosted model request timed out.')

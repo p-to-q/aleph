@@ -169,6 +169,7 @@ def test_observations_omit_token_loss_unless_white_box_trace_is_valid() -> None:
 
 
 def _search_with_traces(monkeypatch, traces):
+    """Run the response mapper against controlled per-candidate traces."""
     points = [
         {
             "id": f"point-{index}",
@@ -222,11 +223,15 @@ def test_search_response_omits_every_nll_field_for_invalid_trace(monkeypatch, tr
     ([-0.0], 0.0),
 ])
 def test_search_response_serializes_extreme_finite_nll_means(monkeypatch, losses, expected) -> None:
+    """Keep finite extreme and signed-zero losses valid in JSON output."""
     payload = _search_with_traces(
         monkeypatch, [{"toktext": ["A"] * len(losses), "toknll": losses}]
     )
     assert payload["observations"]["mode"] == "white_box"
     assert payload["candidates"][0]["nll"] == expected
+    assert payload["observations"]["tokenLoss"] == [
+        {"token": "A", "loss": loss} for loss in losses
+    ]
     if expected == 0:
         assert copysign(1.0, payload["candidates"][0]["nll"]) == 1.0
         assert copysign(1.0, payload["observations"]["tokenLoss"][0]["loss"]) == 1.0

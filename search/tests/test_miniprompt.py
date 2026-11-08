@@ -167,6 +167,7 @@ class ScaffoldExecutionTests(unittest.TestCase):
     """Pin coordinate boundaries without requiring MLX, a snapshot, or GPU work."""
 
     def test_winner_returns_only_the_mutated_free_window(self):
+        """The optimizer result must exclude both scaffold segments."""
         with execution_module("gcg") as (gcg, mx):
             config = variant(topk=2, batch=3, miniBatch=3)
             model = mock.MagicMock()
@@ -184,11 +185,13 @@ class ScaffoldExecutionTests(unittest.TestCase):
             self.assertEqual(result["best_free_ids"], [1, 8])
 
     def test_target_loss_positions_follow_the_complete_context(self):
+        """Target losses must follow prefix, free tokens, and middle."""
         class Tokens(list):
             def argmax(self, axis):
                 return self
 
             def __eq__(self, other):
+                """Compare predicted tokens element by element."""
                 return Tokens(left == right for left, right in zip(self, other))
 
             def tolist(self):
@@ -227,6 +230,28 @@ class ScaffoldExecutionTests(unittest.TestCase):
                             initial_free_ids=[1, 2], prefix_ids=prefix, mid_ids=mid,
                         )
                     self.assertTrue(outcome["acquired"])
+
+
+class ScoringRuleResumeTests(unittest.TestCase):
+    def test_old_scaffold_trajectory_cannot_resume_under_new_loss_positions(self):
+        fake = types.ModuleType("search.miniprompt.gcg")
+        with execution_module("runner", fake) as (runner, _):
+            old_state = {"attempts": [{"acquired": False}], "current": None}
+            with self.assertRaisesRegex(runner.RunStateError, "scoring rule differs"):
+                runner._validate_scoring_rule(old_state, {"prefixIds": [], "midIds": [12]})
+
+    def test_legacy_empty_scaffold_trajectory_remains_resumable(self):
+        fake = types.ModuleType("search.miniprompt.gcg")
+        with execution_module("runner", fake) as (runner, _):
+            old_state = {"attempts": [{"acquired": False}], "current": None}
+            runner._validate_scoring_rule(old_state, {"prefixIds": [], "midIds": []})
+
+    def test_explicitly_mismatched_rule_cannot_resume_a_progressed_run(self):
+        fake = types.ModuleType("search.miniprompt.gcg")
+        with execution_module("runner", fake) as (runner, _):
+            old_state = {"scoringRule": "old-rule", "attempts": [], "current": {"step": 1}}
+            with self.assertRaisesRegex(runner.RunStateError, "scoring rule differs"):
+                runner._validate_scoring_rule(old_state, {"prefixIds": [], "midIds": []})
 
     def test_runner_confirms_the_same_scaffolded_coordinate_and_archives(self):
         config = variant(
@@ -269,6 +294,8 @@ class ScaffoldExecutionTests(unittest.TestCase):
             archived = receipts.read_json(Path(tmp) / "receipt.json")
             self.assertEqual(receipts.verify_receipt(archived), [])
             self.assertEqual(archived["scaffold"], {"prefixIds": [11], "midIds": [12, 13]})
+            state = receipts.read_json(Path(tmp) / "state.json")
+            self.assertEqual(state["scoringRule"], receipts.SCORING_RULE)
             self.assertTrue(archived["result"]["success"])
 
 

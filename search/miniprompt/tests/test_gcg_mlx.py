@@ -419,6 +419,7 @@ class ScaffoldCriterionTests(unittest.TestCase):
         self.assertEqual(outcome["trajectory"][-1]["matchTokens"], len(self.TARGET))
 
     def test_scaffolded_free_window_is_the_only_mutated_region(self):
+        """Mutation and target-loss slices must honor both scaffold positions."""
         prefix_len = len(self.PREFIX)
         free_len = len(self.FREE)
         mid_len = len(self.MID)
