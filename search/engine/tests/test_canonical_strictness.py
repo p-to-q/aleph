@@ -13,12 +13,9 @@ writes a key:
     parsing a payload with that key deleted must raise.
 
 The tests derive the key list from ``to_canonical`` itself, so a field added to
-a writer is covered without touching this file. Two parsers are exempt, and
-each exemption is measured here rather than assumed: ``candidate_from_canonical``
-recomputes the candidate id (which covers the role) and ``event_from_canonical``
-recomputes the content digest (which covers the payload, parents, blobs, and
-schema version), so in both cases a substituted value survives only when it
-already equalled the default.
+a writer is covered without touching this file. ``event_from_canonical`` has
+documented digest-backed defaults, measured separately below; candidate
+identity fields are all required.
 """
 
 from __future__ import annotations
@@ -108,6 +105,7 @@ def families() -> list[tuple[str, object, object, type[BaseException]]]:
     return [
         ("manifest", make_manifest(), manifest_from_canonical, ArchiveError),
         ("coordinate cost", make_cost(), coordinate_cost_from_canonical, LedgerError),
+        ("candidate", make_candidate(), candidate_from_canonical, ContractViolation),
         (
             "adapter identity",
             adapter,
@@ -206,7 +204,7 @@ class TestDocumentedDefaults(unittest.TestCase):
             with self.subTest(role=role):
                 payload = make_candidate(role).to_canonical()
 
-                for field in ("candidateRole", "candidateId"):
+                for field in ("candidateRole", "candidateId", "identityVersion"):
                     with self.subTest(field=field, state="missing"):
                         missing = {key: value for key, value in payload.items() if key != field}
                         with self.assertRaisesRegex(ContractViolation, field):
@@ -221,7 +219,7 @@ class TestDocumentedDefaults(unittest.TestCase):
                     with self.assertRaisesRegex(ContractViolation, "candidateRole"):
                         candidate_from_canonical(missing_both)
 
-                for field in ("candidateRole", "candidateId"):
+                for field in ("candidateRole", "candidateId", "identityVersion"):
                     with self.subTest(field=field, state="null"):
                         nullable = {**payload, field: None}
                         with self.assertRaises(ContractViolation):

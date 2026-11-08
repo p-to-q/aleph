@@ -238,8 +238,9 @@ def candidate_from_canonical(payload: Mapping[str, Any]) -> Candidate:
         raise ContractViolation(
             f"candidate id mismatch: declared {declared!r}, derived {candidate.candidate_id!r}"
         )
-    declared_version = payload.get("identityVersion")
-    if declared_version is not None and declared_version != CANDIDATE_IDENTITY_VERSION:
+    declared_version = _require_key(payload, "identityVersion", "candidate")
+    _require_non_empty_str(declared_version, "candidate.identityVersion")
+    if declared_version != CANDIDATE_IDENTITY_VERSION:
         raise ContractViolation(f"unsupported candidate identity version: {declared_version!r}")
     return candidate
 
