@@ -51,12 +51,38 @@ globalThis.fetch = async (input, init = {}) => {
 const { POST } = await import('../web/app/api/search/route.ts')
 const { MAX_SEARCH_OUTPUT_CHARS, MAX_SEARCH_TARGET_CHARS } = await import('../web/app/lib/search-limits.mjs')
 
+const malformedJsonResponse = await POST(new Request('http://localhost/api/search', {
+  method: 'POST', headers: { 'content-type': 'application/json' }, body: '{',
+}))
+assert.equal(malformedJsonResponse.status, 400)
+const nonObjectBodyResponse = await POST(new Request('http://localhost/api/search', {
+  method: 'POST', headers: { 'content-type': 'application/json' }, body: 'null',
+}))
+assert.equal(nonObjectBodyResponse.status, 400)
+const nonStringTargetResponse = await POST(new Request('http://localhost/api/search', {
+  method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ target_text: 42 }),
+}))
+assert.equal(nonStringTargetResponse.status, 422)
 const oversizedTargetResponse = await POST(new Request('http://localhost/api/search', {
   method: 'POST', headers: { 'content-type': 'application/json' },
   body: JSON.stringify({ target_text: 'x'.repeat(MAX_SEARCH_TARGET_CHARS + 1) }),
 }))
 assert.equal(oversizedTargetResponse.status, 413)
 assert.equal(calls.length, 0)
+
+const paddedTarget = `${' '.repeat(8)}${'x'.repeat(MAX_SEARCH_TARGET_CHARS)}`
+const paddedTargetResponse = await POST(new Request('http://localhost/api/search', {
+  method: 'POST', headers: { 'content-type': 'application/json' },
+  body: JSON.stringify({ target_text: paddedTarget }),
+}))
+assert.equal(paddedTargetResponse.status, 200)
+assert.ok(calls.some((call) =>
+  call.body.messages.at(-1).content.includes(`${'x'.repeat(MAX_SEARCH_TARGET_CHARS)}`),
+))
+
+primaryCalls = 0
+fallbackCallsSeen = 0
+calls.length = 0
 const response = await POST(new Request('http://localhost/api/search', {
   method: 'POST',
   headers: { 'content-type': 'application/json' },

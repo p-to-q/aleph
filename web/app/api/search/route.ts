@@ -68,8 +68,20 @@ const HOSTED_REPEATED_SAMPLES = 2
 const HOSTED_RETRIES_PER_CONNECTION = 2
 
 export async function POST(request: Request) {
-  const body = (await request.json().catch(() => ({}))) as SearchRequest
-  const targetText = (body.target_text ?? '').trim()
+  let parsedBody: unknown
+  try {
+    parsedBody = await request.json()
+  } catch {
+    return NextResponse.json({ detail: 'Request body must be valid JSON.' }, { status: 400 })
+  }
+  if (!parsedBody || typeof parsedBody !== 'object' || Array.isArray(parsedBody)) {
+    return NextResponse.json({ detail: 'Request body must be a JSON object.' }, { status: 400 })
+  }
+  const body = parsedBody as SearchRequest
+  if (typeof body.target_text !== 'string') {
+    return NextResponse.json({ detail: 'target_text must be a string' }, { status: 422 })
+  }
+  const targetText = body.target_text.trim()
 
   if (targetText.length < 8) {
     return NextResponse.json(

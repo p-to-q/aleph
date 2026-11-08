@@ -2104,6 +2104,10 @@ export function AlephExplorer() {
   const runSearch = useCallback(async () => {
     const q = text.trim()
     if (q.length < 8 || busy) return
+    if (searchMode === 'claude_api' && q.length > MAX_SEARCH_TARGET_CHARS) {
+      setErr(STRINGS[lang].hostedTargetTooLong)
+      return
+    }
 
     // Cancel any in-flight search from a previous call
     searchAbortRef.current?.abort()
@@ -2635,7 +2639,6 @@ export function AlephExplorer() {
                 if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) runSearch()
               }}
               placeholder=""
-              maxLength={searchMode === 'claude_api' ? MAX_SEARCH_TARGET_CHARS : undefined}
               spellCheck={false}
               style={{
                 width: '100%',

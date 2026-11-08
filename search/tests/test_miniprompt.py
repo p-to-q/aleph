@@ -373,6 +373,13 @@ class ScoringRuleResumeTests(unittest.TestCase):
             with self.assertRaisesRegex(runner.RunStateError, "scoring rule differs"):
                 runner._validate_scoring_rule(old_state, {"prefixIds": [], "midIds": [12]})
 
+    def test_old_prefix_only_trajectory_cannot_be_stamped_with_current_rule(self):
+        fake = types.ModuleType("search.miniprompt.gcg")
+        with execution_module("runner", fake) as (runner, _):
+            old_state = {"attempts": [{"acquired": False}], "current": None}
+            with self.assertRaisesRegex(runner.RunStateError, "scoring rule differs"):
+                runner._validate_scoring_rule(old_state, {"prefixIds": [11], "midIds": []})
+
     def test_legacy_empty_scaffold_trajectory_remains_resumable(self):
         fake = types.ModuleType("search.miniprompt.gcg")
         with execution_module("runner", fake) as (runner, _):
@@ -384,6 +391,13 @@ class ScoringRuleResumeTests(unittest.TestCase):
         with execution_module("runner", fake) as (runner, _):
             old_state = {"scoringRule": "old-rule", "attempts": [], "current": {"step": 1}}
             with self.assertRaisesRegex(runner.RunStateError, "scoring rule differs"):
+                runner._validate_scoring_rule(old_state, {"prefixIds": [], "midIds": []})
+
+    def test_scoring_rule_validation_rejects_malformed_current_step(self):
+        fake = types.ModuleType("search.miniprompt.gcg")
+        with execution_module("runner", fake) as (runner, _):
+            old_state = {"attempts": [], "current": {"step": True}}
+            with self.assertRaisesRegex(runner.RunStateError, "current.step"):
                 runner._validate_scoring_rule(old_state, {"prefixIds": [], "midIds": []})
 
     def test_completed_scaffold_receipt_requires_the_current_scoring_rule(self):

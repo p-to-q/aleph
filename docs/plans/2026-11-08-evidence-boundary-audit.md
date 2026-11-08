@@ -100,14 +100,18 @@ evidence. The pinned real-model engine canary and typed-evidence migration remai
   extreme token-loss serialization, checkpoint compatibility, and duplicate-key comparison files.
 - Added missing docstrings on changed complex functions to satisfy the review coverage gate.
 - Bounded hosted similarity inputs at 4,096 target characters and 8,192 cleaned output characters;
-  oversized targets return 413 before model calls, and the custom API UI enforces the target limit.
+  oversized trimmed targets return 413 before model calls, and the custom API UI checks the trimmed
+  target before submission without letting raw leading whitespace truncate it.
 - Validation passed: `npm run lint`, `npm test` (129 search tests, 450 engine tests, 17 optional MLX
   tests skipped), `npm --workspace web run build`, `apps/api/.venv/bin/python -m pytest
   apps/api/tests -q` (41 passed), and `npm run api:smoke`.
 - Required canonical `candidateRole` and `identityVersion` alongside `candidateId`; missing or null
   identity fields now fail closed for both ordinary candidates and Explicit Reconstruction. Candidate
   records now participate in the writer-derived required-field regression matrix.
-- Latest validation passed: `npm run lint`, `npm test` (129 search tests, 450 engine tests, 17
+- Rejected malformed JSON and non-object API bodies with 400 responses, and non-string `target_text`
+  values with 422; retained the route's trimmed-text length limit. Rejected progressed prefix-only
+  legacy checkpoints, and verified the valid comparison receipt before the stale-receipt mutation.
+- Latest validation passed: `npm run lint`, `npm test` (131 search tests, 450 engine tests, 17
   optional MLX tests skipped), `npm run build --workspace web`, `apps/api/.venv/bin/python -m pytest
   apps/api/tests` (43 passed), `npm run api:smoke`, `node scripts/check-hosted-search.mjs`, and
   `git diff --check`.

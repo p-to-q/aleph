@@ -422,6 +422,7 @@ class FixtureTests(unittest.TestCase):
                 created_at="2026-10-16T09:30:00Z",
                 base_dir=base,
             )
+            self.assertEqual(record.verify_comparison(record_obj, base), [])
 
             stale_receipt = copy.deepcopy(receipt)
             stale_receipt["procedure"]["declaredDifferences"].remove(SCORING_RULE_DECLARATION)

@@ -91,13 +91,24 @@ def _validate_scoring_rule(state: dict, scaffold_ids: dict) -> None:
     """Reject progressed checkpoints whose losses used different positions."""
     recorded_rule = state.get("scoringRule")
     current = state.get("current")
+    if not isinstance(state.get("attempts"), list):
+        raise RunStateError("run state attempts must be a list")
+    if current is not None and not isinstance(current, dict):
+        raise RunStateError("run state current attempt is malformed")
+    step = current.get("step") if isinstance(current, dict) else 0
+    if isinstance(step, bool) or not isinstance(step, int) or step < 0:
+        raise RunStateError("run state current.step must be a non-negative integer")
     has_progress = bool(state["attempts"]) or (
         isinstance(current, dict)
-        and (current.get("step", 0) > 0 or bool(current.get("trajectory")))
+        and (step > 0 or bool(current.get("trajectory")))
     )
     if recorded_rule == SCORING_RULE:
         return
-    if has_progress and (recorded_rule is not None or scaffold_ids["midIds"]):
+    if has_progress and (
+        recorded_rule is not None
+        or scaffold_ids["prefixIds"]
+        or scaffold_ids["midIds"]
+    ):
         raise RunStateError(
             "refusing to resume: checkpoint scoring rule differs from the current target positions"
         )
