@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createHash } from 'node:crypto'
+import { MAX_SEARCH_OUTPUT_CHARS, MAX_SEARCH_TARGET_CHARS } from '../../lib/search-limits.mjs'
 
 export const runtime = 'nodejs'
 export const maxDuration = 60
@@ -60,7 +61,8 @@ const HOSTED_FALLBACK_MODEL_CONFIG = (process.env.ALEPH_CUSTOM_API_FALLBACK_MODE
   HOSTED_FALLBACK_MODEL).trim()
 const HOSTED_TIMEOUT_MS = 45000
 const HOSTED_RUN_BUDGET_MS = 55000
-const HOSTED_FALLBACK_RESERVE_MS = 30000
+const HOSTED_SCORING_RESERVE_MS = 5000
+const HOSTED_FALLBACK_RESERVE_MS = 20000
 const HOSTED_TEMPERATURE = 0.2
 const HOSTED_REPEATED_SAMPLES = 2
 const HOSTED_RETRIES_PER_CONNECTION = 2
@@ -73,6 +75,12 @@ export async function POST(request: Request) {
     return NextResponse.json(
       { detail: 'target_text must contain at least 8 characters' },
       { status: 422 },
+    )
+  }
+  if (targetText.length > MAX_SEARCH_TARGET_CHARS) {
+    return NextResponse.json(
+      { detail: `target_text must be at most ${MAX_SEARCH_TARGET_CHARS} characters` },
+      { status: 413 },
     )
   }
 
@@ -170,6 +178,7 @@ async function generateHostedCandidates(
   repeatedSamples: number,
 ) {
   const overallDeadline = Date.now() + HOSTED_RUN_BUDGET_MS
+  const generationDeadline = overallDeadline - HOSTED_SCORING_RESERVE_MS
   const primary = { baseUrl: HOSTED_BASE_URL, apiKey: HOSTED_API_KEY, model: HOSTED_MODEL }
   const fallback = HOSTED_FALLBACK_URL && HOSTED_FALLBACK_API_KEY
     ? {
@@ -179,8 +188,8 @@ async function generateHostedCandidates(
       }
     : null
   const primaryDeadline = fallback
-    ? overallDeadline - HOSTED_FALLBACK_RESERVE_MS
-    : overallDeadline
+    ? generationDeadline - HOSTED_FALLBACK_RESERVE_MS
+    : generationDeadline
 
   try {
     return { model: primary.model, outputs: await generateAll(primary, primaryDeadline) }
@@ -188,7 +197,7 @@ async function generateHostedCandidates(
     if (!fallback) throw primaryError
     // A run freezes one model identity. Discard every partial primary result
     // and regenerate the complete candidate set with the fallback connection.
-    return { model: fallback.model, outputs: await generateAll(fallback, overallDeadline) }
+    return { model: fallback.model, outputs: await generateAll(fallback, generationDeadline) }
   }
 
   async function generateAll(
@@ -484,6 +493,9 @@ async function generateHostedOutputWithConnection(
     const cleanedOutput = cleanModelOutput(output)
     if (!cleanedOutput) {
       throw new Error('Hosted model returned no output after cleanup.')
+    }
+    if (cleanedOutput.length > MAX_SEARCH_OUTPUT_CHARS) {
+      throw new Error(`Hosted model output exceeds ${MAX_SEARCH_OUTPUT_CHARS} characters.`)
     }
     return cleanedOutput
   } catch (error) {

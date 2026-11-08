@@ -16,6 +16,7 @@ import {
   type ParsedRunFile,
   type RunFilePoint,
 } from '../lib/run-file'
+import { MAX_SEARCH_TARGET_CHARS } from '../lib/search-limits.mjs'
 
 interface CurvePoint {
   epsilon: number
@@ -862,6 +863,7 @@ const STRINGS = {
       '⌘/Ctrl↵',
     placeholderLine1: 'paste any text here',
     placeholderLine2: 'long or short is fine',
+    hostedTargetTooLong: `custom API targets must be at most ${MAX_SEARCH_TARGET_CHARS.toLocaleString()} characters`,
     placeholderAction:
       'aleph will test for the shortest prompt it can currently find to regenerate it',
     placeholderModeNote:
@@ -1010,6 +1012,7 @@ const STRINGS = {
       '⌘/Ctrl↵',
     placeholderLine1: '在这里粘贴任意文本',
     placeholderLine2: '长一点、短一点都没关系',
+    hostedTargetTooLong: `custom API 目标文本不能超过 ${MAX_SEARCH_TARGET_CHARS.toLocaleString()} 个字符`,
     placeholderAction:
       'aleph 会搜索目前能找到的最短 prompt，用来重新生成它',
     placeholderModeNote:
@@ -2146,7 +2149,7 @@ export function AlephExplorer() {
           body: JSON.stringify({ target_text: q, mode: 'hosted_black_box' }),
           signal: abort.signal,
         }).then(async (r) => {
-          if (!r.ok) throw new Error(`custom:${r.status}`)
+          if (!r.ok) throw new Error(r.status === 413 ? 'custom:target-too-long' : `custom:${r.status}`)
           const j = await r.json() as Record<string, unknown>
           if (!Array.isArray(j.candidates) || !(j.candidates as unknown[]).length)
             throw new Error('custom:empty')
@@ -2178,6 +2181,10 @@ export function AlephExplorer() {
     } catch (e) {
       // AbortError = we cancelled ourselves (new search fired), ignore silently
       if ((e as Error)?.name === 'AbortError') return
+      if ((e as Error)?.message === 'custom:target-too-long') {
+        setErr(STRINGS[lang].hostedTargetTooLong)
+        return
+      }
       // AggregateError = Promise.any with all rejections = both backends failed
       setErr('backend offline — use fixture mode or retry custom api')
     } finally {
@@ -2628,6 +2635,7 @@ export function AlephExplorer() {
                 if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) runSearch()
               }}
               placeholder=""
+              maxLength={searchMode === 'claude_api' ? MAX_SEARCH_TARGET_CHARS : undefined}
               spellCheck={false}
               style={{
                 width: '100%',

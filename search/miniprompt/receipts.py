@@ -498,6 +498,18 @@ def verify_receipt(receipt) -> List[str]:
         elif scaffold_block is None:
             err("scaffold: a scaffolded declared config requires the derived scaffold block")
 
+    if prefix_ids or mid_ids:
+        differences = (
+            receipt["procedure"].get("declaredDifferences")
+            if isinstance(receipt["procedure"], dict)
+            else None
+        )
+        if not isinstance(differences, list) or SCORING_RULE_DECLARATION not in differences:
+            err(
+                "procedure.declaredDifferences: scaffold receipt lacks the current "
+                "scoring rule declaration"
+            )
+
     attempts = receipt["attempts"]
     flags: List[Optional[bool]] = []
     if not isinstance(attempts, list) or not attempts:

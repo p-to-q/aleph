@@ -6,6 +6,7 @@ const calls = []
 let primaryCalls = 0
 let fallbackCallsSeen = 0
 let emitEmptyPrimary = false
+let emitOversizedPrimary = false
 
 process.env.ALEPH_CUSTOM_API_BASE_URL = 'https://primary.test/v1'
 process.env.ALEPH_CUSTOM_API_KEY = 'primary-test-key'
@@ -23,6 +24,11 @@ globalThis.fetch = async (input, init = {}) => {
 
   if (url.hostname === 'primary.test') {
     primaryCalls += 1
+    if (emitOversizedPrimary) {
+      return new Response(JSON.stringify({
+        choices: [{ message: { content: 'x'.repeat(MAX_SEARCH_OUTPUT_CHARS + 1) } }],
+      }), { status: 200, headers: { 'content-type': 'application/json' } })
+    }
     if (emitEmptyPrimary && primaryCalls === 1) {
       emitEmptyPrimary = false
       return new Response(JSON.stringify({
@@ -43,6 +49,14 @@ globalThis.fetch = async (input, init = {}) => {
 }
 
 const { POST } = await import('../web/app/api/search/route.ts')
+const { MAX_SEARCH_OUTPUT_CHARS, MAX_SEARCH_TARGET_CHARS } = await import('../web/app/lib/search-limits.mjs')
+
+const oversizedTargetResponse = await POST(new Request('http://localhost/api/search', {
+  method: 'POST', headers: { 'content-type': 'application/json' },
+  body: JSON.stringify({ target_text: 'x'.repeat(MAX_SEARCH_TARGET_CHARS + 1) }),
+}))
+assert.equal(oversizedTargetResponse.status, 413)
+assert.equal(calls.length, 0)
 const response = await POST(new Request('http://localhost/api/search', {
   method: 'POST',
   headers: { 'content-type': 'application/json' },
@@ -70,13 +84,108 @@ assert.ok(fallbackCalls.some((call) =>
 ))
 assert.ok(run.candidates.every((candidate) => candidate.output !== 'discarded primary output'))
 
-// Simulate a slow primary run that reaches its budget before fallback. The
-// fallback still gets its reserved window and can regenerate all five pairs.
+// Oversized outputs switch connections before any similarity scoring begins.
+primaryCalls = 0
+fallbackCallsSeen = 0
+calls.length = 0
+emitOversizedPrimary = true
+const oversizedOutputResponse = await POST(new Request('http://localhost/api/search', {
+  method: 'POST', headers: { 'content-type': 'application/json' },
+  body: JSON.stringify({ target_text: target }),
+}))
+emitOversizedPrimary = false
+assert.equal(oversizedOutputResponse.status, 200)
+assert.equal((await oversizedOutputResponse.json()).config.model, 'fallback-test-model')
+assert.equal(fallbackCallsSeen, 10)
+
+// A primary run that fits its allotted window should finish even when fallback
+// credentials are configured.
 primaryCalls = 0
 fallbackCallsSeen = 0
 calls.length = 0
 let virtualNow = Date.now()
 const realDateNow = Date.now
+Date.now = () => virtualNow
+const thirtySecondPrimaryFetch = globalThis.fetch
+globalThis.fetch = async (input, init = {}) => {
+  const url = new URL(input)
+  const body = JSON.parse(init.body)
+  calls.push({ host: url.hostname, body })
+  assert.equal(url.hostname, 'primary.test')
+  primaryCalls += 1
+  virtualNow += 2800
+  return new Response(JSON.stringify({
+    choices: [{ message: { content: 'complete primary output' } }],
+  }), { status: 200, headers: { 'content-type': 'application/json' } })
+}
+const primaryResponse = await POST(new Request('http://localhost/api/search', {
+  method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ target_text: target }),
+}))
+Date.now = realDateNow
+globalThis.fetch = thirtySecondPrimaryFetch
+assert.equal(primaryResponse.status, 200)
+assert.equal((await primaryResponse.json()).config.model, 'primary-test-model')
+assert.equal(primaryCalls, 10)
+assert.equal(fallbackCallsSeen, 0)
+
+// A pending provider request must observe the abort before fallback regenerates
+// the complete run inside its reserved window.
+primaryCalls = 0
+fallbackCallsSeen = 0
+calls.length = 0
+let primaryAbortObserved = false
+let acceleratePrimaryAbort = true
+const realSetTimeout = globalThis.setTimeout
+globalThis.setTimeout = (callback, delay, ...args) => {
+  if (acceleratePrimaryAbort && delay > 1000) {
+    acceleratePrimaryAbort = false
+    return realSetTimeout(callback, 0, ...args)
+  }
+  return realSetTimeout(callback, delay, ...args)
+}
+const pendingPrimaryFetch = globalThis.fetch
+globalThis.fetch = async (input, init = {}) => {
+  const url = new URL(input)
+  const body = JSON.parse(init.body)
+  calls.push({ host: url.hostname, body })
+  if (url.hostname === 'primary.test') {
+    primaryCalls += 1
+    return new Promise((resolve, reject) => {
+      const signal = init.signal
+      const rejectAsAborted = () => {
+        primaryAbortObserved = true
+        reject(new DOMException('The operation was aborted.', 'AbortError'))
+      }
+      if (signal?.aborted) rejectAsAborted()
+      else signal?.addEventListener('abort', rejectAsAborted, { once: true })
+    })
+  }
+  assert.equal(url.hostname, 'fallback.test')
+  fallbackCallsSeen += 1
+  return new Response(JSON.stringify({
+    choices: [{ message: { content: fallbackCallsSeen % 2 ? 'fallback stub output' : 'fallback stub output!' } }],
+  }), { status: 200, headers: { 'content-type': 'application/json' } })
+}
+const abortFallbackStartedAt = Date.now()
+const abortFallbackResponse = await POST(new Request('http://localhost/api/search', {
+  method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ target_text: target }),
+}))
+const abortFallbackElapsed = Date.now() - abortFallbackStartedAt
+globalThis.fetch = pendingPrimaryFetch
+globalThis.setTimeout = realSetTimeout
+assert.equal(abortFallbackResponse.status, 200)
+assert.equal((await abortFallbackResponse.json()).config.model, 'fallback-test-model')
+assert.equal(primaryAbortObserved, true)
+assert.ok(primaryCalls >= 1 && primaryCalls <= 2)
+assert.equal(fallbackCallsSeen, 10)
+assert.ok(abortFallbackElapsed < 2000)
+
+// Simulate a slow primary run that reaches its budget before fallback. The
+// fallback still gets its reserved window and can regenerate all five pairs.
+primaryCalls = 0
+fallbackCallsSeen = 0
+calls.length = 0
+virtualNow = Date.now()
 Date.now = () => virtualNow
 const slowPrimaryResponse = globalThis.fetch
 globalThis.fetch = async (input, init = {}) => {
@@ -104,7 +213,7 @@ Date.now = realDateNow
 globalThis.fetch = slowPrimaryResponse
 assert.equal(budgetResponse.status, 200)
 assert.equal((await budgetResponse.json()).config.model, 'fallback-test-model')
-assert.equal(primaryCalls, 4)
+assert.equal(primaryCalls, 6)
 assert.equal(fallbackCallsSeen, 10)
 
 // A non-empty provider body can still clean to an empty sample; it must also
@@ -122,4 +231,4 @@ assert.equal(emptyFallbackRun.config.model, 'fallback-test-model')
 assert.equal(fallbackCallsSeen, 10)
 assert.ok(emptyFallbackRun.candidates.every((candidate) => candidate.output.length > 0))
 
-console.log('check-hosted-search: ok — fallback identity, reserved budget, measured stability, empty-output recovery')
+console.log('check-hosted-search: ok — fallback identity, deadlines, abort recovery, measured stability, empty-output recovery')

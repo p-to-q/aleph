@@ -381,10 +381,14 @@ def _position_sensitive_gcg_model():
     """Return a fake model whose candidate ranking depends on loss positions."""
 
     class _Embedding:
+        def __init__(self):
+            self.linear_inputs = []
+
         def __call__(self, ids):
             return mx.zeros((int(ids.shape[0]), int(ids.shape[1]), 8))
 
         def as_linear(self, gradient):
+            self.linear_inputs.append(gradient.tolist())
             return mx.zeros((int(gradient.shape[0]), 16))
 
     class _Model:
@@ -526,6 +530,41 @@ class ScaffoldCriterionTests(unittest.TestCase):
 
         self.assertEqual(correct["best_free_ids"], [5])
         self.assertEqual(wrong["best_free_ids"], [6])
+
+    def test_gcg_step_projects_gradient_from_free_window(self):
+        config = self._config()
+        model = _position_sensitive_gcg_model()
+        ids = mx.array([[11, 1, 12, 3, 4]], dtype=mx.int32)
+        target = mx.array([3, 4], dtype=mx.int32)
+        gradient = mx.zeros((1, 5, 8))
+        for position in range(5):
+            gradient = gradient.at[0, position, :].add(float(position + 1))
+
+        with mock.patch.object(
+            gcg.mx,
+            "grad",
+            return_value=lambda _embeddings: gradient,
+        ), mock.patch.object(
+            gcg.mx,
+            "argpartition",
+            return_value=mx.array([[5, 6]], dtype=mx.int32),
+        ), mock.patch.object(
+            gcg.sampling,
+            "step_mutations",
+            return_value=[(0, 0), (0, 1)],
+        ):
+            gcg.gcg_step(
+                model,
+                config,
+                ids,
+                n_free=1,
+                loss_pos=slice(2, 4),
+                target_mx=target,
+                step=0,
+                free_start=1,
+            )
+
+        self.assertEqual(model.model.embed_tokens.linear_inputs, [[[2.0] * 8]])
 
 
 if __name__ == "__main__":

@@ -1,0 +1,2 @@
+export const MAX_SEARCH_TARGET_CHARS = 4096
+export const MAX_SEARCH_OUTPUT_CHARS = 8192

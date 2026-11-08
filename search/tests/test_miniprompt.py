@@ -397,12 +397,15 @@ class ScoringRuleResumeTests(unittest.TestCase):
         )
         stale["procedure"]["declaredDifferences"].remove(receipts.SCORING_RULE_DECLARATION)
         refix(stale)
-        self.assertEqual(receipts.verify_receipt(stale), [])
+        self.assertTrue(
+            any("scaffold receipt lacks the current scoring rule declaration" in error
+                for error in receipts.verify_receipt(stale))
+        )
 
         fake = types.ModuleType("search.miniprompt.gcg")
         with execution_module("runner", fake) as (runner, _), tempfile.TemporaryDirectory() as tmp:
             receipts.write_json_atomic(Path(tmp) / "receipt.json", stale)
-            with self.assertRaisesRegex(runner.RunStateError, "predates the current scoring rule"):
+            with self.assertRaisesRegex(runner.RunStateError, "existing receipt fails verification"):
                 runner.run_scan(config, tmp, log=lambda *_: None)
 
     def test_legacy_empty_scaffold_receipt_remains_reusable(self):

@@ -38,7 +38,7 @@ from search.compare.config import (  # noqa: E402
 )
 from search.engine.canonical import digest  # noqa: E402
 from search.miniprompt import fixtures as miniprompt_fixtures  # noqa: E402
-from search.miniprompt.receipts import verify_receipt  # noqa: E402
+from search.miniprompt.receipts import SCORING_RULE_DECLARATION, verify_receipt  # noqa: E402
 
 TARGET_IDS = [14990, 1879]
 TARGET_RENDERING = ["hello", " world"]
@@ -382,6 +382,64 @@ class FixtureTests(unittest.TestCase):
         self.assertEqual(receipt["configDigest"], CANARY_HELLO_DIGEST)
         self.assertEqual(receipt["target"]["tokenIds"], TARGET_IDS)
         self.assertEqual(round(record.raw_wall_clock_seconds(receipt), 1), 185.6)
+
+    def test_comparison_verification_rejects_scaffold_receipt_with_obsolete_scoring_rule(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            receipt = archived_receipt()
+            receipt["config"]["scaffold"] = {
+                "chatTemplate": ["prefix", "middle"],
+                "systemPrompt": "",
+                "inputStr": "",
+            }
+            receipt["configDigest"] = digest(receipt["config"])
+            receipt["scaffold"] = {"prefixIds": [101], "midIds": [102]}
+            receipt["procedure"]["declaredDifferences"].append(SCORING_RULE_DECLARATION)
+            for attempt in receipt["attempts"]:
+                attempt["wholePromptTokens"] += 2
+            receipt["receiptDigest"] = digest(
+                {key: value for key, value in receipt.items() if key != "receiptDigest"}
+            )
+            self.assertEqual(verify_receipt(receipt), [])
+
+            comparison_mapping = unit_config().to_canonical()
+            comparison_mapping["targets"][0]["rawConfigDigest"] = receipt["configDigest"]
+            config = compare_config.config_from_canonical(comparison_mapping)
+            doc = synthetic_readable(config)
+            write_instance_tree(base, config, doc, receipt)
+            record_obj = record.build_comparison_record(
+                config=config,
+                targets=[
+                    {
+                        "key": "hello-world",
+                        "raw": {
+                            "receipt": receipt,
+                            "wallClockSeconds": round(record.raw_wall_clock_seconds(receipt), 1),
+                        },
+                        "readable": {"doc": doc, "wallClockSeconds": doc["wallClockSeconds"]},
+                    }
+                ],
+                created_at="2026-10-16T09:30:00Z",
+                base_dir=base,
+            )
+
+            stale_receipt = copy.deepcopy(receipt)
+            stale_receipt["procedure"]["declaredDifferences"].remove(SCORING_RULE_DECLARATION)
+            stale_receipt["receiptDigest"] = digest(
+                {key: value for key, value in stale_receipt.items() if key != "receiptDigest"}
+            )
+            write_instance_tree(base, config, doc, stale_receipt)
+            raw_block = record_obj["targets"][0]["raw"]
+            raw_block["receiptDigest"] = stale_receipt["receiptDigest"]
+            record_obj["receiptDigest"] = digest(
+                {key: value for key, value in record_obj.items() if key != "receiptDigest"}
+            )
+
+            errors = record.verify_comparison(record_obj, base)
+            self.assertTrue(
+                any("scaffold receipt lacks the current scoring rule declaration" in error for error in errors),
+                errors,
+            )
 
     def test_explicit_wrapper_matches_shipped_literal(self):
         self.assertEqual(

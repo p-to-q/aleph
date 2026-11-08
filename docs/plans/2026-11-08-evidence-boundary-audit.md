@@ -92,20 +92,22 @@ evidence. The pinned real-model engine canary and typed-evidence migration remai
 - Added a MiniPrompt scoring-rule identity to checkpoints and receipts. Progressed legacy scaffold
   runs with middle tokens are refused so old and corrected loss trajectories cannot be mixed;
   legacy empty-scaffold checkpoints remain resumable.
-- Reserved 30 seconds for hosted fallback when configured, and routed cleaned empty samples through
-  the same full-run fallback path.
+- Reserved 20 seconds for hosted fallback plus 5 seconds for scoring when configured, and routed
+  cleaned empty samples through the same full-run fallback path.
 - Resolved `next/server` from the importing route's workspace and report strict comparison-record
   parse errors as contextual `RunInstanceError`s.
 - Strengthened regressions for pairwise stability, empty-output recovery, fallback budget recovery,
   extreme token-loss serialization, checkpoint compatibility, and duplicate-key comparison files.
 - Added missing docstrings on changed complex functions to satisfy the review coverage gate.
-- Validation passed: `npm run lint`, `npm test` (123 search tests, 450 engine tests, 15 optional MLX
+- Bounded hosted similarity inputs at 4,096 target characters and 8,192 cleaned output characters;
+  oversized targets return 413 before model calls, and the custom API UI enforces the target limit.
+- Validation passed: `npm run lint`, `npm test` (129 search tests, 450 engine tests, 17 optional MLX
   tests skipped), `npm --workspace web run build`, `apps/api/.venv/bin/python -m pytest
   apps/api/tests -q` (41 passed), and `npm run api:smoke`.
 - Required canonical `candidateRole` and `identityVersion` alongside `candidateId`; missing or null
   identity fields now fail closed for both ordinary candidates and Explicit Reconstruction. Candidate
   records now participate in the writer-derived required-field regression matrix.
-- Latest validation passed: `npm run lint`, `npm test` (128 search tests, 450 engine tests, 16
+- Latest validation passed: `npm run lint`, `npm test` (129 search tests, 450 engine tests, 17
   optional MLX tests skipped), `npm run build --workspace web`, `apps/api/.venv/bin/python -m pytest
   apps/api/tests` (43 passed), `npm run api:smoke`, `node scripts/check-hosted-search.mjs`, and
   `git diff --check`.

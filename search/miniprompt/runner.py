@@ -103,19 +103,6 @@ def _validate_scoring_rule(state: dict, scaffold_ids: dict) -> None:
         )
 
 
-def _validate_receipt_scoring_rule(receipt: dict) -> None:
-    """Refuse scaffold receipts that do not declare the current target positions."""
-    scaffold = receipt.get("scaffold")
-    if not isinstance(scaffold, dict) or not (scaffold.get("prefixIds") or scaffold.get("midIds")):
-        return
-    procedure = receipt.get("procedure")
-    differences = procedure.get("declaredDifferences") if isinstance(procedure, dict) else None
-    if not isinstance(differences, list) or receipts.SCORING_RULE_DECLARATION not in differences:
-        raise RunStateError(
-            "refusing to report completion: existing receipt predates the current scoring rule"
-        )
-
-
 def _validated_policy(state, config: MiniPromptConfig, target_token_count: int) -> ScanPolicy:
     """Rebuild the policy from recorded outcomes and validate the snapshot."""
     try:
@@ -202,7 +189,6 @@ def run_scan(config: MiniPromptConfig, run_dir, *, max_seconds=None, log=print) 
                 "refusing to report completion: the existing receipt belongs to a different "
                 "declared config"
             )
-        _validate_receipt_scoring_rule(receipt)
         result = receipt.get("result") or {}
         log(f"run already complete: {receipt_path} (success={result.get('success')})")
         return 0
