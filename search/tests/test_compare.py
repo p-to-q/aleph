@@ -844,6 +844,32 @@ class ReadableHelperTests(unittest.TestCase):
 
 
 class CompareCliTests(unittest.TestCase):
+    def test_run_instance_does_not_reuse_a_verified_record_for_another_config(self):
+        from search.compare import run as compare_run
+
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            first = compare_fixtures.instance("canary-1p7b")
+            record_obj = {
+                "schema": record.RECORD_SCHEMA,
+                "tool": record.TOOL,
+                "createdAt": TIMESTAMP,
+                "config": first.to_canonical(),
+                "configDigest": first.digest,
+                "targets": [],
+                "totals": {"targets": 0, "rawAcquired": 0, "readableFoundUnderTau": 0},
+                "receiptDigest": digest({"sentinel": "test"}),
+            }
+            # The guard must run before the full record verifier. This record
+            # is intentionally incomplete; a different declaration should be
+            # rejected for identity, not accidentally treated as reusable.
+            (base / "comparison.json").write_text(
+                json.dumps(record_obj), encoding="utf-8"
+            )
+            with self.assertRaises(compare_run.RunInstanceError) as raised:
+                compare_run.run_instance("canary-4b", base, log=lambda text: None)
+            self.assertIn("different declared instance", str(raised.exception))
+
     def test_verify_cli_ok_and_fail(self):
         with tempfile.TemporaryDirectory() as tmp:
             base = Path(tmp)

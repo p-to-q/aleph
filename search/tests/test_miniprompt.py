@@ -10,12 +10,16 @@ verifier (including tamper probes with re-fixed digests), and the no-MLX
 from __future__ import annotations
 
 import copy
+import importlib.util
 import json
 import subprocess
 import sys
 import tempfile
+import types
 import unittest
+from contextlib import contextmanager
 from pathlib import Path
+from unittest import mock
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 if str(REPO_ROOT) not in sys.path:
@@ -134,6 +138,138 @@ def build_fixture_receipt(config, outcomes, target_ids=TARGET_IDS, scaffold=None
 def refix(receipt):
     receipt["receiptDigest"] = digest(receipts.receipt_body(receipt))
     return receipt
+
+
+@contextmanager
+def execution_module(name, gcg_module=None):
+    """Load shipping execution code with inert runtime imports; never load a model."""
+    import search.miniprompt as package
+
+    runtime = mock.MagicMock()
+    stubs = {key: mock.MagicMock() for key in ("mlx", "mlx.nn", "mlx_lm", "huggingface_hub")}
+    stubs["mlx.core"] = runtime
+    stubs["mlx"].core = runtime
+    stubs["mlx"].nn = stubs["mlx.nn"]
+    if gcg_module is not None:
+        stubs["search.miniprompt.gcg"] = gcg_module
+    spec = importlib.util.spec_from_file_location(
+        f"search.miniprompt._test_{name}", REPO_ROOT / "search/miniprompt" / f"{name}.py"
+    )
+    module = importlib.util.module_from_spec(spec)
+    with mock.patch.dict(sys.modules, stubs), mock.patch.object(
+        package, "gcg", gcg_module, create=True
+    ):
+        spec.loader.exec_module(module)
+        yield module, runtime
+
+
+class ScaffoldExecutionTests(unittest.TestCase):
+    """Pin coordinate boundaries without requiring MLX, a snapshot, or GPU work."""
+
+    def test_winner_returns_only_the_mutated_free_window(self):
+        with execution_module("gcg") as (gcg, mx):
+            config = variant(topk=2, batch=3, miniBatch=3)
+            model = mock.MagicMock()
+            model.args.vocab_size = 16
+            ids = mock.MagicMock()
+            ids.__getitem__.return_value.tolist.return_value = [11, 1, 2, 12, 3, 4]
+            target = mock.MagicMock()
+            target.shape = (2,)
+            mx.array.return_value.shape = (3, 6)
+            mx.argpartition.return_value.__getitem__.return_value.tolist.return_value = [[5, 6], [7, 8]]
+            mx.mean.return_value.__neg__.return_value.tolist.return_value = [0.8, 0.1, 0.4]
+            with mock.patch.object(sampling, "step_mutations", return_value=[(0, 0), (1, 1), (0, 1)]):
+                result = gcg.gcg_step(model, config, ids, 2, slice(3, 5), target, 0, free_start=1)
+            self.assertEqual(mx.array.call_args.args[0][1], [11, 1, 8, 12, 3, 4])
+            self.assertEqual(result["best_free_ids"], [1, 8])
+
+    def test_target_loss_positions_follow_the_complete_context(self):
+        class Tokens(list):
+            def argmax(self, axis):
+                return self
+
+            def __eq__(self, other):
+                return Tokens(left == right for left, right in zip(self, other))
+
+            def tolist(self):
+                return list(self)
+
+        class CausalLogits:
+            def __init__(self, sequence):
+                # An oracle predicting the next recorded token at every position.
+                self.next_tokens = sequence[1:] + [0]
+
+            def __getitem__(self, key):
+                return Tokens(self.next_tokens[key[1]])
+
+        with execution_module("gcg") as (gcg, mx):
+            mx.array.side_effect = lambda value, **kwargs: value
+            model = mock.Mock(side_effect=lambda ids: CausalLogits(ids[0]))
+            model.args.vocab_size = 16
+            config = variant(topk=2)
+            for prefix, mid in (([], []), ([11], []), ([], [12, 13]), ([11], [12, 13])):
+                with self.subTest(prefix=prefix, mid=mid):
+                    check = gcg.solution_check(model, [1, 2], [3, 4], prefix_ids=prefix, mid_ids=mid)
+                    self.assertTrue(check["matchAll"])
+                    self.assertEqual(check["matchTokens"], 2)
+
+                    def step(_model, _config, ids, n_free, loss_pos, target, _step, **kwargs):
+                        # Selecting the next sequence token at the supplied loss positions
+                        # must recover the target, independently of the implementation's offsets.
+                        self.assertEqual((ids[0][1:] + [0])[loss_pos], target)
+                        return {"best_free_ids": [1, 2], "loss": 0.0, "seconds": 0.1}
+
+                    with mock.patch.object(gcg, "gcg_step", side_effect=step), mock.patch.object(
+                        gcg, "greedy_continuation_ids", return_value=[3, 4]
+                    ):
+                        outcome = gcg.run_attempt(
+                            model, config, n_free=2, steps_budget=1, target_ids=[3, 4],
+                            initial_free_ids=[1, 2], prefix_ids=prefix, mid_ids=mid,
+                        )
+                    self.assertTrue(outcome["acquired"])
+
+    def test_runner_confirms_the_same_scaffolded_coordinate_and_archives(self):
+        config = variant(
+            nFreeStart=1, topk=2,
+            scaffold={"chatTemplate": ["prefix", "middle"], "systemPrompt": "", "inputStr": ""},
+        )
+        fake = types.ModuleType("search.miniprompt.gcg")
+        fake.load_pinned_model = lambda declaration: (object(), object(), {
+            "repo": declaration.repo, "revision": declaration.revision,
+            "weightsDigest": declaration.weights_digest, "vocabSize": 151936,
+        })
+        fake.target_token_ids = lambda tokenizer, text: (TARGET_IDS, TARGET_RENDERING)
+        fake.scaffold_token_ids = lambda tokenizer, scaffold: {"prefixIds": [11], "midIds": [12, 13]}
+
+        def attempt(model, declaration, **kwargs):
+            self.assertEqual(kwargs["prefix_ids"], [11])
+            self.assertEqual(kwargs["mid_ids"], [12, 13])
+            record = attempt_from_spec(
+                types.SimpleNamespace(index=0, n_free=1, steps_budget=200), True,
+                prefix_count=1, mid_count=2,
+            )
+            return {**record, "paused": False}
+
+        def greedy(model, tokenizer, free_ids, target_ids, *, prefix_ids=(), mid_ids=()):
+            self.assertEqual(prefix_ids, [11])
+            self.assertEqual(mid_ids, [12, 13])
+            self.assertEqual(free_ids, [2000])
+            return {
+                "ran": True, "matched": True, "roundtripEqual": True,
+                "emittedIds": list(target_ids), "freeRendering": "free", "emittedRendering": "target",
+            }
+
+        fake.run_attempt = attempt
+        fake.greedy_continuation_check = greedy
+        with execution_module("runner", fake) as (runner, _), tempfile.TemporaryDirectory() as tmp:
+            with mock.patch.object(runner, "environment_metadata", return_value={
+                "python": "test", "mlx": "stub", "mlxLm": "stub", "platform": "test",
+            }):
+                self.assertEqual(runner.run_scan(config, tmp, log=lambda text: None), 0)
+            archived = receipts.read_json(Path(tmp) / "receipt.json")
+            self.assertEqual(receipts.verify_receipt(archived), [])
+            self.assertEqual(archived["scaffold"], {"prefixIds": [11], "midIds": [12, 13]})
+            self.assertTrue(archived["result"]["success"])
 
 
 class ConfigTests(unittest.TestCase):

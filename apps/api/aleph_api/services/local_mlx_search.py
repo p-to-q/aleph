@@ -5,6 +5,7 @@ import os
 from datetime import UTC, datetime
 from hashlib import sha1
 from math import isfinite
+from statistics import mean
 from typing import Any
 from urllib import error, request
 
@@ -204,7 +205,7 @@ def _candidate_from_point(
     measured_fit = similarity_score(target_text, output)
     fit = 1.0 if measured_fit == 1.0 else _bounded_float(point.get("similarity"), default=measured_fit)
     stability = _bounded_float(point.get("stability"), default=1.0)
-    avg_nll = _average_nll(point.get("toknll"))
+    avg_nll = _average_nll(point)
     label = _point_label(point, index=index)
     role = _point_role(point, label)
     candidate_id = _point_id(point, index=index)
@@ -398,10 +399,12 @@ def _optional_string(value: object) -> str | None:
     return value if isinstance(value, str) else None
 
 
-def _average_nll(value: object) -> float | None:
-    if not isinstance(value, list) or not value:
+def _average_nll(point: dict[str, Any]) -> float | None:
+    # Candidate evidence must meet the same trace contract as tokenLoss,
+    # without borrowing a valid trace from another candidate.
+    entries = _token_loss([point])
+    if entries is None:
         return None
-    numeric = [float(item) for item in value if isinstance(item, int | float)]
-    if not numeric:
-        return None
-    return round(sum(numeric) / len(numeric), 4)
+    # statistics.mean avoids overflowing the intermediate sum when valid
+    # finite losses are large; their mean is still finite and representable.
+    return round(mean(float(entry["loss"]) for entry in entries), 4)

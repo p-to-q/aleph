@@ -331,7 +331,8 @@ def _scaffold_probe_model(prefix, free, mid, target, *, greedy_requires_mid=Fals
     """
 
     full = len(prefix) + len(free) + len(mid) + len(target)
-    loss_start = len(prefix) + len(free) - 1
+    # Target labels occupy the suffix; causal logits precede each label by one.
+    loss_start = full - len(target) - 1
     mid_pos = len(prefix) + len(free)
     greedy_len = len(prefix) + len(free) + len(mid)
 
@@ -380,7 +381,7 @@ class ScaffoldCriterionTests(unittest.TestCase):
     """The declared scaffold layout drives the criterion shapes (faked models).
 
     Pins, for a declared scaffold: the teacher-forced loss positions shift by
-    the prefix; candidate mutations stay inside the free window; the greedy
+    the complete prefix/free/mid context; candidate mutations stay inside the free window; the greedy
     continuation runs from ``prefix + free + mid``; and ``wholePromptTokens``
     counts the scaffold. Uses faked model objects — no snapshot needed.
     """
@@ -428,6 +429,7 @@ class ScaffoldCriterionTests(unittest.TestCase):
             self.assertEqual(row[:prefix_len], self.PREFIX)
             self.assertEqual(row[prefix_len + free_len : prefix_len + free_len + mid_len], self.MID)
             self.assertEqual(row[prefix_len + free_len + mid_len :], self.TARGET)
+        self.assertEqual(outcome["solutionFreeIds"], rows[0][prefix_len:prefix_len + free_len])
         self.assertTrue(outcome["acquired"])
 
     def test_greedy_continuation_runs_from_the_scaffold_context(self):

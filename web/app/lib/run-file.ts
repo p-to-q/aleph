@@ -194,6 +194,12 @@ function checkExporterInvariants(value: Record<string, unknown>, issues: RunFile
     return
   }
   const ids = candidates.map((candidate) => candidate.id as string)
+  if (new Set(ids).size !== ids.length) {
+    issues.push({
+      path: '$.candidates',
+      message: 'candidate ids must be unique; duplicate ids make candidate selection ambiguous',
+    })
+  }
   const config = value.config as Record<string, unknown>
   const budget = config.budget as Record<string, unknown>
   if (budget.candidates !== candidates.length) {

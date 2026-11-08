@@ -8,7 +8,7 @@ Reimplements the loop in the pinned upstream ``prompt_optimization/gcg.py``
   (``prefix`` = chat-template-before + system prompt + input string, ``mid`` =
   chat-template-after; all empty for the declared empty scaffold, which
   reduces exactly to ``[free tokens, target tokens]``) and the loss positions
-  are the free window's end minus one plus the target prefix positions;
+  are the target positions shifted back by one (after prefix, free, and mid);
 - gradient of the loss with respect to the input embeddings (weights frozen);
 - ``topk`` descent-direction candidate tokens per free position, computed as
   ``embed_tokens.as_linear`` of the embedding gradient (the MLX equivalent of
@@ -169,7 +169,7 @@ def gcg_step(model, config: MiniPromptConfig, ids, n_free: int, loss_pos: slice,
 
     best = min(range(len(losses)), key=lambda index: losses[index])
     return {
-        "best_free_ids": rows[best][:n_free],
+        "best_free_ids": rows[best][free_start:free_start + n_free],
         "loss": float(losses[best]),
         "candidates": len(rows),
         "seconds": time.time() - started,
@@ -186,10 +186,12 @@ def solution_check(model, free_ids: List[int], target_list: List[int], *, prefix
     declared difference); the batched candidate forward supplies candidate
     losses only. Returns ``{"matchAll": bool, "matchTokens": int}``.
     """
-    before_free = len(list(prefix_ids))
-    loss_pos = slice(before_free + len(free_ids) - 1, before_free + len(free_ids) - 1 + len(target_list))
+    prefix_ids = list(prefix_ids)
+    mid_ids = list(mid_ids)
+    target_start = len(prefix_ids) + len(free_ids) + len(mid_ids)
+    loss_pos = slice(target_start - 1, target_start - 1 + len(target_list))
     target_mx = mx.array(list(target_list), dtype=mx.int32)
-    ids = mx.array([list(prefix_ids) + list(free_ids) + list(mid_ids) + list(target_list)], dtype=mx.int32)
+    ids = mx.array([prefix_ids + list(free_ids) + mid_ids + list(target_list)], dtype=mx.int32)
     logits = model(ids)
     matched = [bool(flag) for flag in (logits[0, loss_pos].argmax(-1) == target_mx).tolist()]
     return {"matchAll": all(matched), "matchTokens": sum(matched)}
@@ -226,7 +228,8 @@ def run_attempt(
     prefix_ids = list(prefix_ids)
     mid_ids = list(mid_ids)
     target_mx = mx.array(target_list, dtype=mx.int32)
-    loss_pos = slice(len(prefix_ids) + n_free - 1, len(prefix_ids) + n_free - 1 + len(target_list))
+    target_start = len(prefix_ids) + n_free + len(mid_ids)
+    loss_pos = slice(target_start - 1, target_start - 1 + len(target_list))
 
     if resume is None:
         step = 0

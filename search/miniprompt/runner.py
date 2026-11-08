@@ -320,7 +320,10 @@ def run_scan(config: MiniPromptConfig, run_dir, *, max_seconds=None, log=print) 
         acquired = outcome["acquired"]
         greedy = None
         if acquired:
-            greedy = gcg.greedy_continuation_check(model, tokenizer, outcome["solutionFreeIds"], target_ids)
+            greedy = gcg.greedy_continuation_check(
+                model, tokenizer, outcome["solutionFreeIds"], target_ids,
+                prefix_ids=scaffold_ids["prefixIds"], mid_ids=scaffold_ids["midIds"],
+            )
             attempt_record = _attempt_record(current, outcome, greedy)
             if not greedy["matched"]:
                 # Fail closed: keep the inconsistent record on disk for audit,
