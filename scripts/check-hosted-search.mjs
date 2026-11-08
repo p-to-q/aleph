@@ -83,6 +83,16 @@ const oversizedTargetResponse = await POST(new Request('http://localhost/api/sea
 assert.equal(oversizedTargetResponse.status, 413)
 assert.equal(calls.length, 0)
 
+const nullLabelResponse = await POST(new Request('http://localhost/api/search', {
+  method: 'POST', headers: { 'content-type': 'application/json' },
+  body: JSON.stringify({ target_text: target, label: null }),
+}))
+assert.equal(nullLabelResponse.status, 200)
+assert.equal((await nullLabelResponse.json()).target.label, 'Hosted black-box search')
+
+primaryCalls = 0
+fallbackCallsSeen = 0
+calls.length = 0
 const paddedTarget = `${' '.repeat(8)}${'x'.repeat(MAX_SEARCH_TARGET_CHARS)}`
 const paddedTargetResponse = await POST(new Request('http://localhost/api/search', {
   method: 'POST', headers: { 'content-type': 'application/json' },

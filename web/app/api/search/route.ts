@@ -89,6 +89,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ detail: 'target_text must be a string' }, { status: 422 })
   }
   const targetText = body.target_text.trim()
+  const label = body.label ?? undefined
   const targetLength = countUnicodeCodePoints(targetText, MAX_SEARCH_TARGET_CHARS)
 
   if (targetLength < 8) {
@@ -105,11 +106,11 @@ export async function POST(request: Request) {
   }
 
   if (!hasHostedModelConfig()) {
-    return NextResponse.json(mockSearch(targetText, body.label))
+    return NextResponse.json(mockSearch(targetText, label))
   }
 
   try {
-    return NextResponse.json(await hostedBlackBoxSearch(targetText, body.label))
+    return NextResponse.json(await hostedBlackBoxSearch(targetText, label))
   } catch (error) {
     const detail = error instanceof Error ? error.message : 'Hosted model request failed.'
     return NextResponse.json({ detail }, { status: 502 })
