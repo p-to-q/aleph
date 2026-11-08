@@ -231,6 +231,139 @@ class ScaffoldExecutionTests(unittest.TestCase):
                         )
                     self.assertTrue(outcome["acquired"])
 
+    def test_gcg_step_candidate_ranking_uses_scaffolded_loss_positions(self):
+        """A wrong candidate-loss slice must select a different free token."""
+        class IdRow(list):
+            def tolist(self):
+                return list(self)
+
+        class IdBatch:
+            def __init__(self, rows):
+                self.rows = [list(row) for row in rows]
+                self.shape = (len(self.rows), len(self.rows[0]))
+
+            def __getitem__(self, index):
+                return IdRow(self.rows[index])
+
+        class Gradient:
+            def __getitem__(self, _index):
+                return self
+
+        class Embeddings:
+            shape = (1, 5, 8)
+
+            def __getitem__(self, _index):
+                return self
+
+        class Descent:
+            def __neg__(self):
+                return self
+
+        class EmbedTokens:
+            def __call__(self, _ids):
+                return Embeddings()
+
+            def as_linear(self, _gradient):
+                return Descent()
+
+        class Candidates:
+            def __getitem__(self, _slice):
+                return self
+
+            def tolist(self):
+                return [[5, 6]]
+
+        class TargetIds:
+            def __init__(self, values):
+                self.values = list(values)
+                self.shape = (len(self.values),)
+
+            def __getitem__(self, _index):
+                return self
+
+        class PositionLogits:
+            def __init__(self, rows, positions):
+                self.rows = rows
+                self.positions = positions
+
+            def astype(self, _dtype):
+                return self
+
+        class CandidateLogits:
+            def __init__(self, rows):
+                self.rows = rows
+
+            def __getitem__(self, key):
+                positions = key[1]
+                return PositionLogits(
+                    self.rows,
+                    list(range(*positions.indices(len(self.rows[0])))),
+                )
+
+        class TargetLogProbs:
+            def __init__(self, values):
+                self.values = values
+
+            def squeeze(self, _axis):
+                return self
+
+        class MeanLogProbs:
+            def __init__(self, values):
+                self.values = values
+
+            def __neg__(self):
+                return BatchLosses([-sum(row) / len(row) for row in self.values])
+
+        class BatchLosses:
+            def __init__(self, values):
+                self.values = values
+
+            def tolist(self):
+                return self.values
+
+        class Model:
+            args = types.SimpleNamespace(vocab_size=16)
+            model = types.SimpleNamespace(embed_tokens=EmbedTokens())
+
+            def __call__(self, ids, cache=None, input_embeddings=None):
+                return CandidateLogits(ids.rows)
+
+        def take_along_axis(log_probs, target_ids, axis):
+            predictions = {5: {1: 4, 2: 3, 3: 4}, 6: {1: 3, 2: 4, 3: 0}}
+            return TargetLogProbs([
+                [
+                    0.0 if predictions[row[1]].get(position) == target_ids.values[offset] else -1.0
+                    for offset, position in enumerate(log_probs.positions)
+                ]
+                for row in log_probs.rows
+            ])
+
+        def run_with_slice(gcg, config, model, ids, targets, loss_pos):
+            with mock.patch.object(gcg.mx, "array", side_effect=lambda rows, **_: IdBatch(rows)), \
+                 mock.patch.object(gcg.mx, "grad", side_effect=lambda _loss: lambda _emb: Gradient()), \
+                 mock.patch.object(gcg.mx, "eval", return_value=None), \
+                 mock.patch.object(gcg.mx, "argpartition", return_value=Candidates()), \
+                 mock.patch.object(gcg.mx, "broadcast_to", side_effect=lambda values, _shape: values), \
+                 mock.patch.object(gcg.mx, "take_along_axis", side_effect=take_along_axis), \
+                 mock.patch.object(gcg.mx, "mean", side_effect=lambda values, axis: MeanLogProbs(values.values)), \
+                 mock.patch.object(gcg.nn, "log_softmax", side_effect=lambda values, axis: values), \
+                 mock.patch.object(gcg.sampling, "step_mutations", return_value=[(0, 0), (0, 1)]):
+                return gcg.gcg_step(
+                    model, config, ids, n_free=1, loss_pos=loss_pos, target_mx=targets,
+                    step=0, free_start=1,
+                )
+
+        with execution_module("gcg") as (gcg, _mx):
+            config = variant(topk=2, batch=2, miniBatch=2)
+            model = Model()
+            ids = IdBatch([[11, 1, 12, 3, 4]])
+            targets = TargetIds([3, 4])
+            correct = run_with_slice(gcg, config, model, ids, targets, slice(2, 4))
+            wrong = run_with_slice(gcg, config, model, ids, targets, slice(1, 3))
+
+        self.assertEqual(correct["best_free_ids"], [5])
+        self.assertEqual(wrong["best_free_ids"], [6])
+
 
 class ScoringRuleResumeTests(unittest.TestCase):
     def test_old_scaffold_trajectory_cannot_resume_under_new_loss_positions(self):
@@ -252,6 +385,62 @@ class ScoringRuleResumeTests(unittest.TestCase):
             old_state = {"scoringRule": "old-rule", "attempts": [], "current": {"step": 1}}
             with self.assertRaisesRegex(runner.RunStateError, "scoring rule differs"):
                 runner._validate_scoring_rule(old_state, {"prefixIds": [], "midIds": []})
+
+    def test_completed_scaffold_receipt_requires_the_current_scoring_rule(self):
+        config = variant(
+            scaffold={"chatTemplate": ["prefix", "middle"], "systemPrompt": "", "inputStr": ""},
+        )
+        stale = build_fixture_receipt(
+            config,
+            [True] * 5,
+            scaffold={"prefixIds": [11], "midIds": [12]},
+        )
+        stale["procedure"]["declaredDifferences"].remove(receipts.SCORING_RULE_DECLARATION)
+        refix(stale)
+        self.assertEqual(receipts.verify_receipt(stale), [])
+
+        fake = types.ModuleType("search.miniprompt.gcg")
+        with execution_module("runner", fake) as (runner, _), tempfile.TemporaryDirectory() as tmp:
+            receipts.write_json_atomic(Path(tmp) / "receipt.json", stale)
+            with self.assertRaisesRegex(runner.RunStateError, "predates the current scoring rule"):
+                runner.run_scan(config, tmp, log=lambda *_: None)
+
+    def test_legacy_empty_scaffold_receipt_remains_reusable(self):
+        config = variant()
+        legacy = build_fixture_receipt(config, [True] * 5)
+        legacy["procedure"]["declaredDifferences"].remove(receipts.SCORING_RULE_DECLARATION)
+        refix(legacy)
+        self.assertEqual(receipts.verify_receipt(legacy), [])
+
+        fake = types.ModuleType("search.miniprompt.gcg")
+        with execution_module("runner", fake) as (runner, _), tempfile.TemporaryDirectory() as tmp:
+            receipts.write_json_atomic(Path(tmp) / "receipt.json", legacy)
+            self.assertEqual(runner.run_scan(config, tmp, log=lambda *_: None), 0)
+
+
+class RunStateEnvelopeTests(unittest.TestCase):
+    def test_current_step_must_be_a_non_negative_integer(self):
+        fake = types.ModuleType("search.miniprompt.gcg")
+        with execution_module("runner", fake) as (runner, _):
+            config = variant()
+            base_state = {
+                "schema": receipts.STATE_SCHEMA,
+                "configDigest": config.digest,
+                "config": config.to_canonical(),
+                "model": {},
+                "environment": {},
+                "target": {},
+                "scan": {},
+                "attempts": [],
+                "current": {"step": 0},
+            }
+            for step in (None, "0", True, -1, 1.5):
+                with self.subTest(step=step), self.assertRaisesRegex(
+                    runner.RunStateError, "current.step must be a non-negative integer"
+                ):
+                    runner._validate_state_envelope(
+                        {**base_state, "current": {"step": step}}, config
+                    )
 
     def test_runner_confirms_the_same_scaffolded_coordinate_and_archives(self):
         config = variant(

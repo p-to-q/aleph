@@ -85,8 +85,7 @@ globalThis.fetch = async (input, init = {}) => {
   calls.push({ host: url.hostname, body })
   if (url.hostname === 'primary.test') {
     primaryCalls += 1
-    virtualNow += 12000
-    if (primaryCalls === 3) return new Response('primary stub failure', { status: 400 })
+    virtualNow += 6250
     return new Response(JSON.stringify({
       choices: [{ message: { content: 'discarded primary output' } }],
     }), { status: 200, headers: { 'content-type': 'application/json' } })
@@ -105,6 +104,7 @@ Date.now = realDateNow
 globalThis.fetch = slowPrimaryResponse
 assert.equal(budgetResponse.status, 200)
 assert.equal((await budgetResponse.json()).config.model, 'fallback-test-model')
+assert.equal(primaryCalls, 4)
 assert.equal(fallbackCallsSeen, 10)
 
 // A non-empty provider body can still clean to an empty sample; it must also

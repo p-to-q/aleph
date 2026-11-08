@@ -199,19 +199,33 @@ class TestCanonicalParsersRequireEveryWrittenField(unittest.TestCase):
 
 
 class TestDocumentedDefaults(unittest.TestCase):
-    """The two remaining defaults, and why each is settled by a digest."""
+    """Remaining documented defaults and required candidate identity fields."""
 
-    def test_candidate_role_survives_only_when_it_equalled_the_default(self) -> None:
-        payload = make_candidate("candidate").to_canonical()
-        payload.pop("candidateRole")
-        reparsed = candidate_from_canonical(payload)
-        self.assertEqual(reparsed.role, "candidate")
-        self.assertEqual(reparsed.candidate_id, make_candidate("candidate").candidate_id)
+    def test_candidate_identity_fields_are_required_for_both_roles(self) -> None:
+        for role in ("candidate", "explicit_reconstruction"):
+            with self.subTest(role=role):
+                payload = make_candidate(role).to_canonical()
 
-        control = make_candidate("explicit_reconstruction").to_canonical()
-        control.pop("candidateRole")
-        with self.assertRaisesRegex(ContractViolation, "candidate id mismatch"):
-            candidate_from_canonical(control)
+                for field in ("candidateRole", "candidateId"):
+                    with self.subTest(field=field, state="missing"):
+                        missing = {key: value for key, value in payload.items() if key != field}
+                        with self.assertRaisesRegex(ContractViolation, field):
+                            candidate_from_canonical(missing)
+
+                with self.subTest(state="both missing"):
+                    missing_both = {
+                        key: value
+                        for key, value in payload.items()
+                        if key not in ("candidateRole", "candidateId")
+                    }
+                    with self.assertRaisesRegex(ContractViolation, "candidateRole"):
+                        candidate_from_canonical(missing_both)
+
+                for field in ("candidateRole", "candidateId"):
+                    with self.subTest(field=field, state="null"):
+                        nullable = {**payload, field: None}
+                        with self.assertRaises(ContractViolation):
+                            candidate_from_canonical(nullable)
 
     def test_event_defaults_are_settled_by_the_content_digest(self) -> None:
         """Digest verification must distinguish omitted defaults from edits."""
@@ -230,6 +244,12 @@ class TestDocumentedDefaults(unittest.TestCase):
         self.assertEqual(
             event_from_canonical(without_version).schema_version, event.schema_version
         )
+        without_empty_links = {
+            k: v for k, v in payload.items() if k not in ("parentEventIds", "blobDigests")
+        }
+        reparsed = event_from_canonical(without_empty_links)
+        self.assertEqual(reparsed.parent_event_ids, ())
+        self.assertEqual(reparsed.blob_digests, ())
         # Parents and blobs are covered by the same digest and, when non-empty,
         # cannot be dropped.
         chained = Event(

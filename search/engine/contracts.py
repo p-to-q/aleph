@@ -213,11 +213,8 @@ class Candidate:
 def candidate_from_canonical(payload: Mapping[str, Any]) -> Candidate:
     """Rebuild a ``Candidate`` from its canonical form, verifying its identity.
 
-    ``candidateRole`` keeps a default, unlike every other canonical field the
-    writers emit. That is deliberate and safe: the role is part of the identity
-    payload, so the derived ``candidateId`` below is compared against the
-    declared one. A stripped role therefore survives only when its true value
-    already equalled the default, and any other value fails as an id mismatch.
+    Identity fields emitted by canonical writers are required on import so a
+    truncated record cannot be mistaken for a valid default-valued candidate.
     """
     if not isinstance(payload, Mapping):
         raise ContractViolation("candidate payload must be a mapping")
@@ -233,10 +230,11 @@ def candidate_from_canonical(payload: Mapping[str, Any]) -> Candidate:
         messages=tuple(message_from_canonical(item) for item in messages),
         placement=placement_from_canonical(_require_key(payload, "placement", "candidate")),
         proposal_mode=_require_key(payload, "proposalMode", "candidate"),
-        role=payload.get("candidateRole", "candidate"),
+        role=_require_key(payload, "candidateRole", "candidate"),
     )
-    declared = payload.get("candidateId")
-    if declared is not None and declared != candidate.candidate_id:
+    declared = _require_key(payload, "candidateId", "candidate")
+    _require_non_empty_str(declared, "candidate.candidateId")
+    if declared != candidate.candidate_id:
         raise ContractViolation(
             f"candidate id mismatch: declared {declared!r}, derived {candidate.candidate_id!r}"
         )

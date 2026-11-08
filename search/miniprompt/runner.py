@@ -45,9 +45,16 @@ def _validate_state_envelope(state, config: MiniPromptConfig) -> None:
         raise RunStateError("run state has an unexpected schema")
     if state.get("configDigest") != config.digest or state.get("config") != config.to_canonical():
         raise RunStateError("refusing to resume: run state belongs to a different declared config")
-    for key in ("model", "environment", "target", "scan", "attempts"):
+    for key in ("model", "environment", "target", "scan", "attempts", "current"):
         if key not in state:
             raise RunStateError(f"run state is missing {key!r}")
+    current = state["current"]
+    if current is not None:
+        if not isinstance(current, dict):
+            raise RunStateError("run state current attempt is malformed")
+        step = current.get("step")
+        if isinstance(step, bool) or not isinstance(step, int) or step < 0:
+            raise RunStateError("run state current.step must be a non-negative integer")
 
 
 def _validated_scaffold(state, config: MiniPromptConfig) -> dict:
@@ -93,6 +100,19 @@ def _validate_scoring_rule(state: dict, scaffold_ids: dict) -> None:
     if has_progress and (recorded_rule is not None or scaffold_ids["midIds"]):
         raise RunStateError(
             "refusing to resume: checkpoint scoring rule differs from the current target positions"
+        )
+
+
+def _validate_receipt_scoring_rule(receipt: dict) -> None:
+    """Refuse scaffold receipts that do not declare the current target positions."""
+    scaffold = receipt.get("scaffold")
+    if not isinstance(scaffold, dict) or not (scaffold.get("prefixIds") or scaffold.get("midIds")):
+        return
+    procedure = receipt.get("procedure")
+    differences = procedure.get("declaredDifferences") if isinstance(procedure, dict) else None
+    if not isinstance(differences, list) or receipts.SCORING_RULE_DECLARATION not in differences:
+        raise RunStateError(
+            "refusing to report completion: existing receipt predates the current scoring rule"
         )
 
 
@@ -182,6 +202,7 @@ def run_scan(config: MiniPromptConfig, run_dir, *, max_seconds=None, log=print) 
                 "refusing to report completion: the existing receipt belongs to a different "
                 "declared config"
             )
+        _validate_receipt_scoring_rule(receipt)
         result = receipt.get("result") or {}
         log(f"run already complete: {receipt_path} (success={result.get('success')})")
         return 0

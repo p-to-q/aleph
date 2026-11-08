@@ -11,12 +11,14 @@ independent staircase mirror, the pure runner helpers, and the no-MLX
 from __future__ import annotations
 
 import copy
+import io
 import json
 import statistics
 import subprocess
 import sys
 import tempfile
 import unittest
+from contextlib import redirect_stdout
 from unittest import mock
 from pathlib import Path
 
@@ -857,6 +859,24 @@ class CompareCliTests(unittest.TestCase):
 
         self.assertIn("comparison record is unreadable", str(raised.exception))
         self.assertIsInstance(raised.exception.__cause__, ValueError)
+
+    def test_run_instance_reports_unreadable_comparison_io_without_traceback(self):
+        from search.compare import cli as compare_cli
+        from search.compare import run as compare_run
+
+        with tempfile.TemporaryDirectory() as tmp:
+            (Path(tmp) / "comparison.json").write_text("{}", encoding="utf-8")
+            output = io.StringIO()
+            with mock.patch.object(
+                compare_run, "load_json_strict", side_effect=PermissionError("denied")
+            ), redirect_stdout(output):
+                result = compare_cli.main(
+                    ["run", "--instance", "canary-4b", "--run-dir", tmp]
+                )
+
+        self.assertEqual(result, 1)
+        self.assertIn("FAIL: existing comparison record is unreadable", output.getvalue())
+        self.assertNotIn("Traceback", output.getvalue())
 
     def test_run_instance_does_not_reuse_a_verified_record_for_another_config(self):
         from search.compare import run as compare_run

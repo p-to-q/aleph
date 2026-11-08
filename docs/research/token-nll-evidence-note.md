@@ -51,10 +51,11 @@ above.
    keeps the schema in lockstep with the exported `TokenLossPoint` type and the recorded numeric
    rules.
 2. **Adapter rule.** `apps/api/aleph_api/services/local_mlx_search.py` (`_token_loss`) admits a
-   trace only when it is a non-empty list whose `toktext`/`toknll` lists match in length, every
-   token is a string, and every loss is a finite, non-negative number that converts to a float
-   (bools, NaN, infinities, integers beyond float range, negative values, or any mismatch make the
-   whole trace inadmissible). An inadmissible trace drops the
+   live local trace only when it is a non-empty list whose `toktext`/`toknll` lists match in
+   length and whose entry count matches the search server's `targetTokens` declaration; every token
+   must be a string, and every loss must be a finite, non-negative number that converts to a float
+   (bools, NaN, infinities, integers beyond float range, negative values, missing target counts, or
+   any mismatch make the whole trace inadmissible). An inadmissible trace drops the
    field and the response is labeled `black_box` — fail closed, never partial evidence. Negative
    zero from float32 saturation normalizes to `0.0`, mirroring `search/frontier_receipts.py`.
 3. **Product separation.** `check-run-file.mjs` pins the product loader at the same boundary
@@ -73,7 +74,8 @@ above.
 
 - Shape validity is not provenance: the checks pin the entry shape only, and one live receipt
   covers one real local model run. Nothing here establishes that a particular trace came from a
-  model.
+  model. Matching `targetTokens` checks completeness against the declared tokenizer count; it does
+  not cryptographically prove that the upstream service produced the trace.
 - A present token NLL trace is not prompt quality, leakage evidence, or a shortest-prompt claim;
   the receipt repeats the same non-claims as `npm run api:live-smoke`.
 - The hosted black-box path cannot carry this channel; absence must stay `black_box`.

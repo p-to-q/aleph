@@ -169,7 +169,7 @@ async function generateHostedCandidates(
   targetText: string,
   repeatedSamples: number,
 ) {
-  const deadline = Date.now() + HOSTED_RUN_BUDGET_MS
+  const overallDeadline = Date.now() + HOSTED_RUN_BUDGET_MS
   const primary = { baseUrl: HOSTED_BASE_URL, apiKey: HOSTED_API_KEY, model: HOSTED_MODEL }
   const fallback = HOSTED_FALLBACK_URL && HOSTED_FALLBACK_API_KEY
     ? {
@@ -178,10 +178,9 @@ async function generateHostedCandidates(
         model: HOSTED_FALLBACK_MODEL_CONFIG,
       }
     : null
-  const primaryBudgetMs = fallback
-    ? HOSTED_RUN_BUDGET_MS - HOSTED_FALLBACK_RESERVE_MS
-    : HOSTED_RUN_BUDGET_MS
-  const primaryDeadline = Date.now() + primaryBudgetMs
+  const primaryDeadline = fallback
+    ? overallDeadline - HOSTED_FALLBACK_RESERVE_MS
+    : overallDeadline
 
   try {
     return { model: primary.model, outputs: await generateAll(primary, primaryDeadline) }
@@ -189,8 +188,7 @@ async function generateHostedCandidates(
     if (!fallback) throw primaryError
     // A run freezes one model identity. Discard every partial primary result
     // and regenerate the complete candidate set with the fallback connection.
-    const fallbackDeadline = Date.now() + HOSTED_FALLBACK_RESERVE_MS
-    return { model: fallback.model, outputs: await generateAll(fallback, fallbackDeadline) }
+    return { model: fallback.model, outputs: await generateAll(fallback, overallDeadline) }
   }
 
   async function generateAll(

@@ -168,7 +168,7 @@ def test_observations_omit_token_loss_unless_white_box_trace_is_valid() -> None:
     assert "tokenLoss" not in black.model_dump(exclude_none=True)
 
 
-def _search_with_traces(monkeypatch, traces):
+def _search_with_traces(monkeypatch, traces, *, target_tokens=None):
     """Run the response mapper against controlled per-candidate traces."""
     points = [
         {
@@ -183,10 +183,15 @@ def _search_with_traces(monkeypatch, traces):
         }
         for index, trace in enumerate(traces)
     ]
+    if target_tokens is None:
+        target_tokens = max(
+            (len(trace["toktext"]) for trace in traces if isinstance(trace.get("toktext"), list)),
+            default=0,
+        )
     monkeypatch.setattr(
         local_mlx_search,
         "_post_json",
-        lambda *_: {"evalModel": "test-model", "points": points},
+        lambda *_: {"evalModel": "test-model", "targetTokens": target_tokens, "points": points},
     )
     with TestClient(app) as client:
         response = client.post(
@@ -248,3 +253,28 @@ def test_search_response_keeps_valid_observation_without_lending_nll_to_invalid_
     ]
     assert payload["candidates"][0]["nll"] == 0.375
     assert "nll" not in payload["candidates"][1]
+
+
+def test_search_response_keeps_distinct_nll_for_each_complete_candidate_trace(monkeypatch) -> None:
+    payload = _search_with_traces(monkeypatch, [
+        {"toktext": ["A", " b"], "toknll": [0.25, 0.5]},
+        {"toktext": ["A", " b"], "toknll": [1.0, 1.5]},
+    ])
+
+    assert payload["observations"]["mode"] == "white_box"
+    assert [candidate["nll"] for candidate in payload["candidates"]] == [0.375, 1.25]
+    assert payload["observations"]["tokenLoss"] == [
+        {"token": "A", "loss": 1.0}, {"token": " b", "loss": 1.5}
+    ]
+
+
+def test_search_response_rejects_a_trace_that_does_not_cover_the_target(monkeypatch) -> None:
+    payload = _search_with_traces(
+        monkeypatch,
+        [{"toktext": ["A", " b"], "toknll": [0.25, 0.5]}],
+        target_tokens=3,
+    )
+
+    assert payload["observations"]["mode"] == "black_box"
+    assert "tokenLoss" not in payload["observations"]
+    assert "nll" not in payload["candidates"][0]

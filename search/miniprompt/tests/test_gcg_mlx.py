@@ -20,6 +20,7 @@ import tempfile
 import types
 import unittest
 from pathlib import Path
+from unittest import mock
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 if str(REPO_ROOT) not in sys.path:
@@ -376,6 +377,44 @@ def _scaffold_probe_model(prefix, free, mid, target, *, greedy_requires_mid=Fals
     return _Model()
 
 
+def _position_sensitive_gcg_model():
+    """Return a fake model whose candidate ranking depends on loss positions."""
+
+    class _Embedding:
+        def __call__(self, ids):
+            return mx.zeros((int(ids.shape[0]), int(ids.shape[1]), 8))
+
+        def as_linear(self, gradient):
+            return mx.zeros((int(gradient.shape[0]), 16))
+
+    class _Model:
+        def __init__(self):
+            self.args = types.SimpleNamespace(vocab_size=16)
+            self.model = types.SimpleNamespace(embed_tokens=_Embedding())
+
+        def __call__(self, ids, cache=None, input_embeddings=None):
+            if input_embeddings is not None:
+                return mx.zeros((int(input_embeddings.shape[0]), int(input_embeddings.shape[1]), 16))
+
+            batch, length = int(ids.shape[0]), int(ids.shape[1])
+            logits = mx.zeros((batch, length, 16))
+            for row in range(batch):
+                free_id = int(ids[row, 1].item())
+                if free_id == 5:
+                    # Candidate A wins only at the correct scaffolded positions
+                    # (positions 2 and 3 for [prefix, free, middle, target]).
+                    logits = logits.at[row, 1, 4].add(8.0)
+                    logits = logits.at[row, 2, 3].add(8.0)
+                    logits = logits.at[row, 3, 4].add(8.0)
+                elif free_id == 6:
+                    # Candidate B wins the unshifted positions (1 and 2).
+                    logits = logits.at[row, 1, 3].add(8.0)
+                    logits = logits.at[row, 2, 4].add(8.0)
+            return logits
+
+    return _Model()
+
+
 @unittest.skipUnless(HAS_MLX, "MLX is not available")
 class ScaffoldCriterionTests(unittest.TestCase):
     """The declared scaffold layout drives the criterion shapes (faked models).
@@ -436,6 +475,57 @@ class ScaffoldCriterionTests(unittest.TestCase):
     def test_greedy_continuation_runs_from_the_scaffold_context(self):
         _, outcome = self._run(greedy_requires_mid=True)
         self.assertTrue(outcome["acquired"])
+
+    def test_gcg_step_uses_scaffold_shifted_loss_positions_for_candidate_ranking(self):
+        """A wrong slice must select a different candidate from the correct slice."""
+        config = self._config()
+        config = config_from_canonical(
+            {
+                **config.to_canonical(),
+                "batch": 2,
+                "miniBatch": 2,
+                "topk": 2,
+            }
+        )
+        model = _position_sensitive_gcg_model()
+        ids = mx.array([[11, 1, 12, 3, 4]], dtype=mx.int32)
+        target = mx.array([3, 4], dtype=mx.int32)
+        with mock.patch.object(
+            gcg.mx,
+            "grad",
+            return_value=lambda _embeddings: mx.zeros((1, 5, 8)),
+        ), mock.patch.object(
+            gcg.mx,
+            "argpartition",
+            return_value=mx.array([[5, 6]], dtype=mx.int32),
+        ), mock.patch.object(
+            gcg.sampling,
+            "step_mutations",
+            return_value=[(0, 0), (0, 1)],
+        ):
+            correct = gcg.gcg_step(
+                model,
+                config,
+                ids,
+                n_free=1,
+                loss_pos=slice(2, 4),
+                target_mx=target,
+                step=0,
+                free_start=1,
+            )
+            wrong = gcg.gcg_step(
+                model,
+                config,
+                ids,
+                n_free=1,
+                loss_pos=slice(1, 3),
+                target_mx=target,
+                step=0,
+                free_start=1,
+            )
+
+        self.assertEqual(correct["best_free_ids"], [5])
+        self.assertEqual(wrong["best_free_ids"], [6])
 
 
 if __name__ == "__main__":

@@ -102,3 +102,9 @@ evidence. The pinned real-model engine canary and typed-evidence migration remai
 - Validation passed: `npm run lint`, `npm test` (123 search tests, 450 engine tests, 15 optional MLX
   tests skipped), `npm --workspace web run build`, `apps/api/.venv/bin/python -m pytest
   apps/api/tests -q` (41 passed), and `npm run api:smoke`.
+- Required canonical `candidateRole` alongside `candidateId`; missing or null identity fields now
+  fail closed for both ordinary candidates and Explicit Reconstruction.
+- Latest validation passed: `npm run lint`, `npm test` (128 search tests, 450 engine tests, 16
+  optional MLX tests skipped), `npm run build --workspace web`, `apps/api/.venv/bin/python -m pytest
+  apps/api/tests` (43 passed), `npm run api:smoke`, `node scripts/check-hosted-search.mjs`, and
+  `git diff --check`.
