@@ -11,12 +11,14 @@ independent staircase mirror, the pure runner helpers, and the no-MLX
 from __future__ import annotations
 
 import copy
+import io
 import json
 import statistics
 import subprocess
 import sys
 import tempfile
 import unittest
+from contextlib import redirect_stdout
 from unittest import mock
 from pathlib import Path
 
@@ -36,7 +38,7 @@ from search.compare.config import (  # noqa: E402
 )
 from search.engine.canonical import digest  # noqa: E402
 from search.miniprompt import fixtures as miniprompt_fixtures  # noqa: E402
-from search.miniprompt.receipts import verify_receipt  # noqa: E402
+from search.miniprompt.receipts import SCORING_RULE_DECLARATION, verify_receipt  # noqa: E402
 
 TARGET_IDS = [14990, 1879]
 TARGET_RENDERING = ["hello", " world"]
@@ -380,6 +382,65 @@ class FixtureTests(unittest.TestCase):
         self.assertEqual(receipt["configDigest"], CANARY_HELLO_DIGEST)
         self.assertEqual(receipt["target"]["tokenIds"], TARGET_IDS)
         self.assertEqual(round(record.raw_wall_clock_seconds(receipt), 1), 185.6)
+
+    def test_comparison_verification_rejects_scaffold_receipt_with_obsolete_scoring_rule(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            receipt = archived_receipt()
+            receipt["config"]["scaffold"] = {
+                "chatTemplate": ["prefix", "middle"],
+                "systemPrompt": "",
+                "inputStr": "",
+            }
+            receipt["configDigest"] = digest(receipt["config"])
+            receipt["scaffold"] = {"prefixIds": [101], "midIds": [102]}
+            receipt["procedure"]["declaredDifferences"].append(SCORING_RULE_DECLARATION)
+            for attempt in receipt["attempts"]:
+                attempt["wholePromptTokens"] += 2
+            receipt["receiptDigest"] = digest(
+                {key: value for key, value in receipt.items() if key != "receiptDigest"}
+            )
+            self.assertEqual(verify_receipt(receipt), [])
+
+            comparison_mapping = unit_config().to_canonical()
+            comparison_mapping["targets"][0]["rawConfigDigest"] = receipt["configDigest"]
+            config = compare_config.config_from_canonical(comparison_mapping)
+            doc = synthetic_readable(config)
+            write_instance_tree(base, config, doc, receipt)
+            record_obj = record.build_comparison_record(
+                config=config,
+                targets=[
+                    {
+                        "key": "hello-world",
+                        "raw": {
+                            "receipt": receipt,
+                            "wallClockSeconds": round(record.raw_wall_clock_seconds(receipt), 1),
+                        },
+                        "readable": {"doc": doc, "wallClockSeconds": doc["wallClockSeconds"]},
+                    }
+                ],
+                created_at="2026-10-16T09:30:00Z",
+                base_dir=base,
+            )
+            self.assertEqual(record.verify_comparison(record_obj, base), [])
+
+            stale_receipt = copy.deepcopy(receipt)
+            stale_receipt["procedure"]["declaredDifferences"].remove(SCORING_RULE_DECLARATION)
+            stale_receipt["receiptDigest"] = digest(
+                {key: value for key, value in stale_receipt.items() if key != "receiptDigest"}
+            )
+            write_instance_tree(base, config, doc, stale_receipt)
+            raw_block = record_obj["targets"][0]["raw"]
+            raw_block["receiptDigest"] = stale_receipt["receiptDigest"]
+            record_obj["receiptDigest"] = digest(
+                {key: value for key, value in record_obj.items() if key != "receiptDigest"}
+            )
+
+            errors = record.verify_comparison(record_obj, base)
+            self.assertTrue(
+                any("scaffold receipt lacks the current scoring rule declaration" in error for error in errors),
+                errors,
+            )
 
     def test_explicit_wrapper_matches_shipped_literal(self):
         self.assertEqual(
@@ -844,6 +905,64 @@ class ReadableHelperTests(unittest.TestCase):
 
 
 class CompareCliTests(unittest.TestCase):
+    def test_run_instance_reports_duplicate_keys_as_unreadable(self):
+        from search.compare import run as compare_run
+
+        with tempfile.TemporaryDirectory() as tmp:
+            comparison_path = Path(tmp) / "comparison.json"
+            comparison_path.write_text(
+                '{"configDigest":"first","configDigest":"second"}', encoding="utf-8"
+            )
+            with self.assertRaises(compare_run.RunInstanceError) as raised:
+                compare_run.run_instance("canary-4b", tmp, log=lambda text: None)
+
+        self.assertIn("comparison record is unreadable", str(raised.exception))
+        self.assertIsInstance(raised.exception.__cause__, ValueError)
+
+    def test_run_instance_reports_unreadable_comparison_io_without_traceback(self):
+        from search.compare import cli as compare_cli
+        from search.compare import run as compare_run
+
+        with tempfile.TemporaryDirectory() as tmp:
+            (Path(tmp) / "comparison.json").write_text("{}", encoding="utf-8")
+            output = io.StringIO()
+            with mock.patch.object(
+                compare_run, "load_json_strict", side_effect=PermissionError("denied")
+            ), redirect_stdout(output):
+                result = compare_cli.main(
+                    ["run", "--instance", "canary-4b", "--run-dir", tmp]
+                )
+
+        self.assertEqual(result, 1)
+        self.assertIn("FAIL: existing comparison record is unreadable", output.getvalue())
+        self.assertNotIn("Traceback", output.getvalue())
+
+    def test_run_instance_does_not_reuse_a_verified_record_for_another_config(self):
+        from search.compare import run as compare_run
+
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            first = compare_fixtures.instance("canary-1p7b")
+            record_obj = {
+                "schema": record.RECORD_SCHEMA,
+                "tool": record.TOOL,
+                "createdAt": TIMESTAMP,
+                "config": first.to_canonical(),
+                "configDigest": first.digest,
+                "targets": [],
+                "totals": {"targets": 0, "rawAcquired": 0, "readableFoundUnderTau": 0},
+                "receiptDigest": digest({"sentinel": "test"}),
+            }
+            # The guard must run before the full record verifier. This record
+            # is intentionally incomplete; a different declaration should be
+            # rejected for identity, not accidentally treated as reusable.
+            (base / "comparison.json").write_text(
+                json.dumps(record_obj), encoding="utf-8"
+            )
+            with self.assertRaises(compare_run.RunInstanceError) as raised:
+                compare_run.run_instance("canary-4b", base, log=lambda text: None)
+            self.assertIn("different declared instance", str(raised.exception))
+
     def test_verify_cli_ok_and_fail(self):
         with tempfile.TemporaryDirectory() as tmp:
             base = Path(tmp)

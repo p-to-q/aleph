@@ -212,6 +212,10 @@ def _check_exporter_invariants(value: Mapping[str, Any], errors: list[str]) -> N
         )
         return
     ids = [candidate.get("id") for candidate in candidates]
+    if len(set(ids)) != len(ids):
+        errors.append(
+            "candidate ids must be unique; duplicate ids make candidate selection ambiguous"
+        )
     config = value.get("config", {})
     budget = config.get("budget", {}) if isinstance(config, Mapping) else {}
     if isinstance(budget, Mapping):

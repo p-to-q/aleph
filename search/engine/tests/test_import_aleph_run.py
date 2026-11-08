@@ -410,6 +410,18 @@ class TestFileStrictness(unittest.TestCase):
             "selectedCandidateId 'ghost-candidate' is not among", self.import_value(selected)
         )
 
+    def test_duplicate_candidate_ids_refused_even_with_a_fresh_digest(self) -> None:
+        """Reject ambiguous candidate references even after digest refresh."""
+        for select_duplicate in (True, False):
+            with self.subTest(select_duplicate=select_duplicate):
+                value = load_value(self.root)
+                value["candidates"][1]["id"] = value["candidates"][0]["id"]
+                value["selectedCandidateId"] = value["candidates"][
+                    0 if select_duplicate else 2
+                ]["id"]
+                refresh_digest(value)
+                self.assertIn("candidate ids must be unique", self.import_value(value))
+
 
 class TestHygiene(unittest.TestCase):
     def test_module_is_stdlib_and_scheduler_free(self) -> None:

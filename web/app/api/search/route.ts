@@ -1,13 +1,18 @@
 import { NextResponse } from 'next/server'
 import { createHash } from 'node:crypto'
+import {
+  countUnicodeCodePoints,
+  MAX_SEARCH_OUTPUT_CHARS,
+  MAX_SEARCH_TARGET_CHARS,
+} from '../../lib/search-limits.mjs'
 
 export const runtime = 'nodejs'
 export const maxDuration = 60
 
 type SearchRequest = {
-  target_text?: string
+  target_text: string
   mode?: string
-  label?: string
+  label?: string | null
 }
 
 type ObservationMode = 'mock' | 'black_box'
@@ -59,27 +64,53 @@ const HOSTED_MODEL = (process.env.ALEPH_CUSTOM_API_MODEL ??
 const HOSTED_FALLBACK_MODEL_CONFIG = (process.env.ALEPH_CUSTOM_API_FALLBACK_MODEL ??
   HOSTED_FALLBACK_MODEL).trim()
 const HOSTED_TIMEOUT_MS = 45000
+const HOSTED_RUN_BUDGET_MS = 55000
+const HOSTED_SCORING_RESERVE_MS = 5000
+const HOSTED_FALLBACK_RESERVE_MS = 20000
 const HOSTED_TEMPERATURE = 0.2
-const HOSTED_REPEATED_SAMPLES = 1
+const HOSTED_REPEATED_SAMPLES = 2
 const HOSTED_RETRIES_PER_CONNECTION = 2
 
 export async function POST(request: Request) {
-  const body = (await request.json().catch(() => ({}))) as SearchRequest
-  const targetText = (body.target_text ?? '').trim()
+  let parsedBody: unknown
+  try {
+    parsedBody = await request.json()
+  } catch {
+    return NextResponse.json({ detail: 'Request body must be valid JSON.' }, { status: 400 })
+  }
+  if (!parsedBody || typeof parsedBody !== 'object' || Array.isArray(parsedBody)) {
+    return NextResponse.json({ detail: 'Request body must be a JSON object.' }, { status: 400 })
+  }
+  const body = parsedBody as SearchRequest
+  if (body.label != null && typeof body.label !== 'string') {
+    return NextResponse.json({ detail: 'label must be a string' }, { status: 422 })
+  }
+  if (typeof body.target_text !== 'string') {
+    return NextResponse.json({ detail: 'target_text must be a string' }, { status: 422 })
+  }
+  const targetText = body.target_text.trim()
+  const label = body.label ?? undefined
+  const targetLength = countUnicodeCodePoints(targetText, MAX_SEARCH_TARGET_CHARS)
 
-  if (targetText.length < 8) {
+  if (targetLength < 8) {
     return NextResponse.json(
       { detail: 'target_text must contain at least 8 characters' },
       { status: 422 },
     )
   }
+  if (targetLength > MAX_SEARCH_TARGET_CHARS) {
+    return NextResponse.json(
+      { detail: `target_text must be at most ${MAX_SEARCH_TARGET_CHARS} characters` },
+      { status: 413 },
+    )
+  }
 
   if (!hasHostedModelConfig()) {
-    return NextResponse.json(mockSearch(targetText, body.label))
+    return NextResponse.json(mockSearch(targetText, label))
   }
 
   try {
-    return NextResponse.json(await hostedBlackBoxSearch(targetText, body.label))
+    return NextResponse.json(await hostedBlackBoxSearch(targetText, label))
   } catch (error) {
     const detail = error instanceof Error ? error.message : 'Hosted model request failed.'
     return NextResponse.json({ detail }, { status: 502 })
@@ -127,42 +158,26 @@ async function hostedBlackBoxSearch(targetText: string, label?: string) {
   const explicitPrompt = `Reproduce the following output exactly:\n\n${targetText}`
   const candidates = buildCandidatePrompts(targetText, explicitPrompt)
   const repeatedSamples = HOSTED_REPEATED_SAMPLES
+  const generated = await generateHostedCandidates(candidates, targetText, repeatedSamples)
   const points = []
 
-  for (const candidate of candidates) {
-    if (candidate.kind === 'explicit') {
-      points.push({
-        id: candidate.id,
-        role: 'explicit_reconstruction' as const,
-        label: candidate.label,
-        prompt: candidate.prompt,
-        output: targetText,
-        fit: 1,
-        stability: 1,
-        note:
-          'Explicit reconstruction baseline; target text is inside the prompt. No token NLL is available in black-box mode.',
-      })
-      continue
-    }
-
-    const outputs = []
-    for (let sample = 0; sample < repeatedSamples; sample += 1) {
-      outputs.push(await generateHostedOutput(candidate, targetText))
-    }
+  for (const [index, candidate] of candidates.entries()) {
+    const outputs = generated.outputs[index]
     const output = chooseRepresentativeOutput(targetText, outputs)
     const fit = similarityScore(targetText, output)
     const stability = outputStability(outputs)
 
     points.push({
       id: candidate.id,
-      role: 'candidate' as const,
+      role: candidate.kind === 'explicit' ? 'explicit_reconstruction' as const : 'candidate' as const,
       label: candidate.label,
       prompt: candidate.prompt,
       output,
       fit,
       stability,
-      note:
-        'Hosted black-box model output. Fit and stability are computed from generated text; token NLL/logits are unavailable.',
+      note: candidate.kind === 'explicit'
+        ? 'Model-generated Explicit Reconstruction baseline; fit and pairwise stability are measured from repeated outputs. The target is present in the prompt; token NLL/logits are unavailable.'
+        : 'Hosted black-box model output. Fit and pairwise stability are measured from repeated outputs; token NLL/logits are unavailable.',
     })
   }
 
@@ -170,12 +185,75 @@ async function hostedBlackBoxSearch(targetText: string, label?: string) {
     idPrefix: 'hosted',
     targetText,
     label: label ?? 'Hosted black-box search',
-    model: HOSTED_MODEL,
+    model: generated.model,
     metric: hasCjk(targetText) ? 'cjk_lexical_overlap_and_sequence_fit' : 'lexical_overlap_and_sequence_fit',
     observationMode: 'black_box',
     points,
     repeatedSamples,
   })
+}
+
+async function generateHostedCandidates(
+  candidates: CandidatePrompt[],
+  targetText: string,
+  repeatedSamples: number,
+) {
+  const overallDeadline = Date.now() + HOSTED_RUN_BUDGET_MS
+  const generationDeadline = overallDeadline - HOSTED_SCORING_RESERVE_MS
+  const primary = { baseUrl: HOSTED_BASE_URL, apiKey: HOSTED_API_KEY, model: HOSTED_MODEL }
+  const fallback = HOSTED_FALLBACK_URL && HOSTED_FALLBACK_API_KEY
+    ? {
+        baseUrl: HOSTED_FALLBACK_URL,
+        apiKey: HOSTED_FALLBACK_API_KEY,
+        model: HOSTED_FALLBACK_MODEL_CONFIG,
+      }
+    : null
+  const primaryDeadline = fallback
+    ? generationDeadline - HOSTED_FALLBACK_RESERVE_MS
+    : generationDeadline
+
+  try {
+    return { model: primary.model, outputs: await generateAll(primary, primaryDeadline) }
+  } catch (primaryError) {
+    if (!fallback) throw primaryError
+    // A run freezes one model identity. Discard every partial primary result
+    // and regenerate the complete candidate set with the fallback connection.
+    return { model: fallback.model, outputs: await generateAll(fallback, generationDeadline) }
+  }
+
+  async function generateAll(
+    connection: { baseUrl: string; apiKey: string; model: string },
+    deadline: number,
+  ) {
+    const outputs: string[][] = []
+    for (const candidate of candidates) {
+      const remainingMs = deadline - Date.now()
+      if (remainingMs <= 0) {
+        throw new Error(`Hosted search exceeded its ${HOSTED_RUN_BUDGET_MS}ms run budget.`)
+      }
+      const controller = new AbortController()
+      const timeout = setTimeout(
+        () => controller.abort(),
+        Math.min(HOSTED_TIMEOUT_MS, remainingMs),
+      )
+      try {
+        // Keep provider concurrency bounded to one candidate's sample pair.
+        // A failure aborts the sibling call and restarts the whole run on the
+        // fallback connection, preserving one model identity per run.
+        outputs.push(await Promise.all(Array.from({ length: repeatedSamples }, () =>
+          withHostedRetries(() =>
+            generateHostedOutputWithConnection(candidate, targetText, connection, controller.signal),
+          ),
+        )))
+      } catch (error) {
+        controller.abort()
+        throw error
+      } finally {
+        clearTimeout(timeout)
+      }
+    }
+    return outputs
+  }
 }
 
 async function withHostedRetries<T>(operation: () => Promise<T>) {
@@ -396,32 +474,12 @@ function hasHostedModelConfig() {
   return HOSTED_BASE_URL.length > 0 && HOSTED_API_KEY.length > 0 && HOSTED_MODEL.length > 0
 }
 
-async function generateHostedOutput(candidate: CandidatePrompt, targetText: string) {
-  const primary = { baseUrl: HOSTED_BASE_URL, apiKey: HOSTED_API_KEY, model: HOSTED_MODEL }
-  const fallback =
-    HOSTED_FALLBACK_URL && HOSTED_FALLBACK_API_KEY
-      ? {
-          baseUrl: HOSTED_FALLBACK_URL,
-          apiKey: HOSTED_FALLBACK_API_KEY,
-          model: HOSTED_FALLBACK_MODEL_CONFIG,
-        }
-      : null
-
-  try {
-    return await withHostedRetries(() => generateHostedOutputWithConnection(candidate, targetText, primary))
-  } catch (error) {
-    if (!fallback) throw error
-    return withHostedRetries(() => generateHostedOutputWithConnection(candidate, targetText, fallback))
-  }
-}
-
 async function generateHostedOutputWithConnection(
   candidate: CandidatePrompt,
   targetText: string,
   connection: { baseUrl: string; apiKey: string; model: string },
+  signal: AbortSignal,
 ) {
-  const controller = new AbortController()
-  const timeout = setTimeout(() => controller.abort(), HOSTED_TIMEOUT_MS)
   const payload = {
     model: connection.model,
     messages: hostedMessages(candidate, targetText),
@@ -437,7 +495,7 @@ async function generateHostedOutputWithConnection(
         Authorization: `Bearer ${connection.apiKey}`,
       },
       body: JSON.stringify(payload),
-      signal: controller.signal,
+      signal,
     })
     const text = await response.text()
     if (!response.ok) {
@@ -453,14 +511,19 @@ async function generateHostedOutputWithConnection(
       const reason = typeof message?.reasoning_content === 'string' ? ' with reasoning_content only' : ''
       throw new Error(`Hosted model returned an empty output${reason}.`)
     }
-    return cleanModelOutput(output)
+    const cleanedOutput = cleanModelOutput(output)
+    if (!cleanedOutput) {
+      throw new Error('Hosted model returned no output after cleanup.')
+    }
+    if (countUnicodeCodePoints(cleanedOutput, MAX_SEARCH_OUTPUT_CHARS) > MAX_SEARCH_OUTPUT_CHARS) {
+      throw new Error(`Hosted model output exceeds ${MAX_SEARCH_OUTPUT_CHARS} characters.`)
+    }
+    return cleanedOutput
   } catch (error) {
     if (error instanceof Error && error.name === 'AbortError') {
       throw new Error('Hosted model request timed out.')
     }
     throw error
-  } finally {
-    clearTimeout(timeout)
   }
 }
 
@@ -508,14 +571,17 @@ function chooseRepresentativeOutput(targetText: string, outputs: string[]) {
 
 function outputStability(outputs: string[]) {
   const usable = outputs.map((output) => output.trim()).filter(Boolean)
-  if (usable.length <= 1) return usable.length ? 0.72 : 0
+  if (usable.length < 2) {
+    throw new Error('Hosted stability requires at least two non-empty samples.')
+  }
   const pairs: number[] = []
   for (let i = 0; i < usable.length; i += 1) {
     for (let j = i + 1; j < usable.length; j += 1) {
       pairs.push(similarityScore(usable[i], usable[j]))
     }
   }
-  return pairs.length ? pairs.reduce((sum, value) => sum + value, 0) / pairs.length : 0.72
+  if (!pairs.length) throw new Error('Hosted stability has no sample pairs.')
+  return pairs.reduce((sum, value) => sum + value, 0) / pairs.length
 }
 
 function selectCandidate(candidates: CandidatePoint[]) {

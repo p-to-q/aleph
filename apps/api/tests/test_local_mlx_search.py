@@ -1,6 +1,14 @@
 from __future__ import annotations
 
+from math import copysign
+from sys import float_info
+
+import pytest
+from fastapi.testclient import TestClient
+
+from aleph_api.main import app
 from aleph_api.models import SearchCandidatePoint, SearchRequest
+from aleph_api.services import local_mlx_search
 from aleph_api.services.local_mlx_search import (
     _candidate_from_point,
     _observation_mode,
@@ -158,3 +166,115 @@ def test_observations_omit_token_loss_unless_white_box_trace_is_valid() -> None:
 
     black = _observations([{"toktext": [], "toknll": []}], "black_box")
     assert "tokenLoss" not in black.model_dump(exclude_none=True)
+
+
+def _search_with_traces(monkeypatch, traces, *, target_tokens=None):
+    """Run the response mapper against controlled per-candidate traces."""
+    points = [
+        {
+            "id": f"point-{index}",
+            "role": "explicit_reconstruction" if index == len(traces) - 1 else "candidate",
+            "prompt": f"Repeat the following text exactly:\n\n{TARGET}",
+            "output": TARGET,
+            "length": 12,
+            "similarity": 1.0,
+            "epsilon": 0.0,
+            **trace,
+        }
+        for index, trace in enumerate(traces)
+    ]
+    if target_tokens is None:
+        target_tokens = max(
+            (len(trace["toktext"]) for trace in traces if isinstance(trace.get("toktext"), list)),
+            default=0,
+        )
+    monkeypatch.setattr(
+        local_mlx_search,
+        "_post_json",
+        lambda *_: {"evalModel": "test-model", "targetTokens": target_tokens, "points": points},
+    )
+    with TestClient(app) as client:
+        response = client.post(
+            "/api/search", json={"target_text": TARGET, "mode": "local_mlx_search"}
+        )
+    assert response.status_code == 200, response.text
+    return response.json()
+
+
+@pytest.mark.parametrize("trace", [
+    {},
+    {"toknll": [0.5]},
+    {"toktext": [], "toknll": []},
+    {"toktext": ["A"], "toknll": [10**400]},
+    {"toktext": ["A"], "toknll": [float("inf")]},
+    {"toktext": ["A"], "toknll": [float("nan")]},
+    {"toktext": ["A"], "toknll": [-0.5]},
+    {"toktext": ["A"], "toknll": [True]},
+    {"toktext": ["A"], "toknll": [0.25, 0.5]},
+    {"toktext": ["A", " b"], "toknll": [0.5]},
+    {"toktext": [7], "toknll": [0.5]},
+    {"toktext": ["A", " b"], "toknll": [0.5, "invalid"]},
+])
+def test_search_response_omits_every_nll_field_for_invalid_trace(monkeypatch, trace) -> None:
+    payload = _search_with_traces(monkeypatch, [trace])
+    assert payload["observations"]["mode"] == "black_box"
+    assert "tokenLoss" not in payload["observations"]
+    assert "nll" not in payload["candidates"][0]
+
+
+@pytest.mark.parametrize(("losses", "expected"), [
+    ([float_info.max, float_info.max], float_info.max),
+    ([float_info.max, float_info.max / 2, 0.0], float_info.max / 2),
+    ([-0.0], 0.0),
+])
+def test_search_response_serializes_extreme_finite_nll_means(monkeypatch, losses, expected) -> None:
+    """Keep finite extreme and signed-zero losses valid in JSON output."""
+    payload = _search_with_traces(
+        monkeypatch, [{"toktext": ["A"] * len(losses), "toknll": losses}]
+    )
+    assert payload["observations"]["mode"] == "white_box"
+    assert payload["candidates"][0]["nll"] == expected
+    assert payload["observations"]["tokenLoss"] == [
+        {"token": "A", "loss": loss} for loss in losses
+    ]
+    if expected == 0:
+        assert copysign(1.0, payload["candidates"][0]["nll"]) == 1.0
+        assert copysign(1.0, payload["observations"]["tokenLoss"][0]["loss"]) == 1.0
+
+
+def test_search_response_keeps_valid_observation_without_lending_nll_to_invalid_point(monkeypatch) -> None:
+    payload = _search_with_traces(monkeypatch, [
+        {"toktext": ["A", " b"], "toknll": [0.25, 0.5]},
+        {"toktext": ["A"], "toknll": [0.5, 0.75]},
+    ])
+    assert payload["observations"]["mode"] == "white_box"
+    assert payload["observations"]["tokenLoss"] == [
+        {"token": "A", "loss": 0.25}, {"token": " b", "loss": 0.5}
+    ]
+    assert payload["candidates"][0]["nll"] == 0.375
+    assert "nll" not in payload["candidates"][1]
+
+
+def test_search_response_keeps_distinct_nll_for_each_complete_candidate_trace(monkeypatch) -> None:
+    payload = _search_with_traces(monkeypatch, [
+        {"toktext": ["A", " b"], "toknll": [0.25, 0.5]},
+        {"toktext": ["A", " b"], "toknll": [1.0, 1.5]},
+    ])
+
+    assert payload["observations"]["mode"] == "white_box"
+    assert [candidate["nll"] for candidate in payload["candidates"]] == [0.375, 1.25]
+    assert payload["observations"]["tokenLoss"] == [
+        {"token": "A", "loss": 1.0}, {"token": " b", "loss": 1.5}
+    ]
+
+
+def test_search_response_rejects_a_trace_that_does_not_cover_the_target(monkeypatch) -> None:
+    payload = _search_with_traces(
+        monkeypatch,
+        [{"toktext": ["A", " b"], "toknll": [0.25, 0.5]}],
+        target_tokens=3,
+    )
+
+    assert payload["observations"]["mode"] == "black_box"
+    assert "tokenLoss" not in payload["observations"]
+    assert "nll" not in payload["candidates"][0]

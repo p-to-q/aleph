@@ -347,13 +347,17 @@ def event_from_canonical(record: Mapping[str, Any]) -> Event:
     }
     if unknown:
         raise EventError(f"unknown event fields: {sorted(unknown)}")
+    # ``payload``, ``parentEventIds``, and ``blobDigests`` keep defaults because
+    # ``contentDigest`` is recomputed over all of them below and compared with
+    # the declared digest: a substituted value can only survive when it already
+    # equalled the default. ``schemaVersion`` is covered by the same digest.
     payload = record.get("payload", {})
     if not isinstance(payload, Mapping):
         raise EventError("event payload must be a mapping")
-    parent_ids = record.get("parentEventIds", ())
+    parent_ids = record.get("parentEventIds", [])
     if not isinstance(parent_ids, list):
         raise EventError("parentEventIds must be a list")
-    blob_digests = record.get("blobDigests", ())
+    blob_digests = record.get("blobDigests", [])
     if not isinstance(blob_digests, list):
         raise EventError("blobDigests must be a list")
     try:

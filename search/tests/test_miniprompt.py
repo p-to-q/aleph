@@ -10,12 +10,16 @@ verifier (including tamper probes with re-fixed digests), and the no-MLX
 from __future__ import annotations
 
 import copy
+import importlib.util
 import json
 import subprocess
 import sys
 import tempfile
+import types
 import unittest
+from contextlib import contextmanager
 from pathlib import Path
+from unittest import mock
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 if str(REPO_ROOT) not in sys.path:
@@ -134,6 +138,468 @@ def build_fixture_receipt(config, outcomes, target_ids=TARGET_IDS, scaffold=None
 def refix(receipt):
     receipt["receiptDigest"] = digest(receipts.receipt_body(receipt))
     return receipt
+
+
+@contextmanager
+def execution_module(name, gcg_module=None):
+    """Load shipping execution code with inert runtime imports; never load a model."""
+    import search.miniprompt as package
+
+    runtime = mock.MagicMock()
+    stubs = {key: mock.MagicMock() for key in ("mlx", "mlx.nn", "mlx_lm", "huggingface_hub")}
+    stubs["mlx.core"] = runtime
+    stubs["mlx"].core = runtime
+    stubs["mlx"].nn = stubs["mlx.nn"]
+    if gcg_module is not None:
+        stubs["search.miniprompt.gcg"] = gcg_module
+    spec = importlib.util.spec_from_file_location(
+        f"search.miniprompt._test_{name}", REPO_ROOT / "search/miniprompt" / f"{name}.py"
+    )
+    module = importlib.util.module_from_spec(spec)
+    with mock.patch.dict(sys.modules, stubs), mock.patch.object(
+        package, "gcg", gcg_module, create=True
+    ):
+        spec.loader.exec_module(module)
+        yield module, runtime
+
+
+class ScaffoldExecutionTests(unittest.TestCase):
+    """Pin coordinate boundaries without requiring MLX, a snapshot, or GPU work."""
+
+    def test_winner_returns_only_the_mutated_free_window(self):
+        """The optimizer result must exclude both scaffold segments."""
+        with execution_module("gcg") as (gcg, mx):
+            config = variant(topk=2, batch=3, miniBatch=3)
+            model = mock.MagicMock()
+            model.args.vocab_size = 16
+            ids = mock.MagicMock()
+            ids.__getitem__.return_value.tolist.return_value = [11, 1, 2, 12, 3, 4]
+            target = mock.MagicMock()
+            target.shape = (2,)
+            mx.array.return_value.shape = (3, 6)
+            mx.argpartition.return_value.__getitem__.return_value.tolist.return_value = [[5, 6], [7, 8]]
+            mx.mean.return_value.__neg__.return_value.tolist.return_value = [0.8, 0.1, 0.4]
+            with mock.patch.object(sampling, "step_mutations", return_value=[(0, 0), (1, 1), (0, 1)]):
+                result = gcg.gcg_step(model, config, ids, 2, slice(3, 5), target, 0, free_start=1)
+            self.assertEqual(mx.array.call_args.args[0][1], [11, 1, 8, 12, 3, 4])
+            self.assertEqual(result["best_free_ids"], [1, 8])
+
+    def test_target_loss_positions_follow_the_complete_context(self):
+        """Target losses must follow prefix, free tokens, and middle."""
+        class Tokens(list):
+            def argmax(self, axis):
+                return self
+
+            def __eq__(self, other):
+                """Compare predicted tokens element by element."""
+                return Tokens(left == right for left, right in zip(self, other))
+
+            def tolist(self):
+                return list(self)
+
+        class CausalLogits:
+            def __init__(self, sequence):
+                # An oracle predicting the next recorded token at every position.
+                self.next_tokens = sequence[1:] + [0]
+
+            def __getitem__(self, key):
+                return Tokens(self.next_tokens[key[1]])
+
+        with execution_module("gcg") as (gcg, mx):
+            mx.array.side_effect = lambda value, **kwargs: value
+            model = mock.Mock(side_effect=lambda ids: CausalLogits(ids[0]))
+            model.args.vocab_size = 16
+            config = variant(topk=2)
+            for prefix, mid in (([], []), ([11], []), ([], [12, 13]), ([11], [12, 13])):
+                with self.subTest(prefix=prefix, mid=mid):
+                    check = gcg.solution_check(model, [1, 2], [3, 4], prefix_ids=prefix, mid_ids=mid)
+                    self.assertTrue(check["matchAll"])
+                    self.assertEqual(check["matchTokens"], 2)
+
+                    def step(_model, _config, ids, n_free, loss_pos, target, _step, **kwargs):
+                        # Selecting the next sequence token at the supplied loss positions
+                        # must recover the target, independently of the implementation's offsets.
+                        self.assertEqual((ids[0][1:] + [0])[loss_pos], target)
+                        return {"best_free_ids": [1, 2], "loss": 0.0, "seconds": 0.1}
+
+                    with mock.patch.object(gcg, "gcg_step", side_effect=step), mock.patch.object(
+                        gcg, "greedy_continuation_ids", return_value=[3, 4]
+                    ):
+                        outcome = gcg.run_attempt(
+                            model, config, n_free=2, steps_budget=1, target_ids=[3, 4],
+                            initial_free_ids=[1, 2], prefix_ids=prefix, mid_ids=mid,
+                        )
+                    self.assertTrue(outcome["acquired"])
+
+    def test_gcg_step_candidate_ranking_uses_scaffolded_loss_positions(self):
+        """A wrong candidate-loss slice must select a different free token."""
+        class IdRow(list):
+            def tolist(self):
+                return list(self)
+
+        class IdBatch:
+            def __init__(self, rows):
+                self.rows = [list(row) for row in rows]
+                self.shape = (len(self.rows), len(self.rows[0]))
+
+            def __getitem__(self, index):
+                return IdRow(self.rows[index])
+
+        class Gradient:
+            def __getitem__(self, _index):
+                return self
+
+        class Embeddings:
+            shape = (1, 5, 8)
+
+            def __getitem__(self, _index):
+                return self
+
+        class Descent:
+            def __neg__(self):
+                return self
+
+        class EmbedTokens:
+            def __call__(self, _ids):
+                return Embeddings()
+
+            def as_linear(self, _gradient):
+                return Descent()
+
+        class Candidates:
+            def __getitem__(self, _slice):
+                return self
+
+            def tolist(self):
+                return [[5, 6]]
+
+        class TargetIds:
+            def __init__(self, values):
+                self.values = list(values)
+                self.shape = (len(self.values),)
+
+            def __getitem__(self, _index):
+                return self
+
+        class PositionLogits:
+            def __init__(self, rows, positions):
+                self.rows = rows
+                self.positions = positions
+
+            def astype(self, _dtype):
+                return self
+
+        class CandidateLogits:
+            def __init__(self, rows):
+                self.rows = rows
+
+            def __getitem__(self, key):
+                positions = key[1]
+                return PositionLogits(
+                    self.rows,
+                    list(range(*positions.indices(len(self.rows[0])))),
+                )
+
+        class TargetLogProbs:
+            def __init__(self, values):
+                self.values = values
+
+            def squeeze(self, _axis):
+                return self
+
+        class MeanLogProbs:
+            def __init__(self, values):
+                self.values = values
+
+            def __neg__(self):
+                return BatchLosses([-sum(row) / len(row) for row in self.values])
+
+        class BatchLosses:
+            def __init__(self, values):
+                self.values = values
+
+            def tolist(self):
+                return self.values
+
+        class Model:
+            args = types.SimpleNamespace(vocab_size=16)
+            model = types.SimpleNamespace(embed_tokens=EmbedTokens())
+
+            def __call__(self, ids, cache=None, input_embeddings=None):
+                return CandidateLogits(ids.rows)
+
+        def take_along_axis(log_probs, target_ids, axis):
+            predictions = {5: {1: 4, 2: 3, 3: 4}, 6: {1: 3, 2: 4, 3: 0}}
+            return TargetLogProbs([
+                [
+                    0.0 if predictions[row[1]].get(position) == target_ids.values[offset] else -1.0
+                    for offset, position in enumerate(log_probs.positions)
+                ]
+                for row in log_probs.rows
+            ])
+
+        def run_with_slice(gcg, config, model, ids, targets, loss_pos):
+            with mock.patch.object(gcg.mx, "array", side_effect=lambda rows, **_: IdBatch(rows)), \
+                 mock.patch.object(gcg.mx, "grad", side_effect=lambda _loss: lambda _emb: Gradient()), \
+                 mock.patch.object(gcg.mx, "eval", return_value=None), \
+                 mock.patch.object(gcg.mx, "argpartition", return_value=Candidates()), \
+                 mock.patch.object(gcg.mx, "broadcast_to", side_effect=lambda values, _shape: values), \
+                 mock.patch.object(gcg.mx, "take_along_axis", side_effect=take_along_axis), \
+                 mock.patch.object(gcg.mx, "mean", side_effect=lambda values, axis: MeanLogProbs(values.values)), \
+                 mock.patch.object(gcg.nn, "log_softmax", side_effect=lambda values, axis: values), \
+                 mock.patch.object(gcg.sampling, "step_mutations", return_value=[(0, 0), (0, 1)]):
+                return gcg.gcg_step(
+                    model, config, ids, n_free=1, loss_pos=loss_pos, target_mx=targets,
+                    step=0, free_start=1,
+                )
+
+        with execution_module("gcg") as (gcg, _mx):
+            config = variant(topk=2, batch=2, miniBatch=2)
+            model = Model()
+            ids = IdBatch([[11, 1, 12, 3, 4]])
+            targets = TargetIds([3, 4])
+            correct = run_with_slice(gcg, config, model, ids, targets, slice(2, 4))
+            wrong = run_with_slice(gcg, config, model, ids, targets, slice(1, 3))
+
+        self.assertEqual(correct["best_free_ids"], [5])
+        self.assertEqual(wrong["best_free_ids"], [6])
+
+
+class ScoringRuleResumeTests(unittest.TestCase):
+    def test_old_scaffold_trajectory_cannot_resume_under_new_loss_positions(self):
+        fake = types.ModuleType("search.miniprompt.gcg")
+        with execution_module("runner", fake) as (runner, _):
+            old_state = {"attempts": [{"acquired": False}], "current": None}
+            with self.assertRaisesRegex(runner.RunStateError, "scoring rule differs"):
+                runner._validate_scoring_rule(old_state, {"prefixIds": [], "midIds": [12]})
+
+    def test_old_prefix_only_trajectory_cannot_be_stamped_with_current_rule(self):
+        fake = types.ModuleType("search.miniprompt.gcg")
+        with execution_module("runner", fake) as (runner, _):
+            old_state = {"attempts": [{"acquired": False}], "current": None}
+            with self.assertRaisesRegex(runner.RunStateError, "scoring rule differs"):
+                runner._validate_scoring_rule(old_state, {"prefixIds": [11], "midIds": []})
+
+    def test_run_scan_rejects_progressed_prefix_only_legacy_checkpoint(self):
+        config = variant(
+            scaffold={"chatTemplate": ["prefix", "middle"], "systemPrompt": "", "inputStr": ""},
+        )
+        model_meta = {
+            "repo": config.repo,
+            "revision": config.revision,
+            "weightsDigest": config.weights_digest,
+            "vocabSize": 151936,
+        }
+        policy = ScanPolicy(config, len(TARGET_IDS))
+        spec = policy.next_spec()
+        attempt = attempt_from_spec(spec, False, prefix_count=1)
+        policy.record(False)
+        state = {
+            "schema": receipts.LEGACY_STATE_SCHEMA,
+            "configDigest": config.digest,
+            "config": config.to_canonical(),
+            "scoringRule": receipts.SCORING_RULE,
+            "model": model_meta,
+            "environment": {"python": "test"},
+            "target": {"tokenIds": list(TARGET_IDS)},
+            "scaffold": {"prefixIds": [11], "midIds": []},
+            "scan": policy.to_snapshot(),
+            "attempts": [attempt],
+            "current": None,
+        }
+        fake = types.ModuleType("search.miniprompt.gcg")
+        fake.load_pinned_model = lambda _declaration: (object(), object(), model_meta)
+
+        with execution_module("runner", fake) as (runner, _), tempfile.TemporaryDirectory() as tmp:
+            receipts.write_json_atomic(Path(tmp) / "state.json", state)
+            with self.assertRaisesRegex(runner.RunStateError, "ambiguous scoring rule provenance"):
+                runner.run_scan(config, tmp, log=lambda *_: None)
+
+    def test_current_schema_allows_progressed_prefix_only_checkpoint_with_current_rule(self):
+        fake = types.ModuleType("search.miniprompt.gcg")
+        with execution_module("runner", fake) as (runner, _):
+            state = {
+                "schema": receipts.STATE_SCHEMA,
+                "scoringRule": receipts.SCORING_RULE,
+                "attempts": [{"acquired": False}],
+                "current": None,
+            }
+            runner._validate_scoring_rule(
+                state,
+                {"prefixIds": [11], "midIds": []},
+            )
+
+    def test_legacy_empty_scaffold_checkpoint_is_upgraded_before_resume(self):
+        config = variant(maxAttempts=2, nFreeIncrement=1)
+        model_meta = {
+            "repo": config.repo,
+            "revision": config.revision,
+            "weightsDigest": config.weights_digest,
+            "vocabSize": 151936,
+        }
+        policy = ScanPolicy(config, len(TARGET_IDS))
+        spec = policy.next_spec()
+        attempt = attempt_from_spec(spec, False, prefix_count=0)
+        policy.record(False)
+        state = {
+            "schema": receipts.LEGACY_STATE_SCHEMA,
+            "configDigest": config.digest,
+            "config": config.to_canonical(),
+            "model": model_meta,
+            "environment": {"python": "test"},
+            "target": {"tokenIds": list(TARGET_IDS)},
+            "scan": policy.to_snapshot(),
+            "attempts": [attempt],
+            "current": None,
+        }
+        fake = types.ModuleType("search.miniprompt.gcg")
+        fake.load_pinned_model = lambda _declaration: (object(), object(), model_meta)
+        fake.run_attempt = lambda *args, **kwargs: {
+            "paused": True,
+            "resume": {
+                "step": 1,
+                "freeIds": [2000],
+                "bestLoss": None,
+                "bestIds": None,
+                "solutionSource": None,
+                "solutionLoss": None,
+                "trajectory": [],
+                "lastMatchTokens": 0,
+                "lastLoss": None,
+                "acquiredAtStep": None,
+            },
+        }
+
+        with execution_module("runner", fake) as (runner, _), tempfile.TemporaryDirectory() as tmp:
+            receipts.write_json_atomic(Path(tmp) / "state.json", state)
+            self.assertEqual(runner.run_scan(config, tmp, log=lambda *_: None), 3)
+            upgraded = receipts.read_json(Path(tmp) / "state.json")
+            self.assertEqual(upgraded["schema"], receipts.STATE_SCHEMA)
+            self.assertEqual(upgraded["scoringRule"], receipts.SCORING_RULE)
+
+    def test_legacy_empty_scaffold_trajectory_remains_resumable(self):
+        fake = types.ModuleType("search.miniprompt.gcg")
+        with execution_module("runner", fake) as (runner, _):
+            old_state = {"attempts": [{"acquired": False}], "current": None}
+            runner._validate_scoring_rule(old_state, {"prefixIds": [], "midIds": []})
+
+    def test_explicitly_mismatched_rule_cannot_resume_a_progressed_run(self):
+        fake = types.ModuleType("search.miniprompt.gcg")
+        with execution_module("runner", fake) as (runner, _):
+            old_state = {"scoringRule": "old-rule", "attempts": [], "current": {"step": 1}}
+            with self.assertRaisesRegex(runner.RunStateError, "scoring rule differs"):
+                runner._validate_scoring_rule(old_state, {"prefixIds": [], "midIds": []})
+
+    def test_scoring_rule_validation_rejects_malformed_current_step(self):
+        fake = types.ModuleType("search.miniprompt.gcg")
+        with execution_module("runner", fake) as (runner, _):
+            old_state = {"attempts": [], "current": {"step": True}}
+            with self.assertRaisesRegex(runner.RunStateError, "current.step"):
+                runner._validate_scoring_rule(old_state, {"prefixIds": [], "midIds": []})
+
+    def test_completed_scaffold_receipt_requires_the_current_scoring_rule(self):
+        config = variant(
+            scaffold={"chatTemplate": ["prefix", "middle"], "systemPrompt": "", "inputStr": ""},
+        )
+        stale = build_fixture_receipt(
+            config,
+            [True] * 5,
+            scaffold={"prefixIds": [11], "midIds": [12]},
+        )
+        stale["procedure"]["declaredDifferences"].remove(receipts.SCORING_RULE_DECLARATION)
+        refix(stale)
+        self.assertTrue(
+            any("scaffold receipt lacks the current scoring rule declaration" in error
+                for error in receipts.verify_receipt(stale))
+        )
+
+        fake = types.ModuleType("search.miniprompt.gcg")
+        with execution_module("runner", fake) as (runner, _), tempfile.TemporaryDirectory() as tmp:
+            receipts.write_json_atomic(Path(tmp) / "receipt.json", stale)
+            with self.assertRaisesRegex(runner.RunStateError, "existing receipt fails verification"):
+                runner.run_scan(config, tmp, log=lambda *_: None)
+
+    def test_legacy_empty_scaffold_receipt_remains_reusable(self):
+        config = variant()
+        legacy = build_fixture_receipt(config, [True] * 5)
+        legacy["procedure"]["declaredDifferences"].remove(receipts.SCORING_RULE_DECLARATION)
+        refix(legacy)
+        self.assertEqual(receipts.verify_receipt(legacy), [])
+
+        fake = types.ModuleType("search.miniprompt.gcg")
+        with execution_module("runner", fake) as (runner, _), tempfile.TemporaryDirectory() as tmp:
+            receipts.write_json_atomic(Path(tmp) / "receipt.json", legacy)
+            self.assertEqual(runner.run_scan(config, tmp, log=lambda *_: None), 0)
+
+
+class RunStateEnvelopeTests(unittest.TestCase):
+    def test_current_step_must_be_a_non_negative_integer(self):
+        fake = types.ModuleType("search.miniprompt.gcg")
+        with execution_module("runner", fake) as (runner, _):
+            config = variant()
+            base_state = {
+                "schema": receipts.STATE_SCHEMA,
+                "configDigest": config.digest,
+                "config": config.to_canonical(),
+                "model": {},
+                "environment": {},
+                "target": {},
+                "scan": {},
+                "attempts": [],
+                "current": {"step": 0},
+            }
+            for step in (None, "0", True, -1, 1.5):
+                with self.subTest(step=step), self.assertRaisesRegex(
+                    runner.RunStateError, "current.step must be a non-negative integer"
+                ):
+                    runner._validate_state_envelope(
+                        {**base_state, "current": {"step": step}}, config
+                    )
+
+    def test_runner_confirms_the_same_scaffolded_coordinate_and_archives(self):
+        config = variant(
+            nFreeStart=1, topk=2,
+            scaffold={"chatTemplate": ["prefix", "middle"], "systemPrompt": "", "inputStr": ""},
+        )
+        fake = types.ModuleType("search.miniprompt.gcg")
+        fake.load_pinned_model = lambda declaration: (object(), object(), {
+            "repo": declaration.repo, "revision": declaration.revision,
+            "weightsDigest": declaration.weights_digest, "vocabSize": 151936,
+        })
+        fake.target_token_ids = lambda tokenizer, text: (TARGET_IDS, TARGET_RENDERING)
+        fake.scaffold_token_ids = lambda tokenizer, scaffold: {"prefixIds": [11], "midIds": [12, 13]}
+
+        def attempt(model, declaration, **kwargs):
+            self.assertEqual(kwargs["prefix_ids"], [11])
+            self.assertEqual(kwargs["mid_ids"], [12, 13])
+            record = attempt_from_spec(
+                types.SimpleNamespace(index=0, n_free=1, steps_budget=200), True,
+                prefix_count=1, mid_count=2,
+            )
+            return {**record, "paused": False}
+
+        def greedy(model, tokenizer, free_ids, target_ids, *, prefix_ids=(), mid_ids=()):
+            self.assertEqual(prefix_ids, [11])
+            self.assertEqual(mid_ids, [12, 13])
+            self.assertEqual(free_ids, [2000])
+            return {
+                "ran": True, "matched": True, "roundtripEqual": True,
+                "emittedIds": list(target_ids), "freeRendering": "free", "emittedRendering": "target",
+            }
+
+        fake.run_attempt = attempt
+        fake.greedy_continuation_check = greedy
+        with execution_module("runner", fake) as (runner, _), tempfile.TemporaryDirectory() as tmp:
+            with mock.patch.object(runner, "environment_metadata", return_value={
+                "python": "test", "mlx": "stub", "mlxLm": "stub", "platform": "test",
+            }):
+                self.assertEqual(runner.run_scan(config, tmp, log=lambda text: None), 0)
+            archived = receipts.read_json(Path(tmp) / "receipt.json")
+            self.assertEqual(receipts.verify_receipt(archived), [])
+            self.assertEqual(archived["scaffold"], {"prefixIds": [11], "midIds": [12, 13]})
+            state = receipts.read_json(Path(tmp) / "state.json")
+            self.assertEqual(state["scoringRule"], receipts.SCORING_RULE)
+            self.assertTrue(archived["result"]["success"])
 
 
 class ConfigTests(unittest.TestCase):

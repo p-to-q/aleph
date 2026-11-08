@@ -133,6 +133,16 @@ rejected(mutate(sampleRaw, (value) => { value.config.budget.maxPromptTokens = 1;
 // The engine-derived exact maximum also opens (the fixtures pin the declared-cap style).
 parseOk(mutate(sampleRaw, (value) => { value.config.budget.maxPromptTokens = Math.max(...value.candidates.map((c) => c.tokens)); }), "engine-derived maxPromptTokens");
 rejected(mutate(sampleRaw, (value) => { value.selectedCandidateId = "nope"; }), "is not among the candidate ids", "selected candidate missing from ids");
+for (const selectDuplicate of [true, false]) {
+  rejected(
+    mutate(sampleRaw, (value) => {
+      value.candidates[1].id = value.candidates[0].id;
+      value.selectedCandidateId = value.candidates[selectDuplicate ? 0 : 2].id;
+    }),
+    "candidate ids must be unique",
+    selectDuplicate ? "ambiguous selected candidate" : "duplicate unselected candidate ids",
+  );
+}
 rejected(mutate(sampleRaw, (value) => { value.candidates = []; value.config.budget.candidates = 0; value.config.budget.maxPromptTokens = 0; }), "must not be empty", "empty candidates");
 rejected(mutate(sampleRaw, (value) => { value.artifactRef = { ...wellFormedRef, schemaVersion: "aleph-artifact-ref/9.9.9" }; }), "aleph-artifact-ref/0.1.0", "unknown artifactRef version");
 rejected(mutate(sampleRaw, (value) => { value.artifactRef = { ...wellFormedRef, runId: "other-run" }; }), "must match the run id", "artifactRef runId mismatch");

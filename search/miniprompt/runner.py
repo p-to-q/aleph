@@ -19,7 +19,13 @@ from pathlib import Path
 
 from . import gcg, receipts, sampling
 from .config import MiniPromptConfig
-from .receipts import STATE_SCHEMA, read_json, write_json_atomic
+from .receipts import (
+    LEGACY_STATE_SCHEMA,
+    SCORING_RULE,
+    STATE_SCHEMA,
+    read_json,
+    write_json_atomic,
+)
 from .scan import ScanPolicy, ScanPolicyError
 
 
@@ -41,13 +47,23 @@ def environment_metadata() -> dict:
 
 
 def _validate_state_envelope(state, config: MiniPromptConfig) -> None:
-    if not isinstance(state, dict) or state.get("schema") != STATE_SCHEMA:
+    if not isinstance(state, dict) or state.get("schema") not in (
+        STATE_SCHEMA,
+        LEGACY_STATE_SCHEMA,
+    ):
         raise RunStateError("run state has an unexpected schema")
     if state.get("configDigest") != config.digest or state.get("config") != config.to_canonical():
         raise RunStateError("refusing to resume: run state belongs to a different declared config")
-    for key in ("model", "environment", "target", "scan", "attempts"):
+    for key in ("model", "environment", "target", "scan", "attempts", "current"):
         if key not in state:
             raise RunStateError(f"run state is missing {key!r}")
+    current = state["current"]
+    if current is not None:
+        if not isinstance(current, dict):
+            raise RunStateError("run state current attempt is malformed")
+        step = current.get("step")
+        if isinstance(step, bool) or not isinstance(step, int) or step < 0:
+            raise RunStateError("run state current.step must be a non-negative integer")
 
 
 def _validated_scaffold(state, config: MiniPromptConfig) -> dict:
@@ -78,6 +94,42 @@ def _validated_scaffold(state, config: MiniPromptConfig) -> dict:
     ):
         raise RunStateError("run state scaffold block is malformed")
     return {"prefixIds": list(block["prefixIds"]), "midIds": list(block["midIds"])}
+
+
+def _validate_scoring_rule(state: dict, scaffold_ids: dict) -> None:
+    """Reject progressed checkpoints whose losses used different positions."""
+    recorded_rule = state.get("scoringRule")
+    current = state.get("current")
+    if not isinstance(state.get("attempts"), list):
+        raise RunStateError("run state attempts must be a list")
+    if current is not None and not isinstance(current, dict):
+        raise RunStateError("run state current attempt is malformed")
+    step = current.get("step") if isinstance(current, dict) else 0
+    if isinstance(step, bool) or not isinstance(step, int) or step < 0:
+        raise RunStateError("run state current.step must be a non-negative integer")
+    has_progress = bool(state["attempts"]) or (
+        isinstance(current, dict)
+        and (step > 0 or bool(current.get("trajectory")))
+    )
+    if (
+        state.get("schema") == LEGACY_STATE_SCHEMA
+        and has_progress
+        and scaffold_ids["prefixIds"]
+        and not scaffold_ids["midIds"]
+    ):
+        raise RunStateError(
+            "refusing to resume: legacy prefix-only checkpoint has ambiguous scoring rule provenance"
+        )
+    if recorded_rule == SCORING_RULE:
+        return
+    if has_progress and (
+        recorded_rule is not None
+        or scaffold_ids["prefixIds"]
+        or scaffold_ids["midIds"]
+    ):
+        raise RunStateError(
+            "refusing to resume: checkpoint scoring rule differs from the current target positions"
+        )
 
 
 def _validated_policy(state, config: MiniPromptConfig, target_token_count: int) -> ScanPolicy:
@@ -192,6 +244,7 @@ def run_scan(config: MiniPromptConfig, run_dir, *, max_seconds=None, log=print) 
             "updatedAt": created_at,
             "config": config.to_canonical(),
             "configDigest": config.digest,
+            "scoringRule": SCORING_RULE,
             "model": model_meta,
             "environment": environment_metadata(),
             "target": {
@@ -218,6 +271,12 @@ def run_scan(config: MiniPromptConfig, run_dir, *, max_seconds=None, log=print) 
             raise RunStateError("run state model identity differs from the freshly loaded pinned model")
         policy = _validated_policy(state, config, len(target_ids))
         scaffold_ids = _validated_scaffold(state, config)
+        _validate_scoring_rule(state, scaffold_ids)
+        if state.get("schema") != STATE_SCHEMA or state.get("scoringRule") != SCORING_RULE:
+            state["schema"] = STATE_SCHEMA
+            state["scoringRule"] = SCORING_RULE
+            state["updatedAt"] = utc_now()
+            write_json_atomic(state_path, state)
 
     deadline = None if max_seconds is None else time.monotonic() + float(max_seconds)
 
@@ -320,7 +379,10 @@ def run_scan(config: MiniPromptConfig, run_dir, *, max_seconds=None, log=print) 
         acquired = outcome["acquired"]
         greedy = None
         if acquired:
-            greedy = gcg.greedy_continuation_check(model, tokenizer, outcome["solutionFreeIds"], target_ids)
+            greedy = gcg.greedy_continuation_check(
+                model, tokenizer, outcome["solutionFreeIds"], target_ids,
+                prefix_ids=scaffold_ids["prefixIds"], mid_ids=scaffold_ids["midIds"],
+            )
             attempt_record = _attempt_record(current, outcome, greedy)
             if not greedy["matched"]:
                 # Fail closed: keep the inconsistent record on disk for audit,

@@ -35,8 +35,14 @@ from .config import MiniPromptConfig, ConfigError, config_from_canonical, loads_
 from .scan import STOP_COLLISION, ScanPolicyError, replay_outcomes
 
 RECEIPT_SCHEMA = "aleph-miniprompt-receipt/0.1.0"
-STATE_SCHEMA = "aleph-miniprompt-run-state/0.1.0"
+LEGACY_STATE_SCHEMA = "aleph-miniprompt-run-state/0.1.0"
+STATE_SCHEMA = "aleph-miniprompt-run-state/0.1.1"
 TOOL = {"name": "search/miniprompt", "version": "0.1.0"}
+SCORING_RULE = "causal-target-after-prefix-free-middle/1"
+SCORING_RULE_DECLARATION = (
+    "Target token losses use causal logits after the complete prefix, free-token, "
+    f"and middle-scaffold context ({SCORING_RULE})."
+)
 
 RAW_VIEW_VIEW = "raw"
 RAW_VIEW_LABEL = (
@@ -66,6 +72,7 @@ DECLARED_DIFFERENCES = (
     "so attempts are deterministic and resumable.",
     "Declared Aleph-side bounds: stepsHardCap caps the step budget after growth; "
     "maxAttempts limits the number of GCG attempts.",
+    SCORING_RULE_DECLARATION,
     "The upstream scaffolded layout ([chatTemplate[0], systemPrompt, inputStr, "
     "free tokens, chatTemplate[1], target], every text part encoded with "
     "add_special_tokens=False) is supported as an explicitly declared "
@@ -491,6 +498,18 @@ def verify_receipt(receipt) -> List[str]:
                 err("scaffold: derived tokens recorded for the declared empty scaffold")
         elif scaffold_block is None:
             err("scaffold: a scaffolded declared config requires the derived scaffold block")
+
+    if prefix_ids or mid_ids:
+        differences = (
+            receipt["procedure"].get("declaredDifferences")
+            if isinstance(receipt["procedure"], dict)
+            else None
+        )
+        if not isinstance(differences, list) or SCORING_RULE_DECLARATION not in differences:
+            err(
+                "procedure.declaredDifferences: scaffold receipt lacks the current "
+                "scoring rule declaration"
+            )
 
     attempts = receipt["attempts"]
     flags: List[Optional[bool]] = []

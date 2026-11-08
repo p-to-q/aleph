@@ -16,6 +16,7 @@ import {
   type ParsedRunFile,
   type RunFilePoint,
 } from '../lib/run-file'
+import { countUnicodeCodePoints, MAX_SEARCH_TARGET_CHARS } from '../lib/search-limits.mjs'
 
 interface CurvePoint {
   epsilon: number
@@ -862,6 +863,8 @@ const STRINGS = {
       '⌘/Ctrl↵',
     placeholderLine1: 'paste any text here',
     placeholderLine2: 'long or short is fine',
+    searchTargetTooShort: 'target must contain at least 8 characters',
+    hostedTargetTooLong: `custom API targets must be at most ${MAX_SEARCH_TARGET_CHARS.toLocaleString()} characters`,
     placeholderAction:
       'aleph will test for the shortest prompt it can currently find to regenerate it',
     placeholderModeNote:
@@ -1010,6 +1013,8 @@ const STRINGS = {
       '⌘/Ctrl↵',
     placeholderLine1: '在这里粘贴任意文本',
     placeholderLine2: '长一点、短一点都没关系',
+    searchTargetTooShort: '目标文本至少需要 8 个字符',
+    hostedTargetTooLong: `custom API 目标文本不能超过 ${MAX_SEARCH_TARGET_CHARS.toLocaleString()} 个字符`,
     placeholderAction:
       'aleph 会搜索目前能找到的最短 prompt，用来重新生成它',
     placeholderModeNote:
@@ -2081,7 +2086,9 @@ export function AlephExplorer() {
   const handleTextChange = (nextText: string) => {
     const wasEmpty = text.trim().length === 0
     const isEmpty = nextText.trim().length === 0
+    const nextTargetLength = countUnicodeCodePoints(nextText.trim(), MAX_SEARCH_TARGET_CHARS)
     setText(nextText)
+    if (nextTargetLength >= 8 && err === STRINGS[lang].searchTargetTooShort) setErr('')
     if (isEmpty) {
       userSelectedModeRef.current = false
       setModeNotice(null)
@@ -2098,9 +2105,18 @@ export function AlephExplorer() {
     }
   }
 
+  const searchTargetLength = countUnicodeCodePoints(text.trim(), MAX_SEARCH_TARGET_CHARS)
   const runSearch = useCallback(async () => {
     const q = text.trim()
-    if (q.length < 8 || busy) return
+    if (busy) return
+    if (searchTargetLength < 8) {
+      setErr(STRINGS[lang].searchTargetTooShort)
+      return
+    }
+    if (searchMode === 'claude_api' && searchTargetLength > MAX_SEARCH_TARGET_CHARS) {
+      setErr(STRINGS[lang].hostedTargetTooLong)
+      return
+    }
 
     // Cancel any in-flight search from a previous call
     searchAbortRef.current?.abort()
@@ -2146,7 +2162,7 @@ export function AlephExplorer() {
           body: JSON.stringify({ target_text: q, mode: 'hosted_black_box' }),
           signal: abort.signal,
         }).then(async (r) => {
-          if (!r.ok) throw new Error(`custom:${r.status}`)
+          if (!r.ok) throw new Error(r.status === 413 ? 'custom:target-too-long' : `custom:${r.status}`)
           const j = await r.json() as Record<string, unknown>
           if (!Array.isArray(j.candidates) || !(j.candidates as unknown[]).length)
             throw new Error('custom:empty')
@@ -2178,13 +2194,17 @@ export function AlephExplorer() {
     } catch (e) {
       // AbortError = we cancelled ourselves (new search fired), ignore silently
       if ((e as Error)?.name === 'AbortError') return
+      if ((e as Error)?.message === 'custom:target-too-long') {
+        setErr(STRINGS[lang].hostedTargetTooLong)
+        return
+      }
       // AggregateError = Promise.any with all rejections = both backends failed
       setErr('backend offline — use fixture mode or retry custom api')
     } finally {
       setBusy(false)
       setBusySince(null)
     }
-  }, [text, busy, lang, searchMode, examples])
+  }, [text, busy, lang, searchMode, examples, searchTargetLength])
 
   const setFromClientX = useCallback((clientX: number) => {
     const el = trackRef.current
@@ -2859,7 +2879,7 @@ export function AlephExplorer() {
             <button
               type="button"
               onClick={runSearch}
-              disabled={busy || text.trim().length < 8}
+              disabled={busy || searchTargetLength < 8}
               style={{
                 gridColumn: isNarrow ? 1 : undefined,
                 background: 'transparent',
@@ -2870,9 +2890,9 @@ export function AlephExplorer() {
                 width: isNarrow ? '100%' : undefined,
                 justifySelf: isNarrow ? 'stretch' : undefined,
                 color:
-                  busy || text.trim().length < 8 ? muted : 'var(--site-text)',
+                  busy || searchTargetLength < 8 ? muted : 'var(--site-text)',
                 cursor:
-                  busy || text.trim().length < 8 ? 'default' : 'pointer',
+                  busy || searchTargetLength < 8 ? 'default' : 'pointer',
               }}
             >
               {busy ? tr.compressing : tr.compress}

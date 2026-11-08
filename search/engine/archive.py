@@ -207,7 +207,16 @@ class RunManifest:
 
 
 def manifest_from_canonical(payload: Mapping[str, Any]) -> RunManifest:
-    """Rebuild a ``RunManifest`` from its canonical form, rejecting unknown fields."""
+    """Rebuild a ``RunManifest`` from its canonical form, rejecting unknown fields.
+
+    Every field ``to_canonical`` writes is required, including the six version
+    strings and the two nullable digests: a manifest is the record of *which*
+    engine, event schema, ledger schema, and canonical form produced a bundle,
+    so defaulting a missing version to the current constant would silently
+    relabel an older or corrupted bundle as current. ``streamDigest`` and
+    ``targetBlobDigest`` may be ``null`` but their keys must be present, which
+    keeps "declared absent" distinguishable from "written by a partial writer".
+    """
     if not isinstance(payload, Mapping):
         raise ArchiveError("manifest payload must be a mapping")
     allowed = {
@@ -254,17 +263,15 @@ def manifest_from_canonical(payload: Mapping[str, Any]) -> RunManifest:
         nesting_rule=require("nestingRule"),
         scheduler_model=require("schedulerModel"),
         model_manifest=model_manifest,
-        target_blob_digest=payload.get("targetBlobDigest"),
+        target_blob_digest=require("targetBlobDigest"),
         closed=require("closed"),
-        stream_digest=payload.get("streamDigest"),
-        bundle_schema_version=payload.get("bundleSchemaVersion", BUNDLE_SCHEMA_VERSION),
-        engine_version=payload.get("engineVersion", ENGINE_VERSION),
-        event_schema_version=payload.get("eventSchemaVersion", EVENT_SCHEMA_VERSION),
-        canonical_schema_version=payload.get("canonicalSchemaVersion", CANONICAL_FORM_VERSION),
-        contracts_schema_version=payload.get(
-            "contractsSchemaVersion", "aleph-engine-contracts/0.1.0"
-        ),
-        ledger_schema_version=payload.get("ledgerSchemaVersion", "ResourceLedger/0.1.0"),
+        stream_digest=require("streamDigest"),
+        bundle_schema_version=require("bundleSchemaVersion"),
+        engine_version=require("engineVersion"),
+        event_schema_version=require("eventSchemaVersion"),
+        canonical_schema_version=require("canonicalSchemaVersion"),
+        contracts_schema_version=require("contractsSchemaVersion"),
+        ledger_schema_version=require("ledgerSchemaVersion"),
     )
 
 

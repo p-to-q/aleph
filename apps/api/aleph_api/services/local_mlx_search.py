@@ -5,6 +5,7 @@ import os
 from datetime import UTC, datetime
 from hashlib import sha1
 from math import isfinite
+from statistics import mean
 from typing import Any
 from urllib import error, request
 
@@ -55,7 +56,11 @@ def _local_mlx_search(request_body: SearchRequest) -> SearchResponse:
         raw=raw,
         points=points,
         adapter="local_mlx_search",
-        observation_mode=_observation_mode(points),
+        observation_mode=_observation_mode(
+            points,
+            expected_target_tokens=_target_token_count(raw),
+            require_target_coverage=True,
+        ),
     )
 
 
@@ -146,6 +151,8 @@ def _to_search_response(
     explicit_prompt: str | None = None,
 ) -> SearchResponse:
     target_text = request_body.target_text.strip()
+    target_tokens = _target_token_count(raw) if adapter == "local_mlx_search" else None
+    require_target_coverage = adapter == "local_mlx_search"
     explicit = explicit_prompt or _explicit_prompt_from_points(points, target_text)
     explicit_tokens = max(1, _point_length({"prompt": explicit, "length": token_count(explicit)}))
     candidates = [
@@ -155,6 +162,8 @@ def _to_search_response(
             explicit_tokens=explicit_tokens,
             target_text=target_text,
             adapter=adapter,
+            expected_target_tokens=target_tokens,
+            require_target_coverage=require_target_coverage,
         )
         for index, point in enumerate(points)
     ]
@@ -186,7 +195,12 @@ def _to_search_response(
         ),
         candidates=candidates,
         selectedCandidateId=selected,
-        observations=_observations(points, observation_mode),
+        observations=_observations(
+            points,
+            observation_mode,
+            expected_target_tokens=target_tokens,
+            require_target_coverage=require_target_coverage,
+        ),
     )
 
 
@@ -197,14 +211,21 @@ def _candidate_from_point(
     explicit_tokens: int,
     target_text: str,
     adapter: str,
+    expected_target_tokens: int | None = None,
+    require_target_coverage: bool = False,
 ) -> SearchCandidatePoint:
+    """Map one adapter point into the shared candidate contract."""
     prompt = str(point.get("prompt") or "")
     output = str(point.get("output") or "")
     length = _point_length(point)
     measured_fit = similarity_score(target_text, output)
     fit = 1.0 if measured_fit == 1.0 else _bounded_float(point.get("similarity"), default=measured_fit)
     stability = _bounded_float(point.get("stability"), default=1.0)
-    avg_nll = _average_nll(point.get("toknll"))
+    avg_nll = _average_nll(
+        point,
+        expected_target_tokens=expected_target_tokens,
+        require_target_coverage=require_target_coverage,
+    )
     label = _point_label(point, index=index)
     role = _point_role(point, label)
     candidate_id = _point_id(point, index=index)
@@ -293,8 +314,18 @@ def _candidate_note(adapter: str, avg_nll: float | None) -> str:
     return "Mapped from local MLX point with token NLL."
 
 
-def _observations(points: list[dict[str, Any]], mode: str) -> SearchObservations:
-    token_loss = _token_loss(points)
+def _observations(
+    points: list[dict[str, Any]],
+    mode: str,
+    *,
+    expected_target_tokens: int | None = None,
+    require_target_coverage: bool = False,
+) -> SearchObservations:
+    token_loss = _token_loss(
+        points,
+        expected_target_tokens=expected_target_tokens,
+        require_target_coverage=require_target_coverage,
+    )
     return SearchObservations(
         mode=mode,
         tokenLoss=token_loss,
@@ -320,21 +351,35 @@ def _observations(points: list[dict[str, Any]], mode: str) -> SearchObservations
     )
 
 
-def _token_loss(points: list[dict[str, Any]]) -> list[dict[str, object]] | None:
+def _token_loss(
+    points: list[dict[str, Any]],
+    *,
+    expected_target_tokens: int | None = None,
+    require_target_coverage: bool = False,
+) -> list[dict[str, object]] | None:
     """Return the newest shape-valid token NLL trace, or ``None``.
 
     Contract (docs/research/token-nll-evidence-note.md): a white-box trace is
     a non-empty list of ``{token: str, loss: float >= 0}`` entries with one
-    finite, non-negative loss per decoded token. Anything else means the
-    trace is unavailable, and the adapter fails closed to ``black_box``
-    instead of emitting partial evidence.
+    finite, non-negative loss per decoded token. Live local traces must also
+    cover the full target token count declared by the search server. Anything
+    else means the trace is unavailable, and the adapter fails closed to
+    ``black_box`` instead of emitting partial evidence.
     """
+    if require_target_coverage and (
+        isinstance(expected_target_tokens, bool)
+        or not isinstance(expected_target_tokens, int)
+        or expected_target_tokens < 1
+    ):
+        return None
     for point in reversed(points):
         tokens = point.get("toktext")
         losses = point.get("toknll")
         if not isinstance(tokens, list) or not isinstance(losses, list):
             continue
         if not tokens or len(tokens) != len(losses):
+            continue
+        if expected_target_tokens is not None and len(tokens) != expected_target_tokens:
             continue
         entries: list[dict[str, object]] = []
         valid = True
@@ -366,8 +411,17 @@ def _token_loss(points: list[dict[str, Any]]) -> list[dict[str, object]] | None:
     return None
 
 
-def _observation_mode(points: list[dict[str, Any]]) -> str:
-    return "white_box" if _token_loss(points) else "black_box"
+def _observation_mode(
+    points: list[dict[str, Any]],
+    *,
+    expected_target_tokens: int | None = None,
+    require_target_coverage: bool = False,
+) -> str:
+    return "white_box" if _token_loss(
+        points,
+        expected_target_tokens=expected_target_tokens,
+        require_target_coverage=require_target_coverage,
+    ) else "black_box"
 
 
 def _run_id(target_text: str, adapter: str) -> str:
@@ -398,10 +452,30 @@ def _optional_string(value: object) -> str | None:
     return value if isinstance(value, str) else None
 
 
-def _average_nll(value: object) -> float | None:
-    if not isinstance(value, list) or not value:
+def _average_nll(
+    point: dict[str, Any],
+    *,
+    expected_target_tokens: int | None = None,
+    require_target_coverage: bool = False,
+) -> float | None:
+    """Return a finite mean only when this point has a valid loss trace."""
+    # Candidate evidence must meet the same trace contract as tokenLoss,
+    # without borrowing a valid trace from another candidate.
+    entries = _token_loss(
+        [point],
+        expected_target_tokens=expected_target_tokens,
+        require_target_coverage=require_target_coverage,
+    )
+    if entries is None:
         return None
-    numeric = [float(item) for item in value if isinstance(item, int | float)]
-    if not numeric:
+    # statistics.mean avoids overflowing the intermediate sum when valid
+    # finite losses are large; their mean is still finite and representable.
+    return round(mean(float(entry["loss"]) for entry in entries), 4)
+
+
+def _target_token_count(raw: dict[str, Any]) -> int | None:
+    """Return the search engine's declared non-empty target token count."""
+    value = raw.get("targetTokens")
+    if isinstance(value, bool) or not isinstance(value, int) or value < 1:
         return None
-    return round(sum(numeric) / len(numeric), 4)
+    return value

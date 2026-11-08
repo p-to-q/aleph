@@ -155,7 +155,16 @@ def run_instance(name: str, run_dir, *, max_seconds=300.0, log=print) -> int:
     comparison_path = run_dir / "comparison.json"
 
     if comparison_path.is_file():
-        record_obj = load_json_strict(comparison_path)
+        try:
+            record_obj = load_json_strict(comparison_path)
+        except (OSError, ValueError) as exc:
+            raise RunInstanceError("existing comparison record is unreadable") from exc
+        if not isinstance(record_obj, dict) or record_obj.get("configDigest") != config.digest:
+            raise RunInstanceError(
+                "existing comparison record belongs to a different declared instance "
+                f"(expected {config.digest}, found "
+                f"{record_obj.get('configDigest') if isinstance(record_obj, dict) else None!r})"
+            )
         errors = verify_comparison(record_obj, run_dir)
         if errors:
             raise RunInstanceError(f"existing comparison record fails verification: {errors[:3]}")
