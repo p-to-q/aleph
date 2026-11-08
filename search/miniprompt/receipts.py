@@ -35,7 +35,8 @@ from .config import MiniPromptConfig, ConfigError, config_from_canonical, loads_
 from .scan import STOP_COLLISION, ScanPolicyError, replay_outcomes
 
 RECEIPT_SCHEMA = "aleph-miniprompt-receipt/0.1.0"
-STATE_SCHEMA = "aleph-miniprompt-run-state/0.1.0"
+LEGACY_STATE_SCHEMA = "aleph-miniprompt-run-state/0.1.0"
+STATE_SCHEMA = "aleph-miniprompt-run-state/0.1.1"
 TOOL = {"name": "search/miniprompt", "version": "0.1.0"}
 SCORING_RULE = "causal-target-after-prefix-free-middle/1"
 SCORING_RULE_DECLARATION = (

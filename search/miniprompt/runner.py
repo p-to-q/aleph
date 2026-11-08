@@ -19,7 +19,13 @@ from pathlib import Path
 
 from . import gcg, receipts, sampling
 from .config import MiniPromptConfig
-from .receipts import SCORING_RULE, STATE_SCHEMA, read_json, write_json_atomic
+from .receipts import (
+    LEGACY_STATE_SCHEMA,
+    SCORING_RULE,
+    STATE_SCHEMA,
+    read_json,
+    write_json_atomic,
+)
 from .scan import ScanPolicy, ScanPolicyError
 
 
@@ -41,7 +47,10 @@ def environment_metadata() -> dict:
 
 
 def _validate_state_envelope(state, config: MiniPromptConfig) -> None:
-    if not isinstance(state, dict) or state.get("schema") != STATE_SCHEMA:
+    if not isinstance(state, dict) or state.get("schema") not in (
+        STATE_SCHEMA,
+        LEGACY_STATE_SCHEMA,
+    ):
         raise RunStateError("run state has an unexpected schema")
     if state.get("configDigest") != config.digest or state.get("config") != config.to_canonical():
         raise RunStateError("refusing to resume: run state belongs to a different declared config")
@@ -102,6 +111,15 @@ def _validate_scoring_rule(state: dict, scaffold_ids: dict) -> None:
         isinstance(current, dict)
         and (step > 0 or bool(current.get("trajectory")))
     )
+    if (
+        state.get("schema") == LEGACY_STATE_SCHEMA
+        and has_progress
+        and scaffold_ids["prefixIds"]
+        and not scaffold_ids["midIds"]
+    ):
+        raise RunStateError(
+            "refusing to resume: legacy prefix-only checkpoint has ambiguous scoring rule provenance"
+        )
     if recorded_rule == SCORING_RULE:
         return
     if has_progress and (
@@ -254,8 +272,10 @@ def run_scan(config: MiniPromptConfig, run_dir, *, max_seconds=None, log=print) 
         policy = _validated_policy(state, config, len(target_ids))
         scaffold_ids = _validated_scaffold(state, config)
         _validate_scoring_rule(state, scaffold_ids)
-        if state.get("scoringRule") != SCORING_RULE:
+        if state.get("schema") != STATE_SCHEMA or state.get("scoringRule") != SCORING_RULE:
+            state["schema"] = STATE_SCHEMA
             state["scoringRule"] = SCORING_RULE
+            state["updatedAt"] = utc_now()
             write_json_atomic(state_path, state)
 
     deadline = None if max_seconds is None else time.monotonic() + float(max_seconds)

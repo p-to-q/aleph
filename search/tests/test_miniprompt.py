@@ -395,9 +395,10 @@ class ScoringRuleResumeTests(unittest.TestCase):
         attempt = attempt_from_spec(spec, False, prefix_count=1)
         policy.record(False)
         state = {
-            "schema": receipts.STATE_SCHEMA,
+            "schema": receipts.LEGACY_STATE_SCHEMA,
             "configDigest": config.digest,
             "config": config.to_canonical(),
+            "scoringRule": receipts.SCORING_RULE,
             "model": model_meta,
             "environment": {"python": "test"},
             "target": {"tokenIds": list(TARGET_IDS)},
@@ -411,8 +412,70 @@ class ScoringRuleResumeTests(unittest.TestCase):
 
         with execution_module("runner", fake) as (runner, _), tempfile.TemporaryDirectory() as tmp:
             receipts.write_json_atomic(Path(tmp) / "state.json", state)
-            with self.assertRaisesRegex(runner.RunStateError, "scoring rule differs"):
+            with self.assertRaisesRegex(runner.RunStateError, "ambiguous scoring rule provenance"):
                 runner.run_scan(config, tmp, log=lambda *_: None)
+
+    def test_current_schema_allows_progressed_prefix_only_checkpoint_with_current_rule(self):
+        fake = types.ModuleType("search.miniprompt.gcg")
+        with execution_module("runner", fake) as (runner, _):
+            state = {
+                "schema": receipts.STATE_SCHEMA,
+                "scoringRule": receipts.SCORING_RULE,
+                "attempts": [{"acquired": False}],
+                "current": None,
+            }
+            runner._validate_scoring_rule(
+                state,
+                {"prefixIds": [11], "midIds": []},
+            )
+
+    def test_legacy_empty_scaffold_checkpoint_is_upgraded_before_resume(self):
+        config = variant(maxAttempts=2, nFreeIncrement=1)
+        model_meta = {
+            "repo": config.repo,
+            "revision": config.revision,
+            "weightsDigest": config.weights_digest,
+            "vocabSize": 151936,
+        }
+        policy = ScanPolicy(config, len(TARGET_IDS))
+        spec = policy.next_spec()
+        attempt = attempt_from_spec(spec, False, prefix_count=0)
+        policy.record(False)
+        state = {
+            "schema": receipts.LEGACY_STATE_SCHEMA,
+            "configDigest": config.digest,
+            "config": config.to_canonical(),
+            "model": model_meta,
+            "environment": {"python": "test"},
+            "target": {"tokenIds": list(TARGET_IDS)},
+            "scan": policy.to_snapshot(),
+            "attempts": [attempt],
+            "current": None,
+        }
+        fake = types.ModuleType("search.miniprompt.gcg")
+        fake.load_pinned_model = lambda _declaration: (object(), object(), model_meta)
+        fake.run_attempt = lambda *args, **kwargs: {
+            "paused": True,
+            "resume": {
+                "step": 1,
+                "freeIds": [2000],
+                "bestLoss": None,
+                "bestIds": None,
+                "solutionSource": None,
+                "solutionLoss": None,
+                "trajectory": [],
+                "lastMatchTokens": 0,
+                "lastLoss": None,
+                "acquiredAtStep": None,
+            },
+        }
+
+        with execution_module("runner", fake) as (runner, _), tempfile.TemporaryDirectory() as tmp:
+            receipts.write_json_atomic(Path(tmp) / "state.json", state)
+            self.assertEqual(runner.run_scan(config, tmp, log=lambda *_: None), 3)
+            upgraded = receipts.read_json(Path(tmp) / "state.json")
+            self.assertEqual(upgraded["schema"], receipts.STATE_SCHEMA)
+            self.assertEqual(upgraded["scoringRule"], receipts.SCORING_RULE)
 
     def test_legacy_empty_scaffold_trajectory_remains_resumable(self):
         fake = types.ModuleType("search.miniprompt.gcg")
