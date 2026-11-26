@@ -12,6 +12,8 @@ migration work in the benchmark checkout and unrelated Aleph files are preserved
    Missing confirmation-work counters follow the same rule. Racing-skipped
    candidates export an unmeasured reason. Pin single-metric/top-1 scope.
    Validate semantic regressions, engine suite, lint, app tests/build and API tests.
+   Expose manual dispatch on the existing CI workflow so maintainers can request
+   an exact-ref rerun when automatic events do not produce an observable run.
 2. **Mainline real-model canary (#106).** Adapt the unmerged #118 work onto the
    corrected mainline, keep proposal/evaluation separate, run a pinned local MLX
    model, archive new receipts, and verify them without loading the model.
