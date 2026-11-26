@@ -849,6 +849,18 @@ class RawSummaryTests(unittest.TestCase):
         self.assertEqual(summary["wholePromptTokens"], 3 + n_free + len(TARGET_IDS))
         self.assertEqual(record.raw_found(receipt)["wholePromptTokens"], summary["wholePromptTokens"])
 
+    def test_malformed_recorded_count_fails_with_comparison_error(self):
+        receipt = scaffolded_receipt(prefix_ids=[11], mid_ids=[13])
+        n_free = receipt["result"]["smallestAcquiredNFree"]
+        for count in ([], {}, True, None, "3"):
+            with self.subTest(count=count):
+                bad = copy.deepcopy(receipt)
+                for attempt in bad["attempts"]:
+                    if attempt["acquired"] is True and attempt["nFree"] == n_free:
+                        attempt["wholePromptTokens"] = count
+                with self.assertRaises(record.ComparisonError):
+                    record.raw_side_summary(bad)
+
     def test_archived_empty_scaffold_summaries_are_unchanged(self):
         receipts = sorted((REPO_ROOT / "search/compare/receipts").rglob("receipt.json"))
         self.assertTrue(receipts)
