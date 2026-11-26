@@ -73,3 +73,14 @@ offline regression for this exact stop boundary. The frozen experiment is not
 rewritten and its remaining call allowance does not authorize another task.
 The next experimental policy needs versioned null-control compatibility review
 and a fresh bounded authorization.
+
+## Failed-run replay hardening
+
+A zero-call corruption probe found that resealing a failed run after changing an
+already-completed raw output passed the first envelope checker: canonical/raw
+linkage ran only for successful summaries. Replay every retained canonical bundle,
+including partial failures, and require linkage for exactly the completed
+evaluations, control identity/metrics, call phase prefix, terminal states and
+completed-call count. Preserve the original hosted archive and policy bytes. Run
+positive failed-artifact replay plus resealed output/control/canonical corruption
+negatives. This verifier repair does not authorize any new model dispatch.
