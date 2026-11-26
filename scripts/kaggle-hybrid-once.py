@@ -129,7 +129,10 @@ assert Path(sys.modules[hosted_entry.__module__].__file__).resolve() == _ROOT / 
 def aleph_hybrid_107(llm):
     result = hosted_entry(llm,kbench,Path('/kaggle/working/aleph107'),_POLICY)
     print(json.dumps(result,sort_keys=True))
-    assert result['status'] == 'completed', 'Diagnostic stopped; inspect retained failure receipt; do not retry.'
+    kbench.assertions.assert_true(result['status'] == 'completed',
+        expectation='Six-call private plumbing diagnostic completed; failure must not be retried.')
+    return {{'status':result['status'],'callCount':result['callCount'],
+        'diagnosticOnly':True,'benchmarkEligible':False}}
 
 aleph_hybrid_107.run(llm=kbench.llms[{MODEL!r}])
 '''
