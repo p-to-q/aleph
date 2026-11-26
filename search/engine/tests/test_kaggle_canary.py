@@ -1,5 +1,6 @@
 """Zero-network regression and corruption gates for the fresh hosted diagnostic."""
 import json
+import shutil
 import tempfile
 import unittest
 from pathlib import Path
@@ -69,6 +70,55 @@ class KaggleCanaryTests(unittest.TestCase):
         self.assertEqual(calls[-1]['state'],'failed')
         self.assertNotIn('usage',calls[-1])
         self.assertTrue(check_evidence(self.root)['ok'])
+
+    def failed_empty_prompt(self):
+        def call(phase,prompt):
+            if prompt == '':
+                self.called.append((phase,prompt))
+                raise ValueError('messages: Field required')
+            return self.call(phase,prompt)
+        return self.complete(call)
+
+    def test_resealed_failed_run_raw_output_tampering_is_rejected(self):
+        self.failed_empty_prompt()
+        p=self.root/'calls.json';calls=json.loads(p.read_text());calls[2]['output']='41'
+        p.write_text(json.dumps(calls));seal(self.root)
+        report=check_evidence(self.root)
+        self.assertFalse(report['ok'],report)
+        self.assertIn('raw call and engine receipt differ',report['errors'])
+
+    def test_resealed_failed_run_proposal_tampering_is_rejected(self):
+        self.failed_empty_prompt()
+        p=self.root/'calls.json';calls=json.loads(p.read_text());calls[0]['output']='Give any number.'
+        p.write_text(json.dumps(calls));seal(self.root)
+        self.assertFalse(check_evidence(self.root)['ok'])
+
+    def test_resealed_failed_run_control_tampering_is_rejected(self):
+        self.failed_empty_prompt()
+        p=self.root/'control.json';control=json.loads(p.read_text());control['metrics']['fit']=0.0
+        p.write_text(json.dumps(control));seal(self.root)
+        self.assertFalse(check_evidence(self.root)['ok'])
+
+    def test_failed_run_missing_canonical_bundle_is_rejected(self):
+        self.failed_empty_prompt();shutil.rmtree(self.root/'bundle');seal(self.root)
+        self.assertFalse(check_evidence(self.root)['ok'])
+
+    def test_failed_run_canonical_corruption_is_rejected(self):
+        self.failed_empty_prompt()
+        p=self.root/'bundle/events.jsonl';p.write_text(p.read_text()+'{}\n');seal(self.root)
+        self.assertFalse(check_evidence(self.root)['ok'])
+
+    def test_resealed_failed_run_phase_count_and_terminal_state_are_checked(self):
+        self.failed_empty_prompt()
+        calls_path=self.root/'calls.json';original=calls_path.read_text()
+        summary_path=self.root/'summary.json';summary_original=summary_path.read_text()
+        for field,value in [('phase','confirmation'),('state','dispatching')]:
+            calls=json.loads(original);calls[-1][field]=value;calls_path.write_text(json.dumps(calls));seal(self.root)
+            self.assertFalse(check_evidence(self.root)['ok'])
+        calls_path.write_text(original)
+        summary=json.loads(summary_original);summary['completedCalls']=4
+        summary_path.write_text(json.dumps(summary));seal(self.root)
+        self.assertFalse(check_evidence(self.root)['ok'])
 
     def test_blank_proposal_is_terminal_without_target_copy(self):
         self.complete(lambda phase,prompt:{'output':'','usage':{}})
