@@ -162,5 +162,34 @@
       "independent-replay.json": "b19c519e395d18b0b36c8cfda2272f140c4ba3b803d6198901ce39c6f0286c5c"
     }
   },
-  "nextGate": "Review a new versioned null-control request representation or choose a compatible model; validate serialized requests offline, then obtain fresh bounded run authorization. Never retry this task or reopen the legacy queue."
+  "nextGate": "Review a new versioned null-control request representation or choose a compatible model; validate serialized requests offline, then obtain fresh bounded run authorization. Never retry this task or reopen the legacy queue.",
+  "hardenedFailureReplay": {
+    "verificationSourceCommit": "364c09fc8a3faebed232b0c462edf82ce88b95c9",
+    "verifierFileSha256": "a622dfcef1a96e6281a186c4bf11b2bf3716eec61f70cd8a1838bacff13a08e7",
+    "report": {
+      "python": "3.14.7 (main, Aug  5 2026, 10:29:49) [Clang 21.0.0 (clang-2100.1.1.101)]",
+      "siteDisabled": 1,
+      "modelCalls": 0,
+      "sdkImported": false,
+      "schedulerImported": false,
+      "evidence": {
+        "schemaVersion": "aleph-kaggle-107-replay/1",
+        "ok": true,
+        "errors": [],
+        "modelCalls": 0,
+        "hostedStatus": "failed",
+        "hostedCallCount": 4,
+        "confirmationOutcome": "rejected",
+        "scope": "diagnostic_only_not_benchmark_eligibility"
+      },
+      "canonical": {
+        "ok": true,
+        "errors": [],
+        "streamDigest": "sha256:18ebbb0af97781f84c599b669f5fad1bfa08dd4fb74aecdbff05a7a858cbeddd",
+        "confirmationOutcome": "rejected"
+      }
+    },
+    "rawArchiveUnchanged": true,
+    "scope": "Replays retained canonical partial-failure bundles and links completed evaluation/proposal/control metrics; does not authenticate execution or pass the failed diagnostic."
+  }
 }
