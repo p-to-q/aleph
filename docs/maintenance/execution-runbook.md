@@ -58,6 +58,36 @@ only for the failed control. Alternatively predeclare the null baseline as
 unsupported for a model and use an appropriate comparison design. Validate the
 actual serialized request shape offline before the next hosted run.
 
+## Offline request-shape admission
+
+The pinned SDK audit is available without another Task or model call. Use a
+separate optional environment, not the product environment:
+
+```bash
+uv venv --python 3.13 /absolute/new/audit-env
+uv pip install --python /absolute/new/audit-env/bin/python 'kaggle-benchmarks==0.6.3' 'openai==3.16.2'
+/absolute/new/audit-env/bin/python -I -B scripts/audit-kaggle-request-shape.py --output /absolute/new/request-audit.json
+```
+
+Exit 2 means blocked admission; exit 0 means only that the audited request shapes
+were preserved, not that a provider accepted them. The command uses a fresh
+credential-free child, temporary home, socket/DNS guard and in-memory HTTP
+transport. It exercises the real ModelProxy factory, Aleph adapter and OpenAI
+serializer; its response is explicitly mocked. It never invokes `run_diagnostic`,
+creates a Task, authenticates, or enables another run.
+
+The [source-bound local receipt](evidence/kaggle-request-shape-audit.json) captured
+three mock requests and zero network/model calls. Empty candidate text became
+`content: null`. The default ModelProxy factory also set `support_temperature`
+to false, so requested `temperature=0` became JSON null, including the
+confirmation-shaped probe. The discovery/confirmation seeds remained 107/108.
+This is a macOS SDK-wire audit, not Linux hosted qualification; the original
+hosted run did not retain its wire request or effective provider temperature.
+Treat that temperature as unknown. Do not infer deterministic decoding from the
+configuration field or silently flip the SDK capability flag. A future policy
+must declare supported effective decoding and a faithful control before fresh
+bounded execution authorization.
+
 ## Larger-scale admission
 
 Freeze a finite target set, controls, metrics, decoding, model versions and
