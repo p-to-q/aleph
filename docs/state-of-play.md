@@ -103,8 +103,8 @@ The next phase should start from executable research contracts rather than more 
    Python checks and scoped Lean theorems (PR #108; issues #102/#105 closed).
 2. Real-model evidence for the search line: the archive, separated proposal/evaluation roles, fresh
    confirmation, the six-account ledger, and independent replay are merged as the fixture-driven
-   PR B slice (#109/#113); the pinned open-weight MLX canary (PR C) is implemented with its PR open
-   (#118), and the public MLX frontier has been regenerated from actual evaluations with per-point
+   PR B slice (#109/#113); the pinned open-weight MLX canary is merged and live-validated in PR #148
+   (superseding #118), and the public MLX frontier has been regenerated from actual evaluations with per-point
    receipts (`search/frontier_receipts.py`).
 3. Done (first tranche): MiniPrompt/ACR is reproduced method-level behind the same boundary
    (`search/miniprompt/`, archived receipts under `search/miniprompt/receipts/`, gate note
