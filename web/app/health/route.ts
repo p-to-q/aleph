@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { version } from '../../package.json'
 
 const HOSTED_PRIMARY_MODEL = 'deepseek-v4-pro'
 const HOSTED_FALLBACK_MODEL = 'qwen3.6-27b-nothinking'
@@ -11,7 +12,7 @@ export function GET() {
 
   return NextResponse.json({
     status: 'ok',
-    version: '1.0.3',
+    version,
     modes: hostedConfigured ? ['fixture', 'hosted_black_box'] : ['fixture', 'mock'],
     search_modes: hostedConfigured ? ['fixture', 'hosted_black_box'] : ['fixture', 'mock'],
     default_model: hostedConfigured

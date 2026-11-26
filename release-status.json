@@ -1,0 +1,42 @@
+{
+  "schemaVersion": "aleph-maintenance-release/1",
+  "asOf": "2026-11-27",
+  "repository": "p-to-q/aleph",
+  "productVersion": "1.0.4",
+  "productTag": "v1.0.4",
+  "releaseScope": "engineering_hardening_and_replayable_local_canary",
+  "benchmark": {
+    "repository": "p-to-q/aleph-benchmark",
+    "sourceTag": "staging-v0.2.0-20261127",
+    "protocolVersion": "0.2.0",
+    "packageVersion": "0.2.0",
+    "sourceStatus": "migration_staging",
+    "authorityCutover": false,
+    "interimAuthorityCommit": "43fa15de044efeb0e46ffba115809faa0d94ca79"
+  },
+  "huggingFace": {
+    "dataset": "p-to-q/aleph-bench",
+    "version": "0.1.0",
+    "tag": "v0.1.0-m0",
+    "evidenceMode": "historical_mock",
+    "writeStatus": "blocked_no_available_write_credential"
+  },
+  "kaggle": {
+    "benchmark": "jahyee/aleph-bench",
+    "publicStatus": "legacy_not_v02_qualified",
+    "newPrivateDiagnosticIssue": 107,
+    "diagnosticOnly": true,
+    "benchmarkEligible": false
+  },
+  "evidence": {
+    "localRealModel": "docs/research/2026-11-27-mlx-canary-receipt.md",
+    "maintenance": "docs/maintenance/2026-11-27-closeout.md",
+    "execution": "docs/maintenance/execution-runbook.md"
+  },
+  "publicationGates": [
+    "Canonical site runtime readback after deployment",
+    "Standalone source authority and portable scorer gates",
+    "Exact task-version/run, closed-world archive, raw usage and quota evidence",
+    "HF H2 reviewed exact-source CAS release with unauthenticated readback"
+  ]
+}

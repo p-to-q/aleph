@@ -1,0 +1,1852 @@
+{
+  "backup": "/Users/dujiayi/code/aleph/.git/maintenance/integrated-branches-20261127.bundle",
+  "records": [
+    {
+      "ref": "refs/heads/archive/local-main-divergent-2026-05-18",
+      "name": "archive/local-main-divergent-2026-05-18",
+      "sha": "ce00223f98ac07c04bad853babfd343ab6fef1c5",
+      "disposition": "preserve",
+      "evidence": "protected authority, archive or active worktree"
+    },
+    {
+      "ref": "refs/heads/benchmark/source-v0.1",
+      "name": "benchmark/source-v0.1",
+      "sha": "d4427308e4449ad89dc4f2abe25b8b842d214d39",
+      "disposition": "preserve",
+      "evidence": "protected authority, archive or active worktree"
+    },
+    {
+      "ref": "refs/heads/benchmark/source-v0.2",
+      "name": "benchmark/source-v0.2",
+      "sha": "43fa15de044efeb0e46ffba115809faa0d94ca79",
+      "disposition": "preserve",
+      "evidence": "protected authority, archive or active worktree"
+    },
+    {
+      "ref": "refs/heads/claude/hardcore-turing-a706f5",
+      "name": "claude/hardcore-turing-a706f5",
+      "sha": "d4427308e4449ad89dc4f2abe25b8b842d214d39",
+      "disposition": "preserve",
+      "evidence": "protected authority, archive or active worktree"
+    },
+    {
+      "ref": "refs/heads/codex/adapter-evidence-contract",
+      "name": "codex/adapter-evidence-contract",
+      "sha": "e9ea87c048e2b36419454d87a767a2b48af7aaf1",
+      "disposition": "delete_integrated",
+      "evidence": {
+        "ancestryTarget": "origin/main",
+        "targetSha": "824c2531c567bc36c422711bc6dcd0564d31fe70"
+      },
+      "outcome": "local_integrated_ref_deleted"
+    },
+    {
+      "ref": "refs/heads/codex/aleph-run-import",
+      "name": "codex/aleph-run-import",
+      "sha": "c4e373bd9893c2a5b7ea4fb6aa3293750c5ba569",
+      "disposition": "delete_integrated",
+      "evidence": {
+        "ancestryTarget": "origin/main",
+        "targetSha": "824c2531c567bc36c422711bc6dcd0564d31fe70"
+      },
+      "outcome": "local_integrated_ref_deleted"
+    },
+    {
+      "ref": "refs/heads/codex/bench-croissant-v0-2",
+      "name": "codex/bench-croissant-v0-2",
+      "sha": "538bf32e604760875a2e93b204fb1e21bec5fba8",
+      "disposition": "delete_integrated",
+      "evidence": {
+        "ancestryTarget": "origin/benchmark/source-v0.2",
+        "targetSha": "43fa15de044efeb0e46ffba115809faa0d94ca79"
+      },
+      "outcome": "local_integrated_ref_deleted"
+    },
+    {
+      "ref": "refs/heads/codex/bench-extraction-inventory",
+      "name": "codex/bench-extraction-inventory",
+      "sha": "a6268633219e8ec7a208624b9a09d65d03016414",
+      "disposition": "delete_integrated",
+      "evidence": {
+        "mergedPR": "https://github.com/p-to-q/aleph/pull/70",
+        "mergeCommit": "7fd7118bb8e3270d5c45f21fe816389bac82a8ea",
+        "base": "benchmark/source-v0.2"
+      },
+      "outcome": "local_integrated_ref_deleted"
+    },
+    {
+      "ref": "refs/heads/codex/bench-inventory-repin",
+      "name": "codex/bench-inventory-repin",
+      "sha": "ceefcda4723ce5fddae4eb58d7a5912f3530cdd1",
+      "disposition": "delete_integrated",
+      "evidence": {
+        "mergedPR": "https://github.com/p-to-q/aleph/pull/73",
+        "mergeCommit": "d76206bdaf9ba72730b066560862a3d00cac9699",
+        "base": "benchmark/source-v0.2"
+      },
+      "outcome": "local_integrated_ref_deleted"
+    },
+    {
+      "ref": "refs/heads/codex/bench-kaggle-model-alias",
+      "name": "codex/bench-kaggle-model-alias",
+      "sha": "640401d6e184b2d3eb384a11bb830dc51870beca",
+      "disposition": "delete_integrated",
+      "evidence": {
+        "mergedPR": "https://github.com/p-to-q/aleph/pull/69",
+        "mergeCommit": "087cca087da05714a5d7246ab0bb20adcc3012cd",
+        "base": "benchmark/source-v0.2"
+      },
+      "outcome": "local_integrated_ref_deleted"
+    },
+    {
+      "ref": "refs/heads/codex/bench-significance",
+      "name": "codex/bench-significance",
+      "sha": "34913297765ab35fb3244e20eae8fd07c982875f",
+      "disposition": "delete_integrated",
+      "evidence": {
+        "ancestryTarget": "origin/benchmark/source-v0.2",
+        "targetSha": "43fa15de044efeb0e46ffba115809faa0d94ca79"
+      },
+      "outcome": "local_integrated_ref_deleted"
+    },
+    {
+      "ref": "refs/heads/codex/benchmark-license-canonical",
+      "name": "codex/benchmark-license-canonical",
+      "sha": "2ef063f28211c2e67c0bf60c3c4c042e9ee73d96",
+      "disposition": "delete_integrated",
+      "evidence": {
+        "mergedPR": "https://github.com/p-to-q/aleph/pull/72",
+        "mergeCommit": "51900d4146ae447d73c9bb57818c89394a57bee4",
+        "base": "benchmark/source-v0.2"
+      },
+      "outcome": "local_integrated_ref_deleted"
+    },
+    {
+      "ref": "refs/heads/codex/benchmark-preimport-hardening",
+      "name": "codex/benchmark-preimport-hardening",
+      "sha": "24ca20c91b44768458ecd2df209817883605420b",
+      "disposition": "delete_integrated",
+      "evidence": {
+        "mergedPR": "https://github.com/p-to-q/aleph/pull/71",
+        "mergeCommit": "10abdc1368439d1ab454ee3862a59e14b67a9530",
+        "base": "benchmark/source-v0.2"
+      },
+      "outcome": "local_integrated_ref_deleted"
+    },
+    {
+      "ref": "refs/heads/codex/benchmark-release-artifacts",
+      "name": "codex/benchmark-release-artifacts",
+      "sha": "a69c4c53d032b244026e4ca5723209fc4e2c2273",
+      "disposition": "delete_integrated",
+      "evidence": {
+        "ancestryTarget": "origin/benchmark/source-v0.2",
+        "targetSha": "43fa15de044efeb0e46ffba115809faa0d94ca79"
+      },
+      "outcome": "local_integrated_ref_deleted"
+    },
+    {
+      "ref": "refs/heads/codex/benchmark-release-qa",
+      "name": "codex/benchmark-release-qa",
+      "sha": "c857c51389492781f5fa54181bc0f587554e4c8f",
+      "disposition": "delete_integrated",
+      "evidence": {
+        "ancestryTarget": "origin/benchmark/source-v0.2",
+        "targetSha": "43fa15de044efeb0e46ffba115809faa0d94ca79"
+      },
+      "outcome": "local_integrated_ref_deleted"
+    },
+    {
+      "ref": "refs/heads/codex/benchmark-significance",
+      "name": "codex/benchmark-significance",
+      "sha": "c3dddd6155afd8ac3a75d43636787912d95b6c4b",
+      "disposition": "delete_integrated",
+      "evidence": {
+        "ancestryTarget": "origin/main",
+        "targetSha": "824c2531c567bc36c422711bc6dcd0564d31fe70"
+      },
+      "outcome": "local_integrated_ref_deleted"
+    },
+    {
+      "ref": "refs/heads/codex/benchmark-version-axes",
+      "name": "codex/benchmark-version-axes",
+      "sha": "c0ab1a53cfd8a593ba4586ebe582b8bebeb6f242",
+      "disposition": "delete_integrated",
+      "evidence": {
+        "mergedPR": "https://github.com/p-to-q/aleph/pull/91",
+        "mergeCommit": "822a7beca9b6a529b10d33410b47964a562b703b",
+        "base": "benchmark/source-v0.2"
+      },
+      "outcome": "local_integrated_ref_deleted"
+    },
+    {
+      "ref": "refs/heads/codex/bounded-coordinate-v0",
+      "name": "codex/bounded-coordinate-v0",
+      "sha": "0a3dc1a8160a26a10ebd84af6c4777cebb420099",
+      "disposition": "delete_integrated",
+      "evidence": {
+        "mergedPR": "https://github.com/p-to-q/aleph/pull/103",
+        "mergeCommit": "179194ca2524a0d37f797684010e600c70a65774",
+        "base": "main"
+      },
+      "outcome": "local_integrated_ref_deleted"
+    },
+    {
+      "ref": "refs/heads/codex/c7-reverification",
+      "name": "codex/c7-reverification",
+      "sha": "c32afeb7d6f285e5360a54785a682feee7d71379",
+      "disposition": "delete_integrated",
+      "evidence": {
+        "ancestryTarget": "origin/main",
+        "targetSha": "824c2531c567bc36c422711bc6dcd0564d31fe70"
+      },
+      "outcome": "local_integrated_ref_deleted"
+    },
+    {
+      "ref": "refs/heads/codex/canonical-jcs",
+      "name": "codex/canonical-jcs",
+      "sha": "5347134238e98af9a3141608b85fa22fc9b077d2",
+      "disposition": "delete_integrated",
+      "evidence": {
+        "ancestryTarget": "origin/main",
+        "targetSha": "824c2531c567bc36c422711bc6dcd0564d31fe70"
+      },
+      "outcome": "local_integrated_ref_deleted"
+    },
+    {
+      "ref": "refs/heads/codex/canonical-js-parity",
+      "name": "codex/canonical-js-parity",
+      "sha": "fbf0b8fd4dca398884ffb5c0f21586c330c11b29",
+      "disposition": "delete_integrated",
+      "evidence": {
+        "ancestryTarget": "origin/main",
+        "targetSha": "824c2531c567bc36c422711bc6dcd0564d31fe70"
+      },
+      "outcome": "local_integrated_ref_deleted"
+    },
+    {
+      "ref": "refs/heads/codex/capture-bundle-layout",
+      "name": "codex/capture-bundle-layout",
+      "sha": "48aff4303575945147f1807c0ef8b50c3a60270b",
+      "disposition": "delete_integrated",
+      "evidence": {
+        "mergedPR": "https://github.com/p-to-q/aleph/pull/86",
+        "mergeCommit": "5b47d8946f21eef77c6620fdce3b0784d7a14694",
+        "base": "benchmark/source-v0.2"
+      },
+      "outcome": "local_integrated_ref_deleted"
+    },
+    {
+      "ref": "refs/heads/codex/capture-set-receipt",
+      "name": "codex/capture-set-receipt",
+      "sha": "98c87935a551df7c3c64787d46652aa5c90c3e72",
+      "disposition": "delete_integrated",
+      "evidence": {
+        "mergedPR": "https://github.com/p-to-q/aleph/pull/76",
+        "mergeCommit": "8fb57eb921d792dbd245d849ab08ac5c7cf11c6e",
+        "base": "benchmark/source-v0.2"
+      },
+      "outcome": "local_integrated_ref_deleted"
+    },
+    {
+      "ref": "refs/heads/codex/cs-related-work-cards",
+      "name": "codex/cs-related-work-cards",
+      "sha": "df359da68d1de69bd859080f93b27817b3f79d00",
+      "disposition": "delete_integrated",
+      "evidence": {
+        "ancestryTarget": "origin/main",
+        "targetSha": "824c2531c567bc36c422711bc6dcd0564d31fe70"
+      },
+      "outcome": "local_integrated_ref_deleted"
+    },
+    {
+      "ref": "refs/heads/codex/deterministic-kaggle-notebook",
+      "name": "codex/deterministic-kaggle-notebook",
+      "sha": "1f2b1f5357912353f68258c37c23cd5e4e05b37e",
+      "disposition": "delete_integrated",
+      "evidence": {
+        "mergedPR": "https://github.com/p-to-q/aleph/pull/89",
+        "mergeCommit": "1d4ecc064df079e4eacf3176e0da6afe12f12f9e",
+        "base": "benchmark/source-v0.2"
+      },
+      "outcome": "local_integrated_ref_deleted"
+    },
+    {
+      "ref": "refs/heads/codex/engine-artifact-kernel",
+      "name": "codex/engine-artifact-kernel",
+      "sha": "13a5f119be97049e36f8941fc7a3eff09b1a8133",
+      "disposition": "delete_integrated",
+      "evidence": {
+        "ancestryTarget": "origin/main",
+        "targetSha": "824c2531c567bc36c422711bc6dcd0564d31fe70"
+      },
+      "outcome": "local_integrated_ref_deleted"
+    },
+    {
+      "ref": "refs/heads/codex/engine-benchmark-practice-review",
+      "name": "codex/engine-benchmark-practice-review",
+      "sha": "633a85b8cff5b81d397f776dd5d1255c52d27153",
+      "disposition": "delete_integrated",
+      "evidence": {
+        "ancestryTarget": "origin/main",
+        "targetSha": "824c2531c567bc36c422711bc6dcd0564d31fe70"
+      },
+      "outcome": "local_integrated_ref_deleted"
+    },
+    {
+      "ref": "refs/heads/codex/engine-prior-practice-followup",
+      "name": "codex/engine-prior-practice-followup",
+      "sha": "82d12aeda41de796c7c0169700ad42a860acb997",
+      "disposition": "delete_integrated",
+      "evidence": {
+        "ancestryTarget": "origin/main",
+        "targetSha": "824c2531c567bc36c422711bc6dcd0564d31fe70"
+      },
+      "outcome": "local_integrated_ref_deleted"
+    },
+    {
+      "ref": "refs/heads/codex/evidence-ledger-health",
+      "name": "codex/evidence-ledger-health",
+      "sha": "0baf30409274c7f5e7c1ae499ab0ac3e132fc6fe",
+      "disposition": "delete_integrated",
+      "evidence": {
+        "ancestryTarget": "origin/main",
+        "targetSha": "824c2531c567bc36c422711bc6dcd0564d31fe70"
+      },
+      "outcome": "local_integrated_ref_deleted"
+    },
+    {
+      "ref": "refs/heads/codex/finite-theory-v0",
+      "name": "codex/finite-theory-v0",
+      "sha": "973af77baf1b3bb3188aa4fae4959901afe1a681",
+      "disposition": "delete_integrated",
+      "evidence": {
+        "mergedPR": "https://github.com/p-to-q/aleph/pull/108",
+        "mergeCommit": "32c2383658d074a5ec1cc28b18044901ac55c586",
+        "base": "main"
+      },
+      "outcome": "local_integrated_ref_deleted"
+    },
+    {
+      "ref": "refs/heads/codex/frontier-regeneration",
+      "name": "codex/frontier-regeneration",
+      "sha": "f55459eba74822ec9369facd724a24968d66e41e",
+      "disposition": "delete_integrated",
+      "evidence": {
+        "ancestryTarget": "origin/main",
+        "targetSha": "824c2531c567bc36c422711bc6dcd0564d31fe70"
+      },
+      "outcome": "local_integrated_ref_deleted"
+    },
+    {
+      "ref": "refs/heads/codex/hybrid-pareto-search",
+      "name": "codex/hybrid-pareto-search",
+      "sha": "1d426cf6809f102f0765be19470d68f053afab95",
+      "disposition": "preserve",
+      "evidence": "unique or no exact integration proof; retained for review"
+    },
+    {
+      "ref": "refs/heads/codex/iclr-recovery-20260927",
+      "name": "codex/iclr-recovery-20260927",
+      "sha": "042eca1bb805979f554c54c895f9338b331f0bc8",
+      "disposition": "preserve",
+      "evidence": "unique or no exact integration proof; retained for review"
+    },
+    {
+      "ref": "refs/heads/codex/iclr-source-attribution",
+      "name": "codex/iclr-source-attribution",
+      "sha": "40126412b55ab2585a19a109b9cb08dd15222b27",
+      "disposition": "delete_integrated",
+      "evidence": {
+        "ancestryTarget": "origin/main",
+        "targetSha": "824c2531c567bc36c422711bc6dcd0564d31fe70"
+      },
+      "outcome": "local_integrated_ref_deleted"
+    },
+    {
+      "ref": "refs/heads/codex/issue-12-hosted-mode-logo-governance",
+      "name": "codex/issue-12-hosted-mode-logo-governance",
+      "sha": "2baa74267c3f3d40a0fd16b2c9ee6d81a673da38",
+      "disposition": "delete_integrated",
+      "evidence": {
+        "mergedPR": "https://github.com/p-to-q/aleph/pull/13",
+        "mergeCommit": "ac700daf72d56e02b84a813d7dea4e207e847f50",
+        "base": "main"
+      },
+      "outcome": "local_integrated_ref_deleted"
+    },
+    {
+      "ref": "refs/heads/codex/issue-29-benchmark-authority",
+      "name": "codex/issue-29-benchmark-authority",
+      "sha": "84bb0eb2f4f5a28cd68b326c17c1654151f5f49f",
+      "disposition": "delete_integrated",
+      "evidence": {
+        "mergedPR": "https://github.com/p-to-q/aleph/pull/33",
+        "mergeCommit": "40126412b55ab2585a19a109b9cb08dd15222b27",
+        "base": "main"
+      },
+      "outcome": "local_integrated_ref_deleted"
+    },
+    {
+      "ref": "refs/heads/codex/issue-29-complete-license",
+      "name": "codex/issue-29-complete-license",
+      "sha": "13cd830d6a90049df36ce3e865845fd6b75dff0a",
+      "disposition": "preserve",
+      "evidence": "unique or no exact integration proof; retained for review"
+    },
+    {
+      "ref": "refs/heads/codex/issue-29-research-plan",
+      "name": "codex/issue-29-research-plan",
+      "sha": "9fe5f62b77c29a8431901da8249b4beb518b0a68",
+      "disposition": "delete_integrated",
+      "evidence": {
+        "mergedPR": "https://github.com/p-to-q/aleph/pull/32",
+        "mergeCommit": "5b739562820b2380d88f9a2dc904f1a2add63bed",
+        "base": "main"
+      },
+      "outcome": "local_integrated_ref_deleted"
+    },
+    {
+      "ref": "refs/heads/codex/issue-30-ci-release-gate",
+      "name": "codex/issue-30-ci-release-gate",
+      "sha": "05fc777643aa38d3b20a6310bf548bc9655eb5a4",
+      "disposition": "delete_integrated",
+      "evidence": {
+        "mergedPR": "https://github.com/p-to-q/aleph/pull/31",
+        "mergeCommit": "32f5fec6e2427da55931f7699b9b2510578afd15",
+        "base": "main"
+      },
+      "outcome": "local_integrated_ref_deleted"
+    },
+    {
+      "ref": "refs/heads/codex/issue-34-known-metric-corrections",
+      "name": "codex/issue-34-known-metric-corrections",
+      "sha": "8948d3df73560ddbea9d199298bb5a7dee35a414",
+      "disposition": "delete_integrated",
+      "evidence": {
+        "mergedPR": "https://github.com/p-to-q/aleph/pull/37",
+        "mergeCommit": "ecc3badb3cedeb659dd4a47c8664e725f4d57232",
+        "base": "benchmark/source-v0.1"
+      },
+      "outcome": "local_integrated_ref_deleted"
+    },
+    {
+      "ref": "refs/heads/codex/issue-36-unicode-scorer-v0-2",
+      "name": "codex/issue-36-unicode-scorer-v0-2",
+      "sha": "1d42579318a9c0b94bfae7aea332da6ebcc2413c",
+      "disposition": "delete_integrated",
+      "evidence": {
+        "mergedPR": "https://github.com/p-to-q/aleph/pull/39",
+        "mergeCommit": "00596672587b0a58049387da35aeae9ff8d21ae8",
+        "base": "benchmark/source-v0.2"
+      },
+      "outcome": "local_integrated_ref_deleted"
+    },
+    {
+      "ref": "refs/heads/codex/issue-38-capture-dataset-layout",
+      "name": "codex/issue-38-capture-dataset-layout",
+      "sha": "25ea4b7c04bfdbf69b9309a291be6c01940ec4ec",
+      "disposition": "delete_integrated",
+      "evidence": {
+        "ancestryTarget": "origin/benchmark/source-v0.2",
+        "targetSha": "43fa15de044efeb0e46ffba115809faa0d94ca79"
+      },
+      "outcome": "local_integrated_ref_deleted"
+    },
+    {
+      "ref": "refs/heads/codex/issue-38-capture-dispatch",
+      "name": "codex/issue-38-capture-dispatch",
+      "sha": "8a8a5edd4d05c8fd73ab77f58fdba0063335f2fc",
+      "disposition": "delete_integrated",
+      "evidence": {
+        "ancestryTarget": "origin/benchmark/source-v0.2",
+        "targetSha": "43fa15de044efeb0e46ffba115809faa0d94ca79"
+      },
+      "outcome": "local_integrated_ref_deleted"
+    },
+    {
+      "ref": "refs/heads/codex/issue-38-capture-model-binding",
+      "name": "codex/issue-38-capture-model-binding",
+      "sha": "61907364cf61143d52b246f5e18eb8b28dc53d00",
+      "disposition": "delete_integrated",
+      "evidence": {
+        "ancestryTarget": "origin/benchmark/source-v0.2",
+        "targetSha": "43fa15de044efeb0e46ffba115809faa0d94ca79"
+      },
+      "outcome": "local_integrated_ref_deleted"
+    },
+    {
+      "ref": "refs/heads/codex/issue-38-capture-platform-artifacts",
+      "name": "codex/issue-38-capture-platform-artifacts",
+      "sha": "7201711b95f671bdec6734aae3b488a60f497ba5",
+      "disposition": "delete_integrated",
+      "evidence": {
+        "ancestryTarget": "origin/benchmark/source-v0.2",
+        "targetSha": "43fa15de044efeb0e46ffba115809faa0d94ca79"
+      },
+      "outcome": "local_integrated_ref_deleted"
+    },
+    {
+      "ref": "refs/heads/codex/issue-38-capture-preflight-observability",
+      "name": "codex/issue-38-capture-preflight-observability",
+      "sha": "d784550b587662c6f3f89d7c5052893a8b02bd1d",
+      "disposition": "delete_integrated",
+      "evidence": {
+        "ancestryTarget": "origin/benchmark/source-v0.2",
+        "targetSha": "43fa15de044efeb0e46ffba115809faa0d94ca79"
+      },
+      "outcome": "local_integrated_ref_deleted"
+    },
+    {
+      "ref": "refs/heads/codex/issue-38-capture-reconciliation",
+      "name": "codex/issue-38-capture-reconciliation",
+      "sha": "8e5f22d91fb11aae95f1f1f13c546b5f9cc178bc",
+      "disposition": "delete_integrated",
+      "evidence": {
+        "ancestryTarget": "origin/benchmark/source-v0.2",
+        "targetSha": "43fa15de044efeb0e46ffba115809faa0d94ca79"
+      },
+      "outcome": "local_integrated_ref_deleted"
+    },
+    {
+      "ref": "refs/heads/codex/issue-38-capture-replay",
+      "name": "codex/issue-38-capture-replay",
+      "sha": "a60de2dd0dc5ad5ec02a7bfd7f4f79366effda83",
+      "disposition": "delete_integrated",
+      "evidence": {
+        "ancestryTarget": "origin/benchmark/source-v0.2",
+        "targetSha": "43fa15de044efeb0e46ffba115809faa0d94ca79"
+      },
+      "outcome": "local_integrated_ref_deleted"
+    },
+    {
+      "ref": "refs/heads/codex/issue-38-capture-sdk-annotation",
+      "name": "codex/issue-38-capture-sdk-annotation",
+      "sha": "89b301e537e2c13d0b1f9dfda8358ad4d1ce32b5",
+      "disposition": "delete_integrated",
+      "evidence": {
+        "ancestryTarget": "origin/benchmark/source-v0.2",
+        "targetSha": "43fa15de044efeb0e46ffba115809faa0d94ca79"
+      },
+      "outcome": "local_integrated_ref_deleted"
+    },
+    {
+      "ref": "refs/heads/codex/issue-38-capture-task",
+      "name": "codex/issue-38-capture-task",
+      "sha": "eead33f920719748064f6f4ee391fbdc56b2b7c0",
+      "disposition": "delete_integrated",
+      "evidence": {
+        "ancestryTarget": "origin/benchmark/source-v0.2",
+        "targetSha": "43fa15de044efeb0e46ffba115809faa0d94ca79"
+      },
+      "outcome": "local_integrated_ref_deleted"
+    },
+    {
+      "ref": "refs/heads/codex/issue-38-exact-run-selection",
+      "name": "codex/issue-38-exact-run-selection",
+      "sha": "ddb7bc6def364d64f0f48fb15797a8b2bc1aafa2",
+      "disposition": "delete_integrated",
+      "evidence": {
+        "ancestryTarget": "origin/benchmark/source-v0.2",
+        "targetSha": "43fa15de044efeb0e46ffba115809faa0d94ca79"
+      },
+      "outcome": "local_integrated_ref_deleted"
+    },
+    {
+      "ref": "refs/heads/codex/issue-38-kaggle-naive-utc",
+      "name": "codex/issue-38-kaggle-naive-utc",
+      "sha": "8904b6ed9c1c4d8690f2a7368df9fba30dfae855",
+      "disposition": "delete_integrated",
+      "evidence": {
+        "ancestryTarget": "origin/benchmark/source-v0.2",
+        "targetSha": "43fa15de044efeb0e46ffba115809faa0d94ca79"
+      },
+      "outcome": "local_integrated_ref_deleted"
+    },
+    {
+      "ref": "refs/heads/codex/issue-38-kaggle-receipts",
+      "name": "codex/issue-38-kaggle-receipts",
+      "sha": "1d42579318a9c0b94bfae7aea332da6ebcc2413c",
+      "disposition": "preserve",
+      "evidence": "unique or no exact integration proof; retained for review"
+    },
+    {
+      "ref": "refs/heads/codex/issue-38-kaggle-task-utc",
+      "name": "codex/issue-38-kaggle-task-utc",
+      "sha": "ec2923e71ce52e04baf8fd5d3c1f162572637872",
+      "disposition": "delete_integrated",
+      "evidence": {
+        "ancestryTarget": "origin/benchmark/source-v0.2",
+        "targetSha": "43fa15de044efeb0e46ffba115809faa0d94ca79"
+      },
+      "outcome": "local_integrated_ref_deleted"
+    },
+    {
+      "ref": "refs/heads/codex/issue-38-kaggle-versioned-model-slug",
+      "name": "codex/issue-38-kaggle-versioned-model-slug",
+      "sha": "02b905368a621f2872fb63051086a702d8462a67",
+      "disposition": "delete_integrated",
+      "evidence": {
+        "ancestryTarget": "origin/benchmark/source-v0.2",
+        "targetSha": "43fa15de044efeb0e46ffba115809faa0d94ca79"
+      },
+      "outcome": "local_integrated_ref_deleted"
+    },
+    {
+      "ref": "refs/heads/codex/issue-38-versioned-run-binding",
+      "name": "codex/issue-38-versioned-run-binding",
+      "sha": "b950c31eae979bc94bd2c2df1f16eb73da6ab9be",
+      "disposition": "delete_integrated",
+      "evidence": {
+        "ancestryTarget": "origin/benchmark/source-v0.2",
+        "targetSha": "43fa15de044efeb0e46ffba115809faa0d94ca79"
+      },
+      "outcome": "local_integrated_ref_deleted"
+    },
+    {
+      "ref": "refs/heads/codex/issue-55-canonical-benchmark",
+      "name": "codex/issue-55-canonical-benchmark",
+      "sha": "898c24fe3615015828127b8b6fac90a61433a1b4",
+      "disposition": "delete_integrated",
+      "evidence": {
+        "ancestryTarget": "origin/benchmark/source-v0.2",
+        "targetSha": "43fa15de044efeb0e46ffba115809faa0d94ca79"
+      },
+      "outcome": "local_integrated_ref_deleted"
+    },
+    {
+      "ref": "refs/heads/codex/issue-59-canonical-release-plan",
+      "name": "codex/issue-59-canonical-release-plan",
+      "sha": "9ca4b8aa6d039a624822e5028df453ed02eefbb3",
+      "disposition": "delete_integrated",
+      "evidence": {
+        "mergedPR": "https://github.com/p-to-q/aleph/pull/60",
+        "mergeCommit": "51f5ff20a294ee9fa63735bc7fb042c0fb6fbaf4",
+        "base": "benchmark/source-v0.2"
+      },
+      "outcome": "local_integrated_ref_deleted"
+    },
+    {
+      "ref": "refs/heads/codex/issue-90-timeout-policy",
+      "name": "codex/issue-90-timeout-policy",
+      "sha": "17eb1c97950c1e751d78059de00839ea3bfeb96a",
+      "disposition": "delete_integrated",
+      "evidence": {
+        "mergedPR": "https://github.com/p-to-q/aleph/pull/92",
+        "mergeCommit": "0194da92218d3e3896e5cabb10595f2fac1620dd",
+        "base": "benchmark/source-v0.2"
+      },
+      "outcome": "local_integrated_ref_deleted"
+    },
+    {
+      "ref": "refs/heads/codex/kaggle-provider-default-reasoning",
+      "name": "codex/kaggle-provider-default-reasoning",
+      "sha": "e7948386fa0f9cf3549ce8ba963cefb0bb4aa80a",
+      "disposition": "delete_integrated",
+      "evidence": {
+        "mergedPR": "https://github.com/p-to-q/aleph/pull/65",
+        "mergeCommit": "9d76e2bb13ad3557205fe814d64cbec472d28aa0",
+        "base": "benchmark/source-v0.2"
+      },
+      "outcome": "local_integrated_ref_deleted"
+    },
+    {
+      "ref": "refs/heads/codex/kaggle-queue-frontier",
+      "name": "codex/kaggle-queue-frontier",
+      "sha": "b8790e2fad5857e0be3aa71ef623d2cfc96c41dc",
+      "disposition": "delete_integrated",
+      "evidence": {
+        "ancestryTarget": "origin/benchmark/source-v0.2",
+        "targetSha": "43fa15de044efeb0e46ffba115809faa0d94ca79"
+      },
+      "outcome": "local_integrated_ref_deleted"
+    },
+    {
+      "ref": "refs/heads/codex/kaggle-queue-successor",
+      "name": "codex/kaggle-queue-successor",
+      "sha": "7cd6171a04f4f8490f288e8c2d0fb1d8b3138baf",
+      "disposition": "delete_integrated",
+      "evidence": {
+        "ancestryTarget": "origin/benchmark/source-v0.2",
+        "targetSha": "43fa15de044efeb0e46ffba115809faa0d94ca79"
+      },
+      "outcome": "local_integrated_ref_deleted"
+    },
+    {
+      "ref": "refs/heads/codex/kaggle-quota-policy",
+      "name": "codex/kaggle-quota-policy",
+      "sha": "2924b8bf77b3c04c2f81c6060753adaaf1ad023d",
+      "disposition": "delete_integrated",
+      "evidence": {
+        "mergedPR": "https://github.com/p-to-q/aleph/pull/74",
+        "mergeCommit": "2173f0406492b9f8f231c7db65aa8417398d51d5",
+        "base": "benchmark/source-v0.2"
+      },
+      "outcome": "local_integrated_ref_deleted"
+    },
+    {
+      "ref": "refs/heads/codex/kaggle-source-authority",
+      "name": "codex/kaggle-source-authority",
+      "sha": "b358924b2a16d599f4e90aaa7e0ffc120bce0a09",
+      "disposition": "delete_integrated",
+      "evidence": {
+        "mergedPR": "https://github.com/p-to-q/aleph/pull/85",
+        "mergeCommit": "a38114b0691286e196f0ca16af03ec70564450a5",
+        "base": "benchmark/source-v0.2"
+      },
+      "outcome": "local_integrated_ref_deleted"
+    },
+    {
+      "ref": "refs/heads/codex/kaggle-v10-finite-queue",
+      "name": "codex/kaggle-v10-finite-queue",
+      "sha": "2899b48304fd5987bd986135f3eea8908c9831a6",
+      "disposition": "delete_integrated",
+      "evidence": {
+        "ancestryTarget": "origin/benchmark/source-v0.2",
+        "targetSha": "43fa15de044efeb0e46ffba115809faa0d94ca79"
+      },
+      "outcome": "local_integrated_ref_deleted"
+    },
+    {
+      "ref": "refs/heads/codex/leakage-and-length-formalism",
+      "name": "codex/leakage-and-length-formalism",
+      "sha": "224c68de009b817bb45f663a42d082655f488be8",
+      "disposition": "delete_integrated",
+      "evidence": {
+        "ancestryTarget": "origin/main",
+        "targetSha": "824c2531c567bc36c422711bc6dcd0564d31fe70"
+      },
+      "outcome": "local_integrated_ref_deleted"
+    },
+    {
+      "ref": "refs/heads/codex/m0-implementation",
+      "name": "codex/m0-implementation",
+      "sha": "a91829e8ec174bb6960d6f0a545f9aebeeddab3c",
+      "disposition": "delete_integrated",
+      "evidence": {
+        "ancestryTarget": "origin/benchmark/source-v0.2",
+        "targetSha": "43fa15de044efeb0e46ffba115809faa0d94ca79"
+      },
+      "outcome": "local_integrated_ref_deleted"
+    },
+    {
+      "ref": "refs/heads/codex/main-after-governance",
+      "name": "codex/main-after-governance",
+      "sha": "236256b25fc2e0c8a2c51c9690b9aa2c612b0893",
+      "disposition": "delete_integrated",
+      "evidence": {
+        "ancestryTarget": "origin/main",
+        "targetSha": "824c2531c567bc36c422711bc6dcd0564d31fe70"
+      },
+      "outcome": "local_integrated_ref_deleted"
+    },
+    {
+      "ref": "refs/heads/codex/mainline-mlx-canary",
+      "name": "codex/mainline-mlx-canary",
+      "sha": "8377dd335b5eeb7a33759749d73c9e2adefa396d",
+      "disposition": "preserve",
+      "evidence": "protected authority, archive or active worktree"
+    },
+    {
+      "ref": "refs/heads/codex/maintainer-security",
+      "name": "codex/maintainer-security",
+      "sha": "824c2531c567bc36c422711bc6dcd0564d31fe70",
+      "disposition": "preserve",
+      "evidence": "protected authority, archive or active worktree"
+    },
+    {
+      "ref": "refs/heads/codex/math-discovery-program",
+      "name": "codex/math-discovery-program",
+      "sha": "64a368bf1ff98c94c4d41414caf71f52cf661a42",
+      "disposition": "delete_integrated",
+      "evidence": {
+        "mergedPR": "https://github.com/p-to-q/aleph/pull/104",
+        "mergeCommit": "5126c9a8dbee5ad89c60a440f4f1411f0b4059bb",
+        "base": "main"
+      },
+      "outcome": "local_integrated_ref_deleted"
+    },
+    {
+      "ref": "refs/heads/codex/miniprompt-comparison",
+      "name": "codex/miniprompt-comparison",
+      "sha": "bc4faa354d7cb606e6703ba34e5c7de6e438f22b",
+      "disposition": "delete_integrated",
+      "evidence": {
+        "ancestryTarget": "origin/main",
+        "targetSha": "824c2531c567bc36c422711bc6dcd0564d31fe70"
+      },
+      "outcome": "local_integrated_ref_deleted"
+    },
+    {
+      "ref": "refs/heads/codex/miniprompt-comparison-set2",
+      "name": "codex/miniprompt-comparison-set2",
+      "sha": "65c0c2a6f7c6a598ec55e8699528d64abdcb72ba",
+      "disposition": "delete_integrated",
+      "evidence": {
+        "ancestryTarget": "origin/main",
+        "targetSha": "824c2531c567bc36c422711bc6dcd0564d31fe70"
+      },
+      "outcome": "local_integrated_ref_deleted"
+    },
+    {
+      "ref": "refs/heads/codex/miniprompt-implementation",
+      "name": "codex/miniprompt-implementation",
+      "sha": "108767393ccba55a539129ef89123599eb955b3c",
+      "disposition": "delete_integrated",
+      "evidence": {
+        "ancestryTarget": "origin/main",
+        "targetSha": "824c2531c567bc36c422711bc6dcd0564d31fe70"
+      },
+      "outcome": "local_integrated_ref_deleted"
+    },
+    {
+      "ref": "refs/heads/codex/miniprompt-reproduction-note",
+      "name": "codex/miniprompt-reproduction-note",
+      "sha": "b6c4d124a40484cc05658eea0575a9ccf3556005",
+      "disposition": "delete_integrated",
+      "evidence": {
+        "ancestryTarget": "origin/main",
+        "targetSha": "824c2531c567bc36c422711bc6dcd0564d31fe70"
+      },
+      "outcome": "local_integrated_ref_deleted"
+    },
+    {
+      "ref": "refs/heads/codex/miniprompt-scaffold-extension",
+      "name": "codex/miniprompt-scaffold-extension",
+      "sha": "de8bc15d73ca2d576e69d9afd7bb857b73cc6103",
+      "disposition": "delete_integrated",
+      "evidence": {
+        "ancestryTarget": "origin/main",
+        "targetSha": "824c2531c567bc36c422711bc6dcd0564d31fe70"
+      },
+      "outcome": "local_integrated_ref_deleted"
+    },
+    {
+      "ref": "refs/heads/codex/mlx-canary",
+      "name": "codex/mlx-canary",
+      "sha": "2f454bbc5e20b9e105e98784c61208999191dca0",
+      "disposition": "preserve",
+      "evidence": "unique or no exact integration proof; retained for review"
+    },
+    {
+      "ref": "refs/heads/codex/node-floor-p3",
+      "name": "codex/node-floor-p3",
+      "sha": "9208038c46267ea2131340534b3ef15a86e8186e",
+      "disposition": "delete_integrated",
+      "evidence": {
+        "ancestryTarget": "origin/main",
+        "targetSha": "824c2531c567bc36c422711bc6dcd0564d31fe70"
+      },
+      "outcome": "local_integrated_ref_deleted"
+    },
+    {
+      "ref": "refs/heads/codex/persistence-review",
+      "name": "codex/persistence-review",
+      "sha": "b1411bfecd00ad82a499d54ba2dd01ce37ba06ba",
+      "disposition": "delete_integrated",
+      "evidence": {
+        "ancestryTarget": "origin/main",
+        "targetSha": "824c2531c567bc36c422711bc6dcd0564d31fe70"
+      },
+      "outcome": "local_integrated_ref_deleted"
+    },
+    {
+      "ref": "refs/heads/codex/portable-authority-lock",
+      "name": "codex/portable-authority-lock",
+      "sha": "3226e602376cb2db691d004bd2baf6b9425aa926",
+      "disposition": "delete_integrated",
+      "evidence": {
+        "mergedPR": "https://github.com/p-to-q/aleph/pull/84",
+        "mergeCommit": "7a15c2410e199b82dc65f9caf65f53aa9e8d6c5f",
+        "base": "benchmark/source-v0.2"
+      },
+      "outcome": "local_integrated_ref_deleted"
+    },
+    {
+      "ref": "refs/heads/codex/portable-string-tables",
+      "name": "codex/portable-string-tables",
+      "sha": "8c459f2f14b7fc777728561cd41c61e38afb5b2b",
+      "disposition": "delete_integrated",
+      "evidence": {
+        "mergedPR": "https://github.com/p-to-q/aleph/pull/87",
+        "mergeCommit": "e265281321dc1013fff9cb288a72c15dcc5b749a",
+        "base": "benchmark/source-v0.2"
+      },
+      "outcome": "local_integrated_ref_deleted"
+    },
+    {
+      "ref": "refs/heads/codex/pr1-measurement-correctness",
+      "name": "codex/pr1-measurement-correctness",
+      "sha": "0e63d3ac60ad2109e0e592d6ccc9dd2f927d8667",
+      "disposition": "delete_integrated",
+      "evidence": {
+        "mergedPR": "https://github.com/p-to-q/aleph/pull/100",
+        "mergeCommit": "c2cbda063daad142010f3aed9165fe23ec032be1",
+        "base": "main"
+      },
+      "outcome": "local_integrated_ref_deleted"
+    },
+    {
+      "ref": "refs/heads/codex/product-open-file",
+      "name": "codex/product-open-file",
+      "sha": "bff04bdcd35d1064cf4681bd74fc32150fd1420e",
+      "disposition": "delete_integrated",
+      "evidence": {
+        "ancestryTarget": "origin/main",
+        "targetSha": "824c2531c567bc36c422711bc6dcd0564d31fe70"
+      },
+      "outcome": "local_integrated_ref_deleted"
+    },
+    {
+      "ref": "refs/heads/codex/publish-aleph-explorer-update",
+      "name": "codex/publish-aleph-explorer-update",
+      "sha": "3340a3a2fb9b77129236eb0d1176449c4fa1caa3",
+      "disposition": "delete_integrated",
+      "evidence": {
+        "mergedPR": "https://github.com/p-to-q/aleph/pull/8",
+        "mergeCommit": "4793d8d9b484ffa14441be1252c94eddcc00f6e3",
+        "base": "main"
+      },
+      "outcome": "local_integrated_ref_deleted"
+    },
+    {
+      "ref": "refs/heads/codex/retained-output-replay-adapter",
+      "name": "codex/retained-output-replay-adapter",
+      "sha": "57b877c4a9077b70cc5d521ddcce51f54db6e0cc",
+      "disposition": "delete_integrated",
+      "evidence": {
+        "mergedPR": "https://github.com/p-to-q/aleph/pull/64",
+        "mergeCommit": "4d2f7ea081812fb160867cf790bacc886c7d7e64",
+        "base": "benchmark/source-v0.2"
+      },
+      "outcome": "local_integrated_ref_deleted"
+    },
+    {
+      "ref": "refs/heads/codex/review-citations",
+      "name": "codex/review-citations",
+      "sha": "dd3d9bac2bc802b0f70318663c576a48c75612e5",
+      "disposition": "delete_integrated",
+      "evidence": {
+        "ancestryTarget": "origin/main",
+        "targetSha": "824c2531c567bc36c422711bc6dcd0564d31fe70"
+      },
+      "outcome": "local_integrated_ref_deleted"
+    },
+    {
+      "ref": "refs/heads/codex/state-of-play-refresh",
+      "name": "codex/state-of-play-refresh",
+      "sha": "e0ca24746021985193ea5e20c0511090a3124d03",
+      "disposition": "delete_integrated",
+      "evidence": {
+        "ancestryTarget": "origin/main",
+        "targetSha": "824c2531c567bc36c422711bc6dcd0564d31fe70"
+      },
+      "outcome": "local_integrated_ref_deleted"
+    },
+    {
+      "ref": "refs/heads/feat/site-metadata-icons",
+      "name": "feat/site-metadata-icons",
+      "sha": "65c7e76eb38ac84e97e120fc70a236cd9c56ff24",
+      "disposition": "delete_integrated",
+      "evidence": {
+        "ancestryTarget": "origin/main",
+        "targetSha": "824c2531c567bc36c422711bc6dcd0564d31fe70"
+      },
+      "outcome": "local_integrated_ref_deleted"
+    },
+    {
+      "ref": "refs/heads/fix/canonical-parser-required-fields",
+      "name": "fix/canonical-parser-required-fields",
+      "sha": "1b62990911b35a5557cd321499d002fa8a5f44b5",
+      "disposition": "delete_integrated",
+      "evidence": {
+        "ancestryTarget": "origin/main",
+        "targetSha": "824c2531c567bc36c422711bc6dcd0564d31fe70"
+      },
+      "outcome": "local_integrated_ref_deleted"
+    },
+    {
+      "ref": "refs/heads/fix/compare-recorded-whole-prompt-tokens",
+      "name": "fix/compare-recorded-whole-prompt-tokens",
+      "sha": "c0002510180b16b9eb7733ee337f9f3114cce29d",
+      "disposition": "preserve",
+      "evidence": "unique or no exact integration proof; retained for review"
+    },
+    {
+      "ref": "refs/heads/fix/frozen-config-strict-canonical",
+      "name": "fix/frozen-config-strict-canonical",
+      "sha": "ec494d66708900baf4b5252e012b3df04487da80",
+      "disposition": "preserve",
+      "evidence": "unique or no exact integration proof; retained for review"
+    },
+    {
+      "ref": "refs/heads/main",
+      "name": "main",
+      "sha": "824c2531c567bc36c422711bc6dcd0564d31fe70",
+      "disposition": "preserve",
+      "evidence": "protected authority, archive or active worktree"
+    },
+    {
+      "ref": "refs/remotes/origin/HEAD",
+      "name": "HEAD",
+      "sha": "824c2531c567bc36c422711bc6dcd0564d31fe70",
+      "disposition": "preserve",
+      "evidence": "protected authority, archive or active worktree"
+    },
+    {
+      "ref": "refs/remotes/origin/benchmark/source-v0.1",
+      "name": "benchmark/source-v0.1",
+      "sha": "ecc3badb3cedeb659dd4a47c8664e725f4d57232",
+      "disposition": "preserve",
+      "evidence": "protected authority, archive or active worktree"
+    },
+    {
+      "ref": "refs/remotes/origin/benchmark/source-v0.2",
+      "name": "benchmark/source-v0.2",
+      "sha": "43fa15de044efeb0e46ffba115809faa0d94ca79",
+      "disposition": "preserve",
+      "evidence": "protected authority, archive or active worktree"
+    },
+    {
+      "ref": "refs/remotes/origin/codex/adapter-evidence-contract",
+      "name": "codex/adapter-evidence-contract",
+      "sha": "e9ea87c048e2b36419454d87a767a2b48af7aaf1",
+      "disposition": "delete_integrated",
+      "evidence": {
+        "ancestryTarget": "origin/main",
+        "targetSha": "824c2531c567bc36c422711bc6dcd0564d31fe70"
+      },
+      "outcome": "remote_deleted_with_exact_sha_lease"
+    },
+    {
+      "ref": "refs/remotes/origin/codex/aleph-run-import",
+      "name": "codex/aleph-run-import",
+      "sha": "c4e373bd9893c2a5b7ea4fb6aa3293750c5ba569",
+      "disposition": "delete_integrated",
+      "evidence": {
+        "ancestryTarget": "origin/main",
+        "targetSha": "824c2531c567bc36c422711bc6dcd0564d31fe70"
+      },
+      "outcome": "remote_deleted_with_exact_sha_lease"
+    },
+    {
+      "ref": "refs/remotes/origin/codex/bench-croissant-v0-2",
+      "name": "codex/bench-croissant-v0-2",
+      "sha": "538bf32e604760875a2e93b204fb1e21bec5fba8",
+      "disposition": "delete_integrated",
+      "evidence": {
+        "ancestryTarget": "origin/benchmark/source-v0.2",
+        "targetSha": "43fa15de044efeb0e46ffba115809faa0d94ca79"
+      },
+      "outcome": "remote_deleted_with_exact_sha_lease"
+    },
+    {
+      "ref": "refs/remotes/origin/codex/bench-inventory-repin",
+      "name": "codex/bench-inventory-repin",
+      "sha": "ceefcda4723ce5fddae4eb58d7a5912f3530cdd1",
+      "disposition": "delete_integrated",
+      "evidence": {
+        "mergedPR": "https://github.com/p-to-q/aleph/pull/73",
+        "mergeCommit": "d76206bdaf9ba72730b066560862a3d00cac9699",
+        "base": "benchmark/source-v0.2"
+      },
+      "outcome": "remote_deleted_with_exact_sha_lease"
+    },
+    {
+      "ref": "refs/remotes/origin/codex/bench-significance",
+      "name": "codex/bench-significance",
+      "sha": "34913297765ab35fb3244e20eae8fd07c982875f",
+      "disposition": "delete_integrated",
+      "evidence": {
+        "ancestryTarget": "origin/benchmark/source-v0.2",
+        "targetSha": "43fa15de044efeb0e46ffba115809faa0d94ca79"
+      },
+      "outcome": "remote_deleted_with_exact_sha_lease"
+    },
+    {
+      "ref": "refs/remotes/origin/codex/benchmark-license-canonical",
+      "name": "codex/benchmark-license-canonical",
+      "sha": "2ef063f28211c2e67c0bf60c3c4c042e9ee73d96",
+      "disposition": "delete_integrated",
+      "evidence": {
+        "mergedPR": "https://github.com/p-to-q/aleph/pull/72",
+        "mergeCommit": "51900d4146ae447d73c9bb57818c89394a57bee4",
+        "base": "benchmark/source-v0.2"
+      },
+      "outcome": "remote_deleted_with_exact_sha_lease"
+    },
+    {
+      "ref": "refs/remotes/origin/codex/benchmark-preimport-hardening",
+      "name": "codex/benchmark-preimport-hardening",
+      "sha": "24ca20c91b44768458ecd2df209817883605420b",
+      "disposition": "delete_integrated",
+      "evidence": {
+        "mergedPR": "https://github.com/p-to-q/aleph/pull/71",
+        "mergeCommit": "10abdc1368439d1ab454ee3862a59e14b67a9530",
+        "base": "benchmark/source-v0.2"
+      },
+      "outcome": "remote_deleted_with_exact_sha_lease"
+    },
+    {
+      "ref": "refs/remotes/origin/codex/benchmark-release-artifacts",
+      "name": "codex/benchmark-release-artifacts",
+      "sha": "a69c4c53d032b244026e4ca5723209fc4e2c2273",
+      "disposition": "delete_integrated",
+      "evidence": {
+        "ancestryTarget": "origin/benchmark/source-v0.2",
+        "targetSha": "43fa15de044efeb0e46ffba115809faa0d94ca79"
+      },
+      "outcome": "remote_deleted_with_exact_sha_lease"
+    },
+    {
+      "ref": "refs/remotes/origin/codex/benchmark-release-qa",
+      "name": "codex/benchmark-release-qa",
+      "sha": "c857c51389492781f5fa54181bc0f587554e4c8f",
+      "disposition": "delete_integrated",
+      "evidence": {
+        "ancestryTarget": "origin/benchmark/source-v0.2",
+        "targetSha": "43fa15de044efeb0e46ffba115809faa0d94ca79"
+      },
+      "outcome": "remote_deleted_with_exact_sha_lease"
+    },
+    {
+      "ref": "refs/remotes/origin/codex/benchmark-significance",
+      "name": "codex/benchmark-significance",
+      "sha": "c3dddd6155afd8ac3a75d43636787912d95b6c4b",
+      "disposition": "delete_integrated",
+      "evidence": {
+        "ancestryTarget": "origin/main",
+        "targetSha": "824c2531c567bc36c422711bc6dcd0564d31fe70"
+      },
+      "outcome": "remote_deleted_with_exact_sha_lease"
+    },
+    {
+      "ref": "refs/remotes/origin/codex/c7-reverification",
+      "name": "codex/c7-reverification",
+      "sha": "c32afeb7d6f285e5360a54785a682feee7d71379",
+      "disposition": "delete_integrated",
+      "evidence": {
+        "ancestryTarget": "origin/main",
+        "targetSha": "824c2531c567bc36c422711bc6dcd0564d31fe70"
+      },
+      "outcome": "remote_deleted_with_exact_sha_lease"
+    },
+    {
+      "ref": "refs/remotes/origin/codex/canonical-jcs",
+      "name": "codex/canonical-jcs",
+      "sha": "5347134238e98af9a3141608b85fa22fc9b077d2",
+      "disposition": "delete_integrated",
+      "evidence": {
+        "ancestryTarget": "origin/main",
+        "targetSha": "824c2531c567bc36c422711bc6dcd0564d31fe70"
+      },
+      "outcome": "remote_deleted_with_exact_sha_lease"
+    },
+    {
+      "ref": "refs/remotes/origin/codex/canonical-js-parity",
+      "name": "codex/canonical-js-parity",
+      "sha": "fbf0b8fd4dca398884ffb5c0f21586c330c11b29",
+      "disposition": "delete_integrated",
+      "evidence": {
+        "ancestryTarget": "origin/main",
+        "targetSha": "824c2531c567bc36c422711bc6dcd0564d31fe70"
+      },
+      "outcome": "remote_deleted_with_exact_sha_lease"
+    },
+    {
+      "ref": "refs/remotes/origin/codex/capture-set-receipt",
+      "name": "codex/capture-set-receipt",
+      "sha": "98c87935a551df7c3c64787d46652aa5c90c3e72",
+      "disposition": "delete_integrated",
+      "evidence": {
+        "mergedPR": "https://github.com/p-to-q/aleph/pull/76",
+        "mergeCommit": "8fb57eb921d792dbd245d849ab08ac5c7cf11c6e",
+        "base": "benchmark/source-v0.2"
+      },
+      "outcome": "remote_deleted_with_exact_sha_lease"
+    },
+    {
+      "ref": "refs/remotes/origin/codex/cs-related-work-cards",
+      "name": "codex/cs-related-work-cards",
+      "sha": "df359da68d1de69bd859080f93b27817b3f79d00",
+      "disposition": "delete_integrated",
+      "evidence": {
+        "ancestryTarget": "origin/main",
+        "targetSha": "824c2531c567bc36c422711bc6dcd0564d31fe70"
+      },
+      "outcome": "remote_deleted_with_exact_sha_lease"
+    },
+    {
+      "ref": "refs/remotes/origin/codex/deterministic-kaggle-notebook",
+      "name": "codex/deterministic-kaggle-notebook",
+      "sha": "1f2b1f5357912353f68258c37c23cd5e4e05b37e",
+      "disposition": "delete_integrated",
+      "evidence": {
+        "mergedPR": "https://github.com/p-to-q/aleph/pull/89",
+        "mergeCommit": "1d4ecc064df079e4eacf3176e0da6afe12f12f9e",
+        "base": "benchmark/source-v0.2"
+      },
+      "outcome": "remote_deleted_with_exact_sha_lease"
+    },
+    {
+      "ref": "refs/remotes/origin/codex/engine-artifact-kernel",
+      "name": "codex/engine-artifact-kernel",
+      "sha": "13a5f119be97049e36f8941fc7a3eff09b1a8133",
+      "disposition": "delete_integrated",
+      "evidence": {
+        "ancestryTarget": "origin/main",
+        "targetSha": "824c2531c567bc36c422711bc6dcd0564d31fe70"
+      },
+      "outcome": "remote_deleted_with_exact_sha_lease"
+    },
+    {
+      "ref": "refs/remotes/origin/codex/engine-benchmark-practice-review",
+      "name": "codex/engine-benchmark-practice-review",
+      "sha": "633a85b8cff5b81d397f776dd5d1255c52d27153",
+      "disposition": "delete_integrated",
+      "evidence": {
+        "ancestryTarget": "origin/main",
+        "targetSha": "824c2531c567bc36c422711bc6dcd0564d31fe70"
+      },
+      "outcome": "remote_deleted_with_exact_sha_lease"
+    },
+    {
+      "ref": "refs/remotes/origin/codex/engine-prior-practice-followup",
+      "name": "codex/engine-prior-practice-followup",
+      "sha": "82d12aeda41de796c7c0169700ad42a860acb997",
+      "disposition": "delete_integrated",
+      "evidence": {
+        "ancestryTarget": "origin/main",
+        "targetSha": "824c2531c567bc36c422711bc6dcd0564d31fe70"
+      },
+      "outcome": "remote_deleted_with_exact_sha_lease"
+    },
+    {
+      "ref": "refs/remotes/origin/codex/evidence-boundary-audit",
+      "name": "codex/evidence-boundary-audit",
+      "sha": "6c965b713465a6330f22aef8e482a253cdcd4a41",
+      "disposition": "delete_integrated",
+      "evidence": {
+        "ancestryTarget": "origin/main",
+        "targetSha": "824c2531c567bc36c422711bc6dcd0564d31fe70"
+      },
+      "outcome": "remote_deleted_with_exact_sha_lease"
+    },
+    {
+      "ref": "refs/remotes/origin/codex/evidence-ledger-health",
+      "name": "codex/evidence-ledger-health",
+      "sha": "0baf30409274c7f5e7c1ae499ab0ac3e132fc6fe",
+      "disposition": "delete_integrated",
+      "evidence": {
+        "ancestryTarget": "origin/main",
+        "targetSha": "824c2531c567bc36c422711bc6dcd0564d31fe70"
+      },
+      "outcome": "remote_deleted_with_exact_sha_lease"
+    },
+    {
+      "ref": "refs/remotes/origin/codex/frontier-regeneration",
+      "name": "codex/frontier-regeneration",
+      "sha": "f55459eba74822ec9369facd724a24968d66e41e",
+      "disposition": "delete_integrated",
+      "evidence": {
+        "ancestryTarget": "origin/main",
+        "targetSha": "824c2531c567bc36c422711bc6dcd0564d31fe70"
+      },
+      "outcome": "remote_deleted_with_exact_sha_lease"
+    },
+    {
+      "ref": "refs/remotes/origin/codex/hybrid-pareto-search",
+      "name": "codex/hybrid-pareto-search",
+      "sha": "14c71ad1dddb1876f98ffcb965387e42b4e0e85b",
+      "disposition": "delete_integrated",
+      "evidence": {
+        "ancestryTarget": "origin/main",
+        "targetSha": "824c2531c567bc36c422711bc6dcd0564d31fe70"
+      },
+      "outcome": "remote_deleted_with_exact_sha_lease"
+    },
+    {
+      "ref": "refs/remotes/origin/codex/issue-29-benchmark-authority",
+      "name": "codex/issue-29-benchmark-authority",
+      "sha": "84bb0eb2f4f5a28cd68b326c17c1654151f5f49f",
+      "disposition": "delete_integrated",
+      "evidence": {
+        "mergedPR": "https://github.com/p-to-q/aleph/pull/33",
+        "mergeCommit": "40126412b55ab2585a19a109b9cb08dd15222b27",
+        "base": "main"
+      },
+      "outcome": "remote_deleted_with_exact_sha_lease"
+    },
+    {
+      "ref": "refs/remotes/origin/codex/issue-29-complete-license",
+      "name": "codex/issue-29-complete-license",
+      "sha": "13cd830d6a90049df36ce3e865845fd6b75dff0a",
+      "disposition": "preserve",
+      "evidence": "unique or no exact integration proof; retained for review"
+    },
+    {
+      "ref": "refs/remotes/origin/codex/issue-29-research-plan",
+      "name": "codex/issue-29-research-plan",
+      "sha": "9fe5f62b77c29a8431901da8249b4beb518b0a68",
+      "disposition": "delete_integrated",
+      "evidence": {
+        "mergedPR": "https://github.com/p-to-q/aleph/pull/32",
+        "mergeCommit": "5b739562820b2380d88f9a2dc904f1a2add63bed",
+        "base": "main"
+      },
+      "outcome": "remote_deleted_with_exact_sha_lease"
+    },
+    {
+      "ref": "refs/remotes/origin/codex/issue-30-ci-release-gate",
+      "name": "codex/issue-30-ci-release-gate",
+      "sha": "05fc777643aa38d3b20a6310bf548bc9655eb5a4",
+      "disposition": "delete_integrated",
+      "evidence": {
+        "mergedPR": "https://github.com/p-to-q/aleph/pull/31",
+        "mergeCommit": "32f5fec6e2427da55931f7699b9b2510578afd15",
+        "base": "main"
+      },
+      "outcome": "remote_deleted_with_exact_sha_lease"
+    },
+    {
+      "ref": "refs/remotes/origin/codex/issue-34-known-metric-corrections",
+      "name": "codex/issue-34-known-metric-corrections",
+      "sha": "8948d3df73560ddbea9d199298bb5a7dee35a414",
+      "disposition": "delete_integrated",
+      "evidence": {
+        "mergedPR": "https://github.com/p-to-q/aleph/pull/37",
+        "mergeCommit": "ecc3badb3cedeb659dd4a47c8664e725f4d57232",
+        "base": "benchmark/source-v0.1"
+      },
+      "outcome": "remote_deleted_with_exact_sha_lease"
+    },
+    {
+      "ref": "refs/remotes/origin/codex/issue-36-unicode-scorer-v0-2",
+      "name": "codex/issue-36-unicode-scorer-v0-2",
+      "sha": "1d42579318a9c0b94bfae7aea332da6ebcc2413c",
+      "disposition": "delete_integrated",
+      "evidence": {
+        "mergedPR": "https://github.com/p-to-q/aleph/pull/39",
+        "mergeCommit": "00596672587b0a58049387da35aeae9ff8d21ae8",
+        "base": "benchmark/source-v0.2"
+      },
+      "outcome": "remote_deleted_with_exact_sha_lease"
+    },
+    {
+      "ref": "refs/remotes/origin/codex/issue-38-capture-dataset-layout",
+      "name": "codex/issue-38-capture-dataset-layout",
+      "sha": "870fad5110abd0a3eb55e0fe34231f4dd313eafb",
+      "disposition": "delete_integrated",
+      "evidence": {
+        "ancestryTarget": "origin/benchmark/source-v0.2",
+        "targetSha": "43fa15de044efeb0e46ffba115809faa0d94ca79"
+      },
+      "outcome": "remote_deleted_with_exact_sha_lease"
+    },
+    {
+      "ref": "refs/remotes/origin/codex/issue-38-capture-dispatch",
+      "name": "codex/issue-38-capture-dispatch",
+      "sha": "bea7c959cd6992d6124456f73b46825789bb8d8d",
+      "disposition": "delete_integrated",
+      "evidence": {
+        "ancestryTarget": "origin/benchmark/source-v0.2",
+        "targetSha": "43fa15de044efeb0e46ffba115809faa0d94ca79"
+      },
+      "outcome": "remote_deleted_with_exact_sha_lease"
+    },
+    {
+      "ref": "refs/remotes/origin/codex/issue-38-capture-model-binding",
+      "name": "codex/issue-38-capture-model-binding",
+      "sha": "328cd8f2ce5b638975fb55da8c80f8a1d0b44028",
+      "disposition": "delete_integrated",
+      "evidence": {
+        "ancestryTarget": "origin/benchmark/source-v0.2",
+        "targetSha": "43fa15de044efeb0e46ffba115809faa0d94ca79"
+      },
+      "outcome": "remote_deleted_with_exact_sha_lease"
+    },
+    {
+      "ref": "refs/remotes/origin/codex/issue-38-capture-platform-artifacts",
+      "name": "codex/issue-38-capture-platform-artifacts",
+      "sha": "f0667eab08b341eb2b4a0aad3a93efb6c04f16f5",
+      "disposition": "delete_integrated",
+      "evidence": {
+        "ancestryTarget": "origin/benchmark/source-v0.2",
+        "targetSha": "43fa15de044efeb0e46ffba115809faa0d94ca79"
+      },
+      "outcome": "remote_deleted_with_exact_sha_lease"
+    },
+    {
+      "ref": "refs/remotes/origin/codex/issue-38-capture-preflight-observability",
+      "name": "codex/issue-38-capture-preflight-observability",
+      "sha": "e6d8f9bac157aae72dc92a00303e00322b1b55ed",
+      "disposition": "delete_integrated",
+      "evidence": {
+        "ancestryTarget": "origin/benchmark/source-v0.2",
+        "targetSha": "43fa15de044efeb0e46ffba115809faa0d94ca79"
+      },
+      "outcome": "remote_deleted_with_exact_sha_lease"
+    },
+    {
+      "ref": "refs/remotes/origin/codex/issue-38-capture-reconciliation",
+      "name": "codex/issue-38-capture-reconciliation",
+      "sha": "8e5f22d91fb11aae95f1f1f13c546b5f9cc178bc",
+      "disposition": "delete_integrated",
+      "evidence": {
+        "ancestryTarget": "origin/benchmark/source-v0.2",
+        "targetSha": "43fa15de044efeb0e46ffba115809faa0d94ca79"
+      },
+      "outcome": "remote_deleted_with_exact_sha_lease"
+    },
+    {
+      "ref": "refs/remotes/origin/codex/issue-38-capture-replay",
+      "name": "codex/issue-38-capture-replay",
+      "sha": "a60de2dd0dc5ad5ec02a7bfd7f4f79366effda83",
+      "disposition": "delete_integrated",
+      "evidence": {
+        "ancestryTarget": "origin/benchmark/source-v0.2",
+        "targetSha": "43fa15de044efeb0e46ffba115809faa0d94ca79"
+      },
+      "outcome": "remote_deleted_with_exact_sha_lease"
+    },
+    {
+      "ref": "refs/remotes/origin/codex/issue-38-capture-schema",
+      "name": "codex/issue-38-capture-schema",
+      "sha": "40e525a39580fe6a22ec9aea6b05d5e0d1e64233",
+      "disposition": "delete_integrated",
+      "evidence": {
+        "ancestryTarget": "origin/benchmark/source-v0.2",
+        "targetSha": "43fa15de044efeb0e46ffba115809faa0d94ca79"
+      },
+      "outcome": "remote_deleted_with_exact_sha_lease"
+    },
+    {
+      "ref": "refs/remotes/origin/codex/issue-38-capture-sdk-annotation",
+      "name": "codex/issue-38-capture-sdk-annotation",
+      "sha": "c0facd43ea5d0954c7ad10b0d7bed5d736ba0c4e",
+      "disposition": "delete_integrated",
+      "evidence": {
+        "ancestryTarget": "origin/benchmark/source-v0.2",
+        "targetSha": "43fa15de044efeb0e46ffba115809faa0d94ca79"
+      },
+      "outcome": "remote_deleted_with_exact_sha_lease"
+    },
+    {
+      "ref": "refs/remotes/origin/codex/issue-38-capture-task",
+      "name": "codex/issue-38-capture-task",
+      "sha": "eead33f920719748064f6f4ee391fbdc56b2b7c0",
+      "disposition": "delete_integrated",
+      "evidence": {
+        "ancestryTarget": "origin/benchmark/source-v0.2",
+        "targetSha": "43fa15de044efeb0e46ffba115809faa0d94ca79"
+      },
+      "outcome": "remote_deleted_with_exact_sha_lease"
+    },
+    {
+      "ref": "refs/remotes/origin/codex/issue-38-exact-run-selection",
+      "name": "codex/issue-38-exact-run-selection",
+      "sha": "ddb7bc6def364d64f0f48fb15797a8b2bc1aafa2",
+      "disposition": "delete_integrated",
+      "evidence": {
+        "ancestryTarget": "origin/benchmark/source-v0.2",
+        "targetSha": "43fa15de044efeb0e46ffba115809faa0d94ca79"
+      },
+      "outcome": "remote_deleted_with_exact_sha_lease"
+    },
+    {
+      "ref": "refs/remotes/origin/codex/issue-38-kaggle-compat-plan",
+      "name": "codex/issue-38-kaggle-compat-plan",
+      "sha": "fc9e8e52ac03f5d0f2f94b0d336db97f44e6b6dc",
+      "disposition": "delete_integrated",
+      "evidence": {
+        "ancestryTarget": "origin/benchmark/source-v0.2",
+        "targetSha": "43fa15de044efeb0e46ffba115809faa0d94ca79"
+      },
+      "outcome": "remote_deleted_with_exact_sha_lease"
+    },
+    {
+      "ref": "refs/remotes/origin/codex/issue-38-kaggle-diagnostic",
+      "name": "codex/issue-38-kaggle-diagnostic",
+      "sha": "93d0d3a911b83945f8b7438392ca352db89db98c",
+      "disposition": "delete_integrated",
+      "evidence": {
+        "mergedPR": "https://github.com/p-to-q/aleph/pull/41",
+        "mergeCommit": "537a593e0a698a8a67989a5a308ecb5382227ed5",
+        "base": "benchmark/source-v0.2"
+      },
+      "outcome": "remote_deleted_with_exact_sha_lease"
+    },
+    {
+      "ref": "refs/remotes/origin/codex/issue-38-kaggle-naive-utc",
+      "name": "codex/issue-38-kaggle-naive-utc",
+      "sha": "5898b40fd49bfcf9a0bbe03ee10ed141a24cdab6",
+      "disposition": "delete_integrated",
+      "evidence": {
+        "ancestryTarget": "origin/benchmark/source-v0.2",
+        "targetSha": "43fa15de044efeb0e46ffba115809faa0d94ca79"
+      },
+      "outcome": "remote_deleted_with_exact_sha_lease"
+    },
+    {
+      "ref": "refs/remotes/origin/codex/issue-38-kaggle-receipts",
+      "name": "codex/issue-38-kaggle-receipts",
+      "sha": "9fbba703f8130cf069e2114fba78ca1eca517dd7",
+      "disposition": "delete_integrated",
+      "evidence": {
+        "mergedPR": "https://github.com/p-to-q/aleph/pull/40",
+        "mergeCommit": "4314696aa859b587b9c450e4bb877ec73b9230f5",
+        "base": "benchmark/source-v0.2"
+      },
+      "outcome": "remote_deleted_with_exact_sha_lease"
+    },
+    {
+      "ref": "refs/remotes/origin/codex/issue-38-kaggle-reconcile",
+      "name": "codex/issue-38-kaggle-reconcile",
+      "sha": "a076d51ed5f486276cccebed03089e6d518be277",
+      "disposition": "delete_integrated",
+      "evidence": {
+        "ancestryTarget": "origin/benchmark/source-v0.2",
+        "targetSha": "43fa15de044efeb0e46ffba115809faa0d94ca79"
+      },
+      "outcome": "remote_deleted_with_exact_sha_lease"
+    },
+    {
+      "ref": "refs/remotes/origin/codex/issue-38-kaggle-task-utc",
+      "name": "codex/issue-38-kaggle-task-utc",
+      "sha": "b86cce34c32b5fb5c4074fe8f23def30550337c7",
+      "disposition": "delete_integrated",
+      "evidence": {
+        "ancestryTarget": "origin/benchmark/source-v0.2",
+        "targetSha": "43fa15de044efeb0e46ffba115809faa0d94ca79"
+      },
+      "outcome": "remote_deleted_with_exact_sha_lease"
+    },
+    {
+      "ref": "refs/remotes/origin/codex/issue-38-kaggle-versioned-model-slug",
+      "name": "codex/issue-38-kaggle-versioned-model-slug",
+      "sha": "02b905368a621f2872fb63051086a702d8462a67",
+      "disposition": "delete_integrated",
+      "evidence": {
+        "ancestryTarget": "origin/benchmark/source-v0.2",
+        "targetSha": "43fa15de044efeb0e46ffba115809faa0d94ca79"
+      },
+      "outcome": "remote_deleted_with_exact_sha_lease"
+    },
+    {
+      "ref": "refs/remotes/origin/codex/issue-38-unicode-proof",
+      "name": "codex/issue-38-unicode-proof",
+      "sha": "a44218f5e4a8a0afc92afd08d96f92f57c1ab1f9",
+      "disposition": "preserve",
+      "evidence": "unique or no exact integration proof; retained for review"
+    },
+    {
+      "ref": "refs/remotes/origin/codex/issue-38-versioned-run-binding",
+      "name": "codex/issue-38-versioned-run-binding",
+      "sha": "b950c31eae979bc94bd2c2df1f16eb73da6ab9be",
+      "disposition": "delete_integrated",
+      "evidence": {
+        "ancestryTarget": "origin/benchmark/source-v0.2",
+        "targetSha": "43fa15de044efeb0e46ffba115809faa0d94ca79"
+      },
+      "outcome": "remote_deleted_with_exact_sha_lease"
+    },
+    {
+      "ref": "refs/remotes/origin/codex/issue-55-canonical-benchmark",
+      "name": "codex/issue-55-canonical-benchmark",
+      "sha": "898c24fe3615015828127b8b6fac90a61433a1b4",
+      "disposition": "delete_integrated",
+      "evidence": {
+        "ancestryTarget": "origin/benchmark/source-v0.2",
+        "targetSha": "43fa15de044efeb0e46ffba115809faa0d94ca79"
+      },
+      "outcome": "remote_deleted_with_exact_sha_lease"
+    },
+    {
+      "ref": "refs/remotes/origin/codex/issue-59-canonical-release-plan",
+      "name": "codex/issue-59-canonical-release-plan",
+      "sha": "9ca4b8aa6d039a624822e5028df453ed02eefbb3",
+      "disposition": "delete_integrated",
+      "evidence": {
+        "mergedPR": "https://github.com/p-to-q/aleph/pull/60",
+        "mergeCommit": "51f5ff20a294ee9fa63735bc7fb042c0fb6fbaf4",
+        "base": "benchmark/source-v0.2"
+      },
+      "outcome": "remote_deleted_with_exact_sha_lease"
+    },
+    {
+      "ref": "refs/remotes/origin/codex/kaggle-provider-default-reasoning",
+      "name": "codex/kaggle-provider-default-reasoning",
+      "sha": "e7948386fa0f9cf3549ce8ba963cefb0bb4aa80a",
+      "disposition": "delete_integrated",
+      "evidence": {
+        "mergedPR": "https://github.com/p-to-q/aleph/pull/65",
+        "mergeCommit": "9d76e2bb13ad3557205fe814d64cbec472d28aa0",
+        "base": "benchmark/source-v0.2"
+      },
+      "outcome": "remote_deleted_with_exact_sha_lease"
+    },
+    {
+      "ref": "refs/remotes/origin/codex/kaggle-queue-successor",
+      "name": "codex/kaggle-queue-successor",
+      "sha": "7cd6171a04f4f8490f288e8c2d0fb1d8b3138baf",
+      "disposition": "delete_integrated",
+      "evidence": {
+        "ancestryTarget": "origin/benchmark/source-v0.2",
+        "targetSha": "43fa15de044efeb0e46ffba115809faa0d94ca79"
+      },
+      "outcome": "remote_deleted_with_exact_sha_lease"
+    },
+    {
+      "ref": "refs/remotes/origin/codex/kaggle-source-authority",
+      "name": "codex/kaggle-source-authority",
+      "sha": "b358924b2a16d599f4e90aaa7e0ffc120bce0a09",
+      "disposition": "delete_integrated",
+      "evidence": {
+        "mergedPR": "https://github.com/p-to-q/aleph/pull/85",
+        "mergeCommit": "a38114b0691286e196f0ca16af03ec70564450a5",
+        "base": "benchmark/source-v0.2"
+      },
+      "outcome": "remote_deleted_with_exact_sha_lease"
+    },
+    {
+      "ref": "refs/remotes/origin/codex/kaggle-v10-finite-queue",
+      "name": "codex/kaggle-v10-finite-queue",
+      "sha": "2899b48304fd5987bd986135f3eea8908c9831a6",
+      "disposition": "delete_integrated",
+      "evidence": {
+        "ancestryTarget": "origin/benchmark/source-v0.2",
+        "targetSha": "43fa15de044efeb0e46ffba115809faa0d94ca79"
+      },
+      "outcome": "remote_deleted_with_exact_sha_lease"
+    },
+    {
+      "ref": "refs/remotes/origin/codex/leakage-and-length-formalism",
+      "name": "codex/leakage-and-length-formalism",
+      "sha": "224c68de009b817bb45f663a42d082655f488be8",
+      "disposition": "delete_integrated",
+      "evidence": {
+        "ancestryTarget": "origin/main",
+        "targetSha": "824c2531c567bc36c422711bc6dcd0564d31fe70"
+      },
+      "outcome": "remote_deleted_with_exact_sha_lease"
+    },
+    {
+      "ref": "refs/remotes/origin/codex/miniprompt-comparison",
+      "name": "codex/miniprompt-comparison",
+      "sha": "bc4faa354d7cb606e6703ba34e5c7de6e438f22b",
+      "disposition": "delete_integrated",
+      "evidence": {
+        "ancestryTarget": "origin/main",
+        "targetSha": "824c2531c567bc36c422711bc6dcd0564d31fe70"
+      },
+      "outcome": "remote_deleted_with_exact_sha_lease"
+    },
+    {
+      "ref": "refs/remotes/origin/codex/miniprompt-comparison-set2",
+      "name": "codex/miniprompt-comparison-set2",
+      "sha": "65c0c2a6f7c6a598ec55e8699528d64abdcb72ba",
+      "disposition": "delete_integrated",
+      "evidence": {
+        "ancestryTarget": "origin/main",
+        "targetSha": "824c2531c567bc36c422711bc6dcd0564d31fe70"
+      },
+      "outcome": "remote_deleted_with_exact_sha_lease"
+    },
+    {
+      "ref": "refs/remotes/origin/codex/miniprompt-implementation",
+      "name": "codex/miniprompt-implementation",
+      "sha": "108767393ccba55a539129ef89123599eb955b3c",
+      "disposition": "delete_integrated",
+      "evidence": {
+        "ancestryTarget": "origin/main",
+        "targetSha": "824c2531c567bc36c422711bc6dcd0564d31fe70"
+      },
+      "outcome": "remote_deleted_with_exact_sha_lease"
+    },
+    {
+      "ref": "refs/remotes/origin/codex/miniprompt-reproduction-note",
+      "name": "codex/miniprompt-reproduction-note",
+      "sha": "b6c4d124a40484cc05658eea0575a9ccf3556005",
+      "disposition": "delete_integrated",
+      "evidence": {
+        "ancestryTarget": "origin/main",
+        "targetSha": "824c2531c567bc36c422711bc6dcd0564d31fe70"
+      },
+      "outcome": "remote_deleted_with_exact_sha_lease"
+    },
+    {
+      "ref": "refs/remotes/origin/codex/miniprompt-scaffold-extension",
+      "name": "codex/miniprompt-scaffold-extension",
+      "sha": "de8bc15d73ca2d576e69d9afd7bb857b73cc6103",
+      "disposition": "delete_integrated",
+      "evidence": {
+        "ancestryTarget": "origin/main",
+        "targetSha": "824c2531c567bc36c422711bc6dcd0564d31fe70"
+      },
+      "outcome": "remote_deleted_with_exact_sha_lease"
+    },
+    {
+      "ref": "refs/remotes/origin/codex/mlx-canary",
+      "name": "codex/mlx-canary",
+      "sha": "2f454bbc5e20b9e105e98784c61208999191dca0",
+      "disposition": "preserve",
+      "evidence": "unique or no exact integration proof; retained for review"
+    },
+    {
+      "ref": "refs/remotes/origin/codex/node-floor-p3",
+      "name": "codex/node-floor-p3",
+      "sha": "9208038c46267ea2131340534b3ef15a86e8186e",
+      "disposition": "delete_integrated",
+      "evidence": {
+        "ancestryTarget": "origin/main",
+        "targetSha": "824c2531c567bc36c422711bc6dcd0564d31fe70"
+      },
+      "outcome": "remote_deleted_with_exact_sha_lease"
+    },
+    {
+      "ref": "refs/remotes/origin/codex/persistence-review",
+      "name": "codex/persistence-review",
+      "sha": "b1411bfecd00ad82a499d54ba2dd01ce37ba06ba",
+      "disposition": "delete_integrated",
+      "evidence": {
+        "ancestryTarget": "origin/main",
+        "targetSha": "824c2531c567bc36c422711bc6dcd0564d31fe70"
+      },
+      "outcome": "remote_deleted_with_exact_sha_lease"
+    },
+    {
+      "ref": "refs/remotes/origin/codex/pr1-measurement-correctness",
+      "name": "codex/pr1-measurement-correctness",
+      "sha": "0e63d3ac60ad2109e0e592d6ccc9dd2f927d8667",
+      "disposition": "delete_integrated",
+      "evidence": {
+        "mergedPR": "https://github.com/p-to-q/aleph/pull/100",
+        "mergeCommit": "c2cbda063daad142010f3aed9165fe23ec032be1",
+        "base": "main"
+      },
+      "outcome": "remote_deleted_with_exact_sha_lease"
+    },
+    {
+      "ref": "refs/remotes/origin/codex/product-open-file",
+      "name": "codex/product-open-file",
+      "sha": "bff04bdcd35d1064cf4681bd74fc32150fd1420e",
+      "disposition": "delete_integrated",
+      "evidence": {
+        "ancestryTarget": "origin/main",
+        "targetSha": "824c2531c567bc36c422711bc6dcd0564d31fe70"
+      },
+      "outcome": "remote_deleted_with_exact_sha_lease"
+    },
+    {
+      "ref": "refs/remotes/origin/codex/retained-output-replay-adapter",
+      "name": "codex/retained-output-replay-adapter",
+      "sha": "57b877c4a9077b70cc5d521ddcce51f54db6e0cc",
+      "disposition": "delete_integrated",
+      "evidence": {
+        "mergedPR": "https://github.com/p-to-q/aleph/pull/64",
+        "mergeCommit": "4d2f7ea081812fb160867cf790bacc886c7d7e64",
+        "base": "benchmark/source-v0.2"
+      },
+      "outcome": "remote_deleted_with_exact_sha_lease"
+    },
+    {
+      "ref": "refs/remotes/origin/codex/review-citations",
+      "name": "codex/review-citations",
+      "sha": "dd3d9bac2bc802b0f70318663c576a48c75612e5",
+      "disposition": "delete_integrated",
+      "evidence": {
+        "ancestryTarget": "origin/main",
+        "targetSha": "824c2531c567bc36c422711bc6dcd0564d31fe70"
+      },
+      "outcome": "remote_deleted_with_exact_sha_lease"
+    },
+    {
+      "ref": "refs/remotes/origin/codex/state-of-play-refresh",
+      "name": "codex/state-of-play-refresh",
+      "sha": "e0ca24746021985193ea5e20c0511090a3124d03",
+      "disposition": "delete_integrated",
+      "evidence": {
+        "ancestryTarget": "origin/main",
+        "targetSha": "824c2531c567bc36c422711bc6dcd0564d31fe70"
+      },
+      "outcome": "remote_deleted_with_exact_sha_lease"
+    },
+    {
+      "ref": "refs/remotes/origin/dependabot/npm_and_yarn/multi-bb2efd036b",
+      "name": "dependabot/npm_and_yarn/multi-bb2efd036b",
+      "sha": "427d68f23cc459e7ec0e946e24961849a1cef484",
+      "disposition": "preserve",
+      "evidence": "unique or no exact integration proof; retained for review"
+    },
+    {
+      "ref": "refs/remotes/origin/dependabot/npm_and_yarn/multi-e2615a3a50",
+      "name": "dependabot/npm_and_yarn/multi-e2615a3a50",
+      "sha": "f6b42584e32cb5f6ed563d47e2d65a5739f3b101",
+      "disposition": "preserve",
+      "evidence": "unique or no exact integration proof; retained for review"
+    },
+    {
+      "ref": "refs/remotes/origin/dependabot/npm_and_yarn/next-16.2.7",
+      "name": "dependabot/npm_and_yarn/next-16.2.7",
+      "sha": "28c35ec8dfe6fc17fd04a56c20df0eb02c953225",
+      "disposition": "preserve",
+      "evidence": "unique or no exact integration proof; retained for review"
+    },
+    {
+      "ref": "refs/remotes/origin/dependabot/npm_and_yarn/types/node-25.9.2",
+      "name": "dependabot/npm_and_yarn/types/node-25.9.2",
+      "sha": "28d1b4cf84efa408b063896f9df6c8dd048f600b",
+      "disposition": "preserve",
+      "evidence": "unique or no exact integration proof; retained for review"
+    },
+    {
+      "ref": "refs/remotes/origin/dependabot/npm_and_yarn/typescript-6.0.3",
+      "name": "dependabot/npm_and_yarn/typescript-6.0.3",
+      "sha": "61423b07ba1cb03359b192e270b16317e2234c80",
+      "disposition": "preserve",
+      "evidence": "unique or no exact integration proof; retained for review"
+    },
+    {
+      "ref": "refs/remotes/origin/fix/canonical-parser-required-fields",
+      "name": "fix/canonical-parser-required-fields",
+      "sha": "1b62990911b35a5557cd321499d002fa8a5f44b5",
+      "disposition": "delete_integrated",
+      "evidence": {
+        "ancestryTarget": "origin/main",
+        "targetSha": "824c2531c567bc36c422711bc6dcd0564d31fe70"
+      },
+      "outcome": "remote_deleted_with_exact_sha_lease"
+    },
+    {
+      "ref": "refs/remotes/origin/fix/compare-recorded-whole-prompt-tokens",
+      "name": "fix/compare-recorded-whole-prompt-tokens",
+      "sha": "c0002510180b16b9eb7733ee337f9f3114cce29d",
+      "disposition": "preserve",
+      "evidence": "unique or no exact integration proof; retained for review"
+    },
+    {
+      "ref": "refs/remotes/origin/fix/frozen-config-strict-canonical",
+      "name": "fix/frozen-config-strict-canonical",
+      "sha": "ec494d66708900baf4b5252e012b3df04487da80",
+      "disposition": "preserve",
+      "evidence": "unique or no exact integration proof; retained for review"
+    },
+    {
+      "ref": "refs/remotes/origin/main",
+      "name": "main",
+      "sha": "824c2531c567bc36c422711bc6dcd0564d31fe70",
+      "disposition": "preserve",
+      "evidence": "protected authority, archive or active worktree"
+    },
+    {
+      "ref": "refs/remotes/origin/vercel/install-and-configure-vercel-w-y964xg",
+      "name": "vercel/install-and-configure-vercel-w-y964xg",
+      "sha": "ca67426aeed50e6061b6f6fc23df842134877326",
+      "disposition": "delete_integrated",
+      "evidence": {
+        "ancestryTarget": "origin/main",
+        "targetSha": "824c2531c567bc36c422711bc6dcd0564d31fe70"
+      },
+      "outcome": "remote_deleted_with_exact_sha_lease"
+    }
+  ]
+}

@@ -10,6 +10,7 @@ It runs:
 
 ```text
 scripts/doctor.mjs
+scripts/check-versions.mjs
 scripts/check-links.mjs
 scripts/check-placeholders.mjs
 scripts/check-maintenance-routes.mjs
