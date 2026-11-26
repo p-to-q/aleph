@@ -26,17 +26,24 @@
     "publicStatus": "legacy_not_v02_qualified",
     "newPrivateDiagnosticIssue": 107,
     "diagnosticOnly": true,
-    "benchmarkEligible": false
+    "benchmarkEligible": false,
+    "newPrivateDiagnosticStatus": "failed_empty_prompt_unsupported",
+    "newPrivateTask": "jahyee/aleph-hybrid-107-20261127/1",
+    "newPrivateRunId": 7722139,
+    "freshConfirmationExecuted": false,
+    "evidenceReceipt": "docs/maintenance/evidence/kaggle-107-terminal.json",
+    "furtherRunAuthorized": false
   },
   "evidence": {
     "localRealModel": "docs/research/2026-11-27-mlx-canary-receipt.md",
     "maintenance": "docs/maintenance/2026-11-27-closeout.md",
-    "execution": "docs/maintenance/execution-runbook.md"
+    "execution": "docs/maintenance/execution-runbook.md",
+    "production": "docs/maintenance/evidence/production-1.0.4-acceptance.json"
   },
   "publicationGates": [
-    "Canonical site runtime readback after deployment",
     "Standalone source authority and portable scorer gates",
     "Exact task-version/run, closed-world archive, raw usage and quota evidence",
-    "HF H2 reviewed exact-source CAS release with unauthenticated readback"
+    "HF H2 reviewed exact-source CAS release with unauthenticated readback",
+    "A newly authorized diagnostic after versioned null-control compatibility review; #107 remains unresolved."
   ]
 }

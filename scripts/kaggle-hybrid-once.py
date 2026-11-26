@@ -210,6 +210,16 @@ def require_task_absence(tasks, owner, request_type):
     raise ValueError('owned task listing exceeded bounded pagination')
 
 
+def creation_visibility(row):
+    """Creation can acknowledge before visibility fields have been populated."""
+    flags = [row.get(key) for key in ('isPublic','isBackingNotebookPublished','areRunArtifactsPublic')]
+    if any(value is not None and type(value) is not bool for value in flags):
+        raise ValueError('invalid task visibility fields; stop and inspect')
+    if any(value is True for value in flags):
+        raise ValueError('unexpected task visibility; stop and inspect')
+    return 'private' if all(value is False for value in flags) else 'pending_readback'
+
+
 def dispatch(directory):
     plan=artifact_check(directory)
     if (directory/'dispatch.json').exists():
@@ -283,8 +293,8 @@ def dispatch(directory):
             save_json(path,journal)
             raise
         save_json(path,journal)
-        if row.get('isPublic') is not False or row.get('isBackingNotebookPublished') is True:
-            raise ValueError('unexpected task visibility; stop and inspect')
+        journal['visibilityStatus']=creation_visibility(row)
+        save_json(path,journal)
         return journal
 
 
@@ -302,8 +312,9 @@ def status(directory, download=False):
         slug=ApiBenchmarkTaskSlug();slug.owner_slug=identity['ownerSlug'];slug.task_slug=identity['taskSlug'];slug.version_number=identity['versionNumber']
         get=ApiGetBenchmarkTaskRequest();get.slug=slug;get.include_definition=True
         task=sdk_dict(tasks.get_benchmark_task(get))
-        if task['slug']!=identity or task.get('isPublic') is not False:
-            raise ValueError('exact task/version/visibility mismatch')
+        save_json(directory/'task-readback-latest.json',{'observedAt':now(),'task':task})
+        if task['slug']!=identity or creation_visibility(task) != 'private':
+            raise ValueError('exact task/version/visibility mismatch or pending readback')
         runs_request=ApiListBenchmarkTaskRunsRequest();runs_request.task_slug=slug;runs_request.page_size=20
         runs=sdk_dict(tasks.list_benchmark_task_runs(runs_request))
         result={'observedAt':now(),'task':task,'runs':runs,'quota':read_quota(api,client)}

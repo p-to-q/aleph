@@ -48,6 +48,16 @@ raw outputs, usage, quota before/after and a closed archive. Verify offline befo
 claiming completion. Every failure is retained and stops the run. No public score
 or HF numeric update follows from this diagnostic.
 
+The 2026-11-27 authorization has now been consumed by one task/run. See the
+[terminal receipt](evidence/kaggle-107-terminal.json): empty prompts are rejected
+by this model path. No confirmation completed. Do not rerun the dated runner.
+Before another authorization, choose and version a provider-compatible null
+control: a shared, non-target-bearing scaffold changes the experimental context
+and must be declared and costed for every candidate, not silently substituted
+only for the failed control. Alternatively predeclare the null baseline as
+unsupported for a model and use an appropriate comparison design. Validate the
+actual serialized request shape offline before the next hosted run.
+
 ## Larger-scale admission
 
 Freeze a finite target set, controls, metrics, decoding, model versions and
