@@ -17,6 +17,7 @@ import {
   type RunFilePoint,
 } from '../lib/run-file'
 import { countUnicodeCodePoints, MAX_SEARCH_TARGET_CHARS } from '../lib/search-limits.mjs'
+import { probeSearchHealth } from '../lib/search-health.mjs'
 
 interface CurvePoint {
   epsilon: number
@@ -1769,28 +1770,12 @@ export function AlephExplorer() {
   // so the first screen remains deterministic and evidence-labeled.
   useEffect(() => {
     let alive = true
-    const ping = (url: string, canReach = true) => {
-      if (!canReach) return Promise.resolve(false)
-      return fetch(url, { signal: AbortSignal.timeout(3000) })
-        .then((r) => r.ok)
-        .catch(() => false)
-    }
-    const pingCustom = () =>
-      fetch(HEALTH_CUSTOM, { signal: AbortSignal.timeout(3000) })
-        .then(async (r) => {
-          if (!r.ok) return false
-          if (!CUSTOM_API_IS_SAME_ORIGIN) return true
-          const body = (await r.json().catch(() => null)) as
-            | { hosted_black_box_configured?: unknown }
-            | null
-          return body?.hosted_black_box_configured === true
-        })
-        .catch(() => false)
-
-    Promise.all([ping(HEALTH_MLX, MLX_CAN_BE_REACHED_FROM_BROWSER), pingCustom()]).then(([mlx, custom]) => {
-      if (!alive) return
-      setHealth({ mlx, custom })
-    })
+    // Resolve modes independently: a stalled endpoint cannot hold the other
+    // mode in "checking". Runtime host policy is applied after hydration only.
+    probeSearchHealth(HEALTH_MLX, { configured: MLX_CAN_BE_REACHED_FROM_BROWSER })
+      .then((mlx) => { if (alive) setHealth((previous) => ({ ...previous, mlx })) })
+    probeSearchHealth(HEALTH_CUSTOM, { requireHostedCapability: CUSTOM_API_IS_SAME_ORIGIN })
+      .then((custom) => { if (alive) setHealth((previous) => ({ ...previous, custom })) })
 
     return () => { alive = false }
   }, [])
@@ -2741,10 +2726,9 @@ export function AlephExplorer() {
                   help: tr.modeHelpCustom,
                 },
               ]).map(({ id, label, status, help }) => {
-                const visibleStatus =
-                  id === 'local_mlx' && !MLX_CAN_BE_REACHED_FROM_BROWSER
-                    ? false
-                    : status
+                // Keep server and initial client markup identical. Deriving
+                // this from window.location here leaves stale SSR attributes.
+                const visibleStatus = status
                 return (
                   <button
                     key={id}
