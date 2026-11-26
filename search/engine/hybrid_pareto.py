@@ -34,6 +34,10 @@ Pure standard library. No adapter is called during replay; adapters are
 reached only through the typed kernel boundary.
 """
 
+# v0 orders promoted candidates by a single declared metric, then candidate id.
+# Only the top-ranked frozen entry receives fresh confirmation; other shortlist
+# entries are recorded, not re-measured. A non-dominated frontier is deferred.
+
 from __future__ import annotations
 
 import math
@@ -586,7 +590,7 @@ class _Scheduler:
             "stage": "discovery",
         })
         for candidate in remaining:
-            self._reject(candidate.candidate_id, "dominated")
+            self._reject(candidate.candidate_id, "not_evaluated_after_racing_stop")
 
     def _promote(self, candidate_id: str, metric: float) -> None:
         self._promoted.append(candidate_id)

@@ -173,3 +173,25 @@ optional local-MLX check. If
 unavailable in that shell. If preflight is ok but live smoke is blocked, start
 `search/server.py`; if preflight is blocked, set up `search/.venv`. Either case
 does not invalidate the fixture/mock demo path.
+
+## Resource accounting versions
+
+New engine bundles use `ResourceLedger/0.2.0`: JSON `null` means a receipt did
+not report that canonical counter. A sum remains unknown if any contribution
+is unreported; reported zero remains zero, including `samples: 0`. Metadata
+keys are extensible, but `input_tokens` cannot satisfy `inputTokens`. Null is
+not accepted as a reported integer. Engine-counted calls/failures remain
+separate from receipt-reported counters. `V_verify.freshSamples` counts fresh
+evaluation events, while `T_dec.samples` preserves the adapter-reported count.
+Missing confirmation work (`tests`, `replays`, human/proof checks) is unknown.
+
+Sealed `ResourceLedger/0.1.0` bundles replay with their original zero defaults
+and sample fallback. Their successful verification attests historical byte
+identity, not complete accounting. Unknown ledger versions fail closed.
+`test_resource_reporting.py` tests full bundle export/replay, missing and
+misspelled keys, zero samples, nullable sums, and racing-stop omission reasons.
+
+`hybrid-pareto-v0` uses single-metric shortlist ordering and fresh confirmation
+of the top-ranked entry only. Racing-skipped candidates are explicitly
+`not_evaluated_after_racing_stop`; they are not measured dominance evidence.
+See the [acceptance decision](plans/2026-11-27-engineering-acceptance.md).

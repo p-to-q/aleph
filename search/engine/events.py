@@ -134,6 +134,7 @@ ADAPTER_CALL_EVENTS = (
 REJECTION_REASONS = (
     "duplicate_candidate",
     "dominated",
+    "not_evaluated_after_racing_stop",
     "budget_exhausted",
     "evaluation_failed",
     "malformed_proposal",
