@@ -158,8 +158,8 @@
       "create-response.json": "494ea04dae6974ed896b006772e626764b0f9ccd6b488ad7a99ad0e389cedec8",
       "task-absence-preflight.json": "9fff6dd1ea449c696a88d154e32b56fe48563f9f1188862636ca0eeedfe57586",
       "quota-before.json": "8388b3101977ed439817d7b70ffa56e50737245281a9704530ddb45ec636faed",
-      "status-latest.json": "634c9509ad343b881fb5cd312b7787b15db6a2a0b8f3b116aa79feb535f35ab6",
-      "independent-replay.json": "b19c519e395d18b0b36c8cfda2272f140c4ba3b803d6198901ce39c6f0286c5c"
+      "independent-replay.json": "b19c519e395d18b0b36c8cfda2272f140c4ba3b803d6198901ce39c6f0286c5c",
+      "status-terminal-run-7722139.json": "634c9509ad343b881fb5cd312b7787b15db6a2a0b8f3b116aa79feb535f35ab6"
     }
   },
   "nextGate": "Review a new versioned null-control request representation or choose a compatible model; validate serialized requests offline, then obtain fresh bounded run authorization. Never retry this task or reopen the legacy queue.",
