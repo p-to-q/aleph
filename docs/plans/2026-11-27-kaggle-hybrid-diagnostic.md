@@ -47,3 +47,12 @@ journal before its single CreateBenchmarkTask call. Do not pair it with any
 `tasks run` command. After terminal status, download the exact run including
 notebook source, retain its untouched ZIP, and require source equality plus
 closed-world/model-free replay. No public score, paid overage or extra variant.
+
+## Owned-task absence preflight
+
+The live SDK returns GET permission-denied for the new slug while a known owned
+task can be read. Never interpret that 403 as absence. Before creation, require
+a complete unfiltered owner-scoped listing with stable total count, unique owned
+identities and advancing pagination; reject existing slugs and every incomplete
+or ambiguous listing. Save the listing as the preflight receipt. This changes
+only admission, not the six-call budget or create-once journal.
