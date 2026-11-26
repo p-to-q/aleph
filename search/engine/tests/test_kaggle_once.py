@@ -7,6 +7,7 @@ from pathlib import Path
 import tempfile
 import unittest
 from unittest.mock import patch
+from types import SimpleNamespace
 import zipfile
 
 REPO=Path(__file__).resolve().parents[3]
@@ -25,6 +26,50 @@ class KaggleOnceTests(unittest.TestCase):
             return '' if args[0]=='status' else '0'*40 if args[0]=='rev-parse' else '\n'.join(names)
         with patch.object(once,'git',git):
             return once.prepare(self.root)
+
+    def listing(self, pages):
+        requests=[]
+        class Result:
+            def __init__(self, row): self.row=row
+            def __str__(self): return json.dumps(self.row)
+        def read(request):
+            requests.append(request)
+            return Result(pages[len(requests)-1])
+        result=once.require_task_absence(SimpleNamespace(list_benchmark_tasks=read),'owner',SimpleNamespace)
+        return result,requests
+
+    def test_owned_listing_absence_requires_complete_pagination(self):
+        def row(name): return {'slug':{'ownerSlug':'owner','taskSlug':name}}
+        result,requests=self.listing([
+            {'tasks':[row('old')],'totalResults':2,'nextPageToken':'page2'},
+            {'tasks':[row('other')],'totalResults':2,'nextPageToken':''}])
+        self.assertTrue(result['absent'])
+        self.assertEqual([r.page_token for r in requests],['','page2'])
+        self.assertTrue(all(r.owner_slug=='owner' and r.page_size==100 for r in requests))
+        result,_=self.listing([{'tasks':[],'totalResults':0,'nextPageToken':''}])
+        self.assertTrue(result['absent'])
+
+    def test_owned_listing_never_admits_existing_or_incomplete_state(self):
+        def row(name,owner='owner'): return {'slug':{'ownerSlug':owner,'taskSlug':name}}
+        cases=[
+            [{'tasks':[row(once.TASK)],'totalResults':1,'nextPageToken':''}],
+            [{'tasks':[],'totalResults':1,'nextPageToken':''}],
+            [{'tasks':[row('a','other')],'totalResults':1,'nextPageToken':''}],
+            [{'tasks':[row('a'),row('a')],'totalResults':2,'nextPageToken':''}],
+            [{'tasks':[row('a')],'totalResults':True,'nextPageToken':''}],
+            [{'tasks':[row('a')],'totalResults':1}],
+            [{'tasks':[row('a')],'totalResults':2,'nextPageToken':'p2'},
+             {'tasks':[row('b')],'totalResults':3,'nextPageToken':''}],
+            [{'tasks':[row('a')],'totalResults':3,'nextPageToken':'p2'},
+             {'tasks':[row('b')],'totalResults':3,'nextPageToken':'p2'}],
+        ]
+        for pages in cases:
+            with self.subTest(pages=pages),self.assertRaises(ValueError): self.listing(pages)
+
+    def test_owned_listing_access_error_propagates(self):
+        def denied(request): raise PermissionError('403 denied')
+        with self.assertRaises(PermissionError):
+            once.require_task_absence(SimpleNamespace(list_benchmark_tasks=denied),'owner',SimpleNamespace)
 
     def test_prepared_notebook_binds_exact_source_tree(self):
         plan=self.prepare()

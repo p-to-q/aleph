@@ -166,6 +166,50 @@ def read_quota(api,client):
     return result
 
 
+def require_task_absence(tasks, owner, request_type):
+    """Prove absence with a complete, unfiltered owned listing, never a GET 403."""
+    if not isinstance(owner, str) or not owner:
+        raise ValueError('authenticated owner slug is required')
+    token = ''
+    tokens = set()
+    seen = set()
+    pages = []
+    total = None
+    for _ in range(100):
+        request = request_type()
+        request.owner_slug = owner
+        request.page_size = 100
+        request.page_token = token
+        page = sdk_dict(tasks.list_benchmark_tasks(request))
+        rows = page.get('tasks')
+        count = page.get('totalResults')
+        next_token = page.get('nextPageToken')
+        if not isinstance(rows, list) or type(count) is not int or count < 0 or not isinstance(next_token, str):
+            raise ValueError('owned task listing is incomplete or malformed')
+        if total is not None and count != total:
+            raise ValueError('owned task listing changed during pagination')
+        total = count
+        for row in rows:
+            slug = row.get('slug', {})
+            name = slug.get('taskSlug')
+            if slug.get('ownerSlug') != owner or not isinstance(name, str) or not name or name in seen:
+                raise ValueError('owned task listing has wrong ownership or duplicate identity')
+            if name == TASK:
+                raise ValueError('fixed task already exists; no further creation is allowed')
+            seen.add(name)
+        pages.append(page)
+        if not next_token:
+            if len(seen) != total:
+                raise ValueError('owned task listing count does not match complete pagination')
+            return {'observedAt':now(),'owner':owner,'task':TASK,'absent':True,
+                    'method':'complete_unfiltered_owned_listing','pages':pages,'totalResults':total}
+        if next_token in tokens or not rows:
+            raise ValueError('owned task pagination failed to advance')
+        tokens.add(next_token)
+        token = next_token
+    raise ValueError('owned task listing exceeded bounded pagination')
+
+
 def dispatch(directory):
     plan=artifact_check(directory)
     if (directory/'dispatch.json').exists():
@@ -188,22 +232,13 @@ def dispatch(directory):
             legacy_processes.append(int(fields[0]))
     if legacy_processes:
         raise ValueError('legacy Kaggle process is active; stop without dispatch')
-    from requests.exceptions import HTTPError
-    from kagglesdk.benchmarks.types.benchmark_tasks_api_service import (ApiBenchmarkTaskSlug,ApiGetBenchmarkTaskRequest,
+    from kagglesdk.benchmarks.types.benchmark_tasks_api_service import (ApiListBenchmarkTasksRequest,
         ApiCreateBenchmarkTaskRequest,BenchmarkTaskOptions,ApiTaskCreationValidationConfig,ApiValidationStage,BenchmarkTaskValidationStage)
     api=authenticate()
     with api.build_kaggle_client() as client:
         tasks=client.benchmarks.benchmark_tasks_api_client
-        slug=ApiBenchmarkTaskSlug();slug.task_slug=TASK
-        get=ApiGetBenchmarkTaskRequest();get.slug=slug
-        try:
-            existing=tasks.get_benchmark_task(get)
-        except HTTPError as error:
-            if error.response is None or error.response.status_code != 404:
-                raise
-        else:
-            save_json(directory/'existing-task.json',sdk_dict(existing))
-            raise ValueError('fixed task already exists; no further creation is allowed')
+        absence=require_task_absence(tasks,api.config_values.get('username'),ApiListBenchmarkTasksRequest)
+        save_json(directory/'task-absence-preflight.json',absence)
         before=read_quota(api,client)
         if 'admissionError' in before:
             save_json(directory/'quota-before.json',before)
