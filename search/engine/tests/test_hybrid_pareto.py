@@ -546,7 +546,7 @@ class TestOperatorRounds(unittest.TestCase):
             if e.event_type == "candidate_rejected"
             and e.payload.get("candidateId") == BAD_SEED.candidate_id
         ]
-        self.assertEqual(rejections[0].payload.get("reason"), "dominated")
+        self.assertEqual(rejections[0].payload.get("reason"), "not_evaluated_after_racing_stop")
         report = verify_bundle(result.root)
         self.assertTrue(report.ok, report.errors)
 

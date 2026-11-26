@@ -64,6 +64,10 @@ from .events import (
 )
 from .ledger import (
     NESTING_RULES,
+    LEDGER_SCHEMA_VERSION,
+    LEGACY_LEDGER_SCHEMA_VERSION,
+    SUPPORTED_LEDGER_SCHEMAS,
+    sum_reported,
     LedgerError,
     Reservation,
     ResourceLedger,
@@ -136,7 +140,7 @@ class RunManifest:
     event_schema_version: str = EVENT_SCHEMA_VERSION
     canonical_schema_version: str = CANONICAL_FORM_VERSION
     contracts_schema_version: str = "aleph-engine-contracts/0.1.0"
-    ledger_schema_version: str = "ResourceLedger/0.1.0"
+    ledger_schema_version: str = LEDGER_SCHEMA_VERSION
 
     def __post_init__(self) -> None:
         if not isinstance(self.run_id, str) or not self.run_id:
@@ -173,6 +177,8 @@ class RunManifest:
             raise ArchiveError("an open manifest must not carry a stream digest")
         if self.stream_digest is not None and not is_digest(self.stream_digest):
             raise ArchiveError("manifest stream digest must be a well-formed digest")
+        if self.ledger_schema_version not in SUPPORTED_LEDGER_SCHEMAS:
+            raise ArchiveError(f"unsupported ledger schema: {self.ledger_schema_version!r}")
         for name in (
             "bundle_schema_version",
             "engine_version",
@@ -626,12 +632,16 @@ def _check_adapter_digest(adapter_digest: str, manifest: RunManifest, label: str
         )
 
 
-def _resource_int(resource_use: tuple[tuple[str, Any], ...], key: str) -> int:
-    """Extract a non-negative int declared by a receipt's resource use."""
+def _resource_int(
+    resource_use: tuple[tuple[str, Any], ...], key: str, *, legacy: bool = False
+) -> int | None:
+    """Return the reported value, or unknown (legacy replay alone defaults to zero)."""
     values = [value for name, value in resource_use if name == key]
     if not values:
-        return 0
-    value = values[-1]
+        return 0 if legacy else None
+    if len(values) != 1:
+        raise DerivationError(f"duplicate receipt resource use key: {key!r}")
+    value = values[0]
     if not isinstance(value, int) or isinstance(value, bool) or value < 0:
         raise DerivationError(f"receipt resource use {key!r} must be a non-negative int")
     return value
@@ -654,7 +664,13 @@ def derive_state(
         nesting_rule=manifest.nesting_rule,
         scheduler_model=manifest.scheduler_model,
         model_manifest=manifest.model_manifest,
+        schema_version=manifest.ledger_schema_version,
     )
+    legacy = manifest.ledger_schema_version == LEGACY_LEDGER_SCHEMA_VERSION
+
+    def resource_int(resource_use, key):
+        return _resource_int(resource_use, key, legacy=legacy)
+
     candidates: dict[str, dict[str, Any]] = {}
     archive: dict[str, dict[str, Any]] = {}
     promoted: list[str] = []
@@ -762,8 +778,12 @@ def derive_state(
                 candidates[candidate.candidate_id] = canonical
             w_search["proposal_calls"] += 1
             w_search["proposed_candidates"] += len(receipt.candidates)
-            w_search["retries"] += _resource_int(receipt.resource_use, "retries")
-            w_search["cache_misses"] += _resource_int(receipt.resource_use, "cacheMisses")
+            w_search["retries"] = sum_reported(
+                w_search["retries"], resource_int(receipt.resource_use, "retries")
+            )
+            w_search["cache_misses"] = sum_reported(
+                w_search["cache_misses"], resource_int(receipt.resource_use, "cacheMisses")
+            )
 
         elif event_type == "proposal_failed":
             try:
@@ -862,20 +882,24 @@ def derive_state(
                 verify_work["fresh_samples"] += 1
             ledger.decoder[stage].add(
                 calls=1,
-                input_tokens=_resource_int(receipt.resource_use, "inputTokens"),
-                output_tokens=_resource_int(receipt.resource_use, "outputTokens"),
+                input_tokens=resource_int(receipt.resource_use, "inputTokens"),
+                output_tokens=resource_int(receipt.resource_use, "outputTokens"),
                 samples=(
-                    _resource_int(receipt.resource_use, "samples")
-                    or 1
+                    (resource_int(receipt.resource_use, "samples") or 1)
+                    if legacy else resource_int(receipt.resource_use, "samples")
                 ),
-                provider_reported_tokens=_resource_int(
+                provider_reported_tokens=resource_int(
                     receipt.resource_use, "providerReportedTokens"
                 ),
-                failures=_resource_int(receipt.resource_use, "failures"),
+                failures=resource_int(receipt.resource_use, "failures"),
             )
             w_search["evaluation_calls"] += 1
-            w_search["retries"] += _resource_int(receipt.resource_use, "retries")
-            w_search["cache_misses"] += _resource_int(receipt.resource_use, "cacheMisses")
+            w_search["retries"] = sum_reported(
+                w_search["retries"], resource_int(receipt.resource_use, "retries")
+            )
+            w_search["cache_misses"] = sum_reported(
+                w_search["cache_misses"], resource_int(receipt.resource_use, "cacheMisses")
+            )
 
         elif event_type == "evaluation_failed":
             started = started_evaluations.pop(payload["requestId"], None)
@@ -995,7 +1019,7 @@ def derive_state(
                     )
             verify_work.update(
                 {
-                    key: _resource_int_from_payload(payload, payload_key)
+                    key: _resource_int_from_payload(payload, payload_key, legacy=legacy)
                     for key, payload_key in (
                         ("replays", "replays"),
                         ("tests", "tests"),
@@ -1070,9 +1094,13 @@ def derive_state(
     )
 
 
-def _resource_int_from_payload(payload: Mapping[str, Any], key: str) -> int:
-    value = payload.get(key)
-    if value is None:
+def _resource_int_from_payload(
+    payload: Mapping[str, Any], key: str, *, legacy: bool = False
+) -> int | None:
+    if key not in payload:
+        return 0 if legacy else None
+    value = payload[key]
+    if value is None and legacy:
         return 0
     if not isinstance(value, int) or isinstance(value, bool) or value < 0:
         raise DerivationError(f"confirmation_completed.{key} must be a non-negative int")

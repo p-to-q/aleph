@@ -1,4 +1,4 @@
-"""``ResourceLedger/0.1.0``: six accounts, kept separate.
+"""``ResourceLedger/0.2.0``: six accounts, kept separate.
 
 The normative contract is
 ``docs/plans/model-relative-coordinate-landmarks.md#six-account-resource-ledger``.
@@ -32,7 +32,14 @@ from typing import Any, Mapping
 
 from .canonical import canonicalize, digest
 
-LEDGER_SCHEMA_VERSION = "ResourceLedger/0.1.0"
+LEDGER_SCHEMA_VERSION = "ResourceLedger/0.2.0"
+LEGACY_LEDGER_SCHEMA_VERSION = "ResourceLedger/0.1.0"
+SUPPORTED_LEDGER_SCHEMAS = (LEGACY_LEDGER_SCHEMA_VERSION, LEDGER_SCHEMA_VERSION)
+
+
+def sum_reported(left: int | None, right: int | None) -> int | None:
+    """A sum is unknown if any contribution was not reported; zero stays zero."""
+    return None if left is None or right is None else left + right
 
 ACCOUNTS = ("C_p", "T_dec", "W_search", "D_crit", "V_verify", "M_desc")
 
@@ -109,21 +116,21 @@ class DecoderAccount:
     """``T_dec``: decoder execution counters, per stage."""
 
     calls: int = 0
-    failures: int = 0
-    input_tokens: int = 0
-    output_tokens: int = 0
-    samples: int = 0
-    provider_reported_tokens: int = 0
+    failures: int | None = 0
+    input_tokens: int | None = 0
+    output_tokens: int | None = 0
+    samples: int | None = 0
+    provider_reported_tokens: int | None = 0
 
     def add(
         self,
         *,
         calls: int = 0,
-        failures: int = 0,
-        input_tokens: int = 0,
-        output_tokens: int = 0,
-        samples: int = 0,
-        provider_reported_tokens: int = 0,
+        failures: int | None = 0,
+        input_tokens: int | None = 0,
+        output_tokens: int | None = 0,
+        samples: int | None = 0,
+        provider_reported_tokens: int | None = 0,
     ) -> None:
         counts = {
             "calls": calls,
@@ -134,14 +141,18 @@ class DecoderAccount:
             "provider_reported_tokens": provider_reported_tokens,
         }
         for name, value in counts.items():
+            if value is None and name != "calls":
+                continue
             if not isinstance(value, int) or isinstance(value, bool) or value < 0:
                 raise LedgerError(f"T_dec.{name} must be a non-negative int")
         self.calls += calls
-        self.failures += failures
-        self.input_tokens += input_tokens
-        self.output_tokens += output_tokens
-        self.samples += samples
-        self.provider_reported_tokens += provider_reported_tokens
+        self.failures = sum_reported(self.failures, failures)
+        self.input_tokens = sum_reported(self.input_tokens, input_tokens)
+        self.output_tokens = sum_reported(self.output_tokens, output_tokens)
+        self.samples = sum_reported(self.samples, samples)
+        self.provider_reported_tokens = sum_reported(
+            self.provider_reported_tokens, provider_reported_tokens
+        )
 
     def to_canonical(self) -> dict[str, Any]:
         return {
@@ -167,8 +178,8 @@ class SearchWorkAccount:
     proposal_failures: int = 0
     evaluation_calls: int = 0
     evaluation_failures: int = 0
-    retries: int = 0
-    cache_misses: int = 0
+    retries: int | None = 0
+    cache_misses: int | None = 0
     rejected_candidates: int = 0
     proposed_candidates: int = 0
 
@@ -195,8 +206,8 @@ class SearchWorkAccount:
         proposal_failures: int = 0,
         evaluation_calls: int = 0,
         evaluation_failures: int = 0,
-        retries: int = 0,
-        cache_misses: int = 0,
+        retries: int | None = 0,
+        cache_misses: int | None = 0,
         rejected_candidates: int = 0,
         proposed_candidates: int = 0,
     ) -> None:
@@ -211,14 +222,16 @@ class SearchWorkAccount:
             "proposed_candidates": proposed_candidates,
         }
         for name, value in counts.items():
+            if value is None and name in ("retries", "cache_misses"):
+                continue
             if not isinstance(value, int) or isinstance(value, bool) or value < 0:
                 raise LedgerError(f"W_search.{name} must be a non-negative int")
         self.proposal_calls += proposal_calls
         self.proposal_failures += proposal_failures
         self.evaluation_calls += evaluation_calls
         self.evaluation_failures += evaluation_failures
-        self.retries += retries
-        self.cache_misses += cache_misses
+        self.retries = sum_reported(self.retries, retries)
+        self.cache_misses = sum_reported(self.cache_misses, cache_misses)
         self.rejected_candidates += rejected_candidates
         self.proposed_candidates += proposed_candidates
 
@@ -228,10 +241,10 @@ class VerificationAccount:
     """``V_verify``: work that begins only after ``search_frozen``."""
 
     fresh_samples: int = 0
-    replays: int = 0
-    tests: int = 0
-    human_checks: int = 0
-    proof_checks: int = 0
+    replays: int | None = 0
+    tests: int | None = 0
+    human_checks: int | None = 0
+    proof_checks: int | None = 0
 
     def to_canonical(self) -> dict[str, Any]:
         return {
@@ -246,10 +259,10 @@ class VerificationAccount:
         self,
         *,
         fresh_samples: int = 0,
-        replays: int = 0,
-        tests: int = 0,
-        human_checks: int = 0,
-        proof_checks: int = 0,
+        replays: int | None = 0,
+        tests: int | None = 0,
+        human_checks: int | None = 0,
+        proof_checks: int | None = 0,
     ) -> None:
         counts = {
             "fresh_samples": fresh_samples,
@@ -259,13 +272,15 @@ class VerificationAccount:
             "proof_checks": proof_checks,
         }
         for name, value in counts.items():
+            if value is None and name != "fresh_samples":
+                continue
             if not isinstance(value, int) or isinstance(value, bool) or value < 0:
                 raise LedgerError(f"V_verify.{name} must be a non-negative int")
         self.fresh_samples += fresh_samples
-        self.replays += replays
-        self.tests += tests
-        self.human_checks += human_checks
-        self.proof_checks += proof_checks
+        self.replays = sum_reported(self.replays, replays)
+        self.tests = sum_reported(self.tests, tests)
+        self.human_checks = sum_reported(self.human_checks, human_checks)
+        self.proof_checks = sum_reported(self.proof_checks, proof_checks)
 
 
 @dataclass(frozen=True)
@@ -310,6 +325,7 @@ class ResourceLedger:
     nesting_rule: str
     scheduler_model: str
     model_manifest: Mapping[str, Any]
+    schema_version: str = LEDGER_SCHEMA_VERSION
     coordinate_costs: dict[str, CoordinateCost] = field(default_factory=dict)
     decoder: dict[str, DecoderAccount] = field(default_factory=dict)
     search_work: SearchWorkAccount = field(default_factory=SearchWorkAccount)
@@ -319,6 +335,8 @@ class ResourceLedger:
     settled_reservations: dict[str, str] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
+        if self.schema_version not in SUPPORTED_LEDGER_SCHEMAS:
+            raise LedgerError(f"unsupported ledger schema: {self.schema_version!r}")
         if self.nesting_rule not in NESTING_RULES:
             raise LedgerError(f"unknown nesting rule: {self.nesting_rule!r}")
         if not self.scheduler_model:
@@ -361,7 +379,7 @@ class ResourceLedger:
 
     def to_canonical(self) -> dict[str, Any]:
         return {
-            "schemaVersion": LEDGER_SCHEMA_VERSION,
+            "schemaVersion": self.schema_version,
             "accountsPresent": list(ACCOUNTS),
             "collapsePolicy": "accounts_reported_separately_no_published_conversion",
             "nestingRule": self.nesting_rule,

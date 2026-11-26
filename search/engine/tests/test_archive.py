@@ -284,7 +284,7 @@ class TestMaterialization(unittest.TestCase):
         self.assertEqual(ledger["W_search"]["components"]["rejectedCandidates"], 1)
         self.assertEqual(ledger["W_search"]["components"]["proposedCandidates"], 3)
         self.assertEqual(ledger["T_dec"]["byStage"]["discovery"]["calls"], 3)
-        self.assertEqual(ledger["T_dec"]["byStage"]["discovery"]["failures"], 1)
+        self.assertIsNone(ledger["T_dec"]["byStage"]["discovery"]["failures"])
         self.assertEqual(ledger["T_dec"]["byStage"]["confirmation"]["calls"], 1)
         self.assertEqual(ledger["V_verify"]["freshSamples"], 1)
         self.assertGreater(ledger["D_crit"]["longestDependencyPath"], 0)
