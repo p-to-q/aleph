@@ -42,3 +42,14 @@ Use this file to prevent accidental overpromising.
 - `stub` — visible placeholder; not implemented.
 - `future` — planned or possible, no current implementation.
 - `archived` — retained as historical receipt.
+
+## Current release and benchmark surfaces
+
+[Release identities](../release-status.json) bind product 1.0.4 to the separate
+standalone benchmark staging checkpoint. The replayable engine lives in
+`search/engine/`; AlephRun remains its selected-view product projection.
+`p-to-q/aleph-benchmark` owns ongoing source extraction and offline acceptance;
+its protocol/package 0.2.0 is still staging. HF `p-to-q/aleph-bench` is the
+historical M0/v0.1 mock dataset; Kaggle `jahyee/aleph-bench` is the long-lived
+execution entry. Neither surface is upgraded to qualified v0.2 merely by a
+product version bump. See the [maintenance ledger](maintenance/2026-11-27-closeout.md).

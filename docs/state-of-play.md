@@ -1,5 +1,7 @@
 # State of Play
 
+Maintenance update (2026-11-27): [release mapping](../release-status.json), [repair ledger](maintenance/2026-11-27-closeout.md), and [execution runbook](maintenance/execution-runbook.md). Current local MLX acceptance is recorded in PR #148; hosted #107 and formal benchmark release gates remain separate.
+
 This is the current confidence map for Aleph after the Hackathon, PR0 research contract, frontier
 repair and regeneration, bounded-coordinate bootstrap, and the engine/research wave (#109–#114). Use
 it when asking: what is true, what is implemented, what is only researched, and what should happen
@@ -44,7 +46,7 @@ This is a product/research hypothesis with enough evidence to build around, but 
 | Frontier correctness and regeneration | PR #100 preserves real observed candidates instead of fabricated repeated-length coordinates; the public MLX frontier has since been regenerated from actual evaluations — every displayed point re-measured under one declared procedure and linked by canonical digest to a per-point receipt (`web/public/aleph-frontier.receipts.json`), with linkage enforced by `scripts/check-public-frontier.mjs`. | `packages/core/src/frontier.ts`, `search/aleph_search.py`, `search/frontier_receipts.py` |
 | Exact finite bootstrap | PR #103 adds exhaustive bounded-coordinate ground truth, independent Python replay, receipts, and scoped Lean checks. It is the first BCS R1 tranche, not full BCS or a real-model result. | `search/bounded/` |
 | Engine artifact kernel | PR #109 (PR A): canonical serialization, typed proposal/evaluation contracts, append-only run bundle with materialized views, a pure replay adapter, and an independent fail-closed verifier; fixture-driven, no model calls. | `search/engine/` |
-| Hybrid-Pareto search slice | PR #113/#114 (PR B): protected single-use confirmation, deterministic operators, a budget-reserved hybrid scheduler under a frozen declared config, and a measurement-lossless `AlephRun` projection with verifier attestation; end-to-end runs are deterministic fixtures; the pinned MLX canary is still open (PR C). | `search/engine/` |
+| Hybrid-Pareto search slice | PR #113/#114 (PR B): protected single-use confirmation, deterministic operators, a budget-reserved hybrid scheduler under a frozen declared config, and a measurement-lossless `AlephRun` projection with verifier attestation; end-to-end runs are deterministic fixtures; the pinned real MLX canary is merged in PR #148, with raw evidence and independent arithmetic replay; this is a plumbing smoke, not a scientific performance result. | `search/engine/` |
 | Strict run import | The file-first round trip has both halves: `search/engine/import_aleph_run.py` loads a run bundle (full replay verification, then the projection is re-derived from the stream) or a single `aleph-run.json` file (canonical bytes, strict schema, artifact-ref digests, exporter invariants). Read-only and fail-closed; a standalone file import is labeled `replay_verified=false` unless it is anchored to a verified bundle. The product open-file flow (`web/app/lib/run-file.ts` plus open/save controls) opens the same projection files in the app — schema plus static invariants, candidate identity and selected candidate preserved, projection labeling — while digest and replay verification stay engine-side. | `search/engine/import_aleph_run.py`; `web/app/lib/run-file.ts` |
 | MiniPrompt/ACR reproduction (raw-coordinate baseline) | Method-level reproduction of the pinned upstream scan and GCG loop on MLX under a frozen declared config (`search/miniprompt/`): resumable receipted runs, an MLX-free fail-closed receipt verifier, and raw-coordinate labeling; the archived canary acquired `hello world` at 3 free tokens (n=5/4/3 acquired, n=2 failed in 200 steps) and a negative/partial control is archived alongside. The matched-budget comparison followed (`search/compare/`): per-target digest-bound records pairing the raw scan and a seeded readable search under one shared declared wall-clock envelope, archived for `canary-1p7b` and `canary-4b` (no readable point under τ=0.05 at canary scale). | `search/miniprompt/`, `search/miniprompt/receipts/`, `search/compare/` |
 | Research formalization and practice review | PR #110–#112: leakage-channel and description-length formalizations, related-work cards, the engine/benchmark practice review, and the structural-decision research gate. | `docs/research/` |
@@ -101,8 +103,8 @@ The next phase should start from executable research contracts rather than more 
    Python checks and scoped Lean theorems (PR #108; issues #102/#105 closed).
 2. Real-model evidence for the search line: the archive, separated proposal/evaluation roles, fresh
    confirmation, the six-account ledger, and independent replay are merged as the fixture-driven
-   PR B slice (#109/#113); the pinned open-weight MLX canary (PR C) is implemented with its PR open
-   (#118), and the public MLX frontier has been regenerated from actual evaluations with per-point
+   PR B slice (#109/#113); the pinned open-weight MLX canary is merged and live-validated in PR #148
+   (superseding #118), and the public MLX frontier has been regenerated from actual evaluations with per-point
    receipts (`search/frontier_receipts.py`).
 3. Done (first tranche): MiniPrompt/ACR is reproduced method-level behind the same boundary
    (`search/miniprompt/`, archived receipts under `search/miniprompt/receipts/`, gate note

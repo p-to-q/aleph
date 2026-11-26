@@ -1,0 +1,1 @@
+{"status":"ok","version":"1.0.3","modes":["fixture","hosted_black_box"],"search_modes":["fixture","hosted_black_box"],"default_model":"deepseek-v4-pro","hosted_primary_model":"deepseek-v4-pro","hosted_black_box_configured":true,"hosted_fallback_model":"qwen3.6-27b-nothinking","hosted_fallback_configured":true}

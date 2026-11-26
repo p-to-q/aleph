@@ -1,0 +1,21 @@
+{
+  "bundle": {
+    "archiveDigestAtFreeze": "sha256:16511e86c29a801573b49b25d2dc62f0434d17fa2e1ee7a0a1c357241c0dec31",
+    "confirmationOutcome": "confirmed",
+    "errors": [],
+    "materializedDigests": {
+      "archive": "sha256:16511e86c29a801573b49b25d2dc62f0434d17fa2e1ee7a0a1c357241c0dec31",
+      "confirmation": "sha256:66f5c030b415079b3d727a0bc9ce303d1c0b0b90d4dfaecbb2e977f7036e420d",
+      "resource-ledger": "sha256:ba21b16add69b71403827660930c72e2ed504d66a87106354eb0d34e4d4c5d34",
+      "views": "sha256:16bc2389c9b74e6975c0d36b18fb9d5a462045278d0f96c1f44ffa500ee84961"
+    },
+    "ok": true,
+    "runId": "aleph-mlx-canary-20261127",
+    "schemaVersion": "aleph-verify/0.1.0",
+    "streamDigest": "sha256:43777d23d6e5ca086266336da64467636f560b8019176f90baf4423c64895886"
+  },
+  "errors": [],
+  "evaluationsReplayed": 6,
+  "measurementReplay": "retained_tokens_and_usage",
+  "ok": true
+}

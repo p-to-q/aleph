@@ -35,8 +35,11 @@ Acceptance gate:
 
 ## P1: First Research-Grade Replayable Run
 
-Status: product hosted-black-box and local-MLX loops exist. Their historical outputs are not a
-PR0-conformant research archive.
+Status (2026-11-27): the pinned local MLX engine canary is merged in PR #148, with
+new raw receipts and independent replay. This discharges the smoke plumbing gate
+#106, not target-family scientific validation. Next: one bounded free-quota Kaggle
+diagnostic (#107), then source authority, portable scorer and H2 release gates.
+See [the execution runbook](maintenance/execution-runbook.md).
 
 Goal: produce one pinned open-weight run with a complete research bundle and a lossless selected-view
 `AlephRun` projection that links to that bundle by stable content identity.
