@@ -177,6 +177,14 @@ def dispatch(directory):
             automations.append({'name':row.get('name'),'status':row.get('status')})
             if row.get('status') != 'PAUSED':
                 raise ValueError('an Aleph automation is not paused')
+    processes=subprocess.check_output(['ps','-axo','pid=,command='],text=True)
+    legacy_processes=[]
+    for line in processes.splitlines():
+        fields=line.strip().split(None,1)
+        if len(fields)==2 and any(marker in fields[1] for marker in ('aleph-kaggle-v10-runner','kaggle-capture-queue-v1')):
+            legacy_processes.append(int(fields[0]))
+    if legacy_processes:
+        raise ValueError('legacy Kaggle process is active; stop without dispatch')
     from requests.exceptions import HTTPError
     from kagglesdk.benchmarks.types.benchmark_tasks_api_service import (ApiBenchmarkTaskSlug,ApiGetBenchmarkTaskRequest,
         ApiCreateBenchmarkTaskRequest,BenchmarkTaskOptions,ApiTaskCreationValidationConfig,ApiValidationStage,BenchmarkTaskValidationStage)
@@ -209,7 +217,7 @@ def dispatch(directory):
             raise ValueError('model catalog identity or availability drift')
         save_json(directory/'quota-before.json',before)
         save_json(directory/'model-catalog-selected.json',selected[0])
-        save_json(directory/'automation-preflight.json',{'observedAt':now(),'matchingLocalSchedules':automations,'legacyControllerExecuted':False})
+        save_json(directory/'automation-preflight.json',{'observedAt':now(),'matchingLocalSchedules':automations,'legacyControllerExecuted':False,'matchingLegacyProcessIds':legacy_processes})
         request=ApiCreateBenchmarkTaskRequest();request.slug=TASK;request.text=(directory/'task.ipynb').read_text()
         options=BenchmarkTaskOptions();options.dataset_data_sources=[];request.options=options
         validation=ApiTaskCreationValidationConfig();stage=ApiValidationStage()
