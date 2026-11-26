@@ -195,3 +195,21 @@ misspelled keys, zero samples, nullable sums, and racing-stop omission reasons.
 of the top-ranked entry only. Racing-skipped candidates are explicitly
 `not_evaluated_after_racing_stop`; they are not measured dominance evidence.
 See the [acceptance decision](plans/2026-11-27-engineering-acceptance.md).
+
+## Supported dependency lines
+
+The maintainer refresh in issue #145 keeps Next 16, paired React/React DOM 18,
+TypeScript 5, and Node 22 type definitions aligned with the declared Node 22
+runtime. Dependabot groups compatible patch/minor changes; major migrations
+require an explicit issue and a paired compatibility gate. React and React DOM,
+including their type packages, must move together. TypeScript 6 requires a
+separate compiler/config migration; Node types must follow a supported runtime,
+not whichever major was most recently published. These deferrals do not excuse
+unfixed advisories: run `npm audit`, check current patched versions, and update
+within supported ranges first.
+
+For each dependency PR, run `npm ci`, `npm run lint`, `npm test`,
+`npm run build`, and `npm audit`; smoke the built app's root and `/health`.
+Record exact versions and failures. A passed build and local test run do not
+substitute for an unavailable hosted CI run. The security refresh supersedes the
+old Next 16.2.7 proposal; that older version does not clear the 2026-11-27 audit.
