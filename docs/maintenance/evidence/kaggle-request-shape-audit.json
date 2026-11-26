@@ -1,0 +1,95 @@
+{
+  "adapterSha256": "fb82da5ef0fa0bff52a3e36ee323dd6921b21a2604eda37f90e19cbb08890b63",
+  "auditScriptSha256": "d43c579b906804a041397891e53b8f5862a20bcd2ccc6773acdb71f220c6e6db",
+  "cases": [
+    {
+      "errors": [
+        "requested_temperature_zero_not_preserved"
+      ],
+      "inputText": "Answer with only the integer that is six multiplied by seven.",
+      "name": "target_description",
+      "phase": "discovery",
+      "wireBody": {
+        "max_tokens": 64,
+        "messages": [
+          {
+            "content": "Answer with only the integer that is six multiplied by seven.",
+            "role": "user"
+          }
+        ],
+        "model": "anthropic/claude-haiku-4-5@20251001",
+        "seed": 107,
+        "temperature": null
+      }
+    },
+    {
+      "errors": [
+        "candidate_text_not_preserved",
+        "requested_temperature_zero_not_preserved"
+      ],
+      "inputText": "",
+      "name": "empty_candidate",
+      "phase": "discovery",
+      "wireBody": {
+        "max_tokens": 64,
+        "messages": [
+          {
+            "content": null,
+            "role": "user"
+          }
+        ],
+        "model": "anthropic/claude-haiku-4-5@20251001",
+        "seed": 107,
+        "temperature": null
+      }
+    },
+    {
+      "errors": [
+        "requested_temperature_zero_not_preserved"
+      ],
+      "inputText": "Answer with only the integer that is six multiplied by seven.",
+      "name": "confirmation_shape_only",
+      "phase": "confirmation",
+      "wireBody": {
+        "max_tokens": 64,
+        "messages": [
+          {
+            "content": "Answer with only the integer that is six multiplied by seven.",
+            "role": "user"
+          }
+        ],
+        "model": "anthropic/claude-haiku-4-5@20251001",
+        "seed": 108,
+        "temperature": null
+      }
+    }
+  ],
+  "factorySupportTemperature": false,
+  "mockHttpRequests": 3,
+  "modelCalls": 0,
+  "networkAttempts": 0,
+  "nextGate": "Version a faithful provider-compatible control and effective-decoding policy; obtain fresh bounded authorization before another hosted run.",
+  "responseKind": "explicit_in_memory_mock_no_provider_usage_or_cost",
+  "runtime": {
+    "packages": {
+      "httpx": "0.29.0",
+      "kaggle-benchmarks": "0.6.3",
+      "openai": "3.16.2"
+    },
+    "platform": "macOS-26.5-arm64-arm-64bit-Mach-O",
+    "python": "3.13.2"
+  },
+  "schemaVersion": "aleph-kaggle-request-shape-audit/1",
+  "scope": "local_sdk_wire_shape_not_hosted_provider_acceptance",
+  "sourceCommit": "629b4e1627c965f5be02a26eaa366ebd45460aa4",
+  "sourceDirty": false,
+  "sourceFilesSha256": {
+    "actors/llms.py": "5b295810cebf81e1fdf00865b85887207b1eb77b36b8f8419f4837a7d44d19a3",
+    "actors/proxy_openai.py": "9c9291b0e7f420529b6ac97239c05fe0f5fd7d78b9860bcdf7a4cf108313d97d",
+    "kaggle/model_proxy.py": "a3ddf3ee477417b73b0984a4d6487e1ae62b77875e1e31827e37512370d29950",
+    "serializers/base.py": "4686ed543f7606fd014270645c73e2e92780d20a687c67ab114576d182f51b8e",
+    "serializers/openai.py": "586347d5ba05a8145d6f2a750138d8a69440a07120f39155468cc37b111e6cb9"
+  },
+  "status": "blocked",
+  "transportMaxRetries": 0
+}

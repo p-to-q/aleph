@@ -32,7 +32,12 @@
     "newPrivateRunId": 7722139,
     "freshConfirmationExecuted": false,
     "evidenceReceipt": "docs/maintenance/evidence/kaggle-107-terminal.json",
-    "furtherRunAuthorized": false
+    "furtherRunAuthorized": false,
+    "offlineRequestShapeAudit": "docs/maintenance/evidence/kaggle-request-shape-audit.json",
+    "nextAdmissionStatus": "blocked_null_text_and_effective_decoding",
+    "requestedTemperature": 0,
+    "effectiveHostedTemperature": null,
+    "effectiveHostedTemperatureEvidence": "not_captured_in_original_run; pinned SDK offline factory drops requested temperature"
   },
   "evidence": {
     "localRealModel": "docs/research/2026-11-27-mlx-canary-receipt.md",

@@ -29,3 +29,13 @@ Add a separate offline audit command, focused tests, evidence and runbook notes.
 Do not alter `kaggle_canary.py`, the dated runner, original archive/policy, public
 scores, historical HF artifacts, or model authorization. New provider-compatible
 control and effective-decoding choices must be versioned before any fresh run.
+
+## Observed result
+
+The clean-source receipt blocks admission: empty text becomes null and requested
+temperature zero becomes null. Three in-memory HTTP requests completed with mocked
+responses; zero socket connections and zero model calls occurred. Relevant Kaggle
+source hashes match the published 0.6.3 wheel. This also exposes an interpretation
+gap in the old configuration-only decoding manifest: effective hosted temperature
+was not captured and must remain unknown. No experiment, raw evidence, or dated
+runner was rewritten.
