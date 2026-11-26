@@ -56,3 +56,20 @@ a complete unfiltered owner-scoped listing with stable total count, unique owned
 identities and advancing pagination; reject existing slugs and every incomplete
 or ambiguous listing. Save the listing as the preflight receipt. This changes
 only admission, not the six-call budget or create-once journal.
+
+## Terminal outcome and follow-up boundary
+
+The single authorized create was acknowledged as v1. Its sparse initial response
+had null visibility fields; exact readback then proved task, notebook and run
+artifacts private. Handle sparse acknowledgments as pending readback, never as
+private and never as permission to retry creation. Reject any positive public
+flag and require all three flags false on status readback.
+
+Run 7722139 completed its platform lifecycle but failed the native assertion:
+three calls completed, then an empty-prompt discovery request returned HTTP 400
+(`messages: Field required`). No later call or fresh confirmation ran. Preserve
+that failure and unknown failed-request usage; do not invent zero usage. Add an
+offline regression for this exact stop boundary. The frozen experiment is not
+rewritten and its remaining call allowance does not authorize another task.
+The next experimental policy needs versioned null-control compatibility review
+and a fresh bounded authorization.

@@ -71,6 +71,17 @@ class KaggleOnceTests(unittest.TestCase):
         with self.assertRaises(PermissionError):
             once.require_task_absence(SimpleNamespace(list_benchmark_tasks=denied),'owner',SimpleNamespace)
 
+    def test_creation_visibility_never_labels_unknown_as_private(self):
+        keys=('isPublic','isBackingNotebookPublished','areRunArtifactsPublic')
+        self.assertEqual(once.creation_visibility({}), 'pending_readback')
+        private=dict.fromkeys(keys,False)
+        self.assertEqual(once.creation_visibility(private), 'private')
+        for key in keys:
+            self.assertEqual(once.creation_visibility({**private,key:None}), 'pending_readback')
+            for value in (True,0,'false'):
+                with self.subTest(key=key,value=value),self.assertRaises(ValueError):
+                    once.creation_visibility({**private,key:value})
+
     def test_prepared_notebook_binds_exact_source_tree(self):
         plan=self.prepare()
         self.assertEqual(once.artifact_check(self.root),plan)

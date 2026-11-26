@@ -52,6 +52,24 @@ class KaggleCanaryTests(unittest.TestCase):
         self.assertTrue(check_evidence(self.root)['ok'])
         self.assertIsNone(summary['providerUsage']['inputTokens'])
 
+    def test_empty_prompt_rejection_preserves_failed_attempt_and_stops_confirmation(self):
+        def call(phase,prompt):
+            if prompt == '':
+                self.called.append((phase,prompt))
+                raise ValueError('messages: Field required')
+            return self.call(phase,prompt)
+        summary=self.complete(call)
+        self.assertEqual(summary['status'],'failed')
+        self.assertEqual(summary['callCount'],4)
+        self.assertEqual(summary['completedCalls'],3)
+        self.assertNotIn('confirmation',[phase for phase,_ in self.called])
+        self.assertTrue(all(value is None for value in summary['providerUsage'].values()))
+        calls=json.loads((self.root/'calls.json').read_text())
+        self.assertEqual(calls[-1]['prompt'],'')
+        self.assertEqual(calls[-1]['state'],'failed')
+        self.assertNotIn('usage',calls[-1])
+        self.assertTrue(check_evidence(self.root)['ok'])
+
     def test_blank_proposal_is_terminal_without_target_copy(self):
         self.complete(lambda phase,prompt:{'output':'','usage':{}})
         self.assertEqual(json.loads((self.root/'calls.json').read_text())[0]['output'],'')

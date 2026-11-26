@@ -1,0 +1,57 @@
+{
+  "schemaVersion": "aleph-production-acceptance/1",
+  "observedDate": "2026-11-27",
+  "url": "https://aleph.ptoq.io",
+  "productVersion": "1.0.4",
+  "health": {
+    "status": "ok",
+    "version": "1.0.4",
+    "modes": [
+      "fixture",
+      "hosted_black_box"
+    ],
+    "search_modes": [
+      "fixture",
+      "hosted_black_box"
+    ],
+    "default_model": "deepseek-v4-pro",
+    "hosted_primary_model": "deepseek-v4-pro",
+    "hosted_black_box_configured": true,
+    "hosted_fallback_model": "qwen3.6-27b-nothinking",
+    "hosted_fallback_configured": true
+  },
+  "checks": {
+    "healthHttpStatus": 200,
+    "healthVersion": "1.0.4",
+    "hostedBlackboxConfigured": true,
+    "localMlxUnavailableNotice": true,
+    "customApiAvailable": true,
+    "logoAnchorFrames": 40,
+    "logoAnchorStable": true,
+    "faviconAndOgHttpStatus": 200,
+    "hostedGenerationInvoked": false
+  },
+  "artifacts": [
+    {
+      "filename": "aleph-production-104.png",
+      "bytes": 62024,
+      "sha256": "14bdcac93a0031b3d116e2d7b9e5fd30fa4456d83ad8a9c225a51e84b56ed42e",
+      "location": "GitHub v1.0.4 release asset",
+      "url": "https://github.com/p-to-q/aleph/releases/download/v1.0.4/aleph-production-104.png"
+    },
+    {
+      "filename": "aleph-production-104-mode-notice.png",
+      "bytes": 60338,
+      "sha256": "1516d9560097cdea8f9c598ba6ab7ad2c315edb5a6676aafcc0dad189cb6d84c",
+      "location": "GitHub v1.0.4 release asset",
+      "url": "https://github.com/p-to-q/aleph/releases/download/v1.0.4/aleph-production-104-mode-notice.png"
+    },
+    {
+      "filename": "aleph-production-health-104.json",
+      "bytes": 311,
+      "sha256": "b68ec279e8bc46d9f80077ad7328d5e56e773f6d969383f555f45162a4f6b2b3",
+      "location": "GitHub v1.0.4 release asset",
+      "url": "https://github.com/p-to-q/aleph/releases/download/v1.0.4/aleph-production-health-104.json"
+    }
+  ]
+}

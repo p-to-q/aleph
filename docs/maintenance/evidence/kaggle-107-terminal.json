@@ -1,0 +1,166 @@
+{
+  "schemaVersion": "aleph-kaggle-107-terminal-receipt/1",
+  "observedAt": "2026-11-26T21:12:57.023186+00:00",
+  "outcome": "failed_empty_prompt_unsupported",
+  "acceptancePassed": false,
+  "diagnosticOnly": true,
+  "benchmarkEligible": false,
+  "sourceCommit": "9b71afc84ce098a8e2124595c01fef50f35cc908",
+  "sourceDirty": false,
+  "task": {
+    "ownerSlug": "jahyee",
+    "taskSlug": "aleph-hybrid-107-20261127",
+    "versionNumber": 1
+  },
+  "runId": 7722139,
+  "taskVisibility": {
+    "isPublic": false,
+    "isBackingNotebookPublished": false,
+    "areRunArtifactsPublic": false
+  },
+  "platformRunState": "BENCHMARK_TASK_RUN_STATE_COMPLETED",
+  "nativeAssertionStatus": "BENCHMARK_TASK_RUN_ASSERTION_STATUS_FAILED",
+  "runtime": {
+    "packages": {
+      "kaggle": null,
+      "kaggle-benchmarks": "0.6.3",
+      "openai": "3.16.2"
+    },
+    "platform": "Linux-6.18.55+-x86_64-with-glibc2.41",
+    "python": "3.12.16"
+  },
+  "attemptedCalls": 4,
+  "completedCalls": 3,
+  "callPhases": [
+    {
+      "index": 1,
+      "phase": "proposal",
+      "state": "completed"
+    },
+    {
+      "index": 2,
+      "phase": "discovery-control",
+      "state": "completed"
+    },
+    {
+      "index": 3,
+      "phase": "discovery",
+      "state": "completed"
+    },
+    {
+      "index": 4,
+      "phase": "discovery",
+      "state": "failed"
+    }
+  ],
+  "freshConfirmationExecuted": false,
+  "failure": {
+    "phase": "empty_prompt_discovery",
+    "httpStatus": 400,
+    "error": "messages: Field required",
+    "automaticRetry": false,
+    "subsequentDispatches": 0
+  },
+  "accounting": {
+    "knownCompletedCallUsage": {
+      "inputTokens": 66,
+      "outputTokens": 25,
+      "inputCostNanodollars": 66000,
+      "outputCostNanodollars": 125000
+    },
+    "allAttemptUsage": {
+      "inputCostNanodollars": null,
+      "inputTokens": null,
+      "outputCostNanodollars": null,
+      "outputTokens": null
+    },
+    "allAttemptUsageUnknownReason": "The failed fourth request has no provider usage receipt; known completed usage is not the full attempted total.",
+    "quotaBefore": {
+      "quotaBalances": [
+        {
+          "quotaUsed": 0.0,
+          "refillPeriod": "DAILY",
+          "refillTime": null,
+          "totalQuotaAllowed": 10
+        },
+        {
+          "quotaUsed": 0.0,
+          "refillPeriod": "MONTHLY",
+          "refillTime": null,
+          "totalQuotaAllowed": 100
+        }
+      ]
+    },
+    "quotaAfter": {
+      "quotaBalances": [
+        {
+          "quotaUsed": 0.00019099999999916406,
+          "refillPeriod": "DAILY",
+          "refillTime": "2026-11-27T21:11:26.728Z",
+          "totalQuotaAllowed": 10
+        },
+        {
+          "quotaUsed": 0.00019100000000094042,
+          "refillPeriod": "MONTHLY",
+          "refillTime": "2026-12-26T21:11:26.728Z",
+          "totalQuotaAllowed": 100
+        }
+      ]
+    },
+    "observedQuotaUsedDelta": {
+      "DAILY": 0.00019099999999916406,
+      "MONTHLY": 0.00019100000000094042
+    },
+    "quotaDeltaAttribution": "Account-wide observed before/after delta; not proof of zero cost for missing usage.",
+    "paidOverageEnabled": false,
+    "acceleratorTimeUsed": {
+      "gpuQuota": "0s",
+      "tpuQuota": "0s"
+    }
+  },
+  "independentOfflineReplay": {
+    "python": "3.14.7 (main, Aug  5 2026, 10:29:49) [Clang 21.0.0 (clang-2100.1.1.101)]",
+    "siteDisabled": 1,
+    "modelCalls": 0,
+    "sdkImported": false,
+    "schedulerImported": false,
+    "evidence": {
+      "schemaVersion": "aleph-kaggle-107-replay/1",
+      "ok": true,
+      "errors": [],
+      "modelCalls": 0,
+      "hostedStatus": "failed",
+      "hostedCallCount": 4,
+      "confirmationOutcome": "rejected",
+      "scope": "diagnostic_only_not_benchmark_eligibility"
+    },
+    "canonical": {
+      "ok": true,
+      "errors": [],
+      "streamDigest": "sha256:18ebbb0af97781f84c599b669f5fad1bfa08dd4fb74aecdbff05a7a858cbeddd",
+      "confirmationOutcome": "rejected"
+    }
+  },
+  "rawEvidence": {
+    "visibility": "local_private_not_published",
+    "directory": "/Users/dujiayi/code/aleph-kaggle-evidence/2026-11-27/hybrid107",
+    "archive": {
+      "filename": "run-7722139.zip",
+      "bytes": 232394,
+      "sha256": "20c7af4c5fb19e4bdc49ef0d6b44de442b18032332461d40944cee278e48d25a"
+    },
+    "sha256": {
+      "prepared.json": "bc41c93f02e796fb2439db08b44db5b43c4093925c342583e577f11005bbbaef",
+      "source.zip": "60d7a7047ae63dcd383fa75291742bc6ea59931bd4a103009cfab9d637405b2b",
+      "task.ipynb": "84b421715873d4d389864e46a2fc7485953fd112df8fcd8080698276407894b1",
+      "policy.json": "36bfe7c59c842db7b59d8ecf4610a11b3ca7d2914559a82a40a210f0e390eeda",
+      "dispatch.json": "9c4ed5fed1fe52415c4030968fcd2286f632f1f0ed0adaf6fca4f5d117d33878",
+      "create-response.json": "494ea04dae6974ed896b006772e626764b0f9ccd6b488ad7a99ad0e389cedec8",
+      "task-absence-preflight.json": "9fff6dd1ea449c696a88d154e32b56fe48563f9f1188862636ca0eeedfe57586",
+      "quota-before.json": "8388b3101977ed439817d7b70ffa56e50737245281a9704530ddb45ec636faed",
+      "status-latest.json": "634c9509ad343b881fb5cd312b7787b15db6a2a0b8f3b116aa79feb535f35ab6",
+      "independent-replay.json": "b19c519e395d18b0b36c8cfda2272f140c4ba3b803d6198901ce39c6f0286c5c"
+    }
+  },
+  "nextGate": "Review a new versioned null-control request representation or choose a compatible model; validate serialized requests offline, then obtain fresh bounded run authorization. Never retry this task or reopen the legacy queue."
+}
