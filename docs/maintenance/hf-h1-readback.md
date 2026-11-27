@@ -51,3 +51,18 @@ including API responses, original file bytes, server counts and capture time;
   observations, not signed statements by Hugging Face or renewed execution
   authorization. The H1 receipt itself keeps original-generation provenance
   unknown; this readback does not reconstruct or invent it.
+
+## Retained evidence packet
+
+The release map's `evidence.publicationReadbackPacket` binds the 639,936-byte
+archive, both GitHub release mirrors, its exact pre-evidence source commits and
+all 276 regular members. Downloaded bytes from both mirrors match the local
+archive; an independent unpack verifies every member hash, size and mode.
+Rebuilding produces identical archive bytes. Replaying the unpacked H1 input,
+15 auditor tests and six real-snapshot mutations succeeds without HTTP.
+
+The archive preserves the original live capture result and the stricter final
+verifier's replay separately. Its README identifies the exact source of each;
+do not attribute the initial capture to the later verifier. It also retains
+failed checks and independently loaded HF/Croissant output. This evidence asset
+does not move either release tag or promote H2.

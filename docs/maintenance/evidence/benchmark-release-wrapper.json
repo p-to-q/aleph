@@ -18,6 +18,23 @@
     "prompts": 240
   },
   "hostedCIGreenConfirmed": false,
+  "independentConsumerReplay": {
+    "croissantRecordSets": {
+      "items": 30,
+      "prompts": 240
+    },
+    "datasetsVersion": "5.2.0",
+    "hfActualDirectoryConfigRows": {
+      "items": 30,
+      "prompts": 240
+    },
+    "mlcroissantVersion": "1.1.1",
+    "modelCalls": 0,
+    "networkGuard": "socket connect and DNS forbidden",
+    "packetResult": "evidence/consumer-replay.stdout",
+    "packetScript": "evidence/replay-wrapper-consumers.py",
+    "status": "ok"
+  },
   "initialIgnoredBytecodeFailureRetained": true,
   "installedDistributionQualified": false,
   "mergedMainCommit": "1b75a9ee9aaa1d1b03f07ea3775f930bd0108ac8",
