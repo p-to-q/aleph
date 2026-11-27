@@ -1,0 +1,119 @@
+{
+  "asOf": "2026-11-27",
+  "conformance": {
+    "fidelityChecks": 42,
+    "leakageChecks": 28,
+    "unsupportedMetricChecks": 4
+  },
+  "distributionVersion": "0.2.0.dev1",
+  "evidencePacket": {
+    "allMemberHashesSizesAndModesVerified": true,
+    "archiveMembers": 136,
+    "assetId": "RA_kwDOS1ORxc4vqqr-",
+    "bytes": 429224,
+    "deterministicReassemblyByteEqual": true,
+    "downloadByteEqual": true,
+    "extractedReplayStages": 13,
+    "extractedWheelReplayPassed": true,
+    "manifestSha256": "7f341a01a80bbe68119d0fedd32bab926c283d7c1295ef185d73128f9be379bb",
+    "name": "aleph-bench-installed-cli-ee6ced8.tar.gz",
+    "releaseTag": "staging-v0.2.0-20261127",
+    "repository": "p-to-q/aleph-benchmark",
+    "sha256": "bbcbaad904956453bce167b0ffde240d6378bc5988402e7f5e1374d6dbe7a6a3",
+    "sourceTagMoved": false,
+    "url": "https://github.com/p-to-q/aleph-benchmark/releases/download/staging-v0.2.0-20261127/aleph-bench-installed-cli-ee6ced8.tar.gz"
+  },
+  "formalModelResult": false,
+  "hostedCIGreenConfirmed": false,
+  "hubWrites": 0,
+  "installedAcceptance": {
+    "allInstalledPayloadBytesMatched": true,
+    "bootstrap": "fresh venv with bundled ensurepip before audited candidate execution",
+    "installedPayloadFiles": 82,
+    "moduleOriginsInsideInstalledClosure": true,
+    "networkAndProcessEscapeDeniedDuringCandidateExecution": true,
+    "receiptPath": "installed/receipt.json",
+    "receiptSha256": "8d77080db5b4d799b5d56888b39de0a21eb8b8904ee7fb56240bf963298a7c7a",
+    "stages": 13,
+    "status": "ok"
+  },
+  "interpretation": "This record binds the exact implementation above, not later documentation commits. Historical checkpoint qualification flags remain scoped to their own source; no existing receipt is promoted.",
+  "kaggleRuns": 0,
+  "kaggleTaskWrites": 0,
+  "linuxInstallationQualified": false,
+  "modelCalls": 0,
+  "nativeConsole": {
+    "connectionDenialSentinelPassed": true,
+    "doctorReady": true,
+    "networkDeniedBy": "macOS sandbox-exec deny network*",
+    "outsideSourceCheckout": true
+  },
+  "negativeGates": [
+    "incompatible UCD before source import",
+    "Python 3.12 installer metadata refusal",
+    "missing schema refusal",
+    "corrupt schema refusal",
+    "actual Python 3.14 shim refusal after deliberate metadata bypass"
+  ],
+  "packageVersion": "0.2.0",
+  "platform": "macOS-26.5-arm64-arm-64bit-Mach-O",
+  "portableRuntimeQualified": false,
+  "protocolAuthorityCutover": false,
+  "protocolVersion": "0.2.0",
+  "pypiPublication": false,
+  "remainingGates": [
+    "Linux installed-wheel acceptance",
+    "hosted Python/SDK/module-origin/effective-decoding qualification",
+    "reviewed release identity and explicit authority transition",
+    "authenticated H2 publication and readback",
+    "representative real-model validity and calibration"
+  ],
+  "runtime": {
+    "implementation": "CPython",
+    "python": "3.13.2",
+    "unicodeDatabase": "15.1.0"
+  },
+  "schemaVersion": "aleph-benchmark-installed-cli-acceptance/1",
+  "scorerPackageTreeSha256": "be213ca07782f108815bf94264b4d87f48570c29cbe8511f6346e31296bf0cd8",
+  "sourceAcceptance": {
+    "expectedSkips": 4,
+    "receiptPath": "source-acceptance/receipt.json",
+    "receiptSha256": "40eca4ff376d1463be90051aa86aadcb0ddbfb60d1576d7097a89abba5e0d8e2",
+    "stages": 11,
+    "status": "ok",
+    "testsRun": 438,
+    "workingTreeDirtyAtEitherEnd": false
+  },
+  "sourceCommit": "ee6ced8c9bda9286d66360a26c45e968e776f144",
+  "sourceInstalledMockOutputComparisons": [
+    {
+      "bytes": 690830,
+      "equalBytes": true,
+      "path": "result.json",
+      "sha256": "3b6091c119e6d5d800b173d7f6376a5df6065bf00f152f3f9e42be9e30a2b0f0"
+    },
+    {
+      "bytes": 230118,
+      "equalBytes": true,
+      "path": "manifest.json",
+      "sha256": "17d829d5fda2a1cdb1354a3f97c57e3707dcbf76585073fb8f655436da5e2da2"
+    },
+    {
+      "bytes": 2372,
+      "equalBytes": true,
+      "path": "report.md",
+      "sha256": "529d54d806db76eec1313747563fd6e4c598133f69a80f14c50c86f6feb43087"
+    }
+  ],
+  "sourceManifestSha256": "ace6657fdbc055b639479eafd46bf2e2e5e3ed21b386c3403bca947012b9b602",
+  "sourceTreeSha1": "d7a71ef545584e15182daa8844c9ec4b0ea0174a",
+  "status": "accepted_local_macos_candidate_only",
+  "wheel": {
+    "buildBackend": "hatchling==1.33.0",
+    "bytes": 220634,
+    "name": "aleph_bench-0.2.0.dev1-py3-none-any.whl",
+    "runtimeDependencies": [],
+    "sha256": "416dc93b6ba0fe969f86f3f65cfb5416aadffb78f91128694c1efd678a4883c0",
+    "twoIndependentCleanCloneBuildsByteEqual": true
+  }
+}
