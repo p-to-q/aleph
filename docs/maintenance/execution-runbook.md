@@ -139,6 +139,12 @@ H1's historical card/Croissant correction is complete; use the
 before repeating a historical publication task. Standalone PR #29 now supplies
 the independently reviewed offline HF/Croissant wrapper (423 tests / four expected
 skips; actual directory/config loading 30/240 rows). H2 still requires a reviewed
-release identity, installed-distribution and portable/platform qualification,
+release identity, Linux installed-distribution and portable/platform qualification,
 explicit authority transition, and authenticated publication with readback.
-This progression grants no new Kaggle execution authorization.
+Standalone [PR #31](https://github.com/p-to-q/aleph-benchmark/pull/31) supplies
+only the separately receipted [local macOS wheel candidate](evidence/benchmark-installed-cli.json):
+438 source tests / four expected skips, 13 installed replay stages, and unchanged
+frozen scorer bytes. Linux installation and hosted Python/SDK/effective-decoding
+proof remain open. GitHub Actions did not produce a run for that reviewed head;
+local acceptance is not hosted CI evidence. This progression grants no new
+Kaggle execution authorization.
