@@ -12,14 +12,28 @@
     "packageVersion": "0.2.0",
     "sourceStatus": "migration_staging",
     "authorityCutover": false,
-    "interimAuthorityCommit": "43fa15de044efeb0e46ffba115809faa0d94ca79"
+    "interimAuthorityCommit": "43fa15de044efeb0e46ffba115809faa0d94ca79",
+    "governanceCheckpoint": {
+      "mainCommitAsOf": "011b5f95d0c68ae78009b78bc3efd4646914b42d",
+      "implementationCommit": "30edf95d3378b1ed5bd8c4608d24e0aedf861916",
+      "acceptanceRecord": "docs/maintenance/evidence/benchmark-source-governance.json",
+      "sourceManifestSha256": "12c686125b445fa6acd73ddd676220306c29a02547c7e5310d7799d442461983",
+      "packageTreeSha256": "be213ca07782f108815bf94264b4d87f48570c29cbe8511f6346e31296bf0cd8",
+      "testsRun": 318,
+      "expectedSkips": 4,
+      "modelCalls": 0,
+      "hostedCIGreenConfirmed": false,
+      "releaseAsset": "aleph-bench-offline-acceptance-30edf95.tar.gz",
+      "releaseAssetSha256": "da23d67f980e452b12df6f293fff886df7cbc7c04b22ed08e57d416390cba6cd"
+    }
   },
   "huggingFace": {
     "dataset": "p-to-q/aleph-bench",
     "version": "0.1.0",
     "tag": "v0.1.0-m0",
     "evidenceMode": "historical_mock",
-    "writeStatus": "blocked_no_available_write_credential"
+    "writeStatus": "blocked_no_available_write_credential",
+    "historicalMetadataCorrection": "pending_H1_no_available_write_credential"
   },
   "kaggle": {
     "benchmark": "jahyee/aleph-bench",
@@ -48,6 +62,7 @@
   "publicationGates": [
     "Standalone source authority and portable scorer gates",
     "Exact task-version/run, closed-world archive, raw usage and quota evidence",
+    "HF H1 historical card/Croissant correction with authenticated write and unauthenticated readback",
     "HF H2 reviewed exact-source CAS release with unauthenticated readback",
     "A newly authorized diagnostic after versioned null-control compatibility review; #107 remains unresolved."
   ]
