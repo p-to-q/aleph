@@ -111,7 +111,9 @@
     "nextAdmissionStatus": "blocked_null_text_and_effective_decoding",
     "requestedTemperature": 0,
     "effectiveHostedTemperature": null,
-    "effectiveHostedTemperatureEvidence": "not_captured_in_original_run; pinned SDK offline factory drops requested temperature"
+    "effectiveHostedTemperatureEvidence": "not_captured_in_original_run; pinned SDK offline factory drops requested temperature",
+    "publicReadbackEvidence": "docs/maintenance/evidence/kaggle-public-surface-readback.json",
+    "observedPublicTaskVersion": 4
   },
   "evidence": {
     "localRealModel": "docs/research/2026-11-27-mlx-canary-receipt.md",
