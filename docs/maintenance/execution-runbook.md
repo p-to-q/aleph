@@ -16,6 +16,13 @@ publication/CAS and independent public readback. Kaggle portable-scorer and
 effective-decoding qualification remain separate hosted-execution gates.
 Earlier dated receipts below retain their original source and acceptance scope.
 
+GitHub CLI authentication was verified again after the owner reported login recovery.
+Repository Actions is enabled, but a fresh `source-parity.yml` dispatch on main
+still returned HTTP 422, “Actions has been disabled for this user.” No new run
+was created. Authentication recovery therefore does not qualify hosted CI.
+The [post-login dispatch receipt](https://github.com/p-to-q/aleph-benchmark/releases/download/v0.2.0.dev1/aleph-actions-post-login-recheck-20261127.json)
+retains the exact observed source identities and refusal; no account settings changed.
+
 ## Current local route
 
 Use a clean Git source and retain its exact commit. Run `npm ci`, `npm run lint`,
