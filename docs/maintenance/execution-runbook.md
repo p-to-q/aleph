@@ -1,5 +1,21 @@
 # Execution runbook: local smoke to larger validation
 
+## Current publication checkpoint — 2026-11-27
+
+Product PR #168 and standalone PR #34 merged the authenticated platform
+checkpoint into both release maps. The [HF community checkpoint](https://huggingface.co/datasets/p-to-q/aleph-bench/discussions/2)
+is published; this made no dataset Git write and did not publish H2.
+The public Kaggle benchmark binds frozen-ladder task v4, while the latest public
+task is v16. Both exact versions received metadata-only description/provenance
+updates, with no new task, run or model call. Receipt hashes and immutable release
+mirrors are recorded in [the release map](../../release-status.json).
+
+H2's owning standalone issue #12 requires the runner, verifier, release builder
+and source-authority gate to be merged and green, then generated tagged-source
+publication/CAS and independent public readback. Kaggle portable-scorer and
+effective-decoding qualification remain separate hosted-execution gates.
+Earlier dated receipts below retain their original source and acceptance scope.
+
 ## Current local route
 
 Use a clean Git source and retain its exact commit. Run `npm ci`, `npm run lint`,
@@ -138,14 +154,15 @@ H1's historical card/Croissant correction is complete; use the
 [anonymous snapshot auditor](hf-h1-readback.md) and retained byte-level result
 before repeating a historical publication task. Standalone PR #29 now supplies
 the independently reviewed offline HF/Croissant wrapper (423 tests / four expected
-skips; actual directory/config loading 30/240 rows). H2 still requires a reviewed
-release identity, Linux installed-distribution and portable/platform qualification,
-explicit authority transition, and authenticated publication with readback.
+skips; actual directory/config loading 30/240 rows). H2's current source-authority,
+tagged-source publication/CAS and readback requirements are stated above;
+Kaggle portable/platform qualification is a separate execution gate.
 Standalone [PR #31](https://github.com/p-to-q/aleph-benchmark/pull/31) supplies
 only the separately receipted [local macOS wheel candidate](evidence/benchmark-installed-cli.json):
 438 source tests / four expected skips, 13 installed replay stages, and unchanged
-frozen scorer bytes. Linux installation and hosted Python/SDK/effective-decoding
-proof remain open. GitHub Actions did not produce a run for that reviewed head;
+frozen scorer bytes. Linux installation was still open at that checkpoint and
+is qualified in the next section; hosted Python/SDK/effective-decoding proof
+remains open. GitHub Actions did not produce a run for that reviewed head;
 local acceptance is not hosted CI evidence. This progression grants no new
 Kaggle execution authorization.
 
@@ -165,5 +182,7 @@ result. Actual Kaggle Python 3.12.16 / UCD 15.0.0 remains incompatible, and the
 actor reports supportTemperature=false. Portable scorer and effective-decoding
 acceptance must precede another model run. The public legacy task stays intact.
 
-The workflow dispatch account refusal and missing authenticated HF session are
-concrete external gates. A release/version update cannot clear them.
+The workflow dispatch account refusal remains an external gate. The earlier
+missing HF browser session was resolved by the current community publication
+checkpoint above; H2 still requires its source-authority and exact-source
+publication acceptance. A release/version update cannot clear those gates.
