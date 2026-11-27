@@ -1,0 +1,179 @@
+{
+  "asOf": "2026-11-27",
+  "authorityCutover": false,
+  "command": [
+    "python3.13",
+    "-I",
+    "-S",
+    "-B",
+    "scripts/accept-local.py",
+    "--evidence-dir",
+    "<fresh external directory>"
+  ],
+  "conformance": {
+    "errors": [],
+    "fidelityChecks": 42,
+    "leakageChecks": 28,
+    "observedPythonVersion": "3.13",
+    "observedUnicodeDatabaseVersion": "15.1.0",
+    "protocolVersion": "0.2.0",
+    "requiredPythonVersion": "3.13",
+    "requiredUnicodeDatabaseVersion": "15.1.0",
+    "scoringProfile": {
+      "leakageFailClosedPolicy": "bidi_controls_and_cjk_compatibility_ideographs_v1",
+      "leakageUnit": "unicode_dual_channel_v1",
+      "lexicalProfile": "unicode_nfc_casefold_whitespace_char3_multiset_jaccard_v1",
+      "maxNormalizedTextCharacters": 32768,
+      "maxQuadraticCells": 1000000,
+      "maxScoringTextCharacters": 16384,
+      "normalizationProfile": "unicode_nfc_newline_v1",
+      "pythonVersion": "3.13",
+      "responseCaptureVersion": "raw-v1",
+      "schemaVersion": "0.2.0",
+      "scorerId": "aleph-unicode",
+      "scorerVersion": "0.2.0",
+      "unicodeDatabaseVersion": "15.1.0"
+    },
+    "status": "ok",
+    "unsupportedMetricChecks": 4
+  },
+  "endingWorkingTreeDirty": false,
+  "exactUpstreamObjectParity": {
+    "command": [
+      "python3.13",
+      "-I",
+      "-S",
+      "-B",
+      "scripts/check-source-v0.2-import.py",
+      "--source-git",
+      "<local Aleph Git object database>"
+    ],
+    "rawOutput": {
+      "bytes": 624,
+      "name": "source-git.stdout.log",
+      "sha256": "cf9554d138577bcba7785bf7de4581444ffb55945f08a1da374689387f8349cd"
+    },
+    "sourceRepository": "p-to-q/aleph",
+    "status": "passed"
+  },
+  "expectedSkips": 4,
+  "generatedTaskSource": {
+    "artifacts": [
+      {
+        "bytes": 17875,
+        "gitBlobSha1": "241c51450e730f30f05cede9c02b28e9de4ae453",
+        "mode": "100644",
+        "path": "schemas/v0.2/aleph-bench-kaggle-diagnostic-receipt.schema.json",
+        "sha256": "a48e7c52b1d433da5d4d3f980285f0bcd354e2c563e4606fd6bfbe65ae548e57"
+      },
+      {
+        "bytes": 40039,
+        "gitBlobSha1": "9319efc3681dc50397198569f402a05adf7603d9",
+        "mode": "100644",
+        "path": "bench/tasks/kaggle/aleph_bench_v0_2_capture.py",
+        "sha256": "d83c9177adb6ee119ca57192385ef03a0a7e44cd21af8bdaf344b5cbea3c0c21"
+      },
+      {
+        "bytes": 32081,
+        "gitBlobSha1": "194f0a0c2027aecc02f3420866386f8168404270",
+        "mode": "100644",
+        "path": "bench/tasks/kaggle/aleph_bench_v0_2_diagnostic.py",
+        "sha256": "f25f8a6378385114743f62cea922eac9d592e253e5750494065cbff8891a7de2"
+      },
+      {
+        "bytes": 15116,
+        "gitBlobSha1": "43ee47fbc47723444f7a75503d2bd9d3bd6bfbcf",
+        "mode": "100644",
+        "path": "provenance/aleph/e5.generated-tasks.json",
+        "sha256": "88928e052cae71ff6136f01aa6cf950de867860ea79f3355ee93deca47df2b5f"
+      }
+    ],
+    "generatedTasks": 2,
+    "hostedQualification": false,
+    "modelCalls": 0,
+    "retainedPrefix": "generated-source/",
+    "schemaRebindings": 4,
+    "schemaVersion": "aleph-bench-generated-tasks/1",
+    "status": "ok"
+  },
+  "hostedCIGreenConfirmed": false,
+  "implementationCommit": "62058a8b813a071d2dfbf4708b5a7081a6e67a1f",
+  "installedDistribution": false,
+  "modelCalls": 0,
+  "package": {
+    "artifactCount": 8,
+    "packageTreeSha256": "be213ca07782f108815bf94264b4d87f48570c29cbe8511f6346e31296bf0cd8",
+    "packageVersion": "0.2.0",
+    "protocolVersion": "0.2.0"
+  },
+  "platformBoundary": {
+    "huggingFaceWrite": "blocked_no_available_write_credential",
+    "kaggleOneShotAuthorization": "consumed; no new hosted task/model call/retry authorized"
+  },
+  "releaseAssets": [
+    {
+      "bytes": 64050,
+      "name": "aleph-bench-offline-acceptance-62058a8.tar.gz",
+      "sha256": "e3881aec4be471095107e78880e7fac6b3404d1057cf088496f478974e53ed4c"
+    },
+    {
+      "bytes": 14132,
+      "name": "aleph-bench-offline-receipt-62058a8.json",
+      "sha256": "73e2a67b52574534b7afd4120b4d73f4208e740a9c11e842424a1271c291896f"
+    },
+    {
+      "bytes": 37227,
+      "name": "aleph-bench-offline-failed-acceptance-d2129bb.tar.gz",
+      "sha256": "099dfed3ef86ad3bf32a5001d1b70517e7356fe26f19dfdfdfb5910cfbf5538f"
+    }
+  ],
+  "repository": "p-to-q/aleph-benchmark",
+  "retainedFileCountIncludingReceipt": 38,
+  "runtime": {
+    "implementation": "CPython",
+    "python": "3.13.2",
+    "unicode": "15.1.0"
+  },
+  "schemaVersion": "aleph-bench-generated-task-source-acceptance/1",
+  "scope": "standalone_generated_task_source_and_exact_schema_identity_not_hosted_qualification",
+  "sourceManifestSha256": "c7c28d536b5a5bbc9357a5b97948f75a3b101ad7d94ff04e432b19027265d7a7",
+  "stillOpen": [
+    "complete HF/Croissant wrapper and license propagation",
+    "installed-distribution verification",
+    "portable scorer and hosted platform qualification",
+    "explicit source-authority transition",
+    "formal model score"
+  ],
+  "tagPolicy": "existing staging tag and original assets remain unchanged; these assets identify later maintenance source",
+  "testsRun": 388,
+  "validationHistory": [
+    {
+      "errors": 34,
+      "reason": "stale parent-repository identity constants",
+      "scope": "isolated probe of generated tasks and receipt suites",
+      "sourceCommit": "011b5f95d0c68ae78009b78bc3efd4646914b42d",
+      "testsRun": 48
+    },
+    {
+      "errors": 1,
+      "expectedSkips": 4,
+      "rawEvidence": {
+        "bytes": 37227,
+        "name": "aleph-bench-offline-failed-acceptance-d2129bb.tar.gz",
+        "sha256": "099dfed3ef86ad3bf32a5001d1b70517e7356fe26f19dfdfdfb5910cfbf5538f"
+      },
+      "reason": "offline audit guard also blocked the existing local Unix-socket filesystem-boundary test; fixed without removing that test",
+      "scope": "fresh-clone canonical acceptance",
+      "sourceCommit": "d2129bb9723ac37619f1eb2a31c0717232f49a8e",
+      "testsRun": 385
+    },
+    {
+      "errors": 0,
+      "expectedSkips": 4,
+      "scope": "fresh-clone canonical acceptance",
+      "sourceCommit": "62058a8b813a071d2dfbf4708b5a7081a6e67a1f",
+      "testsRun": 388
+    }
+  ],
+  "workingTreeDirty": false
+}
