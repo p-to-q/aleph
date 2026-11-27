@@ -150,12 +150,13 @@
     "version": "0.1.0",
     "tag": "v0.1.0-m0",
     "evidenceMode": "historical_mock",
-    "writeStatus": "blocked_no_local_credential_or_authenticated_browser_session_verified_2026-11-27",
+    "writeStatus": "authenticated_browser_community_checkpoint_published_H2_still_gated_2026-11-27",
     "historicalMetadataCorrection": "H1_complete_independently_revalidated_2026-11-27",
     "mainCommit": "045d768ee4f1ade5812b3d2761f5bd8b7c5855a9",
     "historicalCommit": "3bccb9d20b4bf4c180e93dc2480c4b8943f5c14c",
     "historicalReadbackEvidence": "docs/maintenance/evidence/hf-h1-readback.json",
-    "h2Published": false
+    "h2Published": false,
+    "communityCheckpointUrl": "https://huggingface.co/datasets/p-to-q/aleph-bench/discussions/2"
   },
   "kaggle": {
     "benchmark": "jahyee/aleph-bench",
@@ -190,7 +191,9 @@
       "scorerRuntimeConformant": false,
       "benchmarkEligible": false,
       "receipt": "docs/maintenance/evidence/kaggle-runtime-observation.json"
-    }
+    },
+    "latestPublicTaskVersion": 16,
+    "benchmarkBoundTaskVersion": 4
   },
   "evidence": {
     "localRealModel": "docs/research/2026-11-27-mlx-canary-receipt.md",
@@ -253,5 +256,31 @@
     "message": "Actions has been disabled for this user.",
     "workflowRuns": 0,
     "accountSettingsChanged": false
+  },
+  "postLoginPublicationCheckpoint": {
+    "asOf": "2026-11-27",
+    "scope": "metadata_sync_not_H2_authority_or_model_results",
+    "receipt": {
+      "name": "aleph-platform-metadata-sync-20261127.json",
+      "bytes": 5929,
+      "sha256": "cf06ca49fd5e8595a4c80512345a0a1591e5618ffa5d625c3343d1eec25cca12",
+      "mirrors": [
+        "https://github.com/p-to-q/aleph/releases/download/v1.0.5/aleph-platform-metadata-sync-20261127.json",
+        "https://github.com/p-to-q/aleph-benchmark/releases/download/v0.2.0.dev1/aleph-platform-metadata-sync-20261127.json"
+      ]
+    },
+    "hfCommunityCheckpoint": "https://huggingface.co/datasets/p-to-q/aleph-bench/discussions/2",
+    "kaggleBenchmarkBoundTaskVersion": 4,
+    "kaggleLatestPublicTaskVersion": 16,
+    "kaggleMetadataVersionsUpdated": [
+      4,
+      16
+    ],
+    "newDatasetGitWrites": 0,
+    "newTasks": 0,
+    "newRuns": 0,
+    "newModelCalls": 0,
+    "h2Published": false,
+    "protocolAuthorityCutover": false
   }
 }
