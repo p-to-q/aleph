@@ -34,7 +34,25 @@ Require clean source, all explicit acceptance steps, skip counts, conformance
 vectors and the pinned package-tree digest. Staging acceptance is not authority
 cutover, an installed-wheel release, or a model score.
 
-## One fresh Kaggle small diagnostic
+For the later SOURCE-bound acceptance route, check out exact implementation
+`30edf95d3378b1ed5bd8c4608d24e0aedf861916` in a fresh standalone clone and run:
+
+```bash
+python3.13 -I -S -B scripts/accept-local.py --evidence-dir ../acceptance-evidence
+```
+
+The external directory must be new and its parent must exist. Retain its exact
+stage output, `SOURCE.json`, `package/` and `receipt.json`; verify source identity
+and cleanliness at both ends and equality of SOURCE's package digest with the
+actual export. The [318-test acceptance record](evidence/benchmark-source-governance.json)
+identifies the tested source and immutable release-asset digest. The older staging
+tag remains its own checkpoint and does not provide this newer evidence option.
+
+## Kaggle diagnostic contract — authorization consumed
+
+The following contract records the completed one-shot attempt, not authorization
+to create another Task or retry its failed control.
+
 
 Issue #107 owns the next hosted transition after #106. Check current SDK/catalog,
 free quota and absence of active paid automation. Freeze a fresh source/notebook,

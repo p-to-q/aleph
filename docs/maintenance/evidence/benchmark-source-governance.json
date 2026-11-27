@@ -1,0 +1,41 @@
+{
+  "citationValidation": {
+    "citationSha256": "b56d7f245e6ac7aff18dac996dc17543fc32a1f93b75fdd3e46ee65265347202",
+    "errors": [],
+    "modelCalls": 0,
+    "schemaId": "https://citation-file-format.github.io/1.2.0/schema.json",
+    "schemaSha256": "0b8d22140da702d766df318dcff3a91af2f39521298dcf36d76315fd99cc169b",
+    "schemaSource": "https://raw.githubusercontent.com/citation-file-format/citation-file-format/1.2.0/schema.json",
+    "scope": "external_CFF_schema_validation_only",
+    "sourceCommit": "30edf95d3378b1ed5bd8c4608d24e0aedf861916",
+    "status": "ok",
+    "validator": "jsonschema-4.23.0/Draft7Validator+FormatChecker"
+  },
+  "conformance": {
+    "fidelityChecks": 42,
+    "leakageChecks": 28,
+    "unsupportedMetricChecks": 4
+  },
+  "evidenceMode": "offline_tests_and_mock",
+  "expectedSkips": 4,
+  "formalModelResult": false,
+  "hostedCIGreenConfirmed": false,
+  "installedDistributionQualified": false,
+  "modelCalls": 0,
+  "packageTreeSha256": "be213ca07782f108815bf94264b4d87f48570c29cbe8511f6346e31296bf0cd8",
+  "platformQualified": false,
+  "protocolAuthorityCutover": false,
+  "receiptSha256": "867191f23712753a8ceb6642b35b6db961d60d94d05d82fae252c190ae1997c1",
+  "releaseAsset": "aleph-bench-offline-acceptance-30edf95.tar.gz",
+  "releaseAssetBytes": 33008,
+  "releaseAssetSha256": "da23d67f980e452b12df6f293fff886df7cbc7c04b22ed08e57d416390cba6cd",
+  "retainedFileCount": 32,
+  "schemaVersion": "aleph-bench-source-governance-acceptance/1",
+  "sourceCommit": "30edf95d3378b1ed5bd8c4608d24e0aedf861916",
+  "sourceManifestBytes": 16315,
+  "sourceManifestSha256": "12c686125b445fa6acd73ddd676220306c29a02547c7e5310d7799d442461983",
+  "sourceTag": "staging-v0.2.0-20261127",
+  "sourceTagScope": "older_immutable_checkpoint_not_this_maintenance_commit",
+  "status": "ok",
+  "testsRun": 318
+}
