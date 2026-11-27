@@ -25,6 +25,25 @@
       "hostedCIGreenConfirmed": false,
       "releaseAsset": "aleph-bench-offline-acceptance-30edf95.tar.gz",
       "releaseAssetSha256": "da23d67f980e452b12df6f293fff886df7cbc7c04b22ed08e57d416390cba6cd"
+    },
+    "generatedTaskSourceCheckpoint": {
+      "mainCommitAsOf": "2517aac6461f304659f04b6ec982249857e3e262",
+      "pullRequest": "https://github.com/p-to-q/aleph-benchmark/pull/28",
+      "implementationCommit": "62058a8b813a071d2dfbf4708b5a7081a6e67a1f",
+      "acceptanceRecord": "docs/maintenance/evidence/benchmark-generated-task-source.json",
+      "acceptanceRecordSha256": "6b8504fc4794cb4d73ec1cb7a78fb7da27fd1fc9f22e00f56336b77837b92801",
+      "sourceManifestSha256": "c7c28d536b5a5bbc9357a5b97948f75a3b101ad7d94ff04e432b19027265d7a7",
+      "packageTreeSha256": "be213ca07782f108815bf94264b4d87f48570c29cbe8511f6346e31296bf0cd8",
+      "testsRun": 388,
+      "expectedSkips": 4,
+      "modelCalls": 0,
+      "hostedCIGreenConfirmed": false,
+      "hostedQualification": false,
+      "releaseAsset": {
+        "bytes": 64050,
+        "name": "aleph-bench-offline-acceptance-62058a8.tar.gz",
+        "sha256": "e3881aec4be471095107e78880e7fac6b3404d1057cf088496f478974e53ed4c"
+      }
     }
   },
   "huggingFace": {

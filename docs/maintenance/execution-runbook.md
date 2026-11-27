@@ -34,7 +34,7 @@ Require clean source, all explicit acceptance steps, skip counts, conformance
 vectors and the pinned package-tree digest. Staging acceptance is not authority
 cutover, an installed-wheel release, or a model score.
 
-For the later SOURCE-bound acceptance route, check out exact implementation
+For the earlier 318-test SOURCE-bound checkpoint, check out exact implementation
 `30edf95d3378b1ed5bd8c4608d24e0aedf861916` in a fresh standalone clone and run:
 
 ```bash
@@ -47,6 +47,19 @@ and cleanliness at both ends and equality of SOURCE's package digest with the
 actual export. The [318-test acceptance record](evidence/benchmark-source-governance.json)
 identifies the tested source and immutable release-asset digest. The older staging
 tag remains its own checkpoint and does not provide this newer evidence option.
+
+For the E5 generated-task source checkpoint, use exact implementation
+`62058a8b813a071d2dfbf4708b5a7081a6e67a1f` and the same command with a new
+external evidence directory. Its [388-test acceptance record](evidence/benchmark-generated-task-source.json)
+binds SOURCE, the unchanged scorer package and 38 retained original files.
+Keep `generated-source/` with the raw stage logs: it contains the two task files,
+strict receipt schema and E5 provenance receipt. The original parent schema is
+mechanically reconstructed from four identity constant rebindings. Tests use
+fake SDKs and a credential-free child process with network operations denied;
+local Unix creation/binding remains available for filesystem boundary tests.
+This is offline source validation. Hosted Python/SDK, decoding, portable scorer
+qualification and fresh execution authorization are still required before
+running those task files on Kaggle.
 
 ## Kaggle diagnostic contract — authorization consumed
 
