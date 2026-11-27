@@ -1,0 +1,26 @@
+{
+  "aboutBoundary": [
+    "The attached frozen-ladder task is the legacy M0 public task.",
+    "Missing or zero rows from failed executions should not be interpreted as model quality.",
+    "a v0.2 task will replace the legacy task here only after complete replay, score verification, and live public readback."
+  ],
+  "anonymousHttpObservation": "404; rendered public browser page successfully read afterward; no outage inferred",
+  "authentication": "logged_out_public_browser",
+  "browserSnapshotSha256": "0f781da846cea7ad4ebebfffc6340e7734305e09cf432b797b28f10e90aa66d7",
+  "browserTextSha256": "9aff9dd33be238e1578a8135b46ab041c1fa4989c88070ed474a18e8ecb0914f",
+  "displayedLegacyScore": "0.25",
+  "displayedScoreInterpretation": "legacy_UI_observation_only_not_a_verified_v02_model_result",
+  "displayedTopModel": "Gemini 3 Flash Preview",
+  "furtherRunAuthorized": false,
+  "hostedQualification": false,
+  "modelCalls": 0,
+  "observedAt": "2026-11-27T06:33:09.457Z",
+  "rawBrowserReadbackSha256": "3e0f2fb19db135d3f617de11fa2e954b5e41d5355fa84a0555783ef442e56776",
+  "schemaVersion": "aleph-kaggle-public-surface-readback/1",
+  "status": "observed_legacy_page_not_v02_qualification",
+  "taskUrl": "https://www.kaggle.com/benchmarks/tasks/jahyee/aleph-bench-frozen-ladder/4",
+  "taskVersion": 4,
+  "taskWrites": 0,
+  "title": "Aleph Bench Leaderboard | Kaggle",
+  "url": "https://www.kaggle.com/benchmarks/jahyee/aleph-bench"
+}

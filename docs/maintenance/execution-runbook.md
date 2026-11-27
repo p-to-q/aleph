@@ -131,3 +131,14 @@ receipts, offline replay and standalone acceptance. Portable scorer/cross-runtim
 proof, full source authority transition, H2 publication, representative multi-model
 validation and scientific power/calibration remain separate unfinished gates.
 Never scale by waking an expired v10 controller.
+
+## Historical publication status before another release
+
+H1's historical card/Croissant correction is complete; use the
+[anonymous snapshot auditor](hf-h1-readback.md) and retained byte-level result
+before repeating a historical publication task. Standalone PR #29 now supplies
+the independently reviewed offline HF/Croissant wrapper (423 tests / four expected
+skips; actual directory/config loading 30/240 rows). H2 still requires a reviewed
+release identity, installed-distribution and portable/platform qualification,
+explicit authority transition, and authenticated publication with readback.
+This progression grants no new Kaggle execution authorization.
