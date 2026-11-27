@@ -44,6 +44,43 @@
         "name": "aleph-bench-offline-acceptance-62058a8.tar.gz",
         "sha256": "e3881aec4be471095107e78880e7fac6b3404d1057cf088496f478974e53ed4c"
       }
+    },
+    "offlineReleaseWrapper": {
+      "schemaVersion": "aleph-benchmark-wrapper-acceptance/1",
+      "status": "ok",
+      "evidenceMode": "offline_tests_and_mock",
+      "sourceCommit": "eff21888bc062482cccf83ce51fc7048de7f4fd0",
+      "mergedMainCommit": "1b75a9ee9aaa1d1b03f07ea3775f930bd0108ac8",
+      "sourceManifestSha256": "2ecff4872b65021c2e09ee724a9b4d58f5e58a7ad4aee339785b9dc93e4268c4",
+      "canonicalAcceptanceReceiptSha256": "4cc6063c476cf217ca6a4b511cf8857472a14a64717759549bbc5627e08882c3",
+      "canonicalAcceptanceReceiptPath": "wrapper-review-acceptance/receipt.json",
+      "testsRun": 423,
+      "expectedSkips": 4,
+      "modelCalls": 0,
+      "conformance": {
+        "fidelityChecks": 42,
+        "leakageChecks": 28,
+        "unsupportedMetricChecks": 4
+      },
+      "packageTreeSha256": "be213ca07782f108815bf94264b4d87f48570c29cbe8511f6346e31296bf0cd8",
+      "wrapperTreeSha256": "0fea93178b5ab5e0912e27ccdfad5986fddb3429bd37042f35834240e5cc09bf",
+      "wrapperFileCount": 29,
+      "twoIndependentBuildsByteAndModeEqual": true,
+      "hfActualDirectoryConfigRows": {
+        "items": 30,
+        "prompts": 240
+      },
+      "croissantRecordSets": {
+        "items": 30,
+        "prompts": 240
+      },
+      "initialIgnoredBytecodeFailureRetained": true,
+      "hostedCIGreenConfirmed": false,
+      "installedDistributionQualified": false,
+      "platformQualified": false,
+      "protocolAuthorityCutover": false,
+      "formalModelResult": false,
+      "evidencePath": "docs/maintenance/evidence/benchmark-release-wrapper.json"
     }
   },
   "huggingFace": {
@@ -51,8 +88,12 @@
     "version": "0.1.0",
     "tag": "v0.1.0-m0",
     "evidenceMode": "historical_mock",
-    "writeStatus": "blocked_no_available_write_credential",
-    "historicalMetadataCorrection": "pending_H1_no_available_write_credential"
+    "writeStatus": "not_tested_by_read_only_publication_audit",
+    "historicalMetadataCorrection": "H1_complete_independently_revalidated_2026-11-27",
+    "mainCommit": "045d768ee4f1ade5812b3d2761f5bd8b7c5855a9",
+    "historicalCommit": "3bccb9d20b4bf4c180e93dc2480c4b8943f5c14c",
+    "historicalReadbackEvidence": "docs/maintenance/evidence/hf-h1-readback.json",
+    "h2Published": false
   },
   "kaggle": {
     "benchmark": "jahyee/aleph-bench",
@@ -81,7 +122,6 @@
   "publicationGates": [
     "Standalone source authority and portable scorer gates",
     "Exact task-version/run, closed-world archive, raw usage and quota evidence",
-    "HF H1 historical card/Croissant correction with authenticated write and unauthenticated readback",
     "HF H2 reviewed exact-source CAS release with unauthenticated readback",
     "A newly authorized diagnostic after versioned null-control compatibility review; #107 remains unresolved."
   ]

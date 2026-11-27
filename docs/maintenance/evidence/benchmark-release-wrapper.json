@@ -1,0 +1,36 @@
+{
+  "canonicalAcceptanceReceiptPath": "wrapper-review-acceptance/receipt.json",
+  "canonicalAcceptanceReceiptSha256": "4cc6063c476cf217ca6a4b511cf8857472a14a64717759549bbc5627e08882c3",
+  "conformance": {
+    "fidelityChecks": 42,
+    "leakageChecks": 28,
+    "unsupportedMetricChecks": 4
+  },
+  "croissantRecordSets": {
+    "items": 30,
+    "prompts": 240
+  },
+  "evidenceMode": "offline_tests_and_mock",
+  "expectedSkips": 4,
+  "formalModelResult": false,
+  "hfActualDirectoryConfigRows": {
+    "items": 30,
+    "prompts": 240
+  },
+  "hostedCIGreenConfirmed": false,
+  "initialIgnoredBytecodeFailureRetained": true,
+  "installedDistributionQualified": false,
+  "mergedMainCommit": "1b75a9ee9aaa1d1b03f07ea3775f930bd0108ac8",
+  "modelCalls": 0,
+  "packageTreeSha256": "be213ca07782f108815bf94264b4d87f48570c29cbe8511f6346e31296bf0cd8",
+  "platformQualified": false,
+  "protocolAuthorityCutover": false,
+  "schemaVersion": "aleph-benchmark-wrapper-acceptance/1",
+  "sourceCommit": "eff21888bc062482cccf83ce51fc7048de7f4fd0",
+  "sourceManifestSha256": "2ecff4872b65021c2e09ee724a9b4d58f5e58a7ad4aee339785b9dc93e4268c4",
+  "status": "ok",
+  "testsRun": 423,
+  "twoIndependentBuildsByteAndModeEqual": true,
+  "wrapperFileCount": 29,
+  "wrapperTreeSha256": "0fea93178b5ab5e0912e27ccdfad5986fddb3429bd37042f35834240e5cc09bf"
+}

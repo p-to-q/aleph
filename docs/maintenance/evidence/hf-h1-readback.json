@@ -1,0 +1,45 @@
+{
+  "addedPaths": [
+    "h1-publication-receipt.json"
+  ],
+  "auditorSha256": "d9e2e21f31509edb984e57594dad4344a2a88f9e743963a17ad21baebebf7d5a",
+  "authentication": "none",
+  "capturedAt": "2026-11-27T05:48:03.777359+00:00",
+  "changedExistingPaths": [
+    "README.md",
+    "checksums.sha256",
+    "croissant.json",
+    "package-manifest.json"
+  ],
+  "dataset": "p-to-q/aleph-bench",
+  "datasetRows": {
+    "public-s2-items": 30,
+    "public-s2-prompts": 240
+  },
+  "h1ReceiptSha256": "0fc4c413934582da80387168f40866e3d0cf5dd21c53ae16343f826c0017a763",
+  "h2Qualified": false,
+  "historicalCommit": "3bccb9d20b4bf4c180e93dc2480c4b8943f5c14c",
+  "historicalTag": "v0.1.0-m0",
+  "hubWrites": 0,
+  "mainCommit": "045d768ee4f1ade5812b3d2761f5bd8b7c5855a9",
+  "modelCalls": 0,
+  "payloadTree": {
+    "bytes": 2005636,
+    "fileCount": 21,
+    "sha256": "f18e96ed2fa4207beefa0b06fc6bda6a1ded537aba613431ff772ee6cfa46e9f"
+  },
+  "protocolAuthorityCutover": false,
+  "schemaVersion": "aleph-hf-h1-readback/1",
+  "scope": "public_H1_readback_not_current_write_access_or_H2_qualification",
+  "snapshotTree": {
+    "bytes": 4198263,
+    "fileCount": 78,
+    "sha256": "c70ebc59a4cef1792c7970a186413bb42f542cb53fdadbd0114ef25c9b752c6c"
+  },
+  "status": "ok",
+  "unchangedExistingTree": {
+    "bytes": 2048609,
+    "fileCount": 31,
+    "sha256": "ffd8c2693f0a44bc87e7e3f08122e71daa6c2f7f7a38b9dc504ad1de9966e374"
+  }
+}
