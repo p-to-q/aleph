@@ -1,5 +1,14 @@
 # Changelog
 
+## v1.0.5 - 2026-11-27
+
+Maintenance release: synchronize source-bound Linux installed-CLI qualification,
+retain the separate zero-model-call Kaggle runtime observation, and align all
+product workspace, lockfile and health versions. The hosted runtime observation
+is incompatible with the frozen scorer and supplies no model score. HF H2,
+protocol authority and hosted CI remain gated. See
+[docs/releases/1.0.5.md](docs/releases/1.0.5.md).
+
 ## Unreleased
 
 - Clarified the explorer frontier as a discrete candidate frontier rather than

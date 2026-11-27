@@ -1,0 +1,136 @@
+{
+  "conformance": {
+    "fidelityChecks": 42,
+    "leakageChecks": 28,
+    "unsupportedMetricChecks": 4
+  },
+  "distributionVersion": "0.2.0.dev1",
+  "evidenceArchive": {
+    "bytes": 2117242,
+    "downloadVerified": true,
+    "members": 323,
+    "name": "aleph-linux-qualification-e15540f.tar.gz",
+    "sha256": "77b0b38d69cab7514009ecddbeb38343314c8c4e5805e9ba1ca83c02516367b9",
+    "url": "https://github.com/p-to-q/aleph-benchmark/releases/download/staging-v0.2.0-20261127/aleph-linux-qualification-e15540f.tar.gz"
+  },
+  "hfH2Published": false,
+  "hostedCI": {
+    "accountSettingsChanged": false,
+    "confirmed": false,
+    "dispatchHttpStatus": 422,
+    "message": "Actions has been disabled for this user."
+  },
+  "installedAcceptance": {
+    "nativeConsoleDirectExec": true,
+    "nativeReceiptSha256": "aaa6367ef4e0511d20284b40c8eb90055ba67cdc1bcba604fda30723e97b4318",
+    "payloadFiles": 82,
+    "receiptSha256": "fe9dd669b24a8e868feff9b2a7cba702a84de38dc009634a07a11068ef85b2a2",
+    "stages": 13
+  },
+  "kaggleScorerQualified": false,
+  "modelCalls": 0,
+  "networkEnforcement": {
+    "capabilitiesDropped": "ALL",
+    "containerNetworkMode": "none",
+    "independentSocketProbes": "ENETUNREACH for numeric external addresses; empty routing table",
+    "nativeRunnerAuditHook": false,
+    "noNewPrivileges": true,
+    "readOnlyRoot": true,
+    "readOnlySourceMount": true,
+    "uid": 1000
+  },
+  "packageTreeSha256": "be213ca07782f108815bf94264b4d87f48570c29cbe8511f6346e31296bf0cd8",
+  "preservedFailures": [
+    "HTTP and HTTPS Debian dependency bootstrap failures",
+    "overstrict sysfs-interface sentinel assertion; numeric connection probes already refused",
+    "root-owned trusted-alias fixtures and non-executable tmpfs",
+    "world-writable evidence parent without sticky bit",
+    "pip distro probe caught wrong exception type",
+    "release plan missing from explicitly closed maintenance-file inventory"
+  ],
+  "protocolAuthorityCutover": false,
+  "runtime": {
+    "applicationAuditHook": false,
+    "attempts": [
+      {
+        "address": [
+          "1.1.1.1",
+          443
+        ],
+        "errno": 101,
+        "error": "[Errno 101] Network is unreachable"
+      },
+      {
+        "address": [
+          "8.8.8.8",
+          53
+        ],
+        "errno": 101,
+        "error": "[Errno 101] Network is unreachable"
+      }
+    ],
+    "git": "git version 2.39.5",
+    "interfaces": [
+      "bonding_masters",
+      "erspan0",
+      "gre0",
+      "gretap0",
+      "ip6_vti0",
+      "ip6gre0",
+      "ip6tnl0",
+      "ip_vti0",
+      "lo",
+      "sit0",
+      "tunl0"
+    ],
+    "kernel": "6.12.76-linuxkit",
+    "machine": "aarch64",
+    "netDev": "Inter-|   Receive                                                |  Transmit\n face |bytes    packets errs drop fifo frame compressed multicast|bytes    packets errs drop fifo colls carrier compressed\n    lo:       0       0    0    0    0     0          0         0        0       0    0    0    0     0       0          0\n tunl0:       0       0    0    0    0     0          0         0        0       0    0    0    0     0       0          0\n  gre0:       0       0    0    0    0     0          0         0        0       0    0    0    0     0       0          0\ngretap0:       0       0    0    0    0     0          0         0        0       0    0    0    0     0       0          0\nerspan0:       0       0    0    0    0     0          0         0        0       0    0    0    0     0       0          0\nip_vti0:       0       0    0    0    0     0          0         0        0       0    0    0    0     0       0          0\nip6_vti0:       0       0    0    0    0     0          0         0        0       0    0    0    0     0       0          0\n  sit0:       0       0    0    0    0     0          0         0        0       0    0    0    0     0       0          0\nip6tnl0:       0       0    0    0    0     0          0         0        0       0    0    0    0     0       0          0\nip6gre0:       0       0    0    0    0     0          0         0        0       0    0    0    0     0       0          0\n",
+    "osRelease": "PRETTY_NAME=\"Debian GNU/Linux 12 (bookworm)\"\nNAME=\"Debian GNU/Linux\"\nVERSION_ID=\"12\"\nVERSION=\"12 (bookworm)\"\nVERSION_CODENAME=bookworm\nID=debian\nHOME_URL=\"https://www.debian.org/\"\nSUPPORT_URL=\"https://www.debian.org/support\"\nBUG_REPORT_URL=\"https://bugs.debian.org/\"\n",
+    "platform": "Linux-6.12.76-linuxkit-aarch64-with-glibc2.36",
+    "python": "3.13.2 (main, Apr  8 2025, 19:44:45) [GCC 12.2.0]",
+    "routes": "Iface\tDestination\tGateway \tFlags\tRefCnt\tUse\tMetric\tMask\t\tMTU\tWindow\tIRTT                                                       \n",
+    "schemaVersion": "aleph-linux-network-sentinel/1",
+    "status": "ok",
+    "unicode": "15.1.0"
+  },
+  "schemaVersion": "aleph-linux-installed-cli-acceptance/1",
+  "scope": "local_Docker_Linux_arm64_not_hosted_CI_or_Kaggle_scorer",
+  "sourceAcceptance": {
+    "endingWorkingTreeDirty": false,
+    "receiptSha256": "58f963681651821ab1316d14bac7b0ab69408f4e08a665afa41f39724b2ce494",
+    "skipBoundary": "Three noncanonical-runtime rejection tests intentionally skip on canonical CPython; the historical macOS skip count remains specific to its recorded environment.",
+    "skipped": 3,
+    "testsRun": 439,
+    "workingTreeDirty": false
+  },
+  "sourceCommit": "e15540fc06b23e60d86c67da654cc110fa14d9d8",
+  "sourceInstalledMockByteComparisons": [
+    {
+      "bytes": 690830,
+      "equal": true,
+      "path": "result.json",
+      "sha256": "3b6091c119e6d5d800b173d7f6376a5df6065bf00f152f3f9e42be9e30a2b0f0"
+    },
+    {
+      "bytes": 230118,
+      "equal": true,
+      "path": "manifest.json",
+      "sha256": "17d829d5fda2a1cdb1354a3f97c57e3707dcbf76585073fb8f655436da5e2da2"
+    },
+    {
+      "bytes": 2372,
+      "equal": true,
+      "path": "report.md",
+      "sha256": "529d54d806db76eec1313747563fd6e4c598133f69a80f14c50c86f6feb43087"
+    }
+  ],
+  "status": "ok",
+  "wheel": {
+    "bytes": 220634,
+    "finalSourceBuildMatches": true,
+    "name": "aleph_bench-0.2.0.dev1-py3-none-any.whl",
+    "sha256": "416dc93b6ba0fe969f86f3f65cfb5416aadffb78f91128694c1efd678a4883c0",
+    "twoIndependentLinuxBuildsMatchMacOS": true
+  }
+}

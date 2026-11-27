@@ -148,3 +148,22 @@ frozen scorer bytes. Linux installation and hosted Python/SDK/effective-decoding
 proof remain open. GitHub Actions did not produce a run for that reviewed head;
 local acceptance is not hosted CI evidence. This progression grants no new
 Kaggle execution authorization.
+
+## Linux installed candidate and current hosted runtime
+
+The [Linux installed-CLI record](evidence/benchmark-linux-installed-cli.json)
+qualifies exact standalone source on Docker Linux arm64, CPython 3.13.2 and
+UCD 15.1.0. Its 439 tests / three expected skips, 13 installed stages, actual
+console execution, matching source/installed mock bytes and reproducible wheels
+close the local Linux slice. The archive retains bootstrap and qualification
+failures; network-disabled candidate execution is distinct from dependency
+preparation. This does not establish hosted Actions execution.
+
+The [zero-call hosted record](evidence/kaggle-runtime-observation.json) is a
+completed private runtime observation, not a fresh six-call canary or model
+result. Actual Kaggle Python 3.12.16 / UCD 15.0.0 remains incompatible, and the
+actor reports supportTemperature=false. Portable scorer and effective-decoding
+acceptance must precede another model run. The public legacy task stays intact.
+
+The workflow dispatch account refusal and missing authenticated HF session are
+concrete external gates. A release/version update cannot clear them.

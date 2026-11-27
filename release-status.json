@@ -2,9 +2,9 @@
   "schemaVersion": "aleph-maintenance-release/1",
   "asOf": "2026-11-27",
   "repository": "p-to-q/aleph",
-  "productVersion": "1.0.4",
-  "productTag": "v1.0.4",
-  "releaseScope": "engineering_hardening_and_replayable_local_canary",
+  "productVersion": "1.0.5",
+  "productTag": "v1.0.5",
+  "releaseScope": "maintenance_release_identity_and_source_bound_linux_cli_evidence",
   "benchmark": {
     "repository": "p-to-q/aleph-benchmark",
     "sourceTag": "staging-v0.2.0-20261127",
@@ -120,6 +120,29 @@
       "platformQualified": false,
       "formalModelResult": false,
       "protocolAuthorityCutover": false
+    },
+    "linuxInstalledCliQualification": {
+      "sourceCommit": "e15540fc06b23e60d86c67da654cc110fa14d9d8",
+      "distributionVersion": "0.2.0.dev1",
+      "testsRun": 439,
+      "skipped": 3,
+      "installedStages": 13,
+      "payloadFiles": 82,
+      "wheelSha256": "416dc93b6ba0fe969f86f3f65cfb5416aadffb78f91128694c1efd678a4883c0",
+      "platform": "Docker Linux arm64 CPython 3.13.2 / UCD 15.1.0",
+      "sourceAndNativeInstalledOutputsByteEqual": true,
+      "modelCalls": 0,
+      "hostedCIGreenConfirmed": false,
+      "protocolAuthorityCutover": false,
+      "evidenceArchive": {
+        "bytes": 2117242,
+        "members": 323,
+        "name": "aleph-linux-qualification-e15540f.tar.gz",
+        "sha256": "77b0b38d69cab7514009ecddbeb38343314c8c4e5805e9ba1ca83c02516367b9",
+        "url": "https://github.com/p-to-q/aleph-benchmark/releases/download/staging-v0.2.0-20261127/aleph-linux-qualification-e15540f.tar.gz",
+        "downloadVerified": true
+      },
+      "acceptanceRecord": "docs/maintenance/evidence/benchmark-linux-installed-cli.json"
     }
   },
   "huggingFace": {
@@ -127,7 +150,7 @@
     "version": "0.1.0",
     "tag": "v0.1.0-m0",
     "evidenceMode": "historical_mock",
-    "writeStatus": "not_tested_by_read_only_publication_audit",
+    "writeStatus": "blocked_no_local_credential_or_authenticated_browser_session_verified_2026-11-27",
     "historicalMetadataCorrection": "H1_complete_independently_revalidated_2026-11-27",
     "mainCommit": "045d768ee4f1ade5812b3d2761f5bd8b7c5855a9",
     "historicalCommit": "3bccb9d20b4bf4c180e93dc2480c4b8943f5c14c",
@@ -152,7 +175,22 @@
     "effectiveHostedTemperature": null,
     "effectiveHostedTemperatureEvidence": "not_captured_in_original_run; pinned SDK offline factory drops requested temperature",
     "publicReadbackEvidence": "docs/maintenance/evidence/kaggle-public-surface-readback.json",
-    "observedPublicTaskVersion": 4
+    "observedPublicTaskVersion": 4,
+    "zeroCallRuntimeObservation": {
+      "task": "jahyee/aleph-runtime-zero-20261127/1",
+      "runId": 7759473,
+      "python": "3.12.16",
+      "unicode": "15.0.0",
+      "supportTemperature": false,
+      "modelCalls": 0,
+      "quotaDebit": {
+        "DAILY": 0.0,
+        "MONTHLY": 0.0
+      },
+      "scorerRuntimeConformant": false,
+      "benchmarkEligible": false,
+      "receipt": "docs/maintenance/evidence/kaggle-runtime-observation.json"
+    }
   },
   "evidence": {
     "localRealModel": "docs/research/2026-11-27-mlx-canary-receipt.md",
@@ -209,5 +247,11 @@
     "Exact task-version/run, closed-world archive, raw usage and quota evidence",
     "HF H2 reviewed exact-source CAS release with unauthenticated readback",
     "A newly authorized diagnostic after versioned null-control compatibility review; #107 remains unresolved."
-  ]
+  ],
+  "hostedCIObservation": {
+    "httpStatus": 422,
+    "message": "Actions has been disabled for this user.",
+    "workflowRuns": 0,
+    "accountSettingsChanged": false
+  }
 }

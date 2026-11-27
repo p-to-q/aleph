@@ -1,0 +1,62 @@
+{
+  "archiveSha256": "235b274c44ff9ce5861b3af8b24360e10c325fb05bb0ee3355921feb5d988045",
+  "benchmarkEligible": false,
+  "closedArchiveFileCount": 4,
+  "evidenceArchive": {
+    "bytes": 2117242,
+    "downloadVerified": true,
+    "members": 323,
+    "name": "aleph-linux-qualification-e15540f.tar.gz",
+    "sha256": "77b0b38d69cab7514009ecddbeb38343314c8c4e5805e9ba1ca83c02516367b9",
+    "url": "https://github.com/p-to-q/aleph-benchmark/releases/download/staging-v0.2.0-20261127/aleph-linux-qualification-e15540f.tar.gz"
+  },
+  "exactNotebookSourceReadback": true,
+  "modelCalls": 0,
+  "notebookSha256": "af6dff4e87fd79289b2cc59e55b473968315cc0f8d2f78ea47a5b619e05b0dec",
+  "paidOverageAuthorized": false,
+  "privateTaskVerified": true,
+  "providerAcceptanceTested": false,
+  "publicBenchmarkChanged": false,
+  "quotaDebit": {
+    "DAILY": 0.0,
+    "MONTHLY": 0.0
+  },
+  "quotaUsedAfter": {
+    "DAILY": 0.00019099999999916406,
+    "MONTHLY": 0.00019100000000094042
+  },
+  "quotaUsedBefore": {
+    "DAILY": 0.00019099999999916406,
+    "MONTHLY": 0.00019100000000094042
+  },
+  "runId": 7759473,
+  "runtime": {
+    "actorType": "kaggle_benchmarks.actors.proxy_openai.OpenAI",
+    "benchmarkEligible": false,
+    "implementation": "CPython",
+    "modelCalls": 0,
+    "packages": {
+      "httpx": "0.28.1",
+      "kaggle-benchmarks": "0.6.3",
+      "openai": "3.16.2"
+    },
+    "platform": "Linux-6.18.55+-x86_64-with-glibc2.41",
+    "promptSignature": "(message: str, schema: type[~T] = <class 'str'>, seed: int = 0, temperature: float = 0, tools: list[typing.Callable] | None = None, image: kaggle_benchmarks.content_types.images.ImageContent | None = None, video: kaggle_benchmarks.content_types.videos.VideoContent | None = None, audio: kaggle_benchmarks.content_types.audios.AudioContent | None = None, reasoning: Optional[Literal['none', 'low', 'medium', 'high']] = None, extra_api_params: dict[str, typing.Any] | None = None) -> ~T",
+    "providerAcceptanceTested": false,
+    "python": "3.12.16",
+    "schemaVersion": "aleph-hosted-runtime-zero/1",
+    "scorerRuntimeConformant": false,
+    "sourceFilesSha256": {
+      "actors/llms.py": "5b295810cebf81e1fdf00865b85887207b1eb77b36b8f8419f4837a7d44d19a3",
+      "actors/proxy_openai.py": "9c9291b0e7f420529b6ac97239c05fe0f5fd7d78b9860bcdf7a4cf108313d97d",
+      "kaggle/model_proxy.py": "f229b9423672ccfadaa8798703de3f623dba54e1620cab43cec3ee0870a147ae",
+      "serializers/openai.py": "586347d5ba05a8145d6f2a750138d8a69440a07120f39155468cc37b111e6cb9"
+    },
+    "status": "observed",
+    "supportTemperature": false,
+    "unicode": "15.0.0"
+  },
+  "schemaVersion": "aleph-kaggle-runtime-observation/1",
+  "status": "completed_runtime_observation_not_scorer_qualification",
+  "task": "jahyee/aleph-runtime-zero-20261127/1"
+}

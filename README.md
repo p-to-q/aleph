@@ -1,6 +1,6 @@
 # Aleph
 
-Current maintenance release: **1.0.4**. See [release identities](release-status.json), [repair evidence](docs/maintenance/2026-11-27-closeout.md), and [local-to-hosted execution gates](docs/maintenance/execution-runbook.md).
+Current maintenance release: **1.0.5**. See [release identities](release-status.json), [repair evidence](docs/maintenance/2026-11-27-closeout.md), and [local-to-hosted execution gates](docs/maintenance/execution-runbook.md).
 
 
 > **Aleph is a reverse prompt search engine.**
